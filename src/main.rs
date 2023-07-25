@@ -5,6 +5,9 @@ use sdl2::keyboard::{Keycode, Mod};
 use std::time::Duration;
 use crate::constants::{WINDOW_WIDTH, WINDOW_HEIGHT};
 
+#[cfg(target_os = "emscripten")]
+pub mod emscripten;
+
 mod constants;
 mod board;
 mod game;
@@ -19,27 +22,34 @@ pub fn main() {
         .expect("Could not initialize window");
 
     let mut canvas = window.into_canvas().build().expect("Could not build canvas");
-    let texture_creator= canvas.texture_creator();
+    let texture_creator = canvas.texture_creator();
 
     let map_texture = texture_creator.load_texture("assets/map.png").expect("Could not load pacman texture");
     canvas.copy(&map_texture, None, None).expect("Could not render texture on canvas");
 
     let mut event_pump = sdl_context.event_pump().expect("Could not get SDL EventPump");
-    'main: loop {
+    let mut main_loop = || {
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } |
-                Event::KeyDown { keycode: Some(Keycode::Q), .. } => {
-                    break 'main;
-                }
-                event @ Event::KeyDown {  .. } => {
+                Event::KeyDown { keycode: Some(Keycode::Q), .. } => break,
+                event @ Event::KeyDown { .. } => {
                     println!("{:?}", event);
-                },
+                }
                 _ => {}
             }
         }
 
         canvas.present();
         ::std::thread::sleep(Duration::from_millis(10));
-    }
+    };
+
+    #[cfg(target_os = "emscripten")]
+    use emscripten::{emscripten};
+
+    #[cfg(target_os = "emscripten")]
+    emscripten::set_main_loop_callback(main_loop);
+
+    #[cfg(not(target_os = "emscripten"))]
+    loop { main_loop(); }
 }
