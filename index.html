@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script type="text/javascript">
+        const Module = {
+            canvas: (function () {
+                // this is how we provide a canvas to our sdl2
+                return document.getElementById("canvas");
+            })(),
+            preRun: [function () {
+                ENV.RUST_LOG = "info,wgpu=warn"
+            }]
+        };
+    </script>
+    <script src="rust-sdl2-wasm.js"></script>
+</body>
+</html>
