@@ -10,6 +10,19 @@ at.
 - Near-perfect replication of logic, scoring, graphics, sound, and behaviors.
 - Written in Rust, buildable on Windows, Linux, Mac and WebAssembly.
 - Online demo, playable in a browser.
+- Automatic build system, with releases for Windows, Linux, and Mac & Web-Assembly.
+- Debug tooling
+    - Game state visualization
+    - Game speed controls + pausing
+    - Log tracing
+    - Performance details
+
+## Experimental Ideas
+
+- Perfected Ghost Algorithms
+- More than 4 ghosts
+- Custom Level Generation
+    - Multi-map tunnelling
 
 ## Installation
 
