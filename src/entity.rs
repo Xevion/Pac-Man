@@ -5,4 +5,6 @@ pub trait Entity {
     fn position(&self) -> (i32, i32);
     // Returns the cell position of the entity (XY position within the grid)
     fn cell_position(&self) -> (u32, u32);
+    // Tick the entity (move it, perform collision checks, etc) 
+    fn tick(&mut self);
 }

@@ -10,16 +10,16 @@ pub struct Pacman<'a> {
 }
 
 impl Pacman<'_> {
-    pub fn new<'a>(starting_position: Option<(i32, i32)>, atlas: &'a Texture<'a>) -> Pacman<'a> {
+    pub fn new<'a>(starting_position: Option<(i32, i32)>, atlas: Texture<'a>) -> Pacman<'a> {
         Pacman {
             position: starting_position.unwrap_or((0i32, 0i32)),
             direction: Direction::Right,
-            sprite: AnimatedTexture::new(atlas, 2, 24, 24),
+            sprite: AnimatedTexture::new(atlas, 4, 3, 32,32),
         }
     }
 
     pub fn render(&mut self,  canvas: &mut Canvas<Window>) {
-        self.sprite.render(canvas, self.position);
+        self.sprite.render(canvas, self.position, self.direction);
     }
 }
 
@@ -37,5 +37,22 @@ impl Entity for Pacman<'_> {
     fn cell_position(&self) -> (u32, u32) {
         let (x, y) = self.position();
         (x as u32 / 24, y as u32 / 24)
+    }
+
+    fn tick(&mut self) {
+        match self.direction {
+            Direction::Right => {
+                self.position.0 += 1;
+            }
+            Direction::Left => {
+                self.position.0 -= 1;
+            }
+            Direction::Up => {
+                self.position.1 -= 1;
+            }
+            Direction::Down => {
+                self.position.1 += 1;
+            }
+        }
     }
 }
