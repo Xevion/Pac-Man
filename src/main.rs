@@ -1,17 +1,22 @@
 use crate::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
-use sdl2::event::{Event, WindowEvent};
-use sdl2::image::LoadTexture;
+use crate::game::Game;
+use crate::textures::TextureManager;
+use sdl2::event::{Event};
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use sdl2::render::{Texture, Canvas};
-use std::time::Duration;
+use sdl2::render::{Canvas, Texture};
+use std::time::{Duration, Instant};
 
 #[cfg(target_os = "emscripten")]
 pub mod emscripten;
 
-mod board;
 mod constants;
+mod direction;
 mod game;
+mod pacman;
+mod textures;
+mod entity;
+mod animation;
 
 fn redraw(canvas: &mut Canvas<sdl2::video::Window>, tex: &Texture, i: u8) {
     canvas.set_draw_color(Color::RGB(i, i, i));
@@ -28,7 +33,6 @@ pub fn main() {
     let window = video_subsystem
         .window("Pac-Man", WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
-        .resizable()
         .build()
         .expect("Could not initialize window");
 
@@ -36,21 +40,20 @@ pub fn main() {
         .into_canvas()
         .build()
         .expect("Could not build canvas");
-    let texture_creator = canvas.texture_creator();
-
-    let map_texture = texture_creator
-        .load_texture("assets/map.png")
-        .expect("Could not load pacman texture");
 
     canvas
-        .copy(&map_texture, None, None)
-        .expect("Could not render texture on canvas");
-    
-    let mut i = 0u8;
+        .set_logical_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+        .expect("Could not set logical size");
+
+    let texture_creator = canvas.texture_creator();
+    let mut game = Game::new(&mut canvas, TextureManager::new(&texture_creator));
 
     let mut event_pump = sdl_context
         .event_pump()
         .expect("Could not get SDL EventPump");
+
+    game.draw();
+    game.tick();
 
     let mut main_loop = || {
         for event in event_pump.poll_iter() {
@@ -63,20 +66,31 @@ pub fn main() {
                 } => return false,
                 event @ Event::KeyDown { .. } => {
                     println!("{:?}", event);
-                },
-                Event::Window { win_event, .. } => {
-                    if let WindowEvent::Resized(width, height) = win_event {
-                        i = i.wrapping_add(1);
-
-                        canvas.set_logical_size(width as u32, height as u32).unwrap();
-                        redraw(&mut canvas, &map_texture, i);
-                    }
-                },
+                }
                 _ => {}
             }
         }
 
-        canvas.present();
+        let tick_time = {
+            let start = Instant::now();
+            game.tick();
+            start.elapsed()
+        };
+
+        let draw_time = {
+            let start = Instant::now();
+            game.draw();
+            start.elapsed()
+        };
+
+        // Alert if tick time exceeds 10ms
+        if tick_time > Duration::from_millis(3) {
+            println!("Tick took: {:?}", tick_time);
+        }
+        if draw_time > Duration::from_millis(3) {
+            println!("Draw took: {:?}", draw_time);
+        }
+
         ::std::thread::sleep(Duration::from_millis(10));
         true
     };
