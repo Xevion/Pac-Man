@@ -1,12 +1,17 @@
+use sdl2::image::LoadTexture;
+use sdl2::keyboard::Keycode;
+use sdl2::render::{TextureCreator, Texture};
+use sdl2::video::WindowContext;
 use sdl2::{pixels::Color, render::Canvas, video::Window};
 
 use crate::constants::{MapTile, BOARD, BOARD_HEIGHT, BOARD_WIDTH};
-use crate::pacman::Pacman;
-use crate::textures::TextureManager;
+use crate::direction::Direction;
+use crate::entity::Entity;
+use crate::pacman::{Pacman};
 
 pub struct Game<'a> {
-    pub textures: TextureManager<'a>,
     canvas: &'a mut Canvas<Window>,
+    map_texture: Texture<'a>,
     pacman: Pacman<'a>,
     debug: bool,
 }
@@ -14,19 +19,47 @@ pub struct Game<'a> {
 impl Game<'_> {
     pub fn new<'a>(
         canvas: &'a mut Canvas<Window>,
-        texture_manager: TextureManager<'a>,
+        texture_creator: &'a TextureCreator<WindowContext>,
     ) -> Game<'a> {
-        let pacman = Pacman::new(None, &texture_manager.pacman);
+        let pacman_atlas = texture_creator
+            .load_texture("assets/32/pacman.png")
+            .expect("Could not load pacman texture");
+        let pacman = Pacman::new(None, pacman_atlas);
 
         Game {
             canvas,
-            textures: texture_manager,
             pacman: pacman,
             debug: true,
+            map_texture: texture_creator
+                .load_texture("assets/map.png")
+                .expect("Could not load pacman texture"),
         }
     }
 
-    pub fn tick(&mut self) {}
+    pub fn keyboard_event(&mut self, keycode: Keycode) {
+        match keycode {
+            Keycode::D => {
+                self.pacman.direction = Direction::Right;
+            }
+            Keycode::A => {
+                self.pacman.direction = Direction::Left;
+            }
+            Keycode::W => {
+                self.pacman.direction = Direction::Up;
+            }
+            Keycode::S => {
+                self.pacman.direction = Direction::Down;
+            }
+            Keycode::Space => {
+                self.debug = !self.debug;
+            }
+            _ => {}
+        }
+    }
+
+    pub fn tick(&mut self) {
+        self.pacman.tick();
+    }
 
     pub fn draw(&mut self) {
         // Clear the screen (black)
@@ -34,8 +67,11 @@ impl Game<'_> {
         self.canvas.clear();
         
         self.canvas
-            .copy(&self.textures.map, None, None)
+            .copy(&self.map_texture, None, None)
             .expect("Could not render texture on canvas");
+
+        // Render the pacman
+        self.pacman.render(self.canvas);
 
         // Draw a grid
         for x in 0..BOARD_WIDTH {
