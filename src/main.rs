@@ -75,17 +75,8 @@ pub fn main() {
             }
         }
 
-        let tick_time = {
-            let start = Instant::now();
-            game.tick();
-            start.elapsed()
-        };
-
-        let draw_time = {
-            let start = Instant::now();
-            game.draw();
-            start.elapsed()
-        };
+        game.tick();
+        game.draw();
 
         if start.elapsed() < loop_time {
             ::std::thread::sleep(loop_time - start.elapsed());
