@@ -29,7 +29,7 @@ impl Game<'_> {
         Game {
             canvas,
             pacman: pacman,
-            debug: true,
+            debug: false,
             map_texture: texture_creator
                 .load_texture("assets/map.png")
                 .expect("Could not load pacman texture"),
@@ -74,6 +74,7 @@ impl Game<'_> {
         self.pacman.render(self.canvas);
 
         // Draw a grid
+        if self.debug {
         for x in 0..BOARD_WIDTH {
             for y in 0..BOARD_HEIGHT {
                 let tile = BOARD[x as usize][y as usize];
@@ -93,7 +94,6 @@ impl Game<'_> {
                 }
             }
         }
-
-        self.canvas.present();
+        }
     }
 }
