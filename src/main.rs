@@ -1,6 +1,5 @@
 use crate::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
 use crate::game::Game;
-use crate::textures::TextureManager;
 use sdl2::event::{Event};
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
@@ -14,7 +13,6 @@ mod constants;
 mod direction;
 mod game;
 mod pacman;
-mod textures;
 mod entity;
 mod animation;
 
