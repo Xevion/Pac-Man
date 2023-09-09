@@ -46,7 +46,7 @@ pub fn main() {
         .expect("Could not set logical size");
 
     let texture_creator = canvas.texture_creator();
-    let mut game = Game::new(&mut canvas, TextureManager::new(&texture_creator));
+    let mut game = Game::new(&mut canvas, &texture_creator);
 
     let mut event_pump = sdl_context
         .event_pump()
@@ -55,7 +55,11 @@ pub fn main() {
     game.draw();
     game.tick();
 
+    let loop_time = Duration::from_millis(1000 / 60);
+
     let mut main_loop = || {
+        let start = Instant::now();
+
         for event in event_pump.poll_iter() {
             match event {
                 // Handle quitting keys or window close
@@ -64,9 +68,9 @@ pub fn main() {
                     keycode: Some(Keycode::Escape) | Some(Keycode::Q),
                     ..
                 } => return false,
-                event @ Event::KeyDown { .. } => {
-                    println!("{:?}", event);
-                }
+                Event::KeyDown { keycode , .. } => {
+                    game.keyboard_event(keycode.unwrap());
+                },
                 _ => {}
             }
         }
@@ -83,15 +87,12 @@ pub fn main() {
             start.elapsed()
         };
 
-        // Alert if tick time exceeds 10ms
-        if tick_time > Duration::from_millis(3) {
-            println!("Tick took: {:?}", tick_time);
-        }
-        if draw_time > Duration::from_millis(3) {
-            println!("Draw took: {:?}", draw_time);
+        if start.elapsed() < loop_time {
+            ::std::thread::sleep(loop_time - start.elapsed());
+        } else {
+            println!("Game loop behind schedule by: {:?}", start.elapsed() - loop_time);
         }
 
-        ::std::thread::sleep(Duration::from_millis(10));
         true
     };
 
