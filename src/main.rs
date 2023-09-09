@@ -16,14 +16,6 @@ mod pacman;
 mod entity;
 mod animation;
 
-fn redraw(canvas: &mut Canvas<sdl2::video::Window>, tex: &Texture, i: u8) {
-    canvas.set_draw_color(Color::RGB(i, i, i));
-    canvas.clear();
-    canvas
-        .copy(tex, None, None)
-        .expect("Could not render texture on canvas");
-}
-
 pub fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -36,6 +28,7 @@ pub fn main() {
 
     let mut canvas = window
         .into_canvas()
+        .accelerated()
         .build()
         .expect("Could not build canvas");
 
