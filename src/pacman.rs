@@ -1,11 +1,15 @@
-use sdl2::{render::{Canvas, Texture}, video::Window};
+use sdl2::{
+    render::{Canvas, Texture},
+    video::Window,
+};
 
-use crate::{direction::Direction, entity::Entity, animation::AnimatedTexture};
+use crate::{animation::AnimatedTexture, direction::Direction, entity::Entity};
 
 pub struct Pacman<'a> {
     // Absolute position on the board (precise)
     pub position: (i32, i32),
     pub direction: Direction,
+    speed: u32,
     sprite: AnimatedTexture<'a>,
 }
 
@@ -14,11 +18,12 @@ impl Pacman<'_> {
         Pacman {
             position: starting_position.unwrap_or((0i32, 0i32)),
             direction: Direction::Right,
-            sprite: AnimatedTexture::new(atlas, 4, 3, 32,32),
+            speed: 2,
+            sprite: AnimatedTexture::new(atlas, 4, 3, 32, 32),
         }
     }
 
-    pub fn render(&mut self,  canvas: &mut Canvas<Window>) {
+    pub fn render(&mut self, canvas: &mut Canvas<Window>) {
         self.sprite.render(canvas, self.position, self.direction);
     }
 }
@@ -40,18 +45,19 @@ impl Entity for Pacman<'_> {
     }
 
     fn tick(&mut self) {
+        let speed = self.speed as i32;
         match self.direction {
             Direction::Right => {
-                self.position.0 += 1;
+                self.position.0 += speed;
             }
             Direction::Left => {
-                self.position.0 -= 1;
+                self.position.0 -= speed;
             }
             Direction::Up => {
-                self.position.1 -= 1;
+                self.position.1 -= speed;
             }
             Direction::Down => {
-                self.position.1 += 1;
+                self.position.1 += speed;
             }
         }
     }
