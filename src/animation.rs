@@ -18,7 +18,7 @@ pub struct AnimatedTexture<'a> {
 
 impl<'a> AnimatedTexture<'a> {
     pub fn new(
-        texture:Texture<'a>,
+        texture: Texture<'a>,
         ticks_per_frame: u32,
         frame_count: u32,
         frame_width: u32,
@@ -49,7 +49,7 @@ impl<'a> AnimatedTexture<'a> {
         } else {
             self.ticker += 1;
 
-            if self.ticker > self.ticks_per_frame * self.frame_count {
+            if self.ticker + 1 == self.ticks_per_frame * self.frame_count {
                 self.reversed = !self.reversed;
             }
         }
@@ -64,7 +64,12 @@ impl<'a> AnimatedTexture<'a> {
         )
     }
 
-    pub fn render(&mut self, canvas: &mut Canvas<Window>, position: (i32, i32), direction: Direction) {
+    pub fn render(
+        &mut self,
+        canvas: &mut Canvas<Window>,
+        position: (i32, i32),
+        direction: Direction,
+    ) {
         let frame_rect = self.get_frame_rect();
         let position_rect = Rect::new(position.0, position.1, self.frame_width, self.frame_height);
 
@@ -76,9 +81,10 @@ impl<'a> AnimatedTexture<'a> {
                 direction.angle(),
                 None,
                 false,
-                false
-            ).expect("Could not render texture on canvas");
+                false,
+            )
+            .expect("Could not render texture on canvas");
 
-            self.next_frame();
+        self.next_frame();
     }
 }
