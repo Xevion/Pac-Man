@@ -5,8 +5,7 @@ use sdl2::{
 };
 
 pub struct AnimatedTexture<'a> {
-    raw_texture: &'a Texture<'a>,
-    current_frame: u32,
+    raw_texture: Texture<'a>,
     frame_count: u32,
     frame_width: u32,
     frame_height: u32,
