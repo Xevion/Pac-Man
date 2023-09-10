@@ -13,6 +13,7 @@ mod direction;
 mod entity;
 mod game;
 mod pacman;
+mod modulation;
 
 #[cfg(target_os = "emscripten")]
 mod emscripten;
