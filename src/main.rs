@@ -1,20 +1,21 @@
 use crate::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
 use crate::game::Game;
-use sdl2::event::{Event};
+use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
-use sdl2::render::{Canvas, Texture};
 use std::time::{Duration, Instant};
 
 #[cfg(target_os = "emscripten")]
 pub mod emscripten;
 
+mod animation;
 mod constants;
 mod direction;
+mod entity;
 mod game;
 mod pacman;
-mod entity;
-mod animation;
+
+#[cfg(target_os = "emscripten")]
+mod emscripten;
 
 pub fn main() {
     let sdl_context = sdl2::init().unwrap();
@@ -59,9 +60,9 @@ pub fn main() {
                     keycode: Some(Keycode::Escape) | Some(Keycode::Q),
                     ..
                 } => return false,
-                Event::KeyDown { keycode , .. } => {
+                Event::KeyDown { keycode, .. } => {
                     game.keyboard_event(keycode.unwrap());
-                },
+                }
                 _ => {}
             }
         }
@@ -72,7 +73,10 @@ pub fn main() {
         if start.elapsed() < loop_time {
             ::std::thread::sleep(loop_time - start.elapsed());
         } else {
-            println!("Game loop behind schedule by: {:?}", start.elapsed() - loop_time);
+            println!(
+                "Game loop behind schedule by: {:?}",
+                start.elapsed() - loop_time
+            );
         }
 
         true
