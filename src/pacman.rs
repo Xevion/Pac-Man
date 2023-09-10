@@ -4,6 +4,7 @@ use sdl2::{
 };
 
 use crate::{
+    constants::{BOARD, MapTile},
     animation::AnimatedTexture, constants::CELL_SIZE, direction::Direction, entity::Entity,
     modulation::SpeedModulator,
 };
@@ -13,6 +14,7 @@ pub struct Pacman<'a> {
     pub position: (i32, i32),
     pub direction: Direction,
     pub next_direction: Option<Direction>,
+    pub stopped: bool,
     speed: u32,
     modulation: SpeedModulator,
     sprite: AnimatedTexture<'a>,
@@ -25,6 +27,7 @@ impl Pacman<'_> {
             direction: Direction::Right,
             next_direction: None,
             speed: 2,
+            stopped: false,
             modulation: SpeedModulator::new(0.9333),
             sprite: AnimatedTexture::new(atlas, 4, 3, 32, 32, Some((-4, -4))),
         }
@@ -32,6 +35,12 @@ impl Pacman<'_> {
 
     pub fn render(&mut self, canvas: &mut Canvas<Window>) {
         self.sprite.render(canvas, self.position, self.direction);
+    }
+
+    fn next_cell(&self) -> (i32, i32) {
+        let (x, y) = self.direction.offset();
+        let cell = self.cell_position();
+        (cell.0 as i32 + x, cell.1 as i32 + y)
     }
 }
 
@@ -65,7 +74,7 @@ impl Entity for Pacman<'_> {
             }
         }
 
-        if self.modulation.next() {
+        if !self.stopped && self.modulation.next() {
             let speed = self.speed as i32;
             match self.direction {
                 Direction::Right => {
@@ -81,6 +90,11 @@ impl Entity for Pacman<'_> {
                     self.position.1 += speed;
                 }
             }
+        }
+
+        let next = self.next_cell();
+        if BOARD[next.1 as usize][next.0 as usize] == MapTile::Wall {
+            self.stopped = true;
         }
     }
 }
