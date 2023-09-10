@@ -3,7 +3,10 @@ use sdl2::{
     video::Window,
 };
 
-use crate::{animation::AnimatedTexture, direction::Direction, entity::Entity, constants::CELL_SIZE};
+use crate::{
+    animation::AnimatedTexture, constants::CELL_SIZE, direction::Direction, entity::Entity,
+    modulation::SpeedModulator,
+};
 
 pub struct Pacman<'a> {
     // Absolute position on the board (precise)
@@ -11,6 +14,7 @@ pub struct Pacman<'a> {
     pub direction: Direction,
     pub next_direction: Option<Direction>,
     speed: u32,
+    modulation: SpeedModulator,
     sprite: AnimatedTexture<'a>,
 }
 
@@ -21,6 +25,7 @@ impl Pacman<'_> {
             direction: Direction::Right,
             next_direction: None,
             speed: 2,
+            modulation: SpeedModulator::new(0.9333),
             sprite: AnimatedTexture::new(atlas, 4, 3, 32, 32, Some((-4, -4))),
         }
     }
@@ -53,27 +58,28 @@ impl Entity for Pacman<'_> {
 
     fn tick(&mut self) {
         let can_change = self.internal_position() == (0, 0);
-        println!("{:?} ({:?})", self.internal_position(), can_change);
         if can_change {
             if let Some(direction) = self.next_direction {
                 self.direction = direction;
                 self.next_direction = None;
             }
         }
-        
-        let speed = self.speed as i32;
-        match self.direction {
-            Direction::Right => {
-                self.position.0 += speed;
-            }
-            Direction::Left => {
-                self.position.0 -= speed;
-            }
-            Direction::Up => {
-                self.position.1 -= speed;
-            }
-            Direction::Down => {
-                self.position.1 += speed;
+
+        if self.modulation.next() {
+            let speed = self.speed as i32;
+            match self.direction {
+                Direction::Right => {
+                    self.position.0 += speed;
+                }
+                Direction::Left => {
+                    self.position.0 -= speed;
+                }
+                Direction::Up => {
+                    self.position.1 -= speed;
+                }
+                Direction::Down => {
+                    self.position.1 += speed;
+                }
             }
         }
     }
