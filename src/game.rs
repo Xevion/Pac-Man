@@ -39,16 +39,16 @@ impl Game<'_> {
     pub fn keyboard_event(&mut self, keycode: Keycode) {
         match keycode {
             Keycode::D => {
-                self.pacman.direction = Direction::Right;
+                self.pacman.next_direction = Some(Direction::Right);
             }
             Keycode::A => {
-                self.pacman.direction = Direction::Left;
+                self.pacman.next_direction = Some(Direction::Left);
             }
             Keycode::W => {
-                self.pacman.direction = Direction::Up;
+                self.pacman.next_direction = Some(Direction::Up);
             }
             Keycode::S => {
-                self.pacman.direction = Direction::Down;
+                self.pacman.next_direction = Some(Direction::Down);
             }
             Keycode::Space => {
                 self.debug = !self.debug;
