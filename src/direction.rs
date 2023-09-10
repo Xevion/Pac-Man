@@ -15,4 +15,13 @@ impl Direction {
             Direction::Up => 270f64,
         }
     }
+
+    pub fn offset(&self) -> (i32, i32) {
+        match self {
+            Direction::Right => (1, 0),
+            Direction::Down => (0, 1),
+            Direction::Left => (-1, 0),
+            Direction::Up => (0, -1),
+        }
+    }
 }
