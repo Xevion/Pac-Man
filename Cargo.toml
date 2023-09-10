@@ -8,3 +8,7 @@ edition = "2021"
 [dependencies]
 lazy_static = "1.4.0"
 sdl2 = { version = "0.35", features = ["image", "ttf", "mixer"] }
+spin_sleep = "1.1.1"
+tracing = "0.1.37"
+tracing-error = "0.2.0"
+tracing-subscriber = {version = "0.3.17", features = ["env-filter"]}
