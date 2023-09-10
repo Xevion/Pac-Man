@@ -49,6 +49,16 @@ The latest releases can be found here:
 
 Download each for your architecture, and locate the appropriately named DLL within. Move said DLL to root of this project.
 
+In total, you should have the following DLLs in the root of the project:
+
+- SDL2.dll
+- SDL2_mixer.dll
+- SDL2_ttf.dll
+- SDL2_image.dll
+- libpngX-X.dll
+    - Not sure on what specific version is to be used, or if naming matters. `libpng16-16.dll` is what I had used.
+- zlib1.dll
+
 ## Building
 
 To build the project, run the following command:
