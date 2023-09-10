@@ -3,12 +3,13 @@ use sdl2::{
     video::Window,
 };
 
-use crate::{animation::AnimatedTexture, direction::Direction, entity::Entity};
+use crate::{animation::AnimatedTexture, direction::Direction, entity::Entity, constants::CELL_SIZE};
 
 pub struct Pacman<'a> {
     // Absolute position on the board (precise)
     pub position: (i32, i32),
     pub direction: Direction,
+    pub next_direction: Option<Direction>,
     speed: u32,
     sprite: AnimatedTexture<'a>,
 }
@@ -18,8 +19,9 @@ impl Pacman<'_> {
         Pacman {
             position: starting_position.unwrap_or((0i32, 0i32)),
             direction: Direction::Right,
+            next_direction: None,
             speed: 2,
-            sprite: AnimatedTexture::new(atlas, 4, 3, 32, 32),
+            sprite: AnimatedTexture::new(atlas, 4, 3, 32, 32, Some((-4, -4))),
         }
     }
 
@@ -41,10 +43,24 @@ impl Entity for Pacman<'_> {
 
     fn cell_position(&self) -> (u32, u32) {
         let (x, y) = self.position();
-        (x as u32 / 24, y as u32 / 24)
+        (x as u32 / CELL_SIZE, y as u32 / CELL_SIZE)
+    }
+
+    fn internal_position(&self) -> (u32, u32) {
+        let (x, y) = self.position();
+        (x as u32 % CELL_SIZE, y as u32 % CELL_SIZE)
     }
 
     fn tick(&mut self) {
+        let can_change = self.internal_position() == (0, 0);
+        println!("{:?} ({:?})", self.internal_position(), can_change);
+        if can_change {
+            if let Some(direction) = self.next_direction {
+                self.direction = direction;
+                self.next_direction = None;
+            }
+        }
+        
         let speed = self.speed as i32;
         match self.direction {
             Direction::Right => {
