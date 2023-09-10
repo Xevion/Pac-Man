@@ -10,6 +10,7 @@ pub struct AnimatedTexture<'a> {
     raw_texture: Texture<'a>,
     ticker: u32,
     reversed: bool,
+    offset: (i32, i32),
     ticks_per_frame: u32,
     frame_count: u32,
     frame_width: u32,
@@ -23,6 +24,7 @@ impl<'a> AnimatedTexture<'a> {
         frame_count: u32,
         frame_width: u32,
         frame_height: u32,
+        offset: Option<(i32, i32)>,
     ) -> Self {
         AnimatedTexture {
             raw_texture: texture,
@@ -32,6 +34,7 @@ impl<'a> AnimatedTexture<'a> {
             frame_count,
             frame_width,
             frame_height,
+            offset: offset.unwrap_or((0, 0)),
         }
     }
 
@@ -71,7 +74,12 @@ impl<'a> AnimatedTexture<'a> {
         direction: Direction,
     ) {
         let frame_rect = self.get_frame_rect();
-        let position_rect = Rect::new(position.0, position.1, self.frame_width, self.frame_height);
+        let position_rect = Rect::new(
+            position.0 + self.offset.0,
+            position.1 + self.offset.1,
+            self.frame_width,
+            self.frame_height,
+        );
 
         canvas
             .copy_ex(
