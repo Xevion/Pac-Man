@@ -11,8 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2 # repo checkout
       - uses: mymindstorm/setup-emsdk@v11 # setup emscripten toolchain
-        # with:
-        #   version: 3.1.35
+        with:
+          version: 1.39.20
       - uses: actions-rs/toolchain@v1 # get rust toolchain for wasm
         with:
           toolchain: stable
