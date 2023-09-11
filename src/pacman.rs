@@ -48,14 +48,29 @@ impl Pacman<'_> {
             self.sprite
                 .render_until(canvas, self.position, self.direction, 2);
         } else {
-        self.sprite.render(canvas, self.position, self.direction);
-    }
+            self.sprite.render(canvas, self.position, self.direction);
+        }
     }
 
     pub fn next_cell(&self, direction: Option<Direction>) -> (i32, i32) {
         let (x, y) = direction.unwrap_or(self.direction).offset();
         let cell = self.cell_position();
         (cell.0 as i32 + x, cell.1 as i32 + y)
+    }
+
+    fn handle_requested_direction(&mut self) {
+        if self.next_direction.is_none() { return; }
+        if self.next_direction.unwrap() == self.direction { 
+            self.next_direction = None;
+            return;
+        }
+
+        let proposed_next_cell = self.next_cell(self.next_direction);
+        let proposed_next_tile = self.map.get_tile(proposed_next_cell).unwrap_or(MapTile::Empty);
+        if proposed_next_tile != MapTile::Wall {
+            self.direction = self.next_direction.unwrap();
+            self.next_direction = None;
+        }
     }
 }
 
@@ -82,11 +97,9 @@ impl Entity for Pacman<'_> {
 
     fn tick(&mut self) {
         let can_change = self.internal_position() == (0, 0);
+
         if can_change {
-            if let Some(direction) = self.next_direction {
-                self.direction = direction;
-                self.next_direction = None;
-            }
+            self.handle_requested_direction();
 
             let next = self.next_cell(None);
             let next_tile = self.map.get_tile(next).unwrap_or(MapTile::Empty);

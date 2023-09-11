@@ -72,7 +72,8 @@ pub fn main() {
     event!(tracing::Level::INFO, "Starting game loop ({:.3}ms)", loop_time.as_secs_f32() * 1000.0);
     let mut main_loop = || {
         let start = Instant::now();
-
+        
+        // TODO: Fix key repeat delay issues by using VecDeque for instant key repeat
         for event in event_pump.poll_iter() {
             match event {
                 // Handle quitting keys or window close
