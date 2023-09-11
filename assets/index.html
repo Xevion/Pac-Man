@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        var Module = {
+            'locateFile': function (path, prefix) {
+                if (path.endsWith(".data")) {
+                    return prefix + "deps/" + path;
+                }
+                return prefix + path;
+            },
+            'canvas': document.getElementById('canvas'),
+        };
+    </script>
+    <script src="pacman.js"></script>
+</body>
+</html>
