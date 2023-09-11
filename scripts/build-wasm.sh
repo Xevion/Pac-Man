@@ -7,5 +7,6 @@ mkdir -p dist
 
 cp target/wasm32-unknown-emscripten/release/pacman.wasm dist
 cp target/wasm32-unknown-emscripten/release/pacman.js dist
+mkdir -p dist/deps
 cp target/wasm32-unknown-emscripten/release/deps/pacman.data dist/deps
 cp assets/index.html dist
