@@ -7,12 +7,6 @@
     <canvas id="canvas"></canvas>
     <script>
         var Module = {
-            'locateFile': function (path, prefix) {
-                if (path.endsWith(".data")) {
-                    return prefix + "deps/" + path;
-                }
-                return prefix + path;
-            },
             'canvas': document.getElementById('canvas'),
         };
     </script>
