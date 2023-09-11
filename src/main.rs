@@ -128,9 +128,9 @@ pub fn main() {
 
         tick_no += 1;
 
-        const PERIOD: u32 = 60 * 2;
+        const PERIOD: u32 = 60 * 60;
         let tick_mod = tick_no % PERIOD;
-        if tick_mod % PERIOD == 0 || tick_no == PERIOD {
+        if tick_mod % PERIOD == 0 {
             let average_fps = PERIOD as f32 / last_averaging_time.elapsed().as_secs_f32();
             let average_sleep = sleep_time / PERIOD;
             let average_process = loop_time - average_sleep;
