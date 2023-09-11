@@ -8,9 +8,6 @@ use tracing::event;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::layer::SubscriberExt;
 
-#[cfg(target_os = "emscripten")]
-pub mod emscripten;
-
 mod animation;
 mod constants;
 mod direction;
@@ -149,14 +146,7 @@ pub fn main() {
 
         true
     };
-
-    #[cfg(target_os = "emscripten")]
-    use emscripten::emscripten;
-
-    #[cfg(target_os = "emscripten")]
-    emscripten::set_main_loop_callback(main_loop);
-
-    #[cfg(not(target_os = "emscripten"))]
+    
     loop {
         if !main_loop() {
             break;
