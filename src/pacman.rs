@@ -1,12 +1,19 @@
+use std::rc::Rc;
+
 use sdl2::{
     render::{Canvas, Texture},
     video::Window,
 };
+use tracing::event;
 
 use crate::{
-    constants::{BOARD, MapTile},
-    animation::AnimatedTexture, constants::CELL_SIZE, direction::Direction, entity::Entity,
-    modulation::SpeedModulator,
+    animation::AnimatedTexture,
+    constants::MapTile,
+    constants::{CELL_SIZE, BOARD_OFFSET},
+    direction::Direction,
+    entity::Entity,
+    map::Map,
+    modulation::{SimpleTickModulator, TickModulator},
 };
 
 pub struct Pacman<'a> {
@@ -15,20 +22,22 @@ pub struct Pacman<'a> {
     pub direction: Direction,
     pub next_direction: Option<Direction>,
     pub stopped: bool,
+    map: Rc<Map>,
     speed: u32,
-    modulation: SpeedModulator,
+    modulation: SimpleTickModulator,
     sprite: AnimatedTexture<'a>,
 }
 
 impl Pacman<'_> {
-    pub fn new<'a>(starting_position: Option<(i32, i32)>, atlas: Texture<'a>) -> Pacman<'a> {
+    pub fn new<'a>(starting_position: (u32, u32), atlas: Texture<'a>, map: Rc<Map>) -> Pacman<'a> {
         Pacman {
-            position: starting_position.unwrap_or((0i32, 0i32)),
+            position: Map::cell_to_pixel(starting_position),
             direction: Direction::Right,
             next_direction: None,
             speed: 2,
+            map,
             stopped: false,
-            modulation: SpeedModulator::new(0.9333),
+            modulation: SimpleTickModulator::new(0.9333),
             sprite: AnimatedTexture::new(atlas, 4, 3, 32, 32, Some((-4, -4))),
         }
     }
@@ -41,9 +50,10 @@ impl Pacman<'_> {
         } else {
         self.sprite.render(canvas, self.position, self.direction);
     }
+    }
 
-    fn next_cell(&self) -> (i32, i32) {
-        let (x, y) = self.direction.offset();
+    pub fn next_cell(&self, direction: Option<Direction>) -> (i32, i32) {
+        let (x, y) = direction.unwrap_or(self.direction).offset();
         let cell = self.cell_position();
         (cell.0 as i32 + x, cell.1 as i32 + y)
     }
@@ -61,8 +71,8 @@ impl Entity for Pacman<'_> {
     }
 
     fn cell_position(&self) -> (u32, u32) {
-        let (x, y) = self.position();
-        (x as u32 / CELL_SIZE, y as u32 / CELL_SIZE)
+        let (x, y) = self.position;
+        ((x as u32 / CELL_SIZE) - BOARD_OFFSET.0, (y as u32 / CELL_SIZE) - BOARD_OFFSET.1)
     }
 
     fn internal_position(&self) -> (u32, u32) {
@@ -76,6 +86,17 @@ impl Entity for Pacman<'_> {
             if let Some(direction) = self.next_direction {
                 self.direction = direction;
                 self.next_direction = None;
+            }
+
+            let next = self.next_cell(None);
+            let next_tile = self.map.get_tile(next).unwrap_or(MapTile::Empty);
+
+            if !self.stopped && next_tile == MapTile::Wall {
+                event!(tracing::Level::DEBUG, "Wall collision. Stopping.");
+                self.stopped = true;
+            } else if self.stopped && next_tile != MapTile::Wall {
+                event!(tracing::Level::DEBUG, "Wall collision resolved. Moving.");
+                self.stopped = false;
             }
         }
 
@@ -95,11 +116,6 @@ impl Entity for Pacman<'_> {
                     self.position.1 += speed;
                 }
             }
-        }
-
-        let next = self.next_cell();
-        if BOARD[next.1 as usize][next.0 as usize] == MapTile::Wall {
-            self.stopped = true;
         }
     }
 }
