@@ -5,6 +5,8 @@ use sdl2::event::{Event};
 use sdl2::keyboard::Keycode;
 use std::time::{Duration, Instant};
 use spin_sleep::sleep;
+use tracing_error::ErrorLayer;
+use tracing_subscriber::layer::SubscriberExt;
 
 #[cfg(target_os = "emscripten")]
 pub mod emscripten;
@@ -16,6 +18,7 @@ mod entity;
 mod game;
 mod pacman;
 mod modulation;
+mod map;
 
 #[cfg(target_os = "emscripten")]
 mod emscripten;
@@ -25,18 +28,12 @@ pub fn main() {
     let video_subsystem = sdl_context.video().unwrap();
 
     // Setup tracing
-    #[cfg(debug_assertions)]
-    {
-        use tracing_error::ErrorLayer;
-        use tracing_subscriber::layer::SubscriberExt;
+    let subscriber = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .finish()
+        .with(ErrorLayer::default());
 
-        let subscriber = tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::DEBUG)
-            .finish()
-            .with(ErrorLayer::default());
-
-        tracing::subscriber::set_global_default(subscriber).expect("Could not set global default");
-    }
+    tracing::subscriber::set_global_default(subscriber).expect("Could not set global default");
 
     let window = video_subsystem
         .window("Pac-Man", WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -83,7 +80,10 @@ pub fn main() {
                 | Event::KeyDown {
                     keycode: Some(Keycode::Escape) | Some(Keycode::Q),
                     ..
-                } => return false,
+                } => {
+                    event!(tracing::Level::INFO, "Exit requested. Exiting...");
+                    return false
+                },
                 Event::KeyDown { keycode, .. } => {
                     game.keyboard_event(keycode.unwrap());
                 }
@@ -108,8 +108,8 @@ pub fn main() {
 
         tick_no += 1;
 
-        if tick_no % (60 * 5) == 0 {
-            let average_fps = tick_no as f32 / last_averaging_time.elapsed().as_secs_f32();
+        if tick_no % (60 * 60) == 0 || tick_no == (60 * 2) {
+            let average_fps = (tick_no % (60 * 60)) as f32 / last_averaging_time.elapsed().as_secs_f32();
             let average_sleep = sleep_time / tick_no;
             let average_process = loop_time - average_sleep;
 
@@ -123,7 +123,6 @@ pub fn main() {
 
             sleep_time = Duration::ZERO;
             last_averaging_time = Instant::now();
-            tick_no = 0;
         }
 
         true
