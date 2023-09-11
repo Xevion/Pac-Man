@@ -34,6 +34,11 @@ impl Pacman<'_> {
     }
 
     pub fn render(&mut self, canvas: &mut Canvas<Window>) {
+        // When stopped, render the last frame of the animation
+        if self.stopped {
+            self.sprite
+                .render_until(canvas, self.position, self.direction, 2);
+        } else {
         self.sprite.render(canvas, self.position, self.direction);
     }
 

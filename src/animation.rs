@@ -83,7 +83,24 @@ impl<'a> AnimatedTexture<'a> {
         self.render_static(canvas, position, direction, Some(self.current_frame()));
         self.tick();
     }
+
+    // Functions like render, but only ticks the animation until the given frame is reached.
+    pub fn render_until(
+        &mut self,
+        canvas: &mut Canvas<Window>,
+        position: (i32, i32),
+        direction: Direction,
+        frame: u32,
+    ) {
+        let current = self.current_frame();
+        self.render_static(canvas, position, direction, Some(current));
+
+        if frame != current {
+            self.tick();
+        }
+    }
     
+    // Renders a specific frame of the animation. Defaults to the current frame.
     pub fn render_static(
         &mut self,
         canvas: &mut Canvas<Window>,
