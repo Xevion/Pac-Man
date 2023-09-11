@@ -99,7 +99,7 @@ impl<'a> AnimatedTexture<'a> {
             self.tick();
         }
     }
-    
+
     // Renders a specific frame of the animation. Defaults to the current frame.
     pub fn render_static(
         &mut self,

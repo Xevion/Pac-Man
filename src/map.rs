@@ -2,7 +2,7 @@ use crate::constants::MapTile;
 use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH};
 
 pub struct Map {
-    inner: [[MapTile; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize]
+    inner: [[MapTile; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize],
 }
 
 impl Map {
@@ -16,7 +16,7 @@ impl Map {
                 if x >= line.len() {
                     break;
                 }
-                
+
                 let i = (y * (BOARD_WIDTH as usize) + x) as usize;
                 let character = line
                     .chars()
@@ -30,7 +30,7 @@ impl Map {
                     ' ' => MapTile::Empty,
                     c @ '0' | c @ '1' | c @ '2' | c @ '3' | c @ '4' => {
                         MapTile::StartingPosition(c.to_digit(10).unwrap() as u8)
-                    },
+                    }
                     '=' => MapTile::Empty,
                     _ => panic!("Unknown character in board: {}", character),
                 };
@@ -39,9 +39,7 @@ impl Map {
             }
         }
 
-        Map {
-            inner: inner
-        }
+        Map { inner: inner }
     }
 
     pub fn get_tile(&self, cell: (i32, i32)) -> Option<MapTile> {

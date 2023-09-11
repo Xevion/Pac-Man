@@ -47,7 +47,7 @@ impl Game<'_> {
         // Change direction
         let direction = Direction::from_keycode(keycode);
         self.pacman.next_direction = direction;
-        
+
         // Toggle debug mode
         if keycode == Keycode::Space {
             self.debug = !self.debug;
@@ -74,7 +74,10 @@ impl Game<'_> {
         if self.debug {
             for x in 0..BOARD_WIDTH {
                 for y in 0..BOARD_HEIGHT {
-                    let tile = self.map.get_tile((x as i32, y as i32)).unwrap_or(MapTile::Empty);
+                    let tile = self
+                        .map
+                        .get_tile((x as i32, y as i32))
+                        .unwrap_or(MapTile::Empty);
                     let mut color = None;
 
                     if (x, y) == self.pacman.cell_position() {
