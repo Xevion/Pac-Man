@@ -68,6 +68,7 @@ pub fn main() {
     // The start of a period of time over which we average the frame time.
     let mut last_averaging_time = Instant::now();
     let mut sleep_time = Duration::ZERO;
+    let mut paused = false;
 
     event!(
         tracing::Level::INFO,
@@ -89,6 +90,17 @@ pub fn main() {
                     event!(tracing::Level::INFO, "Exit requested. Exiting...");
                     return false;
                 }
+                Event::KeyDown {
+                    keycode: Some(Keycode::P),
+                    ..
+                } => {
+                    paused = !paused;
+                    event!(
+                        tracing::Level::INFO,
+                        "{}",
+                        if paused { "Paused" } else { "Unpaused" }
+                    );
+                }
                 Event::KeyDown { keycode, .. } => {
                     game.keyboard_event(keycode.unwrap());
                 }
@@ -96,8 +108,11 @@ pub fn main() {
             }
         }
 
-        game.tick();
-        game.draw();
+        // TODO: Proper pausing implementation that does not interfere with statistic gathering
+        if !paused {
+            game.tick();
+            game.draw();
+        }
 
         if start.elapsed() < loop_time {
             let time = loop_time - start.elapsed();
@@ -113,10 +128,11 @@ pub fn main() {
 
         tick_no += 1;
 
-        if tick_no % (60 * 60) == 0 || tick_no == (60 * 2) {
-            let average_fps =
-                (tick_no % (60 * 60)) as f32 / last_averaging_time.elapsed().as_secs_f32();
-            let average_sleep = sleep_time / tick_no;
+        const PERIOD: u32 = 60 * 2;
+        let tick_mod = tick_no % PERIOD;
+        if tick_mod % PERIOD == 0 || tick_no == PERIOD {
+            let average_fps = PERIOD as f32 / last_averaging_time.elapsed().as_secs_f32();
+            let average_sleep = sleep_time / PERIOD;
             let average_process = loop_time - average_sleep;
 
             event!(
