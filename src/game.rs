@@ -101,6 +101,10 @@ impl Game<'_> {
                     }
                 }
             }
+
+            // Draw the next cell
+            let next_cell = self.pacman.next_cell(None);
+            self.draw_cell((next_cell.0 as u32, next_cell.1 as u32), Color::YELLOW);
         }
 
         self.canvas.present();
