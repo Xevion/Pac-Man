@@ -43,28 +43,14 @@ impl Game<'_> {
         }
     }
 
-    pub fn cell_to_pixel(cell: (u32, u32)) -> (i32, i32) {
-        ((cell.0 as i32 * 24), ((cell.1) as i32 * 24))
-    }
-
     pub fn keyboard_event(&mut self, keycode: Keycode) {
-        match keycode {
-            Keycode::D => {
-                self.pacman.next_direction = Some(Direction::Right);
-            }
-            Keycode::A => {
-                self.pacman.next_direction = Some(Direction::Left);
-            }
-            Keycode::W => {
-                self.pacman.next_direction = Some(Direction::Up);
-            }
-            Keycode::S => {
-                self.pacman.next_direction = Some(Direction::Down);
-            }
-            Keycode::Space => {
-                self.debug = !self.debug;
-            }
-            _ => {}
+        // Change direction
+        let direction = Direction::from_keycode(keycode);
+        self.pacman.next_direction = direction;
+        
+        // Toggle debug mode
+        if keycode == Keycode::Space {
+            self.debug = !self.debug;
         }
     }
 
