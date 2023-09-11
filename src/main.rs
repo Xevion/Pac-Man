@@ -1,10 +1,10 @@
 use crate::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
 use crate::game::Game;
-use tracing::{event};
-use sdl2::event::{Event};
+use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use std::time::{Duration, Instant};
 use spin_sleep::sleep;
+use std::time::{Duration, Instant};
+use tracing::event;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::layer::SubscriberExt;
 
@@ -16,9 +16,9 @@ mod constants;
 mod direction;
 mod entity;
 mod game;
-mod pacman;
-mod modulation;
 mod map;
+mod modulation;
+mod pacman;
 
 #[cfg(target_os = "emscripten")]
 mod emscripten;
@@ -69,10 +69,14 @@ pub fn main() {
     let mut last_averaging_time = Instant::now();
     let mut sleep_time = Duration::ZERO;
 
-    event!(tracing::Level::INFO, "Starting game loop ({:.3}ms)", loop_time.as_secs_f32() * 1000.0);
+    event!(
+        tracing::Level::INFO,
+        "Starting game loop ({:.3}ms)",
+        loop_time.as_secs_f32() * 1000.0
+    );
     let mut main_loop = || {
         let start = Instant::now();
-        
+
         // TODO: Fix key repeat delay issues by using VecDeque for instant key repeat
         for event in event_pump.poll_iter() {
             match event {
@@ -83,8 +87,8 @@ pub fn main() {
                     ..
                 } => {
                     event!(tracing::Level::INFO, "Exit requested. Exiting...");
-                    return false
-                },
+                    return false;
+                }
                 Event::KeyDown { keycode, .. } => {
                     game.keyboard_event(keycode.unwrap());
                 }
@@ -110,7 +114,8 @@ pub fn main() {
         tick_no += 1;
 
         if tick_no % (60 * 60) == 0 || tick_no == (60 * 2) {
-            let average_fps = (tick_no % (60 * 60)) as f32 / last_averaging_time.elapsed().as_secs_f32();
+            let average_fps =
+                (tick_no % (60 * 60)) as f32 / last_averaging_time.elapsed().as_secs_f32();
             let average_sleep = sleep_time / tick_no;
             let average_process = loop_time - average_sleep;
 
@@ -119,7 +124,7 @@ pub fn main() {
                 "Timing Averages [fps={}] [sleep={:?}] [process={:?}]",
                 average_fps,
                 average_sleep,
-                average_process    
+                average_process
             );
 
             sleep_time = Duration::ZERO;

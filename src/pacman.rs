@@ -9,7 +9,7 @@ use tracing::event;
 use crate::{
     animation::AnimatedTexture,
     constants::MapTile,
-    constants::{CELL_SIZE, BOARD_OFFSET},
+    constants::{BOARD_OFFSET, CELL_SIZE},
     direction::Direction,
     entity::Entity,
     map::Map,
@@ -59,14 +59,19 @@ impl Pacman<'_> {
     }
 
     fn handle_requested_direction(&mut self) {
-        if self.next_direction.is_none() { return; }
-        if self.next_direction.unwrap() == self.direction { 
+        if self.next_direction.is_none() {
+            return;
+        }
+        if self.next_direction.unwrap() == self.direction {
             self.next_direction = None;
             return;
         }
 
         let proposed_next_cell = self.next_cell(self.next_direction);
-        let proposed_next_tile = self.map.get_tile(proposed_next_cell).unwrap_or(MapTile::Empty);
+        let proposed_next_tile = self
+            .map
+            .get_tile(proposed_next_cell)
+            .unwrap_or(MapTile::Empty);
         if proposed_next_tile != MapTile::Wall {
             self.direction = self.next_direction.unwrap();
             self.next_direction = None;
@@ -87,7 +92,10 @@ impl Entity for Pacman<'_> {
 
     fn cell_position(&self) -> (u32, u32) {
         let (x, y) = self.position;
-        ((x as u32 / CELL_SIZE) - BOARD_OFFSET.0, (y as u32 / CELL_SIZE) - BOARD_OFFSET.1)
+        (
+            (x as u32 / CELL_SIZE) - BOARD_OFFSET.0,
+            (y as u32 / CELL_SIZE) - BOARD_OFFSET.1,
+        )
     }
 
     fn internal_position(&self) -> (u32, u32) {
