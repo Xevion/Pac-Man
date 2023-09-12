@@ -5,7 +5,6 @@ use sdl2::keyboard::Keycode;
 use sdl2::render::{Texture, TextureCreator};
 use sdl2::video::WindowContext;
 use sdl2::{pixels::Color, render::Canvas, video::Window};
-use tracing::event;
 
 use crate::constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH, RAW_BOARD};
 use crate::direction::Direction;
