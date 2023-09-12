@@ -1,8 +1,9 @@
 [target.wasm32-unknown-emscripten]
+# TODO: Document what the fuck this is.
 rustflags = [
     "-O", "-C", "link-args=-O2 --profiling",
     #"-C", "link-args=-O3 --closure 1",
     "-C", "link-args=-sASYNCIFY -sALLOW_MEMORY_GROWTH=1",
-    "-C", "link-args=-sUSE_SDL=2 -sUSE_SDL_IMAGE=2 -sSDL2_IMAGE_FORMATS=['png']",
+    "-C", "link-args=-sUSE_SDL=2 -sUSE_SDL_IMAGE=2 -sSDL_EMSCRIPTEN_KEYBOARD_ELEMENT -sSDL2_IMAGE_FORMATS=['png']",
     "-C", "link-args=--preload-file assets/ -lidbfs.js",
 ]

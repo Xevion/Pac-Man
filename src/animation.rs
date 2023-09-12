@@ -92,6 +92,7 @@ impl<'a> AnimatedTexture<'a> {
         direction: Direction,
         frame: u32,
     ) {
+        // TODO: If the frame we're targeting is in the opposite direction (due to self.reverse), we should pre-emptively reverse.
         let current = self.current_frame();
         self.render_static(canvas, position, direction, Some(current));
 
