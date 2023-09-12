@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eux
+set -eu
 
 echo "Building WASM with Emscripten"
 cargo build --target=wasm32-unknown-emscripten --release
