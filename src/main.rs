@@ -17,15 +17,13 @@ mod map;
 mod modulation;
 mod pacman;
 
-#[cfg(target_os = "emscripten")]
-mod emscripten;
-
 pub fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
     // Setup tracing
     let subscriber = tracing_subscriber::fmt()
+        .with_ansi(cfg!(not(target_os = "emscripten")))
         .with_max_level(tracing::Level::DEBUG)
         .finish()
         .with(ErrorLayer::default());
@@ -77,6 +75,7 @@ pub fn main() {
 
         // TODO: Fix key repeat delay issues by using VecDeque for instant key repeat
         for event in event_pump.poll_iter() {
+
             match event {
                 // Handle quitting keys or window close
                 Event::Quit { .. }
@@ -146,7 +145,7 @@ pub fn main() {
 
         true
     };
-    
+
     loop {
         if !main_loop() {
             break;

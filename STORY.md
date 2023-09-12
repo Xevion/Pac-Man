@@ -39,6 +39,13 @@ Luckily though, someone else has done this before, and they fully documented it 
 
 This repository has been massively helpful in getting my WebAssembly builds working.
 
+## Key Capturing Extensions in WASM Build
+
+Some extensions I had installed were capturing keys.
+The issue presented with some keys never being sent to the application.
+To confirm, enter safe mode or switch to a different browser without said extensions.
+If the issue disappears, it's because of an extension in your browser stealing keys in a way that is incompatible with the batshit insanity of Emscripten.
+
 [code-review-video]: https://www.youtube.com/watch?v=OKs_JewEeOo
 [code-review-thumbnail]: https://img.youtube.com/vi/OKs_JewEeOo/hqdefault.jpg
 [fighting-lifetimes-1]: https://devcry.heiho.net/html/2022/20220709-rust-and-sdl2-fighting-with-lifetimes.html
