@@ -23,6 +23,9 @@ at.
 - More than 4 ghosts
 - Custom Level Generation
     - Multi-map tunnelling
+- Online Scoreboard
+    - WebAssembly build contains a special API key for communicating with server.
+    - To prevent abuse, the server will only accept scores from the WebAssembly build.
 
 ## Installation
 
