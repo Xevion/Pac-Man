@@ -34,11 +34,11 @@ impl Pacman<'_> {
             position: Map::cell_to_pixel(starting_position),
             direction: Direction::Right,
             next_direction: None,
-            speed: 2,
+            speed: 3,
             map,
             stopped: false,
-            modulation: SimpleTickModulator::new(0.9333),
-            sprite: AnimatedTexture::new(atlas, 4, 3, 32, 32, Some((-4, -4))),
+            modulation: SimpleTickModulator::new(1.0),
+            sprite: AnimatedTexture::new(atlas, 2, 3, 32, 32, Some((-4, -4))),
         }
     }
 
@@ -77,6 +77,11 @@ impl Pacman<'_> {
             self.next_direction = None;
         }
     }
+
+    fn internal_position_even(&self) -> (u32, u32) {
+        let (x, y ) = self.internal_position();
+        ((x / 2u32) * 2u32, (y / 2u32) * 2u32)
+    }
 }
 
 impl Entity for Pacman<'_> {
@@ -104,7 +109,7 @@ impl Entity for Pacman<'_> {
     }
 
     fn tick(&mut self) {
-        let can_change = self.internal_position() == (0, 0);
+        let can_change = self.internal_position_even() == (0, 0);
 
         if can_change {
             self.handle_requested_direction();
@@ -120,7 +125,7 @@ impl Entity for Pacman<'_> {
                 self.stopped = false;
             }
         }
-
+        
         if !self.stopped && self.modulation.next() {
             let speed = self.speed as i32;
             match self.direction {
