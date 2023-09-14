@@ -1,8 +1,7 @@
 use crate::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
 use crate::game::Game;
-use sdl2::event::Event;
+use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
-use spin_sleep::sleep;
 use std::time::{Duration, Instant};
 use tracing::event;
 use tracing_error::ErrorLayer;
@@ -38,7 +37,6 @@ pub fn main() {
 
     let mut canvas = window
         .into_canvas()
-        .accelerated()
         .build()
         .expect("Could not build canvas");
 
@@ -64,6 +62,7 @@ pub fn main() {
     let mut last_averaging_time = Instant::now();
     let mut sleep_time = Duration::ZERO;
     let mut paused = false;
+    let mut shown = false;
 
     event!(
         tracing::Level::INFO,
@@ -75,8 +74,20 @@ pub fn main() {
 
         // TODO: Fix key repeat delay issues by using VecDeque for instant key repeat
         for event in event_pump.poll_iter() {
-
             match event {
+                Event::Window { win_event, .. } => {
+                    match win_event {
+                        WindowEvent::Hidden => {
+                            event!(tracing::Level::DEBUG, "Window hidden");
+                            shown = false;
+                        },
+                        WindowEvent::Shown => {
+                            event!(tracing::Level::DEBUG, "Window shown");
+                            shown = true;
+                        },
+                        _ => {}
+                    }
+                }
                 // Handle quitting keys or window close
                 Event::Quit { .. }
                 | Event::KeyDown {
@@ -111,8 +122,13 @@ pub fn main() {
         }
 
         if start.elapsed() < loop_time {
-            let time = loop_time - start.elapsed();
-            sleep(time);
+            let time = loop_time.saturating_sub(start.elapsed());
+            #[cfg(not(target_os = "emscripten"))] {
+                spin_sleep::sleep(time);
+            }
+            #[cfg(target_os = "emscripten")] {
+                thread::sleep(time);
+            }
             sleep_time += time;
         } else {
             event!(
