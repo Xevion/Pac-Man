@@ -62,6 +62,8 @@ impl Game<'_> {
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
         self.canvas.clear();
 
+
+        // Render the map   
         self.canvas
             .copy(&self.map_texture, None, None)
             .expect("Could not render texture on canvas");
@@ -102,6 +104,7 @@ impl Game<'_> {
             self.draw_cell((next_cell.0 as u32, next_cell.1 as u32), Color::YELLOW);
         }
 
+        // Present the canvas
         self.canvas.present();
     }
 
