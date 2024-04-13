@@ -75,19 +75,17 @@ pub fn main() {
         // TODO: Fix key repeat delay issues by using VecDeque for instant key repeat
         for event in event_pump.poll_iter() {
             match event {
-                Event::Window { win_event, .. } => {
-                    match win_event {
-                        WindowEvent::Hidden => {
-                            event!(tracing::Level::DEBUG, "Window hidden");
-                            shown = false;
-                        },
-                        WindowEvent::Shown => {
-                            event!(tracing::Level::DEBUG, "Window shown");
-                            shown = true;
-                        },
-                        _ => {}
+                Event::Window { win_event, .. } => match win_event {
+                    WindowEvent::Hidden => {
+                        event!(tracing::Level::DEBUG, "Window hidden");
+                        shown = false;
                     }
-                }
+                    WindowEvent::Shown => {
+                        event!(tracing::Level::DEBUG, "Window shown");
+                        shown = true;
+                    }
+                    _ => {}
+                },
                 // Handle quitting keys or window close
                 Event::Quit { .. }
                 | Event::KeyDown {
@@ -123,11 +121,15 @@ pub fn main() {
 
         if start.elapsed() < loop_time {
             let time = loop_time.saturating_sub(start.elapsed());
-            #[cfg(not(target_os = "emscripten"))] {
-                spin_sleep::sleep(time);
-            }
-            #[cfg(target_os = "emscripten")] {
-                thread::sleep(time);
+            if time != Duration::ZERO {
+                #[cfg(not(target_os = "emscripten"))]
+                {
+                    spin_sleep::sleep(time);
+                }
+                #[cfg(target_os = "emscripten")]
+                {
+                    std::thread::sleep(time);
+                }
             }
             sleep_time += time;
         } else {
