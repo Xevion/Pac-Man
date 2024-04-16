@@ -117,6 +117,47 @@ After a little bit though, I found the `present_vsync` function in the SDL2 rend
 
 Maybe I could have skipped my custom timing and just used this, but I don't know if it would be platform-independent, what would happen on 120 FPS displays, etc.
 
+## Emscripten v.s. SDL2-TTF
+
+While working on the next extension of SDL2 for my test repository, SDL2-TTF had some pretty annoying issues. It would build fine, but it would raise a runtime error: `indirect call to null`.
+
+Luckily, I had a recently updated repository to copy off of, and the working fix was to lower the EMSDK version to `3.1.43`.
+
+[Source](https://github.com/aelred/tetris/blob/0ad88153db1ca7962b42277504c0f7f9f3c675a9/tetris-sdl/src/main.rs#L34)
+```rust
+static FONT_DATA: &[u8] = include_bytes!("../assets/TerminalVector.ttf");
+
+#[cfg(not(target_os = "emscripten"))]
+fn ttf_context() -> ttf::Sdl2TtfContext {
+    ttf::init().unwrap()
+}
+
+#[cfg(target_os = "emscripten")]
+fn ttf_context() -> &'static ttf::Sdl2TtfContext {
+    // Deliberately leak so we get a static lifetime
+    Box::leak(Box::new(ttf::init().unwrap()))
+}
+
+const FONT_MULTIPLE: u16 = 9;
+
+// Funny division is done here to round to nearest multiple of FONT_MULTIPLE
+const FONT_SIZE: u16 = (WINDOW_HEIGHT / 32) as u16 / FONT_MULTIPLE * FONT_MULTIPLE;
+
+fn main() {
+  ...
+
+  let font_data = RWops::from_bytes(FONT_DATA).unwrap();
+  let font_size = max(FONT_SIZE, FONT_MULTIPLE);
+  let font = ttf_context
+      .load_font_from_rwops(font_data, font_size)
+      .unwrap();
+}
+```
+
+I don't particularly understand why loading from memory is used, but it's a neat trick. I tested normal font loading afterwards, and it seems to be totally fine.
+
+On to the Mixer extension, then.
+
 [code-review-video]: https://www.youtube.com/watch?v=OKs_JewEeOo
 [code-review-thumbnail]: https://img.youtube.com/vi/OKs_JewEeOo/hqdefault.jpg
 [fighting-lifetimes-1]: https://devcry.heiho.net/html/2022/20220709-rust-and-sdl2-fighting-with-lifetimes.html
