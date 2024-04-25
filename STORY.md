@@ -158,6 +158,173 @@ I don't particularly understand why loading from memory is used, but it's a neat
 
 On to the Mixer extension, then.
 
+## Mixer and GFX
+
+Mixer was relatively easy, I don't remember anything special about it.
+
+As it happens, neither was SDL GFX, except for me finding that getting it compiling on Windows would soon be difficult; `SDL2_gfx` is not currently being updated, nor is it managed by the SDL team. This meant that no releases of development libraries including DLLs or LIB files were going to be available.
+
+When I added in GFX, I wanted to add some mouse interaction since that currently wasn't being done anywhere in the demo, but I also wanted the ability for the mouse to be hidden until used.
+
+Detecting whether the mouse was focusing the window or not wasn't super easy, and I'm still not sure that it's working perfectly, but at the very least Emscripten seems to support what I'm trying to do. I should look into asynchronous Javascript callbacks, see what Emscripten supports.
+
+## Styling with PostCSS + Tailwind
+
+I'm big on using Tailwind, and while this project probably could have done without it, I didn't want to forego my favorite tool.
+
+But I also didn't want to include some big framework on this, like Astro, so I looked for the smallest way to include Tailwind.
+
+After fiddling and failing to find Hugo suitable, I stuck to plain HTML & the PostCSS method, which worked great. It's definitely not that fast for rapid development, but it works well enough.
+
+The only thing I'm unsatisfied with is why `postcss-cli` wasn't working when executed from `pnpm`. It works just fine from `pnpx`, but it has to download and setup the whole package on *every single invocation*, which is super slow. And probably expensive, in the long run.
+
+## Cross-platform Builds
+
+With the next step of the demo project, I needed to get builds for every OS running, that's one down out of the four targets I'm gunning for.
+
+Linux was the easiest, as usual, with `apt` providing access to all the development libraries of SDL & the associated extensions, including `SDL2_gfx`.
+
+There's also no requirement for providing sidecar DLLs like Windows needs, so that worked well.
+The hardest part was figuring out the most satisfying way to zip and load all the assets together, but luckily the artifact uploader provides it's own zip implementation; albeit I may need to modify it to add further system hinting (`.tar.gz` for Linux, `.dmg` for MacOS, `.zip` for Windows).
+
+## SDL2 on Windows
+
+SDL2 on Windows has to be one of the least fun development cycles; setting up the environment is pretty painful as there's almost no guides for Rust users to figure out each requirement. You'll learn fast, and this knowledge is hands on experience that will probably be applicable later on in C++ development, but I'm sure a fair number of Rust users like myself have no idea why a DLL or LIB file is necessary at all.
+
+To be honest, I still don't.
+
+Regardless, SDL2 needs a LIB file for compliation to be available in the root directory, and each extension has there own.
+
+Once the EXE is compiled, the working directory needs to contain a DLL file for execution, too. Each extension has it's own as well.
+
+This sounds easy, but acquiring these DLLs and LIB files is not easy. At the very least, the SDL-supported extensions have releases available containing
+
+![SDL2 Mixer GitHub Release Files](https://i.xevion.dev/ShareX/2024/04/firefox_6zAmbsD97n.png)
+
+So I got to creating a build step involving the download of each of these libraries. I'm no expert with `curl`, but I had it figured out eventually.
+
+```yaml
+- name: Download SDL2 Libraries
+  run: |
+    curl -L "https://github.com/libsdl-org/SDL/releases/download/release-${{ env.SDL2 }}/SDL2-devel-${{ env.SDL2 }}-VC.zip" -o "sdl2_devel.zip"
+    curl -L "https://github.com/libsdl-org/SDL_mixer/releases/download/release-${{ env.SDL2_MIXER }}/SDL2_mixer-devel-${{ env.SDL2_MIXER }}-VC.zip" -o "sdl2_mixer_devel.zip"
+    curl -L "https://github.com/libsdl-org/SDL_ttf/releases/download/release-${{ env.SDL2_TTF }}/SDL2_ttf-devel-${{ env.SDL2_TTF }}-VC.zip" -o "sdl2_ttf_devel.zip"
+    curl -L "https://github.com/libsdl-org/SDL_image/releases/download/release-${{ env.SDL2_IMAGE }}/SDL2_image-devel-${{ env.SDL2_IMAGE }}-VC.zip" -o "sdl2_image_devel.zip"
+```
+
+I did take a lot of care in making sure that versions were specified externally in different variables, which took a couple tries while I learned how interpolation works with GitHub Actions.
+
+Additionally, I realized that `LIB` files were required for compliation after this, so I had to painfully fix all the files to use the `-devel-` version. Speifically the one with `-VC` appended.
+
+I still do not know what VC means here. Perhaps it is related to `vcpkg` somehow.
+
+The next step was to extract the files I needed from the `.zip`s, but that proved quite hard. I'm a lover of precision and using tools to the best of my knowledge, so I wanted to finely take just the DLL and ZIP I needed from these archives, and nothing else.
+
+While I was able to get working commands to do this on Linux, finely finding the exact DLL and placing it in `pwd`, I was not able to replicate it on the Windows-imaged GitHub Runner;
+
+When specifying the `-o` flag meaning 'output directory here' like `-o./tmp` (yes, there is no space in between), it would always error with `Too short switch: -o`. I was unable to find meaningful discussions on Google.
+
+My Linux machine did not complain, and I wasn't yet ready to switch OSes for an error like this, so I just extracted everything and then `mv`'d the items into `pwd`.
+
+I knew what lay ahead with `SDL2_gfx`, so I tested whether the compilation error changed, and luckily, it was only erroring on the missing `SDL2_gfx.lib` at this point.
+
+While reading discussions online, I came across [a reddit post](https://www.reddit.com/r/rust_gamedev/comments/am84q9/using_sdl2_gfx_on_windows/efk6uwq/) talking about `vcpkg`. I'd heard of it, but never used the program before. It seemed like it could provide `SDL2_gfx` for me without hassle.
+
+And that was partly true.
+
+The primary 'boon' of `vcpkg` here was that it setup and compiled `SDL2_gfx` without the hassle of messing with the compiler, options, or most importantly: dependencies.
+
+I didn't know it at the time, but `SDL2_gfx` depended on `SDL2` directly, and so I'd have to setup and compile both projects, if I was hoping to do this 'manually'.
+
+## VCPKG for SDL2_GFX
+
+I tried to use the GitHub-provided environment variables relating to VCPKG's installation location, but nothing really worked here. I was on the correcti mage (`windows-latest` for Windows 2022 Enterprise on GitHub's Runner Images), but nothing seemed to work.
+
+[This comment](https://github.com/actions/runner-images/issues/6376#issuecomment-1781269302) seemed to describe the exact same experience I was happening, several months ago.
+
+Alas, I simply tried `C:\vcpkg\` and it worked, providing me the ability to install `SDL2_gfx`.
+
+As it were though, the hard part wasn't going to be compiling, but locating the DLLs and LIB files for movement. No matter where I looked online or in the logs, nothing was obvious about the location of my files.
+
+In retrospect, a recursive `Get-ChildItem` looking for `DLL` or `LIB` files probably would've worked well, but.. yeah...
+
+After a couple attempts with various test commits, I couldn't find it, and just switched to Windows to install and compile it myself, so I could locate the file manually.
+
+> Note: VCPKG is annoying to install, the executable provided by Visual Studio Community does not permit classic-mode usage, so you'll still need to clone and bootstrap VCPKG (instructions in the repository README).
+
+As it happens, they were placed in
+- `$VCPKG_ROOT\packages\sdl2-gfx_x64-windows-release\bin\SDL2_gfx.dll` and
+- `$VCPKG_ROOT\packages\sdl2-gfx_x64-windows-release\lib\SDL2_gfx.lib` respectively.
+
+This brings me to one issue, and one fix; while compiling you're required to specify that the build is for 64 bit systems manually, on each invocation of VCPKG (while in classic mode, which I am).
+
+On top of that, they'll be built in debug mode (with extra symbols and such) by default, which I am not interested in.
+
+To get the x64 Release build of a package, append `:x64-windows-release` to it, as in `sdl2-gfx:x64-windows-release` for `sdl2-gfx`.
+
+After getting this sorted, I struggled a little bit in using the `mv` (`Move-Item`) command in Powershell, as I battled with the comma delimited files when moving multiple files to a given destination. Dumb.
+
+This is also the point at which I renamed the executable from `pacman` to `spiritus` to differentiate the two projects. The name is just my play on the word 'sprite'.
+
+## Console Window Hiding
+
+When launching the demo app, I saw a console window pop up, even though I launched it from the File Explorer; this is not the behavior I was interested in.
+
+I believe that apps launched from File Explorer shouldn't have a console window available unless...
+
+- It's a CLI app by nature, and it uses the Console Window.
+- It has a specific debugging flag passed into it, perhaps by a Shortcut file.
+- The console window is required for the nature of the app, or it is the preferred method of log inspection.
+- It's a debug build.
+
+But if it's launched from the console, then it should either
+
+- Detach and relinquish control of the console back to the user.
+- Use the console actively in it's logging.
+
+Most programs I know and use follow this general consensus. Naturally, mine must too.
+
+But, when searching for a solution online, it seemed what I want doesn't really exist; I implemented the closest approximation.
+
+If `stdout` is detected to be a `tty` (an active console), the console window won't be hidden. Otherwise, it will be hidden.
+
+Unfortunately, this results in the millisecond flash of a black console window appearing.
+
+## Updating Deprecated Actions
+
+As it were, most of the actions I were using were deprecated in some way. It didn't feel like I was using super old actions, but I guess I was. Luckily, most of them were simply just updating the version (`2` or `3` to `4` or `5`).
+
+`actions-rs@toolchain` was different though, and was officially deprecated, the GitHub repository archived. Couldn't find a good reason why, but the repository was untouched in 4 years, so maybe that's why...
+
+I found `dtolnay@rust-toolchain` and switched, it more or less was perfect with no differences. I think it's sorta neat that the Rust version is specified using the version of the action. I'd be worried though of a changing feature set across different action versions...
+
+I guess a well designed GitHub Action shouldn't change much, including a Rust toolchain action.
+
+## Artifact Naming
+
+Perhaps it's super unnecessary and won't be appreciated, but I wanted the artifact files produced by my script to have semantic meaning in it's version and target.
+
+For each OS, I extracted the targets (`x86_64-unknown-linux-gnu`, `x86_64-apple-darwin`...) into an environment variable scoped at the job level (love that).
+
+I looked into ways to get the package version, but nothing obvious jumped out at me. I did come across `toml-cli` though, a Rust-based CLI program analogous to `jq` (for JSON).
+
+It worked great, but it was sorta slow; compiling `toml-cli` added an extra 20-60 seconds for each job. I'd heard of a Rust project to speed up builds by providing prebuilt executables though; it's called `binstall`.
+
+Even cooler, it was had an action available to easily add it to my build script, and so I had `toml-cli` installing and available 10x faster!
+
+![GitHub Actions output showing 2 cargo binstall process taking 4 seconds total](https://i.xevion.dev/ShareX/2024/04/firefox_5sOEDM7zkc.png)
+
+Perhaps I could use some special bash commands to acquire the package version, but it'd be a lot of work and maintenance to get it working in both bash and Powershell, maintaining it across four jobs.
+
+This is both cool, fast, and easy!
+
+![GitHub Artifacts with Sizes Listed](https://i.xevion.dev/ShareX/2024/04/firefox_jDI8MDwWRc.png)
+
+I was thinking of a github-pages artifact name that aligns with the others, but I think that'd be stupid AND overkill.
+
+Perhaps at the least I'll look into a 32-bit build for Windows, just for demonstration purposes.
+
+
 [code-review-video]: https://www.youtube.com/watch?v=OKs_JewEeOo
 [code-review-thumbnail]: https://img.youtube.com/vi/OKs_JewEeOo/hqdefault.jpg
 [fighting-lifetimes-1]: https://devcry.heiho.net/html/2022/20220709-rust-and-sdl2-fighting-with-lifetimes.html
