@@ -6,6 +6,7 @@ use sdl2::render::{Texture, TextureCreator};
 use sdl2::ttf::{Font, FontStyle};
 use sdl2::video::WindowContext;
 use sdl2::{pixels::Color, render::Canvas, video::Window};
+use tracing::event;
 
 use crate::constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH, RAW_BOARD};
 use crate::direction::Direction;
@@ -20,7 +21,7 @@ pub struct Game<'a> {
     power_pellet_texture: Texture<'a>,
     font: Font<'a, 'static>,
     pacman: Pacman<'a>,
-    map: Rc<Map>,
+    map: Rc<std::cell::RefCell<Map>>,
     debug: bool,
     score: u32,
 }
@@ -31,7 +32,7 @@ impl Game<'_> {
         texture_creator: &'a TextureCreator<WindowContext>,
         ttf_context: &'a sdl2::ttf::Sdl2TtfContext,
     ) -> Game<'a> {
-        let map = Rc::new(Map::new(RAW_BOARD));
+        let map = Rc::new(std::cell::RefCell::new(Map::new(RAW_BOARD)));
         let pacman_atlas = texture_creator
             .load_texture("assets/32/pacman.png")
             .expect("Could not load pacman texture");
@@ -72,11 +73,6 @@ impl Game<'_> {
         if keycode == Keycode::Space {
             self.debug = !self.debug;
         }
-
-        // Test score increase
-        if keycode == Keycode::S {
-            self.add_score(10);
-        }
     }
 
     pub fn add_score(&mut self, points: u32) {
@@ -85,6 +81,51 @@ impl Game<'_> {
 
     pub fn tick(&mut self) {
         self.pacman.tick();
+        self.check_pellet_eating();
+    }
+
+    fn check_pellet_eating(&mut self) {
+        let cell_pos = self.pacman.cell_position();
+
+        // Check if there's a pellet at the current position
+        let tile = {
+            let map = self.map.borrow();
+            map.get_tile((cell_pos.0 as i32, cell_pos.1 as i32))
+        };
+
+        if let Some(tile) = tile {
+            match tile {
+                MapTile::Pellet => {
+                    // Eat the pellet and add score
+                    {
+                        let mut map = self.map.borrow_mut();
+                        map.set_tile((cell_pos.0 as i32, cell_pos.1 as i32), MapTile::Empty);
+                    }
+                    self.add_score(10);
+                    event!(
+                        tracing::Level::DEBUG,
+                        "Pellet eaten at ({}, {})",
+                        cell_pos.0,
+                        cell_pos.1
+                    );
+                }
+                MapTile::PowerPellet => {
+                    // Eat the power pellet and add score
+                    {
+                        let mut map = self.map.borrow_mut();
+                        map.set_tile((cell_pos.0 as i32, cell_pos.1 as i32), MapTile::Empty);
+                    }
+                    self.add_score(50);
+                    event!(
+                        tracing::Level::DEBUG,
+                        "Power pellet eaten at ({}, {})",
+                        cell_pos.0,
+                        cell_pos.1
+                    );
+                }
+                _ => {}
+            }
+        }
     }
 
     pub fn draw(&mut self) {
@@ -112,6 +153,7 @@ impl Game<'_> {
                 for y in 0..BOARD_HEIGHT {
                     let tile = self
                         .map
+                        .borrow()
                         .get_tile((x as i32, y as i32))
                         .unwrap_or(MapTile::Empty);
                     let mut color = None;
@@ -162,6 +204,7 @@ impl Game<'_> {
             for y in 0..BOARD_HEIGHT {
                 let tile = self
                     .map
+                    .borrow()
                     .get_tile((x as i32, y as i32))
                     .unwrap_or(MapTile::Empty);
 
@@ -187,9 +230,8 @@ impl Game<'_> {
     }
 
     fn render_score(&mut self) {
-        let score = 0;
         let lives = 3;
-        let score_text = format!("{:02}", score);
+        let score_text = format!("{:02}", self.score);
 
         let x_offset = 12;
         let y_offset = 2;

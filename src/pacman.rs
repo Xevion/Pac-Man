@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use sdl2::{
@@ -22,14 +23,18 @@ pub struct Pacman<'a> {
     pub direction: Direction,
     pub next_direction: Option<Direction>,
     pub stopped: bool,
-    map: Rc<Map>,
+    map: Rc<RefCell<Map>>,
     speed: u32,
     modulation: SimpleTickModulator,
     sprite: AnimatedTexture<'a>,
 }
 
 impl Pacman<'_> {
-    pub fn new<'a>(starting_position: (u32, u32), atlas: Texture<'a>, map: Rc<Map>) -> Pacman<'a> {
+    pub fn new<'a>(
+        starting_position: (u32, u32),
+        atlas: Texture<'a>,
+        map: Rc<RefCell<Map>>,
+    ) -> Pacman<'a> {
         Pacman {
             position: Map::cell_to_pixel(starting_position),
             direction: Direction::Right,
@@ -70,6 +75,7 @@ impl Pacman<'_> {
         let proposed_next_cell = self.next_cell(self.next_direction);
         let proposed_next_tile = self
             .map
+            .borrow()
             .get_tile(proposed_next_cell)
             .unwrap_or(MapTile::Empty);
         if proposed_next_tile != MapTile::Wall {
@@ -79,7 +85,7 @@ impl Pacman<'_> {
     }
 
     fn internal_position_even(&self) -> (u32, u32) {
-        let (x, y ) = self.internal_position();
+        let (x, y) = self.internal_position();
         ((x / 2u32) * 2u32, (y / 2u32) * 2u32)
     }
 }
@@ -115,7 +121,7 @@ impl Entity for Pacman<'_> {
             self.handle_requested_direction();
 
             let next = self.next_cell(None);
-            let next_tile = self.map.get_tile(next).unwrap_or(MapTile::Empty);
+            let next_tile = self.map.borrow().get_tile(next).unwrap_or(MapTile::Empty);
 
             if !self.stopped && next_tile == MapTile::Wall {
                 event!(tracing::Level::DEBUG, "Wall collision. Stopping.");
@@ -125,7 +131,7 @@ impl Entity for Pacman<'_> {
                 self.stopped = false;
             }
         }
-        
+
         if !self.stopped && self.modulation.next() {
             let speed = self.speed as i32;
             match self.direction {

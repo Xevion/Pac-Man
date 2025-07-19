@@ -53,6 +53,18 @@ impl Map {
         Some(self.inner[x][y])
     }
 
+    pub fn set_tile(&mut self, cell: (i32, i32), tile: MapTile) -> bool {
+        let x = cell.0 as usize;
+        let y = cell.1 as usize;
+
+        if x >= BOARD_WIDTH as usize || y >= BOARD_HEIGHT as usize {
+            return false;
+        }
+
+        self.inner[x][y] = tile;
+        true
+    }
+
     pub fn cell_to_pixel(cell: (u32, u32)) -> (i32, i32) {
         ((cell.0 as i32) * 24, ((cell.1 + 3) as i32) * 24)
     }
