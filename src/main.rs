@@ -20,6 +20,7 @@ mod pacman;
 pub fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
+    let ttf_context = sdl2::ttf::init().unwrap();
 
     // Setup tracing
     let subscriber = tracing_subscriber::fmt()
@@ -46,7 +47,7 @@ pub fn main() {
         .expect("Could not set logical size");
 
     let texture_creator = canvas.texture_creator();
-    let mut game = Game::new(&mut canvas, &texture_creator);
+    let mut game = Game::new(&mut canvas, &texture_creator, &ttf_context);
 
     let mut event_pump = sdl_context
         .event_pump()
@@ -149,14 +150,6 @@ pub fn main() {
             let average_fps = PERIOD as f32 / last_averaging_time.elapsed().as_secs_f32();
             let average_sleep = sleep_time / PERIOD;
             let average_process = loop_time - average_sleep;
-
-            event!(
-                tracing::Level::DEBUG,
-                "Timing Averages [fps={}] [sleep={:?}] [process={:?}]",
-                average_fps,
-                average_sleep,
-                average_process
-            );
 
             sleep_time = Duration::ZERO;
             last_averaging_time = Instant::now();
