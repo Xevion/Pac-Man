@@ -12,6 +12,7 @@ mod constants;
 mod direction;
 mod entity;
 mod game;
+mod helper;
 mod map;
 mod modulation;
 mod pacman;
