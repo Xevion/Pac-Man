@@ -1,13 +1,14 @@
 use crate::constants::MapTile;
-use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH};
+use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH, RAW_BOARD};
 
 pub struct Map {
-    inner: [[MapTile; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize],
+    current: [[MapTile; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize],
+    default: [[MapTile; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize],
 }
 
 impl Map {
     pub fn new(raw_board: [&str; BOARD_HEIGHT as usize]) -> Map {
-        let mut inner = [[MapTile::Empty; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize];
+        let mut map = [[MapTile::Empty; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize];
 
         for y in 0..BOARD_HEIGHT as usize {
             let line = raw_board[y];
@@ -35,11 +36,23 @@ impl Map {
                     _ => panic!("Unknown character in board: {}", character),
                 };
 
-                inner[x as usize][y as usize] = tile;
+                map[x as usize][y as usize] = tile;
             }
         }
 
-        Map { inner: inner }
+        Map {
+            current: map,
+            default: map.clone(),
+        }
+    }
+
+    pub fn reset(&mut self) {
+        // Restore the map to its original state
+        for x in 0..BOARD_WIDTH as usize {
+            for y in 0..BOARD_HEIGHT as usize {
+                self.current[x][y] = self.default[x][y];
+            }
+        }
     }
 
     pub fn get_tile(&self, cell: (i32, i32)) -> Option<MapTile> {
@@ -50,7 +63,7 @@ impl Map {
             return None;
         }
 
-        Some(self.inner[x][y])
+        Some(self.current[x][y])
     }
 
     pub fn set_tile(&mut self, cell: (i32, i32), tile: MapTile) -> bool {
@@ -61,7 +74,7 @@ impl Map {
             return false;
         }
 
-        self.inner[x][y] = tile;
+        self.current[x][y] = tile;
         true
     }
 

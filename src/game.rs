@@ -73,10 +73,32 @@ impl Game<'_> {
         if keycode == Keycode::Space {
             self.debug = !self.debug;
         }
+
+        // Reset game
+        if keycode == Keycode::R {
+            self.reset();
+        }
     }
 
     pub fn add_score(&mut self, points: u32) {
         self.score += points;
+    }
+
+    pub fn reset(&mut self) {
+        // Reset the map to restore all pellets
+        {
+            let mut map = self.map.borrow_mut();
+            map.reset();
+        }
+
+        // Reset the score
+        self.score = 0;
+
+        // Reset Pacman position (you might want to customize this)
+        // For now, we'll keep Pacman where he is, but you could add:
+        // self.pacman.position = Map::cell_to_pixel((1, 1));
+
+        event!(tracing::Level::INFO, "Game reset - map and score cleared");
     }
 
     pub fn tick(&mut self) {
