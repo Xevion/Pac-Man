@@ -2,3 +2,6 @@
 /dist
 .idea
 *.dll
+rust-sdl2-emscripten/
+assets/build.css
+emsdk/

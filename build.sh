@@ -38,7 +38,7 @@ fi
 if [ "$skip_emsdk" = 'false' ]; then
     echo "Activating Emscripten"
     # SDL2-TTF requires 3.1.43, fails to build on latest
-    ./../emsdk/emsdk activate 3.1.43
+    ../emsdk/emsdk activate 3.1.43
     source ../emsdk/emsdk_env.sh
 fi
 
@@ -59,15 +59,15 @@ mkdir -p dist
 output_folder="target/wasm32-unknown-emscripten/$build_type"
 cp assets/index.html dist
 
-cp assets/*.woff* dist
+# cp assets/*.woff* dist
 cp assets/build.css dist
 cp assets/favicon.ico dist
-cp $output_folder/spiritus.wasm dist
-cp $output_folder/spiritus.js dist
+cp $output_folder/pacman.wasm dist
+cp $output_folder/pacman.js dist
 # only if .data file exists
-cp $output_folder/deps/spiritus.data dist
-if [ -f $output_folder/spiritus.wasm.map ]; then
-    cp $output_folder/spiritus.wasm.map dist
+cp $output_folder/deps/pacman.data dist
+if [ -f $output_folder/pacman.wasm.map ]; then
+    cp $output_folder/pacman.wasm.map dist
 fi
 
 if [ "$serve" = 'true' ]; then
