@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use crate::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
 use crate::game::Game;
 use sdl2::event::{Event, WindowEvent};
@@ -7,7 +9,46 @@ use tracing::event;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::layer::SubscriberExt;
 
+#[cfg(windows)]
+use winapi::{
+    shared::{ntdef::NULL, windef::HWND},
+    um::{
+        fileapi::{CreateFileA, OPEN_EXISTING},
+        handleapi::INVALID_HANDLE_VALUE,
+        processenv::SetStdHandle,
+        winbase::{STD_ERROR_HANDLE, STD_OUTPUT_HANDLE},
+        wincon::{AttachConsole, GetConsoleWindow},
+        winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE},
+    },
+};
+
+#[cfg(windows)]
+unsafe fn attach_console() {
+    if GetConsoleWindow() != std::ptr::null_mut() as HWND {
+        return;
+    }
+
+    if AttachConsole(winapi::um::wincon::ATTACH_PARENT_PROCESS) != 0 {
+        let handle = CreateFileA(
+            "CONOUT$\0".as_ptr() as *const i8,
+            GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            std::ptr::null_mut(),
+            OPEN_EXISTING,
+            0,
+            NULL,
+        );
+
+        if handle != INVALID_HANDLE_VALUE {
+            SetStdHandle(STD_OUTPUT_HANDLE, handle);
+            SetStdHandle(STD_ERROR_HANDLE, handle);
+        }
+    }
+    // Do NOT call AllocConsole here - we don't want a console when launched from Explorer
+}
+
 mod animation;
+mod audio;
 mod constants;
 mod direction;
 mod entity;
@@ -18,8 +59,14 @@ mod modulation;
 mod pacman;
 
 pub fn main() {
+    #[cfg(windows)]
+    unsafe {
+        attach_console();
+    }
+
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
+    let audio_subsystem = sdl_context.audio().unwrap();
     let ttf_context = sdl2::ttf::init().unwrap();
 
     // Setup tracing
