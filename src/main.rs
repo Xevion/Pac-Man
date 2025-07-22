@@ -94,7 +94,12 @@ pub fn main() {
         .expect("Could not set logical size");
 
     let texture_creator = canvas.texture_creator();
-    let mut game = Game::new(&mut canvas, &texture_creator, &ttf_context);
+    let mut game = Game::new(
+        &mut canvas,
+        &texture_creator,
+        &ttf_context,
+        &audio_subsystem,
+    );
 
     let mut event_pump = sdl_context
         .event_pump()
@@ -164,6 +169,7 @@ pub fn main() {
 
         // TODO: Proper pausing implementation that does not interfere with statistic gathering
         if !paused {
+            // game.audio_demo_tick();
             game.tick();
             game.draw();
         }

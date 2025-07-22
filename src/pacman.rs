@@ -79,6 +79,16 @@ impl Pacman<'_> {
             .get_tile(proposed_next_cell)
             .unwrap_or(MapTile::Empty);
         if proposed_next_tile != MapTile::Wall {
+            event!(
+                tracing::Level::DEBUG,
+                "Direction change: {:?} -> {:?} at position ({}, {}) internal ({}, {})",
+                self.direction,
+                self.next_direction.unwrap(),
+                self.position.0,
+                self.position.1,
+                self.internal_position().0,
+                self.internal_position().1
+            );
             self.direction = self.next_direction.unwrap();
             self.next_direction = None;
         }

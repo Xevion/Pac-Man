@@ -3,16 +3,25 @@ use std::rc::Rc;
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
 use sdl2::render::{Texture, TextureCreator};
-use sdl2::ttf::{Font, FontStyle};
+use sdl2::rwops::RWops;
+use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 use sdl2::{pixels::Color, render::Canvas, video::Window};
 use tracing::event;
 
+use crate::audio::Audio;
 use crate::constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH, RAW_BOARD};
 use crate::direction::Direction;
 use crate::entity::Entity;
 use crate::map::Map;
 use crate::pacman::Pacman;
+
+// Embed texture data directly into the executable
+static PACMAN_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/pacman.png");
+static PELLET_TEXTURE_DATA: &[u8] = include_bytes!("../assets/24/pellet.png");
+static POWER_PELLET_TEXTURE_DATA: &[u8] = include_bytes!("../assets/24/energizer.png");
+static MAP_TEXTURE_DATA: &[u8] = include_bytes!("../assets/map.png");
+static FONT_DATA: &[u8] = include_bytes!("../assets/font/konami.ttf");
 
 pub struct Game<'a> {
     canvas: &'a mut Canvas<Window>,
@@ -24,6 +33,7 @@ pub struct Game<'a> {
     map: Rc<std::cell::RefCell<Map>>,
     debug: bool,
     score: u32,
+    audio: Audio,
 }
 
 impl Game<'_> {
@@ -31,36 +41,51 @@ impl Game<'_> {
         canvas: &'a mut Canvas<Window>,
         texture_creator: &'a TextureCreator<WindowContext>,
         ttf_context: &'a sdl2::ttf::Sdl2TtfContext,
+        _audio_subsystem: &'a sdl2::AudioSubsystem,
     ) -> Game<'a> {
         let map = Rc::new(std::cell::RefCell::new(Map::new(RAW_BOARD)));
+
+        // Load Pacman texture from embedded data
         let pacman_atlas = texture_creator
-            .load_texture("assets/32/pacman.png")
-            .expect("Could not load pacman texture");
+            .load_texture_bytes(PACMAN_TEXTURE_DATA)
+            .expect("Could not load pacman texture from embedded data");
         let pacman = Pacman::new((1, 1), pacman_atlas, Rc::clone(&map));
 
+        // Load pellet texture from embedded data
         let pellet_texture = texture_creator
-            .load_texture("assets/24/pellet.png")
-            .expect("Could not load pellet texture");
-        let power_pellet_texture = texture_creator
-            .load_texture("assets/24/energizer.png")
-            .expect("Could not load power pellet texture");
+            .load_texture_bytes(PELLET_TEXTURE_DATA)
+            .expect("Could not load pellet texture from embedded data");
 
+        // Load power pellet texture from embedded data
+        let power_pellet_texture = texture_creator
+            .load_texture_bytes(POWER_PELLET_TEXTURE_DATA)
+            .expect("Could not load power pellet texture from embedded data");
+
+        // Load font from embedded data
+        let font_rwops = RWops::from_bytes(FONT_DATA).expect("Failed to create RWops for font");
         let font = ttf_context
-            .load_font("assets/font/konami.ttf", 24)
-            .expect("Could not load font");
+            .load_font_from_rwops(font_rwops, 24)
+            .expect("Could not load font from embedded data");
+
+        let audio = Audio::new();
+
+        // Load map texture from embedded data
+        let mut map_texture = texture_creator
+            .load_texture_bytes(MAP_TEXTURE_DATA)
+            .expect("Could not load map texture from embedded data");
+        map_texture.set_color_mod(0, 0, 255);
 
         Game {
             canvas,
             pacman: pacman,
             debug: false,
             map: map,
-            map_texture: texture_creator
-                .load_texture("assets/map.png")
-                .expect("Could not load map texture"),
+            map_texture,
             pellet_texture,
             power_pellet_texture,
             font,
             score: 0,
+            audio,
         }
     }
 
@@ -116,36 +141,25 @@ impl Game<'_> {
         };
 
         if let Some(tile) = tile {
-            match tile {
-                MapTile::Pellet => {
-                    // Eat the pellet and add score
-                    {
-                        let mut map = self.map.borrow_mut();
-                        map.set_tile((cell_pos.0 as i32, cell_pos.1 as i32), MapTile::Empty);
-                    }
-                    self.add_score(10);
-                    event!(
-                        tracing::Level::DEBUG,
-                        "Pellet eaten at ({}, {})",
-                        cell_pos.0,
-                        cell_pos.1
-                    );
+            let pellet_value = match tile {
+                MapTile::Pellet => Some(10),
+                MapTile::PowerPellet => Some(50),
+                _ => None,
+            };
+
+            if let Some(value) = pellet_value {
+                {
+                    let mut map = self.map.borrow_mut();
+                    map.set_tile((cell_pos.0 as i32, cell_pos.1 as i32), MapTile::Empty);
                 }
-                MapTile::PowerPellet => {
-                    // Eat the power pellet and add score
-                    {
-                        let mut map = self.map.borrow_mut();
-                        map.set_tile((cell_pos.0 as i32, cell_pos.1 as i32), MapTile::Empty);
-                    }
-                    self.add_score(50);
-                    event!(
-                        tracing::Level::DEBUG,
-                        "Power pellet eaten at ({}, {})",
-                        cell_pos.0,
-                        cell_pos.1
-                    );
-                }
-                _ => {}
+                self.add_score(value);
+                self.audio.eat();
+                event!(
+                    tracing::Level::DEBUG,
+                    "Pellet eaten at ({}, {})",
+                    cell_pos.0,
+                    cell_pos.1
+                );
             }
         }
     }
