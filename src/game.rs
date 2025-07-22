@@ -2,6 +2,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use rand::seq::IteratorRandom;
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
 use sdl2::render::{Texture, TextureCreator};
@@ -34,6 +35,13 @@ static GHOST_EYES_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/ghost_eyes.
 ///
 /// This struct contains all the information necessary to run the game, including
 /// the canvas, textures, fonts, game objects, and the current score.
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum DebugMode {
+    None,
+    Grid,
+    Pathfinding,
+}
+
 pub struct Game<'a> {
     canvas: &'a mut Canvas<Window>,
     map_texture: Texture<'a>,
@@ -42,7 +50,7 @@ pub struct Game<'a> {
     font: Font<'a, 'static>,
     pacman: Rc<RefCell<Pacman<'a>>>,
     map: Rc<std::cell::RefCell<Map>>,
-    debug: bool,
+    debug_mode: DebugMode,
     score: u32,
     audio: Audio,
     // Add ghost
@@ -120,7 +128,7 @@ impl Game<'_> {
         Game {
             canvas,
             pacman,
-            debug: false,
+            debug_mode: DebugMode::None,
             map,
             map_texture,
             pellet_texture,
@@ -144,7 +152,11 @@ impl Game<'_> {
 
         // Toggle debug mode
         if keycode == Keycode::Space {
-            self.debug = !self.debug;
+            self.debug_mode = match self.debug_mode {
+                DebugMode::None => DebugMode::Grid,
+                DebugMode::Grid => DebugMode::Pathfinding,
+                DebugMode::Pathfinding => DebugMode::None,
+            };
         }
 
         // Reset game
@@ -173,18 +185,40 @@ impl Game<'_> {
         // Reset the score
         self.score = 0;
 
-        // Reset Pac-Man position
+        // Reset Pacman position
         let mut pacman = self.pacman.borrow_mut();
         pacman.pixel_position = Map::cell_to_pixel((1, 1));
         pacman.cell_position = (1, 1);
+        pacman.in_tunnel = false;
+        pacman.direction = Direction::Right;
+        pacman.next_direction = None;
+        pacman.stopped = false;
 
-        // Reset ghost positions
-        self.blinky.set_mode(crate::ghost::GhostMode::House);
-        self.blinky.pixel_position = Map::cell_to_pixel((13, 11));
-        self.blinky.cell_position = (13, 11);
-        self.blinky.direction = Direction::Left;
+        // Reset ghost positions and mode
+        let mut rng = rand::rng();
+        let map = self.map.borrow();
+        let mut valid_positions = vec![];
+        for x in 1..(crate::constants::BOARD_WIDTH - 1) {
+            for y in 1..(crate::constants::BOARD_HEIGHT - 1) {
+                let tile_option = map.get_tile((x as i32, y as i32));
 
-        event!(tracing::Level::INFO, "Game reset - map and score cleared");
+                if let Some(tile) = tile_option {
+                    match tile {
+                        MapTile::Empty | MapTile::Pellet | MapTile::PowerPellet => {
+                            valid_positions.push((x, y));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        if let Some(&(gx, gy)) = valid_positions.iter().choose(&mut rng) {
+            self.blinky.pixel_position = Map::cell_to_pixel((gx, gy));
+            self.blinky.cell_position = (gx, gy);
+            self.blinky.in_tunnel = false;
+            self.blinky.direction = Direction::Left;
+            self.blinky.mode = crate::ghost::GhostMode::Chase;
+        }
     }
 
     /// Advances the game by one tick.
@@ -275,7 +309,7 @@ impl Game<'_> {
         self.render_ui();
 
         // Draw the debug grid
-        if self.debug {
+        if self.debug_mode == DebugMode::Grid {
             for x in 0..BOARD_WIDTH {
                 for y in 0..BOARD_HEIGHT {
                     let tile = self
@@ -294,6 +328,7 @@ impl Game<'_> {
                             MapTile::Pellet => Some(Color::RED),
                             MapTile::PowerPellet => Some(Color::MAGENTA),
                             MapTile::StartingPosition(_) => Some(Color::GREEN),
+                            MapTile::Tunnel => Some(Color::CYAN),
                         };
                     }
 
@@ -306,6 +341,19 @@ impl Game<'_> {
             // Draw the next cell
             let next_cell = self.pacman.borrow().next_cell(None);
             self.draw_cell((next_cell.0 as u32, next_cell.1 as u32), Color::YELLOW);
+        }
+
+        // Pathfinding debug mode
+        if self.debug_mode == DebugMode::Pathfinding {
+            // Show the current path for Blinky
+            if let Some((path, _)) = self.blinky.get_path_to_target({
+                let (tx, ty) = self.blinky.get_target_tile();
+                (tx as u32, ty as u32)
+            }) {
+                for &(x, y) in &path {
+                    self.draw_cell((x, y), Color::YELLOW);
+                }
+            }
         }
 
         // Present the canvas

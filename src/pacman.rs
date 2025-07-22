@@ -11,7 +11,7 @@ use tracing::event;
 use crate::{
     animation::AnimatedTexture,
     constants::MapTile,
-    constants::{BOARD_OFFSET, CELL_SIZE},
+    constants::{BOARD_OFFSET, BOARD_WIDTH, CELL_SIZE},
     direction::Direction,
     entity::Entity,
     map::Map,
@@ -35,6 +35,7 @@ pub struct Pacman<'a> {
     speed: u32,
     modulation: SimpleTickModulator,
     sprite: AnimatedTexture<'a>,
+    pub in_tunnel: bool,
 }
 
 impl Pacman<'_> {
@@ -60,6 +61,7 @@ impl Pacman<'_> {
             stopped: false,
             modulation: SimpleTickModulator::new(1.0),
             sprite: AnimatedTexture::new(atlas, 2, 3, 32, 32, Some((-4, -4))),
+            in_tunnel: false,
         }
     }
 
@@ -171,39 +173,55 @@ impl Entity for Pacman<'_> {
         // Pac-Man can only change direction when he is perfectly aligned with the grid.
         let can_change = self.internal_position_even() == (0, 0);
 
-        if let Some(next_direction) = self.next_direction {
-            if next_direction == self.direction.opposite() {
-                let next_tile_position = self.next_cell(Some(next_direction));
+        if can_change {
+            self.cell_position = (
+                (self.pixel_position.0 as u32 / CELL_SIZE) - BOARD_OFFSET.0,
+                (self.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
+            );
+
+            let current_tile = self
+                .map
+                .borrow()
+                .get_tile((self.cell_position.0 as i32, self.cell_position.1 as i32))
+                .unwrap_or(MapTile::Empty);
+            if current_tile == MapTile::Tunnel {
+                self.in_tunnel = true;
+            }
+
+            // Tunnel logic: if in tunnel, force movement and prevent direction change
+            if self.in_tunnel {
+                // If out of bounds, teleport to the opposite side and exit tunnel
+                if self.cell_position.0 == 0 {
+                    self.cell_position.0 = BOARD_WIDTH - 2;
+                    self.pixel_position =
+                        Map::cell_to_pixel((self.cell_position.0 + 1, self.cell_position.1));
+                    self.in_tunnel = false;
+                } else if self.cell_position.0 == BOARD_WIDTH - 1 {
+                    self.cell_position.0 = 1;
+                    self.pixel_position =
+                        Map::cell_to_pixel((self.cell_position.0 - 1, self.cell_position.1));
+                    self.in_tunnel = false;
+                } else {
+                    // While in tunnel, do not allow direction change
+                    // and always move in the current direction
+                }
+            } else {
+                // Handle direction change as normal
+                self.handle_direction_change();
+
+                // Check if the next tile in the current direction is a wall.
+                let next_tile_position = self.next_cell(None);
                 let next_tile = self
                     .map
                     .borrow()
                     .get_tile(next_tile_position)
                     .unwrap_or(MapTile::Empty);
 
-                if next_tile != MapTile::Wall {
-                    self.direction = next_direction;
-                    self.next_direction = None;
+                if !self.stopped && next_tile == MapTile::Wall {
+                    self.stopped = true;
+                } else if self.stopped && next_tile != MapTile::Wall {
+                    self.stopped = false;
                 }
-            }
-        }
-
-        if can_change {
-            self.handle_direction_change();
-
-            // Check if the next tile in the current direction is a wall.
-            let next_tile_position = self.next_cell(None);
-            let next_tile = self
-                .map
-                .borrow()
-                .get_tile(next_tile_position)
-                .unwrap_or(MapTile::Empty);
-
-            if !self.stopped && next_tile == MapTile::Wall {
-                event!(tracing::Level::DEBUG, "Wall collision. Stopping.");
-                self.stopped = true;
-            } else if self.stopped && next_tile != MapTile::Wall {
-                event!(tracing::Level::DEBUG, "Wall collision resolved. Moving.");
-                self.stopped = false;
             }
         }
 

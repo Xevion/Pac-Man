@@ -1,4 +1,4 @@
-use pathfinding::prelude::astar;
+use pathfinding::prelude::dijkstra;
 use sdl2::{
     pixels::Color,
     render::{Canvas, Texture},
@@ -11,7 +11,7 @@ use rand::Rng;
 
 use crate::{
     animation::AnimatedTexture,
-    constants::{MapTile, BOARD_OFFSET, CELL_SIZE},
+    constants::{MapTile, BOARD_OFFSET, BOARD_WIDTH, CELL_SIZE},
     direction::Direction,
     entity::Entity,
     map::Map,
@@ -67,8 +67,6 @@ pub struct Ghost<'a> {
     pub mode: GhostMode,
     /// The type/personality of this ghost
     pub ghost_type: GhostType,
-    /// Whether the ghost is currently blue (frightened)
-    pub is_blue: bool,
     /// Reference to the game map
     pub map: Rc<RefCell<Map>>,
     /// Reference to Pac-Man for targeting
@@ -81,6 +79,8 @@ pub struct Ghost<'a> {
     body_sprite: AnimatedTexture<'a>,
     /// Ghost eyes sprite
     eyes_sprite: AnimatedTexture<'a>,
+    /// Whether the ghost is currently in a tunnel
+    pub in_tunnel: bool,
 }
 
 impl Ghost<'_> {
@@ -103,13 +103,13 @@ impl Ghost<'_> {
             direction: Direction::Left,
             mode: GhostMode::Chase,
             ghost_type,
-            is_blue: false,
             map,
             pacman,
             speed: 3,
             modulation: SimpleTickModulator::new(1.0),
             body_sprite,
             eyes_sprite: AnimatedTexture::new(eyes_texture, 1, 4, 32, 32, Some((-4, -4))),
+            in_tunnel: false,
         }
     }
 
@@ -150,14 +150,23 @@ impl Ghost<'_> {
     }
 
     /// Calculates the path to the target tile using the A* algorithm.
-    fn get_path_to_target(&self, target: (u32, u32)) -> Option<(Vec<(u32, u32)>, u32)> {
+    pub fn get_path_to_target(&self, target: (u32, u32)) -> Option<(Vec<(u32, u32)>, u32)> {
         let start = self.cell_position;
         let map = self.map.borrow();
 
-        astar(
+        dijkstra(
             &start,
             |&p| {
                 let mut successors = vec![];
+                let tile = map.get_tile((p.0 as i32, p.1 as i32));
+                // Tunnel wrap: if currently in a tunnel, add the opposite exit as a neighbor
+                if let Some(MapTile::Tunnel) = tile {
+                    if p.0 == 0 {
+                        successors.push(((BOARD_WIDTH - 2, p.1), 1));
+                    } else if p.0 == BOARD_WIDTH - 1 {
+                        successors.push(((1, p.1), 1));
+                    }
+                }
                 for dir in &[
                     Direction::Up,
                     Direction::Down,
@@ -167,15 +176,13 @@ impl Ghost<'_> {
                     let (dx, dy) = dir.offset();
                     let next_p = (p.0 as i32 + dx, p.1 as i32 + dy);
                     if let Some(tile) = map.get_tile(next_p) {
-                        if tile != MapTile::Wall {
-                            successors.push(((next_p.0 as u32, next_p.1 as u32), 1));
+                        if tile == MapTile::Wall {
+                            continue;
                         }
+                        successors.push(((next_p.0 as u32, next_p.1 as u32), 1));
                     }
                 }
                 successors
-            },
-            |&p| {
-                ((p.0 as i32 - target.0 as i32).abs() + (p.1 as i32 - target.1 as i32).abs()) as u32
             },
             |&p| p == target,
         )
@@ -304,25 +311,53 @@ impl Entity for Ghost<'_> {
                 (self.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
             );
 
-            // Pathfinding logic
-            let target_tile = self.get_target_tile();
-            if let Some((path, _)) =
-                self.get_path_to_target((target_tile.0 as u32, target_tile.1 as u32))
-            {
-                if path.len() > 1 {
-                    let next_move = path[1];
-                    let (x, y) = self.cell_position;
-                    let dx = next_move.0 as i32 - x as i32;
-                    let dy = next_move.1 as i32 - y as i32;
-                    self.direction = if dx > 0 {
-                        Direction::Right
-                    } else if dx < 0 {
-                        Direction::Left
-                    } else if dy > 0 {
-                        Direction::Down
-                    } else {
-                        Direction::Up
-                    };
+            let current_tile = self
+                .map
+                .borrow()
+                .get_tile((self.cell_position.0 as i32, self.cell_position.1 as i32))
+                .unwrap_or(MapTile::Empty);
+            if current_tile == MapTile::Tunnel {
+                self.in_tunnel = true;
+            }
+
+            // Tunnel logic: if in tunnel, force movement and prevent direction change
+            if self.in_tunnel {
+                // If out of bounds, teleport to the opposite side and exit tunnel
+                if self.cell_position.0 == 0 {
+                    self.cell_position.0 = BOARD_WIDTH - 2;
+                    self.pixel_position =
+                        Map::cell_to_pixel((self.cell_position.0, self.cell_position.1));
+                    self.in_tunnel = false;
+                } else if self.cell_position.0 == BOARD_WIDTH - 1 {
+                    self.cell_position.0 = 1;
+                    self.pixel_position =
+                        Map::cell_to_pixel((self.cell_position.0, self.cell_position.1));
+                    self.in_tunnel = false;
+                } else {
+                    // While in tunnel, do not allow direction change
+                    // and always move in the current direction
+                }
+            } else {
+                // Pathfinding logic (only if not in tunnel)
+                let target_tile = self.get_target_tile();
+                if let Some((path, _)) =
+                    self.get_path_to_target((target_tile.0 as u32, target_tile.1 as u32))
+                {
+                    if path.len() > 1 {
+                        let next_move = path[1];
+                        let (x, y) = self.cell_position;
+                        let dx = next_move.0 as i32 - x as i32;
+                        let dy = next_move.1 as i32 - y as i32;
+                        self.direction = if dx > 0 {
+                            Direction::Right
+                        } else if dx < 0 {
+                            Direction::Left
+                        } else if dy > 0 {
+                            Direction::Down
+                        } else {
+                            Direction::Up
+                        };
+                    }
                 }
             }
 

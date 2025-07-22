@@ -32,6 +32,8 @@ pub enum MapTile {
     PowerPellet,
     /// A starting position for an entity.
     StartingPosition(u8),
+    /// A tunnel tile.
+    Tunnel,
 }
 
 /// The raw layout of the game board, as a 2D array of characters.
@@ -50,7 +52,7 @@ pub const RAW_BOARD: [&str; BOARD_HEIGHT as usize] = [
     "     #.##    1     ##.#     ",
     "     #.## ###==### ##.#     ",
     "######.## #      # ##.######",
-    "      .   #2 3 4 #   .      ",
+    "T     .   #2 3 4 #   .     T",
     "######.## #      # ##.######",
     "     #.## ######## ##.#     ",
     "     #.##          ##.#     ",

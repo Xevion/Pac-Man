@@ -2,6 +2,18 @@
 use crate::constants::{MapTile, BOARD_OFFSET, CELL_SIZE};
 use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH};
 
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Position(pub u32, pub u32);
+
+impl Position {
+    pub fn as_i32(&self) -> (i32, i32) {
+        (self.0 as i32, self.1 as i32)
+    }
+    pub fn wrapping_add(&self, dx: i32, dy: i32) -> Position {
+        Position((self.0 as i32 + dx) as u32, (self.1 as i32 + dy) as u32)
+    }
+}
+
 /// The game map.
 ///
 /// The map is represented as a 2D array of `MapTile`s. It also stores a copy of
@@ -41,6 +53,7 @@ impl Map {
                     '.' => MapTile::Pellet,
                     'o' => MapTile::PowerPellet,
                     ' ' => MapTile::Empty,
+                    'T' => MapTile::Tunnel,
                     c @ '0' | c @ '1' | c @ '2' | c @ '3' | c @ '4' => {
                         MapTile::StartingPosition(c.to_digit(10).unwrap() as u8)
                     }
