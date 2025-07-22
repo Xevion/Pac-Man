@@ -1,5 +1,8 @@
+//! This module defines the `Direction` enum, which is used to represent the
+//! direction of an entity.
 use sdl2::keyboard::Keycode;
 
+/// An enum representing the direction of an entity.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Direction {
     Up,
@@ -9,6 +12,7 @@ pub enum Direction {
 }
 
 impl Direction {
+    /// Returns the angle of the direction in degrees.
     pub fn angle(&self) -> f64 {
         match self {
             Direction::Right => 0f64,
@@ -18,6 +22,7 @@ impl Direction {
         }
     }
 
+    /// Returns the offset of the direction as a tuple of (x, y).
     pub fn offset(&self) -> (i32, i32) {
         match self {
             Direction::Right => (1, 0),
@@ -27,16 +32,27 @@ impl Direction {
         }
     }
 
+    /// Returns the opposite direction.
+    pub fn opposite(&self) -> Direction {
+        match self {
+            Direction::Right => Direction::Left,
+            Direction::Down => Direction::Up,
+            Direction::Left => Direction::Right,
+            Direction::Up => Direction::Down,
+        }
+    }
+
+    /// Creates a `Direction` from a `Keycode`.
+    ///
+    /// # Arguments
+    ///
+    /// * `keycode` - The keycode to convert.
     pub fn from_keycode(keycode: Keycode) -> Option<Direction> {
         match keycode {
-            Keycode::D => Some(Direction::Right),
-            Keycode::Right => Some(Direction::Right),
-            Keycode::A => Some(Direction::Left),
-            Keycode::Left => Some(Direction::Left),
-            Keycode::W => Some(Direction::Up),
-            Keycode::Up => Some(Direction::Up),
-            Keycode::S => Some(Direction::Down),
-            Keycode::Down => Some(Direction::Down),
+            Keycode::D | Keycode::Right => Some(Direction::Right),
+            Keycode::A | Keycode::Left => Some(Direction::Left),
+            Keycode::W | Keycode::Up => Some(Direction::Up),
+            Keycode::S | Keycode::Down => Some(Direction::Down),
             _ => None,
         }
     }

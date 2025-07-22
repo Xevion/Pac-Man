@@ -1,3 +1,4 @@
+//! This module contains the main game logic and state.
 use std::rc::Rc;
 
 use sdl2::image::LoadTexture;
@@ -23,6 +24,10 @@ static POWER_PELLET_TEXTURE_DATA: &[u8] = include_bytes!("../assets/24/energizer
 static MAP_TEXTURE_DATA: &[u8] = include_bytes!("../assets/map.png");
 static FONT_DATA: &[u8] = include_bytes!("../assets/font/konami.ttf");
 
+/// The main game state.
+///
+/// This struct contains all the information necessary to run the game, including
+/// the canvas, textures, fonts, game objects, and the current score.
 pub struct Game<'a> {
     canvas: &'a mut Canvas<Window>,
     map_texture: Texture<'a>,
@@ -37,6 +42,14 @@ pub struct Game<'a> {
 }
 
 impl Game<'_> {
+    /// Creates a new `Game` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `canvas` - The SDL canvas to render to.
+    /// * `texture_creator` - The SDL texture creator.
+    /// * `ttf_context` - The SDL TTF context.
+    /// * `_audio_subsystem` - The SDL audio subsystem (currently unused).
     pub fn new<'a>(
         canvas: &'a mut Canvas<Window>,
         texture_creator: &'a TextureCreator<WindowContext>,
@@ -89,6 +102,11 @@ impl Game<'_> {
         }
     }
 
+    /// Handles a keyboard event.
+    ///
+    /// # Arguments
+    ///
+    /// * `keycode` - The keycode of the key that was pressed.
     pub fn keyboard_event(&mut self, keycode: Keycode) {
         // Change direction
         let direction = Direction::from_keycode(keycode);
@@ -105,10 +123,16 @@ impl Game<'_> {
         }
     }
 
+    /// Adds points to the score.
+    ///
+    /// # Arguments
+    ///
+    /// * `points` - The number of points to add.
     pub fn add_score(&mut self, points: u32) {
         self.score += points;
     }
 
+    /// Resets the game to its initial state.
     pub fn reset(&mut self) {
         // Reset the map to restore all pellets
         {
@@ -126,11 +150,14 @@ impl Game<'_> {
         event!(tracing::Level::INFO, "Game reset - map and score cleared");
     }
 
+    /// Advances the game by one tick.
     pub fn tick(&mut self) {
-        self.pacman.tick();
         self.check_pellet_eating();
+        self.pacman.tick();
     }
 
+    /// Checks if Pac-Man is currently eating a pellet and updates the game state
+    /// accordingly.
     fn check_pellet_eating(&mut self) {
         let cell_pos = self.pacman.cell_position();
 
@@ -164,6 +191,7 @@ impl Game<'_> {
         }
     }
 
+    /// Draws the entire game to the canvas.
     pub fn draw(&mut self) {
         // Clear the screen (black)
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
@@ -175,13 +203,35 @@ impl Game<'_> {
             .expect("Could not render texture on canvas");
 
         // Render pellets
-        self.render_pellets();
+        for x in 0..BOARD_WIDTH {
+            for y in 0..BOARD_HEIGHT {
+                let tile = self
+                    .map
+                    .borrow()
+                    .get_tile((x as i32, y as i32))
+                    .unwrap_or(MapTile::Empty);
+
+                let texture = match tile {
+                    MapTile::Pellet => Some(&self.pellet_texture),
+                    MapTile::PowerPellet => Some(&self.power_pellet_texture),
+                    _ => None,
+                };
+
+                if let Some(texture) = texture {
+                    let position = Map::cell_to_pixel((x, y));
+                    let dst_rect = sdl2::rect::Rect::new(position.0, position.1, 24, 24);
+                    self.canvas
+                        .copy(texture, None, Some(dst_rect))
+                        .expect("Could not render pellet");
+                }
+            }
+        }
 
         // Render the pacman
         self.pacman.render(self.canvas);
 
         // Render score
-        self.render_score();
+        self.render_ui();
 
         // Draw the debug grid
         if self.debug {
@@ -221,6 +271,12 @@ impl Game<'_> {
         self.canvas.present();
     }
 
+    /// Draws a single cell to the canvas with the given color.
+    ///
+    /// # Arguments
+    ///
+    /// * `cell` - The cell to draw, in grid coordinates.
+    /// * `color` - The color to draw the cell with.
     fn draw_cell(&mut self, cell: (u32, u32), color: Color) {
         let position = Map::cell_to_pixel(cell);
 
@@ -235,37 +291,8 @@ impl Game<'_> {
             .expect("Could not draw rectangle");
     }
 
-    fn render_pellets(&mut self) {
-        for x in 0..BOARD_WIDTH {
-            for y in 0..BOARD_HEIGHT {
-                let tile = self
-                    .map
-                    .borrow()
-                    .get_tile((x as i32, y as i32))
-                    .unwrap_or(MapTile::Empty);
-
-                match tile {
-                    MapTile::Pellet => {
-                        let position = Map::cell_to_pixel((x, y));
-                        let dst_rect = sdl2::rect::Rect::new(position.0, position.1, 24, 24);
-                        self.canvas
-                            .copy(&self.pellet_texture, None, Some(dst_rect))
-                            .expect("Could not render pellet");
-                    }
-                    MapTile::PowerPellet => {
-                        let position = Map::cell_to_pixel((x, y));
-                        let dst_rect = sdl2::rect::Rect::new(position.0, position.1, 24, 24);
-                        self.canvas
-                            .copy(&self.power_pellet_texture, None, Some(dst_rect))
-                            .expect("Could not render power pellet");
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    fn render_score(&mut self) {
+    /// Renders the user interface, including the score and lives.
+    fn render_ui(&mut self) {
         let lives = 3;
         let score_text = format!("{:02}", self.score);
 
@@ -275,6 +302,7 @@ impl Game<'_> {
         let score_offset = 7 - (score_text.len() as i32);
         let gap_offset = 6;
 
+        // Render the score and high score
         self.render_text(
             &format!("{}UP   HIGH SCORE   ", lives),
             (24 * lives_offset + x_offset, y_offset),
@@ -287,6 +315,7 @@ impl Game<'_> {
         );
     }
 
+    /// Renders text to the screen at the given position.
     fn render_text(&mut self, text: &str, position: (i32, i32), color: Color) {
         let surface = self
             .font
@@ -298,11 +327,9 @@ impl Game<'_> {
         let texture = texture_creator
             .create_texture_from_surface(&surface)
             .expect("Could not create texture from surface");
-
         let query = texture.query();
 
-        let dst_rect =
-            sdl2::rect::Rect::new(position.0, position.1, query.width + 4, query.height + 4);
+        let dst_rect = sdl2::rect::Rect::new(position.0, position.1, query.width, query.height);
 
         self.canvas
             .copy(&texture, None, Some(dst_rect))
