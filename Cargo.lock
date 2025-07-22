@@ -89,6 +89,7 @@ name = "pacman"
 version = "0.1.0"
 dependencies = [
  "lazy_static",
+ "libc",
  "sdl2",
  "spin_sleep",
  "tracing",
