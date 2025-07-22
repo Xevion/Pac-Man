@@ -1,16 +1,21 @@
+//! This module handles the audio playback for the game.
 use sdl2::{
     mixer::{self, Chunk, InitFlag, LoaderRWops, DEFAULT_FORMAT},
     rwops::RWops,
 };
 
-// Embed sound files directly into the executable
 const SOUND_1_DATA: &[u8] = include_bytes!("../assets/wav/1.ogg");
 const SOUND_2_DATA: &[u8] = include_bytes!("../assets/wav/2.ogg");
 const SOUND_3_DATA: &[u8] = include_bytes!("../assets/wav/3.ogg");
 const SOUND_4_DATA: &[u8] = include_bytes!("../assets/wav/4.ogg");
 
+/// An array of all the sound effect data.
 const SOUND_DATA: [&[u8]; 4] = [SOUND_1_DATA, SOUND_2_DATA, SOUND_3_DATA, SOUND_4_DATA];
 
+/// The audio system for the game.
+///
+/// This struct is responsible for initializing the audio device, loading sounds,
+/// and playing them.
 pub struct Audio {
     _mixer_context: mixer::Sdl2MixerContext,
     sounds: Vec<Chunk>,
@@ -18,6 +23,7 @@ pub struct Audio {
 }
 
 impl Audio {
+    /// Creates a new `Audio` instance.
     pub fn new() -> Self {
         let frequency = 44100;
         let format = DEFAULT_FORMAT;
@@ -53,6 +59,9 @@ impl Audio {
         }
     }
 
+    /// Plays the "eat" sound effect.
+    ///
+    /// This function also logs the time since the last sound effect was played.
     pub fn eat(&mut self) {
         if let Some(chunk) = self.sounds.get(self.next_sound_index) {
             match mixer::Channel(0).play(chunk, 0) {

@@ -22,6 +22,11 @@ use winapi::{
     },
 };
 
+/// Attaches the process to the parent console on Windows.
+///
+/// This allows the application to print to the console when run from a terminal,
+/// which is useful for debugging purposes. If the application is not run from a
+/// terminal, this function does nothing.
 #[cfg(windows)]
 unsafe fn attach_console() {
     if GetConsoleWindow() != std::ptr::null_mut() as HWND {
@@ -58,7 +63,12 @@ mod map;
 mod modulation;
 mod pacman;
 
+/// The main entry point of the application.
+///
+/// This function initializes SDL, the window, the game state, and then enters
+/// the main game loop.
 pub fn main() {
+    // Attaches the console on Windows for debugging purposes.
     #[cfg(windows)]
     unsafe {
         attach_console();
@@ -109,13 +119,16 @@ pub fn main() {
     game.draw();
     game.tick();
 
+    // The target time for each frame of the game loop (60 FPS).
     let loop_time = Duration::from_secs(1) / 60;
     let mut tick_no = 0u32;
 
     // The start of a period of time over which we average the frame time.
     let mut last_averaging_time = Instant::now();
+    // The total time spent sleeping during the current averaging period.
     let mut sleep_time = Duration::ZERO;
     let mut paused = false;
+    // Whether the window is currently shown.
     let mut shown = false;
 
     event!(
@@ -126,7 +139,9 @@ pub fn main() {
     let mut main_loop = || {
         let start = Instant::now();
 
-        // TODO: Fix key repeat delay issues by using VecDeque for instant key repeat
+        // TODO: Fix key repeat delay issues by using a queue for keyboard events.
+        // This would allow for instant key repeat without being affected by the
+        // main loop's tick rate.
         for event in event_pump.poll_iter() {
             match event {
                 Event::Window { win_event, .. } => match win_event {
@@ -167,9 +182,9 @@ pub fn main() {
             }
         }
 
-        // TODO: Proper pausing implementation that does not interfere with statistic gathering
+        // TODO: Implement a proper pausing mechanism that does not interfere with
+        // statistic gathering and other background tasks.
         if !paused {
-            // game.audio_demo_tick();
             game.tick();
             game.draw();
         }
@@ -197,6 +212,7 @@ pub fn main() {
 
         tick_no += 1;
 
+        // Caclulate and display performance statistics every 60 seconds.
         const PERIOD: u32 = 60 * 60;
         let tick_mod = tick_no % PERIOD;
         if tick_mod % PERIOD == 0 {

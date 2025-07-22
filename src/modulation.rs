@@ -1,3 +1,5 @@
+//! This module provides a tick modulator, which can be used to slow down
+//! operations by a percentage.
 /// A tick modulator allows you to slow down operations by a percentage.
 ///
 /// Unfortunately, switching to floating point numbers for entities can induce floating point errors, slow down calculations
@@ -12,17 +14,25 @@
 ///
 /// For example, if we want to slow down the speed by 10%, we would need to skip every 10th tick.
 pub trait TickModulator {
+    /// Creates a new tick modulator.
+    ///
+    /// # Arguments
+    ///
+    /// * `percent` - The percentage to slow down by, from 0.0 to 1.0.
     fn new(percent: f32) -> Self;
+    /// Returns whether or not the operation should be performed on this tick.
     fn next(&mut self) -> bool;
 }
 
+/// A simple tick modulator that skips every Nth tick.
 pub struct SimpleTickModulator {
     tick_count: u32,
     ticks_left: u32,
 }
 
-// TODO: Add tests
-// TODO: Look into average precision, binary code modulation strategy
+// TODO: Add tests for the tick modulator to ensure that it is working correctly.
+// TODO: Look into average precision and binary code modulation strategies to see
+// if they would be a better fit for this use case.
 impl TickModulator for SimpleTickModulator {
     fn new(percent: f32) -> Self {
         let ticks_required: u32 = (1f32 / (1f32 - percent)).round() as u32;
@@ -34,15 +44,12 @@ impl TickModulator for SimpleTickModulator {
     }
 
     fn next(&mut self) -> bool {
-        self.ticks_left -= 1;
-
-        // Return whether or not we should skip this tick
         if self.ticks_left == 0 {
-            // We've reached the tick to skip, reset the counter
             self.ticks_left = self.tick_count;
-            false
-        } else {
-            true
+            return false;
         }
+
+        self.ticks_left -= 1;
+        true
     }
 }

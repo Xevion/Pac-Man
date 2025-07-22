@@ -1,12 +1,24 @@
-use crate::constants::MapTile;
-use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH, RAW_BOARD};
+//! This module defines the game map and provides functions for interacting with it.
+use crate::constants::{MapTile, BOARD_OFFSET, CELL_SIZE};
+use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH};
 
+/// The game map.
+///
+/// The map is represented as a 2D array of `MapTile`s. It also stores a copy of
+/// the original map, which can be used to reset the map to its initial state.
 pub struct Map {
+    /// The current state of the map.
     current: [[MapTile; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize],
+    /// The default state of the map.
     default: [[MapTile; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize],
 }
 
 impl Map {
+    /// Creates a new `Map` instance from a raw board layout.
+    ///
+    /// # Arguments
+    ///
+    /// * `raw_board` - A 2D array of characters representing the board layout.
     pub fn new(raw_board: [&str; BOARD_HEIGHT as usize]) -> Map {
         let mut map = [[MapTile::Empty; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize];
 
@@ -46,6 +58,7 @@ impl Map {
         }
     }
 
+    /// Resets the map to its original state.
     pub fn reset(&mut self) {
         // Restore the map to its original state
         for x in 0..BOARD_WIDTH as usize {
@@ -55,6 +68,11 @@ impl Map {
         }
     }
 
+    /// Returns the tile at the given cell coordinates.
+    ///
+    /// # Arguments
+    ///
+    /// * `cell` - The cell coordinates, in grid coordinates.
     pub fn get_tile(&self, cell: (i32, i32)) -> Option<MapTile> {
         let x = cell.0 as usize;
         let y = cell.1 as usize;
@@ -66,6 +84,12 @@ impl Map {
         Some(self.current[x][y])
     }
 
+    /// Sets the tile at the given cell coordinates.
+    ///
+    /// # Arguments
+    ///
+    /// * `cell` - The cell coordinates, in grid coordinates.
+    /// * `tile` - The tile to set.
     pub fn set_tile(&mut self, cell: (i32, i32), tile: MapTile) -> bool {
         let x = cell.0 as usize;
         let y = cell.1 as usize;
@@ -78,7 +102,15 @@ impl Map {
         true
     }
 
+    /// Converts cell coordinates to pixel coordinates.
+    ///
+    /// # Arguments
+    ///
+    /// * `cell` - The cell coordinates, in grid coordinates.
     pub fn cell_to_pixel(cell: (u32, u32)) -> (i32, i32) {
-        ((cell.0 as i32) * 24, ((cell.1 + 3) as i32) * 24)
+        (
+            (cell.0 * CELL_SIZE) as i32,
+            ((cell.1 + BOARD_OFFSET.1) * CELL_SIZE) as i32,
+        )
     }
 }

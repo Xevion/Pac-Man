@@ -1,3 +1,5 @@
+//! This module contains helper functions that are used throughout the game.
+
 /// Checks if two grid positions are adjacent to each other
 ///
 /// # Arguments
