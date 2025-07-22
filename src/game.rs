@@ -1,4 +1,5 @@
 //! This module contains the main game logic and state.
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use sdl2::image::LoadTexture;
@@ -14,6 +15,7 @@ use crate::audio::Audio;
 use crate::constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH, RAW_BOARD};
 use crate::direction::Direction;
 use crate::entity::Entity;
+use crate::ghosts::Blinky;
 use crate::map::Map;
 use crate::pacman::Pacman;
 
@@ -23,6 +25,10 @@ static PELLET_TEXTURE_DATA: &[u8] = include_bytes!("../assets/24/pellet.png");
 static POWER_PELLET_TEXTURE_DATA: &[u8] = include_bytes!("../assets/24/energizer.png");
 static MAP_TEXTURE_DATA: &[u8] = include_bytes!("../assets/map.png");
 static FONT_DATA: &[u8] = include_bytes!("../assets/font/konami.ttf");
+
+// Add ghost texture data
+static GHOST_BODY_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/ghost_body.png");
+static GHOST_EYES_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/ghost_eyes.png");
 
 /// The main game state.
 ///
@@ -34,11 +40,13 @@ pub struct Game<'a> {
     pellet_texture: Texture<'a>,
     power_pellet_texture: Texture<'a>,
     font: Font<'a, 'static>,
-    pacman: Pacman<'a>,
+    pacman: Rc<RefCell<Pacman<'a>>>,
     map: Rc<std::cell::RefCell<Map>>,
     debug: bool,
     score: u32,
     audio: Audio,
+    // Add ghost
+    blinky: Blinky<'a>,
 }
 
 impl Game<'_> {
@@ -62,7 +70,28 @@ impl Game<'_> {
         let pacman_atlas = texture_creator
             .load_texture_bytes(PACMAN_TEXTURE_DATA)
             .expect("Could not load pacman texture from embedded data");
-        let pacman = Pacman::new((1, 1), pacman_atlas, Rc::clone(&map));
+        let pacman = Rc::new(std::cell::RefCell::new(Pacman::new(
+            (1, 1),
+            pacman_atlas,
+            Rc::clone(&map),
+        )));
+
+        // Load ghost textures
+        let ghost_body = texture_creator
+            .load_texture_bytes(GHOST_BODY_TEXTURE_DATA)
+            .expect("Could not load ghost body texture from embedded data");
+        let ghost_eyes = texture_creator
+            .load_texture_bytes(GHOST_EYES_TEXTURE_DATA)
+            .expect("Could not load ghost eyes texture from embedded data");
+
+        // Create Blinky
+        let blinky = Blinky::new(
+            (13, 11), // Starting position just above ghost house
+            ghost_body,
+            ghost_eyes,
+            Rc::clone(&map),
+            Rc::clone(&pacman),
+        );
 
         // Load pellet texture from embedded data
         let pellet_texture = texture_creator
@@ -90,15 +119,16 @@ impl Game<'_> {
 
         Game {
             canvas,
-            pacman: pacman,
+            pacman,
             debug: false,
-            map: map,
+            map,
             map_texture,
             pellet_texture,
             power_pellet_texture,
             font,
             score: 0,
             audio,
+            blinky,
         }
     }
 
@@ -110,7 +140,7 @@ impl Game<'_> {
     pub fn keyboard_event(&mut self, keycode: Keycode) {
         // Change direction
         let direction = Direction::from_keycode(keycode);
-        self.pacman.next_direction = direction;
+        self.pacman.borrow_mut().next_direction = direction;
 
         // Toggle debug mode
         if keycode == Keycode::Space {
@@ -143,9 +173,16 @@ impl Game<'_> {
         // Reset the score
         self.score = 0;
 
-        // Reset Pacman position (you might want to customize this)
-        // For now, we'll keep Pacman where he is, but you could add:
-        // self.pacman.position = Map::cell_to_pixel((1, 1));
+        // Reset Pac-Man position
+        let mut pacman = self.pacman.borrow_mut();
+        pacman.pixel_position = Map::cell_to_pixel((1, 1));
+        pacman.cell_position = (1, 1);
+
+        // Reset ghost positions
+        self.blinky.set_mode(crate::ghost::GhostMode::House);
+        self.blinky.pixel_position = Map::cell_to_pixel((13, 11));
+        self.blinky.cell_position = (13, 11);
+        self.blinky.direction = Direction::Left;
 
         event!(tracing::Level::INFO, "Game reset - map and score cleared");
     }
@@ -153,13 +190,14 @@ impl Game<'_> {
     /// Advances the game by one tick.
     pub fn tick(&mut self) {
         self.check_pellet_eating();
-        self.pacman.tick();
+        self.pacman.borrow_mut().tick();
+        self.blinky.tick();
     }
 
     /// Checks if Pac-Man is currently eating a pellet and updates the game state
     /// accordingly.
     fn check_pellet_eating(&mut self) {
-        let cell_pos = self.pacman.cell_position();
+        let cell_pos = self.pacman.borrow().cell_position();
 
         // Check if there's a pellet at the current position
         let tile = {
@@ -227,8 +265,11 @@ impl Game<'_> {
             }
         }
 
-        // Render the pacman
-        self.pacman.render(self.canvas);
+        // Render Pac-Man
+        self.pacman.borrow_mut().render(self.canvas);
+
+        // Render ghost
+        self.blinky.render(self.canvas);
 
         // Render score
         self.render_ui();
@@ -244,7 +285,7 @@ impl Game<'_> {
                         .unwrap_or(MapTile::Empty);
                     let mut color = None;
 
-                    if (x, y) == self.pacman.cell_position() {
+                    if (x, y) == self.pacman.borrow().cell_position() {
                         self.draw_cell((x, y), Color::CYAN);
                     } else {
                         color = match tile {
@@ -263,7 +304,7 @@ impl Game<'_> {
             }
 
             // Draw the next cell
-            let next_cell = self.pacman.next_cell(None);
+            let next_cell = self.pacman.borrow().next_cell(None);
             self.draw_cell((next_cell.0 as u32, next_cell.1 as u32), Color::YELLOW);
         }
 

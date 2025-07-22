@@ -58,6 +58,8 @@ mod constants;
 mod direction;
 mod entity;
 mod game;
+mod ghost;
+mod ghosts;
 mod helper;
 mod map;
 mod modulation;

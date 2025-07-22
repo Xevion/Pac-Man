@@ -20,7 +20,7 @@ pub const WINDOW_WIDTH: u32 = CELL_SIZE * BOARD_WIDTH;
 pub const WINDOW_HEIGHT: u32 = CELL_SIZE * (BOARD_HEIGHT + 6);
 
 /// An enum representing the different types of tiles on the map.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MapTile {
     /// An empty tile.
     Empty,

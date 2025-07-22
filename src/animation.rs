@@ -9,41 +9,29 @@ use crate::direction::Direction;
 
 /// An animated texture, which is a texture that is rendered as a series of
 /// frames.
+///
+/// This struct manages the state of an animated texture, including the current
+/// frame and the number of frames in the animation.
 pub struct AnimatedTexture<'a> {
+    // Parameters
     raw_texture: Texture<'a>,
-    /// The current tick of the animation.
-    ticker: u32,
-    /// Whether the animation is currently playing in reverse.
-    reversed: bool,
-    /// The offset of the texture, in pixels.
     offset: (i32, i32),
-    /// The number of ticks per frame.
     ticks_per_frame: u32,
-    /// The number of frames in the animation.
     frame_count: u32,
-    /// The width of each frame, in pixels.
-    frame_width: u32,
-    /// The height of each frame, in pixels.
-    frame_height: u32,
+    width: u32,
+    height: u32,
+    // State
+    ticker: u32,
+    reversed: bool,
 }
 
 impl<'a> AnimatedTexture<'a> {
-    /// Creates a new `AnimatedTexture`.
-    ///
-    /// # Arguments
-    ///
-    /// * `texture` - The texture to animate.
-    /// * `ticks_per_frame` - The number of ticks to display each frame for.
-    /// * `frame_count` - The number of frames in the animation.
-    /// * `frame_width` - The width of each frame.
-    /// * `frame_height` - The height of each frame.
-    /// * `offset` - The offset of the texture, in pixels.
     pub fn new(
         texture: Texture<'a>,
         ticks_per_frame: u32,
         frame_count: u32,
-        frame_width: u32,
-        frame_height: u32,
+        width: u32,
+        height: u32,
         offset: Option<(i32, i32)>,
     ) -> Self {
         AnimatedTexture {
@@ -52,20 +40,26 @@ impl<'a> AnimatedTexture<'a> {
             reversed: false,
             ticks_per_frame,
             frame_count,
-            frame_width,
-            frame_height,
+            width,
+            height,
             offset: offset.unwrap_or((0, 0)),
         }
     }
 
-    /// Returns the current frame number.
     fn current_frame(&self) -> u32 {
         self.ticker / self.ticks_per_frame
     }
 
     /// Advances the animation by one tick.
     ///
-    /// The animation will play forwards, then backwards, then forwards, and so on.
+    /// This method updates the internal ticker that tracks the current frame
+    /// of the animation. The animation automatically reverses direction when
+    /// it reaches the end, creating a ping-pong effect.
+    ///
+    /// When `reversed` is `false`, the ticker increments until it reaches
+    /// the total number of ticks for all frames, then reverses direction.
+    /// When `reversed` is `true`, the ticker decrements until it reaches 0,
+    /// then reverses direction again.
     pub fn tick(&mut self) {
         if self.reversed {
             self.ticker -= 1;
@@ -82,27 +76,33 @@ impl<'a> AnimatedTexture<'a> {
         }
     }
 
-    /// Calculates the source rectangle for the given frame.
-    fn get_frame_rect(&self, frame: u32) -> Rect {
-        if frame >= self.frame_count {
-            panic!("Frame {} is out of bounds for this texture", frame);
-        }
-
-        Rect::new(
-            frame as i32 * self.frame_width as i32,
-            0,
-            self.frame_width,
-            self.frame_height,
-        )
-    }
-
-    /// Renders the animation to the canvas.
+    /// Gets the source rectangle for a specific frame of the animated texture.
+    ///
+    /// This method calculates the position and dimensions of a frame within the
+    /// texture atlas. Frames are arranged horizontally in a single row, so the
+    /// rectangle's x-coordinate is calculated by multiplying the frame index
+    /// by the frame width.
     ///
     /// # Arguments
     ///
-    /// * `canvas` - The canvas to render to.
-    /// * `position` - The position to render the animation at.
-    /// * `direction` - The direction the animation is facing.
+    /// * `frame` - The frame index to get the rectangle for (0-based)
+    ///
+    /// # Returns
+    ///
+    /// A `Rect` representing the source rectangle for the specified frame
+    fn get_frame_rect(&self, frame: u32) -> Option<Rect> {
+        if frame >= self.frame_count {
+            return None;
+        }
+
+        Some(Rect::new(
+            frame as i32 * self.width as i32,
+            0,
+            self.width,
+            self.height,
+        ))
+    }
+
     pub fn render(
         &mut self,
         canvas: &mut Canvas<Window>,
@@ -113,41 +113,22 @@ impl<'a> AnimatedTexture<'a> {
         self.tick();
     }
 
-    /// Renders the animation to the canvas, but only ticks the animation until
-    /// the given frame is reached.
+    /// Renders a specific frame of the animated texture to the canvas.
+    ///
+    /// This method renders a static frame without advancing the animation ticker.
+    /// It's useful for displaying a specific frame, such as when an entity is stopped
+    /// or when you want to manually control which frame is displayed.
     ///
     /// # Arguments
     ///
-    /// * `canvas` - The canvas to render to.
-    /// * `position` - The position to render the animation at.
-    /// * `direction` - The direction the animation is facing.
-    /// * `frame` - The frame to render until.
-    pub fn render_until(
-        &mut self,
-        canvas: &mut Canvas<Window>,
-        position: (i32, i32),
-        direction: Direction,
-        frame: u32,
-    ) {
-        // TODO: If the frame we're targeting is in the opposite direction (due
-        // to self.reverse), we should pre-emptively reverse. This would require
-        // a more complex ticking mechanism.
-        let current = self.current_frame();
-        self.render_static(canvas, position, direction, Some(current));
-
-        if frame != current {
-            self.tick();
-        }
-    }
-
-    /// Renders a specific frame of the animation.
+    /// * `canvas` - The SDL canvas to render to
+    /// * `position` - The pixel position where the texture should be rendered
+    /// * `direction` - The direction to rotate the texture based on entity facing
+    /// * `frame` - Optional specific frame to render. If `None`, uses the current frame
     ///
-    /// # Arguments
+    /// # Panics
     ///
-    /// * `canvas` - The canvas to render to.
-    /// * `position` - The position to render the animation at.
-    /// * `direction` - The direction the animation is facing.
-    /// * `frame` - The frame to render. If `None`, the current frame is used.
+    /// Panics if the specified frame is out of bounds for this texture.
     pub fn render_static(
         &mut self,
         canvas: &mut Canvas<Window>,
@@ -155,24 +136,30 @@ impl<'a> AnimatedTexture<'a> {
         direction: Direction,
         frame: Option<u32>,
     ) {
-        let frame_rect = self.get_frame_rect(frame.unwrap_or(self.current_frame()));
-        let position_rect = Rect::new(
+        let texture_source_frame_rect =
+            self.get_frame_rect(frame.unwrap_or_else(|| self.current_frame()));
+        let canvas_destination_rect = Rect::new(
             position.0 + self.offset.0,
             position.1 + self.offset.1,
-            self.frame_width,
-            self.frame_height,
+            self.width,
+            self.height,
         );
 
         canvas
             .copy_ex(
                 &self.raw_texture,
-                Some(frame_rect),
-                Some(position_rect),
+                texture_source_frame_rect,
+                Some(canvas_destination_rect),
                 direction.angle(),
                 None,
                 false,
                 false,
             )
             .expect("Could not render texture on canvas");
+    }
+
+    /// Sets the color modulation for the texture.
+    pub fn set_color_modulation(&mut self, r: u8, g: u8, b: u8) {
+        self.raw_texture.set_color_mod(r, g, b);
     }
 }

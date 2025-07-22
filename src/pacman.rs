@@ -69,10 +69,9 @@ impl Pacman<'_> {
     ///
     /// * `canvas` - The SDL canvas to render to.
     pub fn render(&mut self, canvas: &mut Canvas<Window>) {
-        // When stopped, render the last frame of the animation
         if self.stopped {
             self.sprite
-                .render_until(canvas, self.pixel_position, self.direction, 2);
+                .render_static(canvas, self.pixel_position, self.direction, Some(2));
         } else {
             self.sprite
                 .render(canvas, self.pixel_position, self.direction);
@@ -208,29 +207,31 @@ impl Entity for Pacman<'_> {
             }
         }
 
-        if !self.stopped && self.modulation.next() {
-            let speed = self.speed as i32;
-            match self.direction {
-                Direction::Right => {
-                    self.pixel_position.0 += speed;
+        if !self.stopped {
+            if self.modulation.next() {
+                let speed = self.speed as i32;
+                match self.direction {
+                    Direction::Right => {
+                        self.pixel_position.0 += speed;
+                    }
+                    Direction::Left => {
+                        self.pixel_position.0 -= speed;
+                    }
+                    Direction::Up => {
+                        self.pixel_position.1 -= speed;
+                    }
+                    Direction::Down => {
+                        self.pixel_position.1 += speed;
+                    }
                 }
-                Direction::Left => {
-                    self.pixel_position.0 -= speed;
-                }
-                Direction::Up => {
-                    self.pixel_position.1 -= speed;
-                }
-                Direction::Down => {
-                    self.pixel_position.1 += speed;
-                }
-            }
 
-            // Update the cell position if Pac-Man is aligned with the grid.
-            if self.internal_position_even() == (0, 0) {
-                self.cell_position = (
-                    (self.pixel_position.0 as u32 / CELL_SIZE) - BOARD_OFFSET.0,
-                    (self.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
-                );
+                // Update the cell position if Pac-Man is aligned with the grid.
+                if self.internal_position_even() == (0, 0) {
+                    self.cell_position = (
+                        (self.pixel_position.0 as u32 / CELL_SIZE) - BOARD_OFFSET.0,
+                        (self.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
+                    );
+                }
             }
         }
     }
