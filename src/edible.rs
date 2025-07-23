@@ -55,7 +55,7 @@ pub fn reconstruct_edibles<'a>(
     map: Rc<RefCell<Map>>,
     pellet_sprite: Rc<AtlasTexture<'a>>,
     power_pellet_sprite: Rc<AtlasTexture<'a>>,
-    fruit_sprite: Rc<AtlasTexture<'a>>,
+    _fruit_sprite: Rc<AtlasTexture<'a>>,
 ) -> Vec<Edible<'a>> {
     let mut edibles = Vec::new();
     for x in 0..BOARD_WIDTH {

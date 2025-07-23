@@ -180,7 +180,6 @@ impl<'a> Game<'a> {
         // Reset game
         if keycode == Keycode::R {
             self.reset();
-            return;
         }
     }
 
@@ -343,7 +342,7 @@ impl<'a> Game<'a> {
 
         // Render the score and high score
         self.render_text(
-            &format!("{}UP   HIGH SCORE   ", lives),
+            &format!("{lives}UP   HIGH SCORE   "),
             (24 * lives_offset + x_offset, y_offset),
             Color::WHITE,
         );

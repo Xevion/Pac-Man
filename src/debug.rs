@@ -17,16 +17,11 @@ pub enum DebugMode {
 pub struct DebugRenderer;
 
 impl DebugRenderer {
-    pub fn draw_cell(canvas: &mut Canvas<Window>, map: &Map, cell: (u32, u32), color: Color) {
+    pub fn draw_cell(canvas: &mut Canvas<Window>, _map: &Map, cell: (u32, u32), color: Color) {
         let position = Map::cell_to_pixel(cell);
         canvas.set_draw_color(color);
         canvas
-            .draw_rect(sdl2::rect::Rect::new(
-                position.0 as i32,
-                position.1 as i32,
-                24,
-                24,
-            ))
+            .draw_rect(sdl2::rect::Rect::new(position.0, position.1, 24, 24))
             .expect("Could not draw rectangle");
     }
 

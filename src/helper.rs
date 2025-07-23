@@ -13,16 +13,11 @@
 pub fn is_adjacent(a: (u32, u32), b: (u32, u32), diagonal: bool) -> bool {
     let (ax, ay) = a;
     let (bx, by) = b;
-
-    // Calculate absolute differences between coordinates
-    let dx = if ax > bx { ax - bx } else { bx - ax };
-    let dy = if ay > by { ay - by } else { by - ay };
-
+    let dx = ax.abs_diff(bx);
+    let dy = ay.abs_diff(by);
     if diagonal {
-        // For diagonal adjacency: both differences must be ≤ 1 and at least one > 0
-        dx <= 1 && dy <= 1 && (dx + dy) > 0
+        dx <= 1 && dy <= 1 && (dx != 0 || dy != 0)
     } else {
-        // For orthogonal adjacency: exactly one difference must be 1, the other 0
         (dx == 1 && dy == 0) || (dx == 0 && dy == 1)
     }
 }

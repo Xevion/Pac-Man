@@ -34,7 +34,7 @@ impl Audio {
 
         // set channel volume
         for i in 0..channels {
-            mixer::Channel(i as i32).set_volume(32);
+            mixer::Channel(i).set_volume(32);
         }
 
         let mixer_context = mixer::init(InitFlag::OGG).expect("Failed to initialize SDL2_mixer");
@@ -44,11 +44,8 @@ impl Audio {
             .enumerate()
             .map(|(i, data)| {
                 let rwops = RWops::from_bytes(data)
-                    .expect(&format!("Failed to create RWops for sound {}", i + 1));
-                rwops.load_wav().expect(&format!(
-                    "Failed to load sound {} from embedded data",
-                    i + 1
-                ))
+                    .unwrap_or_else(|_| panic!("Failed to create RWops for sound {}", i + 1));
+                rwops.load_wav().unwrap_or_else(|_| panic!("Failed to load sound {} from embedded data", i + 1))
             })
             .collect();
 

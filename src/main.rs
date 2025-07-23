@@ -11,7 +11,7 @@ use tracing_subscriber::layer::SubscriberExt;
 
 #[cfg(windows)]
 use winapi::{
-    shared::{ntdef::NULL, windef::HWND},
+    shared::ntdef::NULL,
     um::{
         fileapi::{CreateFileA, OPEN_EXISTING},
         handleapi::INVALID_HANDLE_VALUE,
@@ -29,13 +29,13 @@ use winapi::{
 /// terminal, this function does nothing.
 #[cfg(windows)]
 unsafe fn attach_console() {
-    if GetConsoleWindow() != std::ptr::null_mut() as HWND {
+    if !std::ptr::eq(GetConsoleWindow(), std::ptr::null_mut()) {
         return;
     }
 
     if AttachConsole(winapi::um::wincon::ATTACH_PARENT_PROCESS) != 0 {
         let handle = CreateFileA(
-            "CONOUT$\0".as_ptr() as *const i8,
+            c"CONOUT$".as_ptr(),
             GENERIC_READ | GENERIC_WRITE,
             FILE_SHARE_READ | FILE_SHARE_WRITE,
             std::ptr::null_mut(),

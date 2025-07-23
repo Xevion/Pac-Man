@@ -3,6 +3,7 @@ use rand::seq::IteratorRandom;
 
 use crate::constants::{MapTile, BOARD_OFFSET, CELL_SIZE};
 use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH};
+use once_cell::sync::OnceCell;
 use std::collections::{HashSet, VecDeque};
 use std::ops::Add;
 
@@ -66,20 +67,8 @@ impl Map {
     pub fn new(raw_board: [&str; BOARD_HEIGHT as usize]) -> Map {
         let mut map = [[MapTile::Empty; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize];
 
-        for y in 0..BOARD_HEIGHT as usize {
-            let line = raw_board[y];
-
-            for x in 0..BOARD_WIDTH as usize {
-                if x >= line.len() {
-                    break;
-                }
-
-                let i = (y * (BOARD_WIDTH as usize) + x) as usize;
-                let character = line
-                    .chars()
-                    .nth(x as usize)
-                    .unwrap_or_else(|| panic!("Could not get character at {} = ({}, {})", i, x, y));
-
+        for (y, line) in raw_board.iter().enumerate().take(BOARD_HEIGHT as usize) {
+            for (x, character) in line.chars().enumerate().take(BOARD_WIDTH as usize) {
                 let tile = match character {
                     '#' => MapTile::Wall,
                     '.' => MapTile::Pellet,
@@ -90,25 +79,29 @@ impl Map {
                         MapTile::StartingPosition(c.to_digit(10).unwrap() as u8)
                     }
                     '=' => MapTile::Empty,
-                    _ => panic!("Unknown character in board: {}", character),
+                    _ => panic!("Unknown character in board: {character}"),
                 };
-
-                map[x as usize][y as usize] = tile;
+                map[x][y] = tile;
             }
         }
 
         Map {
             current: map,
-            default: map.clone(),
+            default: map,
         }
     }
 
     /// Resets the map to its original state.
     pub fn reset(&mut self) {
         // Restore the map to its original state
-        for x in 0..BOARD_WIDTH as usize {
-            for y in 0..BOARD_HEIGHT as usize {
-                self.current[x][y] = self.default[x][y];
+        for (x, col) in self
+            .current
+            .iter_mut()
+            .enumerate()
+            .take(BOARD_WIDTH as usize)
+        {
+            for (y, cell) in col.iter_mut().enumerate().take(BOARD_HEIGHT as usize) {
+                *cell = self.default[x][y];
             }
         }
     }
@@ -163,19 +156,19 @@ impl Map {
     /// This is computed once using a flood fill from a random pellet, and then cached.
     pub fn get_valid_playable_positions(&mut self) -> &Vec<Position> {
         use MapTile::*;
-        static mut CACHE: Option<Vec<Position>> = None;
-        // SAFETY: This is only mutated once, and only in this function.
-        unsafe {
-            if let Some(ref cached) = CACHE {
-                return cached;
-            }
+        static CACHE: OnceCell<Vec<Position>> = OnceCell::new();
+        if let Some(cached) = CACHE.get() {
+            return cached;
         }
         // Find a random starting pellet
         let mut pellet_positions = vec![];
-        for x in 0..BOARD_WIDTH as u32 {
-            for y in 0..BOARD_HEIGHT as u32 {
-                match self.current[x as usize][y as usize] {
-                    Pellet | PowerPellet => pellet_positions.push(Position { x, y }),
+        for (x, col) in self.current.iter().enumerate().take(BOARD_WIDTH as usize) {
+            for (y, &cell) in col.iter().enumerate().take(BOARD_HEIGHT as usize) {
+                match cell {
+                    Pellet | PowerPellet => pellet_positions.push(Position {
+                        x: x as u32,
+                        y: y as u32,
+                    }),
                     _ => {}
                 }
             }
@@ -191,15 +184,12 @@ impl Map {
 
         queue.push_back(start);
         while let Some(pos) = queue.pop_front() {
-            // Mark visited, skip if already visited
             if !visited.insert(pos) {
                 continue;
             }
 
-            // Check if the current tile is valid
             match self.current[pos.x as usize][pos.y as usize] {
                 Empty | Pellet | PowerPellet => {
-                    // Valid, continue flood
                     for offset in [
                         SignedPosition { x: -1, y: 0 },
                         SignedPosition { x: 1, y: 0 },
@@ -207,7 +197,7 @@ impl Map {
                         SignedPosition { x: 0, y: 1 },
                     ] {
                         let neighbor = pos + offset;
-                        if neighbor.x < BOARD_WIDTH as u32 && neighbor.y < BOARD_HEIGHT as u32 {
+                        if neighbor.x < BOARD_WIDTH && neighbor.y < BOARD_HEIGHT {
                             let neighbor_tile =
                                 self.current[neighbor.x as usize][neighbor.y as usize];
                             if matches!(neighbor_tile, Empty | Pellet | PowerPellet) {
@@ -216,16 +206,11 @@ impl Map {
                         }
                     }
                 }
-                StartingPosition(_) | Wall | Tunnel => {
-                    // Not valid, do not continue
-                }
+                StartingPosition(_) | Wall | Tunnel => {}
             }
         }
         let mut result: Vec<Position> = visited.into_iter().collect();
         result.sort_unstable();
-        unsafe {
-            CACHE = Some(result);
-            CACHE.as_ref().unwrap()
-        }
+        CACHE.get_or_init(|| result)
     }
 }
