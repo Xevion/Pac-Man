@@ -64,6 +64,7 @@ mod helper;
 mod map;
 mod modulation;
 mod pacman;
+mod debug;
 
 /// The main entry point of the application.
 ///

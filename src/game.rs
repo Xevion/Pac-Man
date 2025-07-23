@@ -23,6 +23,8 @@ use crate::{
     pacman::Pacman,
 };
 
+use crate::debug::{DebugMode, DebugRenderer};
+
 // Embed texture data directly into the executable
 static PACMAN_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/pacman.png");
 static PELLET_TEXTURE_DATA: &[u8] = include_bytes!("../assets/24/pellet.png");
@@ -38,14 +40,6 @@ static GHOST_EYES_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/ghost_eyes.
 ///
 /// This struct contains all the information necessary to run the game, including
 /// the canvas, textures, fonts, game objects, and the current score.
-#[derive(PartialEq, Eq, Clone, Copy)]
-pub enum DebugMode {
-    None,
-    Grid,
-    Pathfinding,
-    ValidPositions,
-}
-
 pub struct Game<'a> {
     canvas: &'a mut Canvas<Window>,
     map_texture: Texture<'a>,
@@ -322,86 +316,31 @@ impl Game<'_> {
         self.render_ui();
 
         // Draw the debug grid
-        if self.debug_mode == DebugMode::Grid {
-            for x in 0..BOARD_WIDTH {
-                for y in 0..BOARD_HEIGHT {
-                    let tile = self
-                        .map
-                        .borrow()
-                        .get_tile((x as i32, y as i32))
-                        .unwrap_or(MapTile::Empty);
-                    let mut color = None;
-
-                    if (x, y) == self.pacman.borrow().base.cell_position {
-                        self.draw_cell((x, y), Color::CYAN);
-                    } else {
-                        color = match tile {
-                            MapTile::Empty => None,
-                            MapTile::Wall => Some(Color::BLUE),
-                            MapTile::Pellet => Some(Color::RED),
-                            MapTile::PowerPellet => Some(Color::MAGENTA),
-                            MapTile::StartingPosition(_) => Some(Color::GREEN),
-                            MapTile::Tunnel => Some(Color::CYAN),
-                        };
-                    }
-
-                    if let Some(color) = color {
-                        self.draw_cell((x, y), color);
-                    }
-                }
+        match self.debug_mode {
+            DebugMode::Grid => {
+                DebugRenderer::draw_debug_grid(
+                    self.canvas,
+                    &self.map.borrow(),
+                    self.pacman.borrow().base.cell_position,
+                );
+                let next_cell = self.pacman.borrow().base.next_cell(None);
+                DebugRenderer::draw_next_cell(
+                    self.canvas,
+                    &self.map.borrow(),
+                    (next_cell.0 as u32, next_cell.1 as u32),
+                );
             }
-
-            // Draw the next cell
-            let next_cell = self.pacman.borrow().base.next_cell(None);
-            self.draw_cell((next_cell.0 as u32, next_cell.1 as u32), Color::YELLOW);
-        }
-
-        // Show valid playable positions
-        if self.debug_mode == DebugMode::ValidPositions {
-            let valid_positions_vec = {
-                let mut map = self.map.borrow_mut();
-                map.get_valid_playable_positions().clone()
-            };
-            for &pos in &valid_positions_vec {
-                self.draw_cell((pos.x, pos.y), Color::RGB(255, 140, 0)); // ORANGE
+            DebugMode::ValidPositions => {
+                DebugRenderer::draw_valid_positions(self.canvas, &mut self.map.borrow_mut());
             }
-        }
-
-        // Pathfinding debug mode
-        if self.debug_mode == DebugMode::Pathfinding {
-            // Show the current path for Blinky
-            if let Some((path, _)) = self.blinky.get_path_to_target({
-                let (tx, ty) = self.blinky.get_target_tile();
-                (tx as u32, ty as u32)
-            }) {
-                for &(x, y) in &path {
-                    self.draw_cell((x, y), Color::YELLOW);
-                }
+            DebugMode::Pathfinding => {
+                DebugRenderer::draw_pathfinding(self.canvas, &self.blinky, &self.map.borrow());
             }
+            DebugMode::None => {}
         }
 
         // Present the canvas
         self.canvas.present();
-    }
-
-    /// Draws a single cell to the canvas with the given color.
-    ///
-    /// # Arguments
-    ///
-    /// * `cell` - The cell to draw, in grid coordinates.
-    /// * `color` - The color to draw the cell with.
-    fn draw_cell(&mut self, cell: (u32, u32), color: Color) {
-        let position = Map::cell_to_pixel(cell);
-
-        self.canvas.set_draw_color(color);
-        self.canvas
-            .draw_rect(sdl2::rect::Rect::new(
-                position.0 as i32,
-                position.1 as i32,
-                24,
-                24,
-            ))
-            .expect("Could not draw rectangle");
     }
 
     /// Renders the user interface, including the score and lives.
