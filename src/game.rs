@@ -11,16 +11,16 @@ use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 use sdl2::{pixels::Color, render::Canvas, video::Window};
 
+use crate::animation::AtlasTexture;
 use crate::audio::Audio;
-use crate::animation::{AtlasTexture, FrameDrawn};
 use crate::constants::RAW_BOARD;
+use crate::debug::{DebugMode, DebugRenderer};
 use crate::direction::Direction;
-use crate::entity::{Entity, Renderable};
+use crate::edible::{reconstruct_edibles, Edible, EdibleKind};
+use crate::entity::Renderable;
 use crate::ghosts::blinky::Blinky;
 use crate::map::Map;
 use crate::pacman::Pacman;
-use crate::debug::{DebugMode, DebugRenderer};
-use crate::edible::{reconstruct_edibles, Edible, EdibleKind};
 
 // Embed texture data directly into the executable
 static PACMAN_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/pacman.png");
@@ -52,7 +52,7 @@ pub struct Game<'a> {
     edibles: Vec<Edible<'a>>,
 }
 
-impl Game<'_> {
+impl<'a> Game<'a> {
     /// Creates a new `Game` instance.
     ///
     /// # Arguments
@@ -61,7 +61,7 @@ impl Game<'_> {
     /// * `texture_creator` - The SDL texture creator.
     /// * `ttf_context` - The SDL TTF context.
     /// * `_audio_subsystem` - The SDL audio subsystem (currently unused).
-    pub fn new<'a>(
+    pub fn new(
         canvas: &'a mut Canvas<Window>,
         texture_creator: &'a TextureCreator<WindowContext>,
         ttf_context: &'a sdl2::ttf::Sdl2TtfContext,

@@ -55,7 +55,9 @@ unsafe fn attach_console() {
 mod animation;
 mod audio;
 mod constants;
+mod debug;
 mod direction;
+mod edible;
 mod entity;
 mod game;
 mod ghost;
@@ -64,8 +66,6 @@ mod helper;
 mod map;
 mod modulation;
 mod pacman;
-mod debug;
-mod edible;
 
 /// The main entry point of the application.
 ///

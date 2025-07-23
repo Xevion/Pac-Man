@@ -303,7 +303,7 @@ impl<'a> Moving for Ghost<'a> {
     }
 }
 
-impl Renderable for Ghost<'_> {
+impl<'a> Renderable for Ghost<'a> {
     fn render(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         let pos = self.base.base.pixel_position;
         self.body_sprite.render(canvas, pos, Direction::Right, None);
