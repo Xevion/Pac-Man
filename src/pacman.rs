@@ -6,7 +6,6 @@ use sdl2::{
     render::{Canvas, Texture},
     video::Window,
 };
-use tracing::event;
 
 use crate::{
     animation::{AnimatedAtlasTexture, FrameDrawn},

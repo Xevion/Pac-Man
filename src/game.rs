@@ -10,11 +10,10 @@ use sdl2::rwops::RWops;
 use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 use sdl2::{pixels::Color, render::Canvas, video::Window};
-use tracing::event;
 
 use crate::audio::Audio;
 use crate::animation::{AtlasTexture, FrameDrawn};
-use crate::constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH, RAW_BOARD};
+use crate::constants::RAW_BOARD;
 use crate::direction::Direction;
 use crate::entity::{Entity, Renderable};
 use crate::ghosts::blinky::Blinky;

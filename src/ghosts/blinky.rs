@@ -5,7 +5,7 @@ use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 
 use crate::direction::Direction;
-use crate::entity::{Entity, MovableEntity, Moving, Renderable, StaticEntity};
+use crate::entity::{Entity, Moving, Renderable, StaticEntity};
 use crate::ghost::{Ghost, GhostMode, GhostType};
 use crate::map::Map;
 use crate::pacman::Pacman;

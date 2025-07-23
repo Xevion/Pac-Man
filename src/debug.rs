@@ -1,7 +1,6 @@
 //! Debug rendering utilities for Pac-Man.
 use crate::{
     constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH},
-    direction::Direction,
     ghosts::blinky::Blinky,
     map::Map,
 };

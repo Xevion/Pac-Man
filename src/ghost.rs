@@ -4,7 +4,7 @@ use rand::Rng;
 use crate::animation::{AnimatedAtlasTexture, FrameDrawn};
 use crate::constants::{MapTile, BOARD_WIDTH};
 use crate::direction::Direction;
-use crate::entity::{Entity, MovableEntity, Moving, Renderable, StaticEntity};
+use crate::entity::{Entity, MovableEntity, Moving, Renderable};
 use crate::map::Map;
 use crate::modulation::{SimpleTickModulator, TickModulator};
 use crate::pacman::Pacman;
