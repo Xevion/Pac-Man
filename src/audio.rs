@@ -1,16 +1,11 @@
 //! This module handles the audio playback for the game.
+use crate::asset::{get_asset_bytes, Asset};
 use sdl2::{
     mixer::{self, Chunk, InitFlag, LoaderRWops, DEFAULT_FORMAT},
     rwops::RWops,
 };
 
-const SOUND_1_DATA: &[u8] = include_bytes!("../assets/wav/1.ogg");
-const SOUND_2_DATA: &[u8] = include_bytes!("../assets/wav/2.ogg");
-const SOUND_3_DATA: &[u8] = include_bytes!("../assets/wav/3.ogg");
-const SOUND_4_DATA: &[u8] = include_bytes!("../assets/wav/4.ogg");
-
-/// An array of all the sound effect data.
-const SOUND_DATA: [&[u8]; 4] = [SOUND_1_DATA, SOUND_2_DATA, SOUND_3_DATA, SOUND_4_DATA];
+const SOUND_ASSETS: [Asset; 4] = [Asset::Wav1, Asset::Wav2, Asset::Wav3, Asset::Wav4];
 
 /// The audio system for the game.
 ///
@@ -39,13 +34,16 @@ impl Audio {
 
         let mixer_context = mixer::init(InitFlag::OGG).expect("Failed to initialize SDL2_mixer");
 
-        let sounds: Vec<Chunk> = SOUND_DATA
+        let sounds: Vec<Chunk> = SOUND_ASSETS
             .iter()
             .enumerate()
-            .map(|(i, data)| {
-                let rwops = RWops::from_bytes(data)
+            .map(|(i, asset)| {
+                let data = get_asset_bytes(*asset).expect("Failed to load sound asset");
+                let rwops = RWops::from_bytes(&data)
                     .unwrap_or_else(|_| panic!("Failed to create RWops for sound {}", i + 1));
-                rwops.load_wav().unwrap_or_else(|_| panic!("Failed to load sound {} from embedded data", i + 1))
+                rwops
+                    .load_wav()
+                    .unwrap_or_else(|_| panic!("Failed to load sound {} from asset API", i + 1))
             })
             .collect();
 

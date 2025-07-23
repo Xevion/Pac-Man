@@ -12,6 +12,7 @@ use sdl2::video::WindowContext;
 use sdl2::{pixels::Color, render::Canvas, video::Window};
 
 use crate::animation::AtlasTexture;
+use crate::asset::{get_asset_bytes, Asset};
 use crate::audio::Audio;
 use crate::constants::RAW_BOARD;
 use crate::debug::{DebugMode, DebugRenderer};
@@ -21,17 +22,6 @@ use crate::entity::Renderable;
 use crate::ghosts::blinky::Blinky;
 use crate::map::Map;
 use crate::pacman::Pacman;
-
-// Embed texture data directly into the executable
-static PACMAN_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/pacman.png");
-static PELLET_TEXTURE_DATA: &[u8] = include_bytes!("../assets/24/pellet.png");
-static POWER_PELLET_TEXTURE_DATA: &[u8] = include_bytes!("../assets/24/energizer.png");
-static MAP_TEXTURE_DATA: &[u8] = include_bytes!("../assets/map.png");
-static FONT_DATA: &[u8] = include_bytes!("../assets/font/konami.ttf");
-
-// Add ghost texture data
-static GHOST_BODY_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/ghost_body.png");
-static GHOST_EYES_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/ghost_eyes.png");
 
 /// The main game state.
 ///
@@ -69,10 +59,11 @@ impl<'a> Game<'a> {
     ) -> Game<'a> {
         let map = Rc::new(RefCell::new(Map::new(RAW_BOARD)));
 
-        // Load Pacman texture from embedded data
+        // Load Pacman texture from asset API
+        let pacman_bytes = get_asset_bytes(Asset::Pacman).expect("Failed to load asset");
         let pacman_atlas = texture_creator
-            .load_texture_bytes(PACMAN_TEXTURE_DATA)
-            .expect("Could not load pacman texture from embedded data");
+            .load_texture_bytes(&pacman_bytes)
+            .expect("Could not load pacman texture from asset API");
         let pacman = Rc::new(RefCell::new(Pacman::new(
             (1, 1),
             pacman_atlas,
@@ -80,12 +71,14 @@ impl<'a> Game<'a> {
         )));
 
         // Load ghost textures
+        let ghost_body_bytes = get_asset_bytes(Asset::GhostBody).expect("Failed to load asset");
         let ghost_body = texture_creator
-            .load_texture_bytes(GHOST_BODY_TEXTURE_DATA)
-            .expect("Could not load ghost body texture from embedded data");
+            .load_texture_bytes(&ghost_body_bytes)
+            .expect("Could not load ghost body texture from asset API");
+        let ghost_eyes_bytes = get_asset_bytes(Asset::GhostEyes).expect("Failed to load asset");
         let ghost_eyes = texture_creator
-            .load_texture_bytes(GHOST_EYES_TEXTURE_DATA)
-            .expect("Could not load ghost eyes texture from embedded data");
+            .load_texture_bytes(&ghost_eyes_bytes)
+            .expect("Could not load ghost eyes texture from asset API");
 
         // Create Blinky
         let blinky = Blinky::new(
@@ -96,38 +89,48 @@ impl<'a> Game<'a> {
             Rc::clone(&pacman),
         );
 
-        // Load pellet texture from embedded data
+        // Load pellet texture from asset API
+        let pellet_bytes = get_asset_bytes(Asset::Pellet).expect("Failed to load asset");
         let pellet_texture = Rc::new(AtlasTexture::new(
             texture_creator
-                .load_texture_bytes(PELLET_TEXTURE_DATA)
-                .expect("Could not load pellet texture from embedded data"),
+                .load_texture_bytes(&pellet_bytes)
+                .expect("Could not load pellet texture from asset API"),
             1,
             24,
             24,
             None,
         ));
+        let power_pellet_bytes = get_asset_bytes(Asset::Energizer).expect("Failed to load asset");
         let power_pellet_texture = Rc::new(AtlasTexture::new(
             texture_creator
-                .load_texture_bytes(POWER_PELLET_TEXTURE_DATA)
-                .expect("Could not load power pellet texture from embedded data"),
+                .load_texture_bytes(&power_pellet_bytes)
+                .expect("Could not load power pellet texture from asset API"),
             1,
             24,
             24,
             None,
         ));
 
-        // Load font from embedded data
-        let font_rwops = RWops::from_bytes(FONT_DATA).expect("Failed to create RWops for font");
-        let font = ttf_context
-            .load_font_from_rwops(font_rwops, 24)
-            .expect("Could not load font from embedded data");
+        // Load font from asset API
+        let font = {
+            let font_bytes = get_asset_bytes(Asset::FontKonami)
+                .expect("Failed to load asset")
+                .into_owned();
+            let font_bytes_static: &'static [u8] = Box::leak(font_bytes.into_boxed_slice());
+            let font_rwops =
+                RWops::from_bytes(font_bytes_static).expect("Failed to create RWops for font");
+            ttf_context
+                .load_font_from_rwops(font_rwops, 24)
+                .expect("Could not load font from asset API")
+        };
 
         let audio = Audio::new();
 
-        // Load map texture from embedded data
+        // Load map texture from asset API
+        let map_bytes = get_asset_bytes(Asset::Map).expect("Failed to load asset");
         let mut map_texture = texture_creator
-            .load_texture_bytes(MAP_TEXTURE_DATA)
-            .expect("Could not load map texture from embedded data");
+            .load_texture_bytes(&map_bytes)
+            .expect("Could not load map texture from asset API");
         map_texture.set_color_mod(0, 0, 255);
 
         let edibles = reconstruct_edibles(
