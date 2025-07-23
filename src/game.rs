@@ -14,6 +14,7 @@ use tracing::event;
 
 use crate::audio::Audio;
 use crate::{
+    animation::{AtlasTexture, FrameDrawn},
     constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH, RAW_BOARD},
     direction::Direction,
     entity::{Entity, Renderable},
@@ -48,8 +49,8 @@ pub enum DebugMode {
 pub struct Game<'a> {
     canvas: &'a mut Canvas<Window>,
     map_texture: Texture<'a>,
-    pellet_texture: Texture<'a>,
-    power_pellet_texture: Texture<'a>,
+    pellet_texture: AtlasTexture<'a>,
+    power_pellet_texture: AtlasTexture<'a>,
     font: Font<'a, 'static>,
     pacman: Rc<RefCell<Pacman<'a>>>,
     map: Rc<std::cell::RefCell<Map>>,
@@ -105,14 +106,24 @@ impl Game<'_> {
         );
 
         // Load pellet texture from embedded data
-        let pellet_texture = texture_creator
-            .load_texture_bytes(PELLET_TEXTURE_DATA)
-            .expect("Could not load pellet texture from embedded data");
-
-        // Load power pellet texture from embedded data
-        let power_pellet_texture = texture_creator
-            .load_texture_bytes(POWER_PELLET_TEXTURE_DATA)
-            .expect("Could not load power pellet texture from embedded data");
+        let pellet_texture = AtlasTexture::new(
+            texture_creator
+                .load_texture_bytes(PELLET_TEXTURE_DATA)
+                .expect("Could not load pellet texture from embedded data"),
+            1,
+            24,
+            24,
+            None,
+        );
+        let power_pellet_texture = AtlasTexture::new(
+            texture_creator
+                .load_texture_bytes(POWER_PELLET_TEXTURE_DATA)
+                .expect("Could not load power pellet texture from embedded data"),
+            1,
+            24,
+            24,
+            None,
+        );
 
         // Load font from embedded data
         let font_rwops = RWops::from_bytes(FONT_DATA).expect("Failed to create RWops for font");
@@ -277,18 +288,26 @@ impl Game<'_> {
                     .get_tile((x as i32, y as i32))
                     .unwrap_or(MapTile::Empty);
 
-                let texture = match tile {
-                    MapTile::Pellet => Some(&self.pellet_texture),
-                    MapTile::PowerPellet => Some(&self.power_pellet_texture),
-                    _ => None,
-                };
-
-                if let Some(texture) = texture {
-                    let position = Map::cell_to_pixel((x, y));
-                    let dst_rect = sdl2::rect::Rect::new(position.0, position.1, 24, 24);
-                    self.canvas
-                        .copy(texture, None, Some(dst_rect))
-                        .expect("Could not render pellet");
+                match tile {
+                    MapTile::Pellet => {
+                        let position = Map::cell_to_pixel((x, y));
+                        self.pellet_texture.render(
+                            self.canvas,
+                            position,
+                            Direction::Right,
+                            Some(0),
+                        );
+                    }
+                    MapTile::PowerPellet => {
+                        let position = Map::cell_to_pixel((x, y));
+                        self.power_pellet_texture.render(
+                            self.canvas,
+                            position,
+                            Direction::Right,
+                            Some(0),
+                        );
+                    }
+                    _ => {}
                 }
             }
         }

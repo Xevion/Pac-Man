@@ -2,7 +2,7 @@ use pathfinding::prelude::dijkstra;
 use rand::Rng;
 
 use crate::{
-    animation::AnimatedTexture,
+    animation::{AnimatedAtlasTexture, FrameDrawn},
     constants::{MapTile, BOARD_WIDTH},
     direction::Direction,
     entity::{Entity, MovableEntity, Renderable},
@@ -58,9 +58,9 @@ pub struct Ghost<'a> {
     /// Reference to Pac-Man for targeting
     pub pacman: std::rc::Rc<std::cell::RefCell<Pacman<'a>>>,
     /// Ghost body sprite
-    body_sprite: AnimatedTexture<'a>,
+    body_sprite: AnimatedAtlasTexture<'a>,
     /// Ghost eyes sprite
-    eyes_sprite: AnimatedTexture<'a>,
+    eyes_sprite: AnimatedAtlasTexture<'a>,
 }
 
 impl Ghost<'_> {
@@ -74,7 +74,7 @@ impl Ghost<'_> {
         pacman: std::rc::Rc<std::cell::RefCell<Pacman<'a>>>,
     ) -> Ghost<'a> {
         let color = ghost_type.color();
-        let mut body_sprite = AnimatedTexture::new(body_texture, 8, 2, 32, 32, Some((-4, -4)));
+        let mut body_sprite = AnimatedAtlasTexture::new(body_texture, 8, 2, 32, 32, Some((-4, -4)));
         body_sprite.set_color_modulation(color.r, color.g, color.b);
         let pixel_position = Map::cell_to_pixel(starting_position);
         Ghost {
@@ -90,7 +90,7 @@ impl Ghost<'_> {
             ghost_type,
             pacman,
             body_sprite,
-            eyes_sprite: AnimatedTexture::new(eyes_texture, 1, 4, 32, 32, Some((-4, -4))),
+            eyes_sprite: AnimatedAtlasTexture::new(eyes_texture, 1, 4, 32, 32, Some((-4, -4))),
         }
     }
 
@@ -299,7 +299,7 @@ impl Renderable for Ghost<'_> {
             self.body_sprite
                 .set_color_modulation(color.r, color.g, color.b);
             self.body_sprite
-                .render(canvas, self.base.pixel_position, Direction::Right);
+                .render(canvas, self.base.pixel_position, Direction::Right, None);
         }
 
         // Always render eyes on top
@@ -314,7 +314,7 @@ impl Renderable for Ghost<'_> {
             }
         };
 
-        self.eyes_sprite.render_static(
+        self.eyes_sprite.render(
             canvas,
             self.base.pixel_position,
             Direction::Right,

@@ -9,7 +9,7 @@ use sdl2::{
 use tracing::event;
 
 use crate::{
-    animation::AnimatedTexture,
+    animation::{AnimatedAtlasTexture, FrameDrawn},
     direction::Direction,
     entity::{Entity, MovableEntity, Renderable},
     map::Map,
@@ -24,7 +24,7 @@ pub struct Pacman<'a> {
     pub next_direction: Option<Direction>,
     /// Whether Pac-Man is currently stopped.
     pub stopped: bool,
-    sprite: AnimatedTexture<'a>,
+    sprite: AnimatedAtlasTexture<'a>,
 }
 
 impl Pacman<'_> {
@@ -46,7 +46,7 @@ impl Pacman<'_> {
             ),
             next_direction: None,
             stopped: false,
-            sprite: AnimatedTexture::new(atlas, 2, 3, 32, 32, Some((-4, -4))),
+            sprite: AnimatedAtlasTexture::new(atlas, 2, 3, 32, 32, Some((-4, -4))),
         }
     }
 
@@ -107,7 +107,7 @@ impl Entity for Pacman<'_> {
 impl Renderable for Pacman<'_> {
     fn render(&mut self, canvas: &mut Canvas<Window>) {
         if self.stopped {
-            self.sprite.render_static(
+            self.sprite.render(
                 canvas,
                 self.base.pixel_position,
                 self.base.direction,
@@ -115,7 +115,7 @@ impl Renderable for Pacman<'_> {
             );
         } else {
             self.sprite
-                .render(canvas, self.base.pixel_position, self.base.direction);
+                .render(canvas, self.base.pixel_position, self.base.direction, None);
         }
     }
 }
