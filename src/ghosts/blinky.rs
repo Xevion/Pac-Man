@@ -4,9 +4,8 @@ use std::rc::Rc;
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 
-use crate::entity::MovableEntity;
 use crate::{
-    entity::Entity,
+    entity::{Entity, MovableEntity, Renderable},
     ghost::{Ghost, GhostMode, GhostType},
     map::Map,
     pacman::Pacman,
@@ -39,7 +38,7 @@ impl<'a> Blinky<'a> {
     /// Gets Blinky's chase target - directly targets Pac-Man's current position
     fn get_chase_target(&self) -> (i32, i32) {
         let pacman = self.ghost.pacman.borrow();
-        let cell = pacman.base.cell_position;
+        let cell = pacman.base().cell_position;
         (cell.0 as i32, cell.1 as i32)
     }
 
@@ -48,7 +47,7 @@ impl<'a> Blinky<'a> {
     }
 
     pub fn render(&mut self, canvas: &mut Canvas<Window>) {
-        self.ghost.render(canvas);
+        Renderable::render(&mut self.ghost, canvas);
     }
 }
 

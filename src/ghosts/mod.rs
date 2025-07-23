@@ -1,3 +1,1 @@
-mod blinky;
-
-pub use blinky::Blinky;
+pub mod blinky;

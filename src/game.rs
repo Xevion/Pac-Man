@@ -13,12 +13,14 @@ use sdl2::{pixels::Color, render::Canvas, video::Window};
 use tracing::event;
 
 use crate::audio::Audio;
-use crate::constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH, RAW_BOARD};
-use crate::direction::Direction;
-use crate::entity::Entity;
-use crate::ghosts::Blinky;
-use crate::map::Map;
-use crate::pacman::Pacman;
+use crate::{
+    constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH, RAW_BOARD},
+    direction::Direction,
+    entity::{Entity, Renderable},
+    ghosts::blinky::Blinky,
+    map::Map,
+    pacman::Pacman,
+};
 
 // Embed texture data directly into the executable
 static PACMAN_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/pacman.png");
@@ -40,6 +42,7 @@ pub enum DebugMode {
     None,
     Grid,
     Pathfinding,
+    ValidPositions,
 }
 
 pub struct Game<'a> {
@@ -52,7 +55,7 @@ pub struct Game<'a> {
     map: Rc<std::cell::RefCell<Map>>,
     debug_mode: DebugMode,
     score: u32,
-    audio: Audio,
+    audio: crate::audio::Audio,
     // Add ghost
     blinky: Blinky<'a>,
 }
@@ -155,7 +158,8 @@ impl Game<'_> {
             self.debug_mode = match self.debug_mode {
                 DebugMode::None => DebugMode::Grid,
                 DebugMode::Grid => DebugMode::Pathfinding,
-                DebugMode::Pathfinding => DebugMode::None,
+                DebugMode::Pathfinding => DebugMode::ValidPositions,
+                DebugMode::ValidPositions => DebugMode::None,
             };
         }
 
@@ -185,36 +189,26 @@ impl Game<'_> {
         // Reset the score
         self.score = 0;
 
-        // Reset Pacman position
-        let mut pacman = self.pacman.borrow_mut();
-        pacman.base.pixel_position = Map::cell_to_pixel((1, 1));
-        pacman.base.cell_position = (1, 1);
-        pacman.base.in_tunnel = false;
-        pacman.base.direction = Direction::Right;
-        pacman.next_direction = None;
-        pacman.stopped = false;
-
-        // Reset ghost positions and mode
+        // Get valid positions from the cached flood fill
+        let mut map = self.map.borrow_mut();
+        let valid_positions = map.get_valid_playable_positions();
         let mut rng = rand::rng();
-        let map = self.map.borrow();
-        let mut valid_positions = vec![];
-        for x in 1..(crate::constants::BOARD_WIDTH - 1) {
-            for y in 1..(crate::constants::BOARD_HEIGHT - 1) {
-                let tile_option = map.get_tile((x as i32, y as i32));
 
-                if let Some(tile) = tile_option {
-                    match tile {
-                        MapTile::Empty | MapTile::Pellet | MapTile::PowerPellet => {
-                            valid_positions.push((x, y));
-                        }
-                        _ => {}
-                    }
-                }
-            }
+        // Randomize Pac-Man position
+        if let Some(pos) = valid_positions.iter().choose(&mut rng) {
+            let mut pacman = self.pacman.borrow_mut();
+            pacman.base.pixel_position = Map::cell_to_pixel((pos.x, pos.y));
+            pacman.base.cell_position = (pos.x, pos.y);
+            pacman.base.in_tunnel = false;
+            pacman.base.direction = Direction::Right;
+            pacman.next_direction = None;
+            pacman.stopped = false;
         }
-        if let Some(&(gx, gy)) = valid_positions.iter().choose(&mut rng) {
-            self.blinky.base.pixel_position = Map::cell_to_pixel((gx, gy));
-            self.blinky.base.cell_position = (gx, gy);
+
+        // Randomize ghost position
+        if let Some(pos) = valid_positions.iter().choose(&mut rng) {
+            self.blinky.base.pixel_position = Map::cell_to_pixel((pos.x, pos.y));
+            self.blinky.base.cell_position = (pos.x, pos.y);
             self.blinky.base.in_tunnel = false;
             self.blinky.base.direction = Direction::Left;
             self.blinky.mode = crate::ghost::GhostMode::Chase;
@@ -339,8 +333,19 @@ impl Game<'_> {
             }
 
             // Draw the next cell
-            let next_cell = self.pacman.borrow().next_cell(None);
+            let next_cell = self.pacman.borrow().base.next_cell(None);
             self.draw_cell((next_cell.0 as u32, next_cell.1 as u32), Color::YELLOW);
+        }
+
+        // Show valid playable positions
+        if self.debug_mode == DebugMode::ValidPositions {
+            let valid_positions_vec = {
+                let mut map = self.map.borrow_mut();
+                map.get_valid_playable_positions().clone()
+            };
+            for &pos in &valid_positions_vec {
+                self.draw_cell((pos.x, pos.y), Color::RGB(255, 140, 0)); // ORANGE
+            }
         }
 
         // Pathfinding debug mode
