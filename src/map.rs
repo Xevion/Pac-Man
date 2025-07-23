@@ -1,16 +1,42 @@
 //! This module defines the game map and provides functions for interacting with it.
+use rand::seq::IteratorRandom;
+
 use crate::constants::{MapTile, BOARD_OFFSET, CELL_SIZE};
 use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH};
+use std::collections::{HashSet, VecDeque};
+use std::ops::Add;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Position(pub u32, pub u32);
+pub struct SignedPosition {
+    pub x: i32,
+    pub y: i32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Position {
+    pub x: u32,
+    pub y: u32,
+}
+
+impl Add<SignedPosition> for Position {
+    type Output = Position;
+    fn add(self, rhs: SignedPosition) -> Self::Output {
+        Position {
+            x: (self.x as i32 + rhs.x) as u32,
+            y: (self.y as i32 + rhs.y) as u32,
+        }
+    }
+}
 
 impl Position {
     pub fn as_i32(&self) -> (i32, i32) {
-        (self.0 as i32, self.1 as i32)
+        (self.x as i32, self.y as i32)
     }
     pub fn wrapping_add(&self, dx: i32, dy: i32) -> Position {
-        Position((self.0 as i32 + dx) as u32, (self.1 as i32 + dy) as u32)
+        Position {
+            x: (self.x as i32 + dx) as u32,
+            y: (self.y as i32 + dy) as u32,
+        }
     }
 }
 
@@ -125,5 +151,75 @@ impl Map {
             (cell.0 * CELL_SIZE) as i32,
             ((cell.1 + BOARD_OFFSET.1) * CELL_SIZE) as i32,
         )
+    }
+
+    /// Returns a reference to a cached vector of all valid playable positions in the maze.
+    /// This is computed once using a flood fill from a random pellet, and then cached.
+    pub fn get_valid_playable_positions(&mut self) -> &Vec<Position> {
+        use MapTile::*;
+        static mut CACHE: Option<Vec<Position>> = None;
+        // SAFETY: This is only mutated once, and only in this function.
+        unsafe {
+            if let Some(ref cached) = CACHE {
+                return cached;
+            }
+        }
+        // Find a random starting pellet
+        let mut pellet_positions = vec![];
+        for x in 0..BOARD_WIDTH as u32 {
+            for y in 0..BOARD_HEIGHT as u32 {
+                match self.current[x as usize][y as usize] {
+                    Pellet | PowerPellet => pellet_positions.push(Position { x, y }),
+                    _ => {}
+                }
+            }
+        }
+        let mut rng = rand::rng();
+        let &start = pellet_positions
+            .iter()
+            .choose(&mut rng)
+            .expect("No pellet found for flood fill");
+        // Flood fill
+        let mut visited = HashSet::new();
+        let mut queue = VecDeque::new();
+
+        queue.push_back(start);
+        while let Some(pos) = queue.pop_front() {
+            // Mark visited, skip if already visited
+            if !visited.insert(pos) {
+                continue;
+            }
+
+            // Check if the current tile is valid
+            match self.current[pos.x as usize][pos.y as usize] {
+                Empty | Pellet | PowerPellet => {
+                    // Valid, continue flood
+                    for offset in [
+                        SignedPosition { x: -1, y: 0 },
+                        SignedPosition { x: 1, y: 0 },
+                        SignedPosition { x: 0, y: -1 },
+                        SignedPosition { x: 0, y: 1 },
+                    ] {
+                        let neighbor = pos + offset;
+                        if neighbor.x < BOARD_WIDTH as u32 && neighbor.y < BOARD_HEIGHT as u32 {
+                            let neighbor_tile =
+                                self.current[neighbor.x as usize][neighbor.y as usize];
+                            if matches!(neighbor_tile, Empty | Pellet | PowerPellet) {
+                                queue.push_back(neighbor);
+                            }
+                        }
+                    }
+                }
+                StartingPosition(_) | Wall | Tunnel => {
+                    // Not valid, do not continue
+                }
+            }
+        }
+        let mut result: Vec<Position> = visited.into_iter().collect();
+        result.sort_unstable();
+        unsafe {
+            CACHE = Some(result);
+            CACHE.as_ref().unwrap()
+        }
     }
 }

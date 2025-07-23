@@ -123,12 +123,7 @@ pub fn main() {
 
     // The target time for each frame of the game loop (60 FPS).
     let loop_time = Duration::from_secs(1) / 60;
-    let mut tick_no = 0u32;
 
-    // The start of a period of time over which we average the frame time.
-    let mut last_averaging_time = Instant::now();
-    // The total time spent sleeping during the current averaging period.
-    let mut sleep_time = Duration::ZERO;
     let mut paused = false;
     // Whether the window is currently shown.
     let mut shown = false;
@@ -203,27 +198,12 @@ pub fn main() {
                     std::thread::sleep(time);
                 }
             }
-            sleep_time += time;
         } else {
             event!(
                 tracing::Level::WARN,
                 "Game loop behind schedule by: {:?}",
                 start.elapsed() - loop_time
             );
-        }
-
-        tick_no += 1;
-
-        // Caclulate and display performance statistics every 60 seconds.
-        const PERIOD: u32 = 60 * 60;
-        let tick_mod = tick_no % PERIOD;
-        if tick_mod % PERIOD == 0 {
-            let average_fps = PERIOD as f32 / last_averaging_time.elapsed().as_secs_f32();
-            let average_sleep = sleep_time / PERIOD;
-            let average_process = loop_time - average_sleep;
-
-            sleep_time = Duration::ZERO;
-            last_averaging_time = Instant::now();
         }
 
         true
