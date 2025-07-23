@@ -208,29 +208,31 @@ impl Game<'_> {
         // Reset the score
         self.score = 0;
 
-        // Get valid positions from the cached flood fill
-        let mut map = self.map.borrow_mut();
-        let valid_positions = map.get_valid_playable_positions();
-        let mut rng = rand::rng();
+        // Get valid positions from the cached flood fill and randomize positions in a single block
+        {
+            let mut map = self.map.borrow_mut();
+            let valid_positions = map.get_valid_playable_positions();
+            let mut rng = rand::rng();
 
-        // Randomize Pac-Man position
-        if let Some(pos) = valid_positions.iter().choose(&mut rng) {
-            let mut pacman = self.pacman.borrow_mut();
-            pacman.base.base.pixel_position = Map::cell_to_pixel((pos.x, pos.y));
-            pacman.base.base.cell_position = (pos.x, pos.y);
-            pacman.base.in_tunnel = false;
-            pacman.base.direction = Direction::Right;
-            pacman.next_direction = None;
-            pacman.stopped = false;
-        }
+            // Randomize Pac-Man position
+            if let Some(pos) = valid_positions.iter().choose(&mut rng) {
+                let mut pacman = self.pacman.borrow_mut();
+                pacman.base.base.pixel_position = Map::cell_to_pixel((pos.x, pos.y));
+                pacman.base.base.cell_position = (pos.x, pos.y);
+                pacman.base.in_tunnel = false;
+                pacman.base.direction = Direction::Right;
+                pacman.next_direction = None;
+                pacman.stopped = false;
+            }
 
-        // Randomize ghost position
-        if let Some(pos) = valid_positions.iter().choose(&mut rng) {
-            self.blinky.base.base.pixel_position = Map::cell_to_pixel((pos.x, pos.y));
-            self.blinky.base.base.cell_position = (pos.x, pos.y);
-            self.blinky.base.in_tunnel = false;
-            self.blinky.base.direction = Direction::Left;
-            self.blinky.mode = crate::ghost::GhostMode::Chase;
+            // Randomize ghost position
+            if let Some(pos) = valid_positions.iter().choose(&mut rng) {
+                self.blinky.base.base.pixel_position = Map::cell_to_pixel((pos.x, pos.y));
+                self.blinky.base.base.cell_position = (pos.x, pos.y);
+                self.blinky.base.in_tunnel = false;
+                self.blinky.base.direction = Direction::Left;
+                self.blinky.mode = crate::ghost::GhostMode::Chase;
+            }
         }
 
         self.edibles = reconstruct_edibles(
@@ -289,8 +291,7 @@ impl Game<'_> {
             .copy(&self.map_texture, None, None)
             .expect("Could not render texture on canvas");
 
-        // Remove old pellet rendering
-        // Instead, render all edibles
+        // Render all edibles
         for edible in &self.edibles {
             edible.render(self.canvas);
         }
