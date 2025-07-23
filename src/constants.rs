@@ -73,6 +73,19 @@ impl FruitType {
             FruitType::Key => 5000,
         }
     }
+
+    pub fn index(self) -> usize {
+        match self {
+            FruitType::Cherry => 0,
+            FruitType::Strawberry => 1,
+            FruitType::Orange => 2,
+            FruitType::Apple => 3,
+            FruitType::Melon => 4,
+            FruitType::Galaxian => 5,
+            FruitType::Bell => 6,
+            FruitType::Key => 7,
+        }
+    }
 }
 
 /// The raw layout of the game board, as a 2D array of characters.
