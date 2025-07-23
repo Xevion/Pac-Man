@@ -13,81 +13,65 @@ use crate::{
     constants::MapTile,
     constants::{BOARD_OFFSET, BOARD_WIDTH, CELL_SIZE},
     direction::Direction,
-    entity::Entity,
+    entity::{Entity, MovableEntity},
     map::Map,
     modulation::{SimpleTickModulator, TickModulator},
 };
 
 /// The Pac-Man entity.
 pub struct Pacman<'a> {
-    /// The absolute position of Pac-Man on the board, in pixels.
-    pub pixel_position: (i32, i32),
-    /// The position of Pac-Man on the board, in grid coordinates.
-    /// This is only updated at the moment Pac-Man is aligned with the grid.
-    pub cell_position: (u32, u32),
-    /// The current direction of Pac-Man.
-    pub direction: Direction,
+    /// Shared movement and position fields.
+    pub base: MovableEntity,
     /// The next direction of Pac-Man, which will be applied when Pac-Man is next aligned with the grid.
     pub next_direction: Option<Direction>,
     /// Whether Pac-Man is currently stopped.
     pub stopped: bool,
     map: Rc<RefCell<Map>>,
-    speed: u32,
-    modulation: SimpleTickModulator,
     sprite: AnimatedTexture<'a>,
-    pub in_tunnel: bool,
 }
 
 impl Pacman<'_> {
     /// Creates a new `Pacman` instance.
-    ///
-    /// # Arguments
-    ///
-    /// * `starting_position` - The starting position of Pac-Man, in grid coordinates.
-    /// * `atlas` - The texture atlas containing the Pac-Man sprites.
-    /// * `map` - A reference to the game map.
     pub fn new<'a>(
         starting_position: (u32, u32),
         atlas: Texture<'a>,
         map: Rc<RefCell<Map>>,
     ) -> Pacman<'a> {
+        let pixel_position = Map::cell_to_pixel(starting_position);
         Pacman {
-            pixel_position: Map::cell_to_pixel(starting_position),
-            cell_position: starting_position,
-            direction: Direction::Right,
+            base: MovableEntity::new(
+                pixel_position,
+                starting_position,
+                Direction::Right,
+                3,
+                SimpleTickModulator::new(1.0),
+            ),
             next_direction: None,
-            speed: 3,
-            map,
             stopped: false,
-            modulation: SimpleTickModulator::new(1.0),
+            map,
             sprite: AnimatedTexture::new(atlas, 2, 3, 32, 32, Some((-4, -4))),
-            in_tunnel: false,
         }
     }
 
     /// Renders Pac-Man to the canvas.
-    ///
-    /// # Arguments
-    ///
-    /// * `canvas` - The SDL canvas to render to.
     pub fn render(&mut self, canvas: &mut Canvas<Window>) {
         if self.stopped {
-            self.sprite
-                .render_static(canvas, self.pixel_position, self.direction, Some(2));
+            self.sprite.render_static(
+                canvas,
+                self.base.pixel_position,
+                self.base.direction,
+                Some(2),
+            );
         } else {
             self.sprite
-                .render(canvas, self.pixel_position, self.direction);
+                .render(canvas, self.base.pixel_position, self.base.direction);
         }
     }
 
     /// Calculates the next cell in the given direction.
-    ///
-    /// # Arguments
-    ///
-    /// * `direction` - The direction to check. If `None`, the current direction is used.
     pub fn next_cell(&self, direction: Option<Direction>) -> (i32, i32) {
-        let (x, y) = direction.unwrap_or(self.direction).offset();
-        let cell = self.cell_position;
+        let (x, y) = direction.unwrap_or(self.base.direction).offset();
+        let cell = self.base.cell_position;
         (cell.0 as i32 + x, cell.1 as i32 + y)
     }
 
@@ -101,7 +85,7 @@ impl Pacman<'_> {
             None => return false,
             // If the next direction is the same as the current direction, do nothing.
             Some(next_direction) => {
-                if next_direction == self.direction {
+                if next_direction == self.base.direction {
                     self.next_direction = None;
                     return false;
                 }
@@ -125,14 +109,14 @@ impl Pacman<'_> {
         event!(
             tracing::Level::DEBUG,
             "Direction change: {:?} -> {:?} at position ({}, {}) internal ({}, {})",
-            self.direction,
+            self.base.direction,
             self.next_direction.unwrap(),
-            self.pixel_position.0,
-            self.pixel_position.1,
-            self.internal_position().0,
-            self.internal_position().1
+            self.base.pixel_position.0,
+            self.base.pixel_position.1,
+            self.base.internal_position().0,
+            self.base.internal_position().1
         );
-        self.direction = self.next_direction.unwrap();
+        self.base.direction = self.next_direction.unwrap();
         self.next_direction = None;
 
         true
@@ -144,63 +128,63 @@ impl Pacman<'_> {
     /// This is used to ensure that Pac-Man is aligned with the grid before
     /// changing direction.
     fn internal_position_even(&self) -> (u32, u32) {
-        let (x, y) = self.internal_position();
+        let (x, y) = self.base.internal_position();
         ((x / 2u32) * 2u32, (y / 2u32) * 2u32)
     }
 }
 
 impl Entity for Pacman<'_> {
+    fn base(&self) -> &MovableEntity {
+        &self.base
+    }
+
+    /// Returns true if the Pac-Man entity is colliding with the other entity.
     fn is_colliding(&self, other: &dyn Entity) -> bool {
-        let (x, y) = self.position();
-        let (other_x, other_y) = other.position();
+        let (x, y) = self.base.pixel_position;
+        let (other_x, other_y) = other.base().pixel_position;
         x == other_x && y == other_y
     }
 
-    fn position(&self) -> (i32, i32) {
-        self.pixel_position
-    }
-
-    fn cell_position(&self) -> (u32, u32) {
-        self.cell_position
-    }
-
-    fn internal_position(&self) -> (u32, u32) {
-        let (x, y) = self.position();
-        (x as u32 % CELL_SIZE, y as u32 % CELL_SIZE)
-    }
-
+    /// Ticks the Pac-Man entity.
     fn tick(&mut self) {
         // Pac-Man can only change direction when he is perfectly aligned with the grid.
         let can_change = self.internal_position_even() == (0, 0);
 
         if can_change {
-            self.cell_position = (
-                (self.pixel_position.0 as u32 / CELL_SIZE) - BOARD_OFFSET.0,
-                (self.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
+            self.base.cell_position = (
+                (self.base.pixel_position.0 as u32 / CELL_SIZE) - BOARD_OFFSET.0,
+                (self.base.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
             );
 
             let current_tile = self
                 .map
                 .borrow()
-                .get_tile((self.cell_position.0 as i32, self.cell_position.1 as i32))
+                .get_tile((
+                    self.base.cell_position.0 as i32,
+                    self.base.cell_position.1 as i32,
+                ))
                 .unwrap_or(MapTile::Empty);
             if current_tile == MapTile::Tunnel {
-                self.in_tunnel = true;
+                self.base.in_tunnel = true;
             }
 
             // Tunnel logic: if in tunnel, force movement and prevent direction change
-            if self.in_tunnel {
+            if self.base.in_tunnel {
                 // If out of bounds, teleport to the opposite side and exit tunnel
-                if self.cell_position.0 == 0 {
-                    self.cell_position.0 = BOARD_WIDTH - 2;
-                    self.pixel_position =
-                        Map::cell_to_pixel((self.cell_position.0 + 1, self.cell_position.1));
-                    self.in_tunnel = false;
-                } else if self.cell_position.0 == BOARD_WIDTH - 1 {
-                    self.cell_position.0 = 1;
-                    self.pixel_position =
-                        Map::cell_to_pixel((self.cell_position.0 - 1, self.cell_position.1));
-                    self.in_tunnel = false;
+                if self.base.cell_position.0 == 0 {
+                    self.base.cell_position.0 = BOARD_WIDTH - 2;
+                    self.base.pixel_position = Map::cell_to_pixel((
+                        self.base.cell_position.0 + 1,
+                        self.base.cell_position.1,
+                    ));
+                    self.base.in_tunnel = false;
+                } else if self.base.cell_position.0 == BOARD_WIDTH - 1 {
+                    self.base.cell_position.0 = 1;
+                    self.base.pixel_position = Map::cell_to_pixel((
+                        self.base.cell_position.0 - 1,
+                        self.base.cell_position.1,
+                    ));
+                    self.base.in_tunnel = false;
                 } else {
                     // While in tunnel, do not allow direction change
                     // and always move in the current direction
@@ -226,28 +210,13 @@ impl Entity for Pacman<'_> {
         }
 
         if !self.stopped {
-            if self.modulation.next() {
-                let speed = self.speed as i32;
-                match self.direction {
-                    Direction::Right => {
-                        self.pixel_position.0 += speed;
-                    }
-                    Direction::Left => {
-                        self.pixel_position.0 -= speed;
-                    }
-                    Direction::Up => {
-                        self.pixel_position.1 -= speed;
-                    }
-                    Direction::Down => {
-                        self.pixel_position.1 += speed;
-                    }
-                }
-
+            if self.base.modulation.next() {
+                self.base.move_forward();
                 // Update the cell position if Pac-Man is aligned with the grid.
                 if self.internal_position_even() == (0, 0) {
-                    self.cell_position = (
-                        (self.pixel_position.0 as u32 / CELL_SIZE) - BOARD_OFFSET.0,
-                        (self.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
+                    self.base.cell_position = (
+                        (self.base.pixel_position.0 as u32 / CELL_SIZE) - BOARD_OFFSET.0,
+                        (self.base.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
                     );
                 }
             }

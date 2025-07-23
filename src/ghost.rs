@@ -13,7 +13,7 @@ use crate::{
     animation::AnimatedTexture,
     constants::{MapTile, BOARD_OFFSET, BOARD_WIDTH, CELL_SIZE},
     direction::Direction,
-    entity::Entity,
+    entity::{Entity, MovableEntity},
     map::Map,
     modulation::{SimpleTickModulator, TickModulator},
     pacman::Pacman,
@@ -57,12 +57,8 @@ impl GhostType {
 
 /// Base ghost struct that contains common functionality
 pub struct Ghost<'a> {
-    /// The absolute position of the ghost on the board, in pixels
-    pub pixel_position: (i32, i32),
-    /// The position of the ghost on the board, in grid coordinates
-    pub cell_position: (u32, u32),
-    /// The current direction of the ghost
-    pub direction: Direction,
+    /// Shared movement and position fields.
+    pub base: MovableEntity,
     /// The current mode of the ghost
     pub mode: GhostMode,
     /// The type/personality of this ghost
@@ -71,16 +67,10 @@ pub struct Ghost<'a> {
     pub map: Rc<RefCell<Map>>,
     /// Reference to Pac-Man for targeting
     pub pacman: Rc<RefCell<Pacman<'a>>>,
-    /// Movement speed
-    speed: u32,
-    /// Movement modulator
-    modulation: SimpleTickModulator,
     /// Ghost body sprite
     body_sprite: AnimatedTexture<'a>,
     /// Ghost eyes sprite
     eyes_sprite: AnimatedTexture<'a>,
-    /// Whether the ghost is currently in a tunnel
-    pub in_tunnel: bool,
 }
 
 impl Ghost<'_> {
@@ -96,20 +86,21 @@ impl Ghost<'_> {
         let color = ghost_type.color();
         let mut body_sprite = AnimatedTexture::new(body_texture, 8, 2, 32, 32, Some((-4, -4)));
         body_sprite.set_color_modulation(color.r, color.g, color.b);
-
+        let pixel_position = Map::cell_to_pixel(starting_position);
         Ghost {
-            pixel_position: Map::cell_to_pixel(starting_position),
-            cell_position: starting_position,
-            direction: Direction::Left,
+            base: MovableEntity::new(
+                pixel_position,
+                starting_position,
+                Direction::Left,
+                3,
+                SimpleTickModulator::new(1.0),
+            ),
             mode: GhostMode::Chase,
             ghost_type,
             map,
             pacman,
-            speed: 3,
-            modulation: SimpleTickModulator::new(1.0),
             body_sprite,
             eyes_sprite: AnimatedTexture::new(eyes_texture, 1, 4, 32, 32, Some((-4, -4))),
-            in_tunnel: false,
         }
     }
 
@@ -126,14 +117,14 @@ impl Ghost<'_> {
             self.body_sprite
                 .set_color_modulation(color.r, color.g, color.b);
             self.body_sprite
-                .render(canvas, self.pixel_position, Direction::Right);
+                .render(canvas, self.base.pixel_position, Direction::Right);
         }
 
         // Always render eyes on top
         let eye_frame = if self.mode == GhostMode::Frightened {
             4 // Frightened frame
         } else {
-            match self.direction {
+            match self.base.direction {
                 Direction::Right => 0,
                 Direction::Up => 1,
                 Direction::Left => 2,
@@ -143,7 +134,7 @@ impl Ghost<'_> {
 
         self.eyes_sprite.render_static(
             canvas,
-            self.pixel_position,
+            self.base.pixel_position,
             Direction::Right,
             Some(eye_frame),
         );
@@ -151,7 +142,7 @@ impl Ghost<'_> {
 
     /// Calculates the path to the target tile using the A* algorithm.
     pub fn get_path_to_target(&self, target: (u32, u32)) -> Option<(Vec<(u32, u32)>, u32)> {
-        let start = self.cell_position;
+        let start = self.base.cell_position;
         let map = self.map.borrow();
 
         dijkstra(
@@ -211,8 +202,8 @@ impl Ghost<'_> {
 
     /// Gets a random adjacent tile for frightened mode
     fn get_random_target(&self) -> (i32, i32) {
-        let mut rng = rand::thread_rng();
-        let (x, y) = self.cell_position;
+        let mut rng = rand::rng();
+        let (x, y) = self.base.cell_position;
         let mut possible_moves = Vec::new();
 
         // Check all four directions
@@ -223,7 +214,7 @@ impl Ghost<'_> {
             Direction::Right,
         ] {
             // Don't allow reversing direction
-            if *dir == self.direction.opposite() {
+            if *dir == self.base.direction.opposite() {
                 continue;
             }
 
@@ -239,7 +230,7 @@ impl Ghost<'_> {
 
         if possible_moves.is_empty() {
             // No valid moves, must reverse
-            let (dx, dy) = self.direction.opposite().offset();
+            let (dx, dy) = self.base.direction.opposite().offset();
             return (x as i32 + dx, y as i32 + dy);
         }
 
@@ -261,7 +252,8 @@ impl Ghost<'_> {
     fn get_chase_target(&self) -> (i32, i32) {
         // Default implementation just targets Pac-Man directly
         let pacman = self.pacman.borrow();
-        (pacman.cell_position.0 as i32, pacman.cell_position.1 as i32)
+        let cell = pacman.base.cell_position;
+        (cell.0 as i32, cell.1 as i32)
     }
 
     /// Changes the ghost's mode and handles direction reversal
@@ -273,66 +265,70 @@ impl Ghost<'_> {
 
         self.mode = new_mode;
 
+        self.base.speed = match new_mode {
+            GhostMode::Chase => 3,
+            GhostMode::Scatter => 2,
+            GhostMode::Frightened => 2,
+            GhostMode::Eyes => 7,
+            GhostMode::House => 0,
+        };
+
         if should_reverse {
-            self.direction = self.direction.opposite();
+            self.base.direction = self.base.direction.opposite();
         }
     }
 }
 
 impl Entity for Ghost<'_> {
-    fn position(&self) -> (i32, i32) {
-        self.pixel_position
+    fn base(&self) -> &MovableEntity {
+        &self.base
     }
 
-    fn cell_position(&self) -> (u32, u32) {
-        self.cell_position
-    }
-
-    fn internal_position(&self) -> (u32, u32) {
-        let (x, y) = self.position();
-        (x as u32 % CELL_SIZE, y as u32 % CELL_SIZE)
-    }
-
+    /// Returns true if the ghost entity is colliding with the other entity.
     fn is_colliding(&self, other: &dyn Entity) -> bool {
-        let (x, y) = self.position();
-        let (other_x, other_y) = other.position();
+        let (x, y) = self.base.pixel_position;
+        let (other_x, other_y) = other.base().pixel_position;
         x == other_x && y == other_y
     }
 
+    /// Ticks the ghost entity.
     fn tick(&mut self) {
         if self.mode == GhostMode::House {
             // For now, do nothing in the house
             return;
         }
 
-        if self.internal_position() == (0, 0) {
-            self.cell_position = (
-                (self.pixel_position.0 as u32 / CELL_SIZE) - BOARD_OFFSET.0,
-                (self.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
+        if self.base.internal_position() == (0, 0) {
+            self.base.cell_position = (
+                (self.base.pixel_position.0 as u32 / CELL_SIZE) - BOARD_OFFSET.0,
+                (self.base.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
             );
 
             let current_tile = self
                 .map
                 .borrow()
-                .get_tile((self.cell_position.0 as i32, self.cell_position.1 as i32))
+                .get_tile((
+                    self.base.cell_position.0 as i32,
+                    self.base.cell_position.1 as i32,
+                ))
                 .unwrap_or(MapTile::Empty);
             if current_tile == MapTile::Tunnel {
-                self.in_tunnel = true;
+                self.base.in_tunnel = true;
             }
 
             // Tunnel logic: if in tunnel, force movement and prevent direction change
-            if self.in_tunnel {
+            if self.base.in_tunnel {
                 // If out of bounds, teleport to the opposite side and exit tunnel
-                if self.cell_position.0 == 0 {
-                    self.cell_position.0 = BOARD_WIDTH - 2;
-                    self.pixel_position =
-                        Map::cell_to_pixel((self.cell_position.0, self.cell_position.1));
-                    self.in_tunnel = false;
-                } else if self.cell_position.0 == BOARD_WIDTH - 1 {
-                    self.cell_position.0 = 1;
-                    self.pixel_position =
-                        Map::cell_to_pixel((self.cell_position.0, self.cell_position.1));
-                    self.in_tunnel = false;
+                if self.base.cell_position.0 == 0 {
+                    self.base.cell_position.0 = BOARD_WIDTH - 2;
+                    self.base.pixel_position =
+                        Map::cell_to_pixel((self.base.cell_position.0, self.base.cell_position.1));
+                    self.base.in_tunnel = false;
+                } else if self.base.cell_position.0 == BOARD_WIDTH - 1 {
+                    self.base.cell_position.0 = 1;
+                    self.base.pixel_position =
+                        Map::cell_to_pixel((self.base.cell_position.0, self.base.cell_position.1));
+                    self.base.in_tunnel = false;
                 } else {
                     // While in tunnel, do not allow direction change
                     // and always move in the current direction
@@ -345,10 +341,10 @@ impl Entity for Ghost<'_> {
                 {
                     if path.len() > 1 {
                         let next_move = path[1];
-                        let (x, y) = self.cell_position;
+                        let (x, y) = self.base.cell_position;
                         let dx = next_move.0 as i32 - x as i32;
                         let dy = next_move.1 as i32 - y as i32;
-                        self.direction = if dx > 0 {
+                        self.base.direction = if dx > 0 {
                             Direction::Right
                         } else if dx < 0 {
                             Direction::Left
@@ -362,10 +358,10 @@ impl Entity for Ghost<'_> {
             }
 
             // Check if the next tile in the current direction is a wall
-            let (dx, dy) = self.direction.offset();
+            let (dx, dy) = self.base.direction.offset();
             let next_cell = (
-                self.cell_position.0 as i32 + dx,
-                self.cell_position.1 as i32 + dy,
+                self.base.cell_position.0 as i32 + dx,
+                self.base.cell_position.1 as i32 + dy,
             );
             let next_tile = self
                 .map
@@ -378,24 +374,18 @@ impl Entity for Ghost<'_> {
             }
         }
 
-        if !self.modulation.next() {
+        if !self.base.modulation.next() {
             return;
         }
 
         // Update position based on current direction and speed
-        let speed = self.speed as i32;
-        match self.direction {
-            Direction::Right => self.pixel_position.0 += speed,
-            Direction::Left => self.pixel_position.0 -= speed,
-            Direction::Up => self.pixel_position.1 -= speed,
-            Direction::Down => self.pixel_position.1 += speed,
-        }
+        self.base.move_forward();
 
         // Update cell position when aligned with grid
-        if self.internal_position() == (0, 0) {
-            self.cell_position = (
-                (self.pixel_position.0 as u32 / CELL_SIZE) - BOARD_OFFSET.0,
-                (self.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
+        if self.base.internal_position() == (0, 0) {
+            self.base.cell_position = (
+                (self.base.pixel_position.0 as u32 / CELL_SIZE) - BOARD_OFFSET.0,
+                (self.base.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
             );
         }
     }

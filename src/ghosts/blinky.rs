@@ -4,6 +4,7 @@ use std::rc::Rc;
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 
+use crate::entity::MovableEntity;
 use crate::{
     entity::Entity,
     ghost::{Ghost, GhostMode, GhostType},
@@ -38,7 +39,8 @@ impl<'a> Blinky<'a> {
     /// Gets Blinky's chase target - directly targets Pac-Man's current position
     fn get_chase_target(&self) -> (i32, i32) {
         let pacman = self.ghost.pacman.borrow();
-        (pacman.cell_position.0 as i32, pacman.cell_position.1 as i32)
+        let cell = pacman.base.cell_position;
+        (cell.0 as i32, cell.1 as i32)
     }
 
     pub fn set_mode(&mut self, mode: GhostMode) {
@@ -51,16 +53,8 @@ impl<'a> Blinky<'a> {
 }
 
 impl<'a> Entity for Blinky<'a> {
-    fn position(&self) -> (i32, i32) {
-        self.ghost.position()
-    }
-
-    fn cell_position(&self) -> (u32, u32) {
-        self.ghost.cell_position()
-    }
-
-    fn internal_position(&self) -> (u32, u32) {
-        self.ghost.internal_position()
+    fn base(&self) -> &MovableEntity {
+        self.ghost.base()
     }
 
     fn is_colliding(&self, other: &dyn Entity) -> bool {

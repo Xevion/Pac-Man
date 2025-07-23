@@ -187,10 +187,10 @@ impl Game<'_> {
 
         // Reset Pacman position
         let mut pacman = self.pacman.borrow_mut();
-        pacman.pixel_position = Map::cell_to_pixel((1, 1));
-        pacman.cell_position = (1, 1);
-        pacman.in_tunnel = false;
-        pacman.direction = Direction::Right;
+        pacman.base.pixel_position = Map::cell_to_pixel((1, 1));
+        pacman.base.cell_position = (1, 1);
+        pacman.base.in_tunnel = false;
+        pacman.base.direction = Direction::Right;
         pacman.next_direction = None;
         pacman.stopped = false;
 
@@ -213,10 +213,10 @@ impl Game<'_> {
             }
         }
         if let Some(&(gx, gy)) = valid_positions.iter().choose(&mut rng) {
-            self.blinky.pixel_position = Map::cell_to_pixel((gx, gy));
-            self.blinky.cell_position = (gx, gy);
-            self.blinky.in_tunnel = false;
-            self.blinky.direction = Direction::Left;
+            self.blinky.base.pixel_position = Map::cell_to_pixel((gx, gy));
+            self.blinky.base.cell_position = (gx, gy);
+            self.blinky.base.in_tunnel = false;
+            self.blinky.base.direction = Direction::Left;
             self.blinky.mode = crate::ghost::GhostMode::Chase;
         }
     }
@@ -231,7 +231,7 @@ impl Game<'_> {
     /// Checks if Pac-Man is currently eating a pellet and updates the game state
     /// accordingly.
     fn check_pellet_eating(&mut self) {
-        let cell_pos = self.pacman.borrow().cell_position();
+        let cell_pos = self.pacman.borrow().base.cell_position;
 
         // Check if there's a pellet at the current position
         let tile = {
@@ -319,7 +319,7 @@ impl Game<'_> {
                         .unwrap_or(MapTile::Empty);
                     let mut color = None;
 
-                    if (x, y) == self.pacman.borrow().cell_position() {
+                    if (x, y) == self.pacman.borrow().base.cell_position {
                         self.draw_cell((x, y), Color::CYAN);
                     } else {
                         color = match tile {
