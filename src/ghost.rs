@@ -5,7 +5,7 @@ use crate::{
     animation::{AnimatedAtlasTexture, FrameDrawn},
     constants::{MapTile, BOARD_WIDTH},
     direction::Direction,
-    entity::{Entity, MovableEntity, Renderable},
+    entity::{Entity, MovableEntity, Moving, Renderable, StaticEntity},
     map::Map,
     modulation::{SimpleTickModulator, TickModulator},
     pacman::Pacman,
@@ -57,10 +57,8 @@ pub struct Ghost<'a> {
     pub ghost_type: GhostType,
     /// Reference to Pac-Man for targeting
     pub pacman: std::rc::Rc<std::cell::RefCell<Pacman<'a>>>,
-    /// Ghost body sprite
-    body_sprite: AnimatedAtlasTexture<'a>,
-    /// Ghost eyes sprite
-    eyes_sprite: AnimatedAtlasTexture<'a>,
+    pub body_sprite: AnimatedAtlasTexture<'a>,
+    pub eyes_sprite: AnimatedAtlasTexture<'a>,
 }
 
 impl Ghost<'_> {
@@ -162,7 +160,6 @@ impl Ghost<'_> {
 
     /// Gets this ghost's chase mode target (to be implemented by each ghost type)
     fn get_chase_target(&self) -> (i32, i32) {
-        // Default implementation just targets Pac-Man directly
         let pacman = self.pacman.borrow();
         let cell = pacman.base().cell_position;
         (cell.0 as i32, cell.1 as i32)
@@ -170,7 +167,7 @@ impl Ghost<'_> {
 
     /// Calculates the path to the target tile using the A* algorithm.
     pub fn get_path_to_target(&self, target: (u32, u32)) -> Option<(Vec<(u32, u32)>, u32)> {
-        let start = self.base.cell_position;
+        let start = self.base.base.cell_position;
         let map = self.base.map.borrow();
 
         dijkstra(
@@ -229,14 +226,8 @@ impl Ghost<'_> {
                 .set_direction_if_valid(self.base.direction.opposite());
         }
     }
-}
 
-impl Entity for Ghost<'_> {
-    fn base(&self) -> &MovableEntity {
-        &self.base
-    }
-
-    fn tick(&mut self) {
+    pub fn tick(&mut self) {
         if self.mode == GhostMode::House {
             // For now, do nothing in the house
             return;
@@ -253,7 +244,7 @@ impl Entity for Ghost<'_> {
                 {
                     if path.len() > 1 {
                         let next_move = path[1];
-                        let (x, y) = self.base.cell_position;
+                        let (x, y) = self.base.base.cell_position;
                         let dx = next_move.0 as i32 - x as i32;
                         let dy = next_move.1 as i32 - y as i32;
                         let new_direction = if dx > 0 {
@@ -286,23 +277,35 @@ impl Entity for Ghost<'_> {
     }
 }
 
+impl<'a> Moving for Ghost<'a> {
+    fn move_forward(&mut self) {
+        self.base.move_forward();
+    }
+    fn update_cell_position(&mut self) {
+        self.base.update_cell_position();
+    }
+    fn next_cell(&self, direction: Option<Direction>) -> (i32, i32) {
+        self.base.next_cell(direction)
+    }
+    fn is_wall_ahead(&self, direction: Option<Direction>) -> bool {
+        self.base.is_wall_ahead(direction)
+    }
+    fn handle_tunnel(&mut self) -> bool {
+        self.base.handle_tunnel()
+    }
+    fn is_grid_aligned(&self) -> bool {
+        self.base.is_grid_aligned()
+    }
+    fn set_direction_if_valid(&mut self, new_direction: Direction) -> bool {
+        self.base.set_direction_if_valid(new_direction)
+    }
+}
+
 impl Renderable for Ghost<'_> {
-    fn render(&mut self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
-        // Render body
-        if self.mode != GhostMode::Eyes {
-            let color = if self.mode == GhostMode::Frightened {
-                sdl2::pixels::Color::RGB(0, 0, 255)
-            } else {
-                self.ghost_type.color()
-            };
-
-            self.body_sprite
-                .set_color_modulation(color.r, color.g, color.b);
-            self.body_sprite
-                .render(canvas, self.base.pixel_position, Direction::Right, None);
-        }
-
-        // Always render eyes on top
+    fn render(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+        let pos = self.base.base.pixel_position;
+        self.body_sprite.render(canvas, pos, Direction::Right, None);
+        // Inline the eye_frame logic here
         let eye_frame = if self.mode == GhostMode::Frightened {
             4 // Frightened frame
         } else {
@@ -313,12 +316,7 @@ impl Renderable for Ghost<'_> {
                 Direction::Down => 3,
             }
         };
-
-        self.eyes_sprite.render(
-            canvas,
-            self.base.pixel_position,
-            Direction::Right,
-            Some(eye_frame),
-        );
+        self.eyes_sprite
+            .render(canvas, pos, Direction::Right, Some(eye_frame));
     }
 }

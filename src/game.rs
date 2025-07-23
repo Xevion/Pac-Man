@@ -24,6 +24,7 @@ use crate::{
 };
 
 use crate::debug::{DebugMode, DebugRenderer};
+use crate::edible::{reconstruct_edibles, Edible, EdibleKind};
 
 // Embed texture data directly into the executable
 static PACMAN_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/pacman.png");
@@ -43,16 +44,16 @@ static GHOST_EYES_TEXTURE_DATA: &[u8] = include_bytes!("../assets/32/ghost_eyes.
 pub struct Game<'a> {
     canvas: &'a mut Canvas<Window>,
     map_texture: Texture<'a>,
-    pellet_texture: AtlasTexture<'a>,
-    power_pellet_texture: AtlasTexture<'a>,
+    pellet_texture: Rc<AtlasTexture<'a>>,
+    power_pellet_texture: Rc<AtlasTexture<'a>>,
     font: Font<'a, 'static>,
     pacman: Rc<RefCell<Pacman<'a>>>,
     map: Rc<std::cell::RefCell<Map>>,
     debug_mode: DebugMode,
     score: u32,
     audio: crate::audio::Audio,
-    // Add ghost
     blinky: Blinky<'a>,
+    edibles: Vec<Edible<'a>>,
 }
 
 impl Game<'_> {
@@ -100,7 +101,7 @@ impl Game<'_> {
         );
 
         // Load pellet texture from embedded data
-        let pellet_texture = AtlasTexture::new(
+        let pellet_texture = Rc::new(AtlasTexture::new(
             texture_creator
                 .load_texture_bytes(PELLET_TEXTURE_DATA)
                 .expect("Could not load pellet texture from embedded data"),
@@ -108,8 +109,8 @@ impl Game<'_> {
             24,
             24,
             None,
-        );
-        let power_pellet_texture = AtlasTexture::new(
+        ));
+        let power_pellet_texture = Rc::new(AtlasTexture::new(
             texture_creator
                 .load_texture_bytes(POWER_PELLET_TEXTURE_DATA)
                 .expect("Could not load power pellet texture from embedded data"),
@@ -117,7 +118,7 @@ impl Game<'_> {
             24,
             24,
             None,
-        );
+        ));
 
         // Load font from embedded data
         let font_rwops = RWops::from_bytes(FONT_DATA).expect("Failed to create RWops for font");
@@ -133,6 +134,13 @@ impl Game<'_> {
             .expect("Could not load map texture from embedded data");
         map_texture.set_color_mod(0, 0, 255);
 
+        let edibles = reconstruct_edibles(
+            Rc::clone(&map),
+            Rc::clone(&pellet_texture),
+            Rc::clone(&power_pellet_texture),
+            Rc::clone(&pellet_texture), // placeholder for fruit sprite
+        );
+
         Game {
             canvas,
             pacman,
@@ -145,6 +153,7 @@ impl Game<'_> {
             score: 0,
             audio,
             blinky,
+            edibles,
         }
     }
 
@@ -156,7 +165,10 @@ impl Game<'_> {
     pub fn keyboard_event(&mut self, keycode: Keycode) {
         // Change direction
         let direction = Direction::from_keycode(keycode);
-        self.pacman.borrow_mut().next_direction = direction;
+        if direction.is_some() {
+            self.pacman.borrow_mut().next_direction = direction;
+            return;
+        }
 
         // Toggle debug mode
         if keycode == Keycode::Space {
@@ -166,11 +178,13 @@ impl Game<'_> {
                 DebugMode::Pathfinding => DebugMode::ValidPositions,
                 DebugMode::ValidPositions => DebugMode::None,
             };
+            return;
         }
 
         // Reset game
         if keycode == Keycode::R {
             self.reset();
+            return;
         }
     }
 
@@ -202,8 +216,8 @@ impl Game<'_> {
         // Randomize Pac-Man position
         if let Some(pos) = valid_positions.iter().choose(&mut rng) {
             let mut pacman = self.pacman.borrow_mut();
-            pacman.base.pixel_position = Map::cell_to_pixel((pos.x, pos.y));
-            pacman.base.cell_position = (pos.x, pos.y);
+            pacman.base.base.pixel_position = Map::cell_to_pixel((pos.x, pos.y));
+            pacman.base.base.cell_position = (pos.x, pos.y);
             pacman.base.in_tunnel = false;
             pacman.base.direction = Direction::Right;
             pacman.next_direction = None;
@@ -212,54 +226,56 @@ impl Game<'_> {
 
         // Randomize ghost position
         if let Some(pos) = valid_positions.iter().choose(&mut rng) {
-            self.blinky.base.pixel_position = Map::cell_to_pixel((pos.x, pos.y));
-            self.blinky.base.cell_position = (pos.x, pos.y);
+            self.blinky.base.base.pixel_position = Map::cell_to_pixel((pos.x, pos.y));
+            self.blinky.base.base.cell_position = (pos.x, pos.y);
             self.blinky.base.in_tunnel = false;
             self.blinky.base.direction = Direction::Left;
             self.blinky.mode = crate::ghost::GhostMode::Chase;
         }
+
+        self.edibles = reconstruct_edibles(
+            Rc::clone(&self.map),
+            Rc::clone(&self.pellet_texture),
+            Rc::clone(&self.power_pellet_texture),
+            Rc::clone(&self.pellet_texture), // placeholder for fruit sprite
+        );
     }
 
     /// Advances the game by one tick.
     pub fn tick(&mut self) {
-        self.check_pellet_eating();
-        self.pacman.borrow_mut().tick();
-        self.blinky.tick();
-    }
+        // Advance animation frames for Pacman and Blinky
+        self.pacman.borrow_mut().sprite.tick();
+        self.blinky.body_sprite.tick();
+        self.blinky.eyes_sprite.tick();
 
-    /// Checks if Pac-Man is currently eating a pellet and updates the game state
-    /// accordingly.
-    fn check_pellet_eating(&mut self) {
-        let cell_pos = self.pacman.borrow().base.cell_position;
-
-        // Check if there's a pellet at the current position
-        let tile = {
-            let map = self.map.borrow();
-            map.get_tile((cell_pos.0 as i32, cell_pos.1 as i32))
-        };
-
-        if let Some(tile) = tile {
-            let pellet_value = match tile {
-                MapTile::Pellet => Some(10),
-                MapTile::PowerPellet => Some(50),
-                _ => None,
-            };
-
-            if let Some(value) = pellet_value {
-                {
-                    let mut map = self.map.borrow_mut();
-                    map.set_tile((cell_pos.0 as i32, cell_pos.1 as i32), MapTile::Empty);
-                }
-                self.add_score(value);
-                self.audio.eat();
-                event!(
-                    tracing::Level::DEBUG,
-                    "Pellet eaten at ({}, {})",
-                    cell_pos.0,
-                    cell_pos.1
-                );
+        let pacman = self.pacman.borrow();
+        let mut eaten_indices = vec![];
+        for (i, edible) in self.edibles.iter().enumerate() {
+            if edible.collide(&*pacman) {
+                eaten_indices.push(i);
             }
         }
+        drop(pacman); // Release immutable borrow before mutably borrowing self
+        for &i in eaten_indices.iter().rev() {
+            let edible = &self.edibles[i];
+            match edible.kind {
+                EdibleKind::Pellet => {
+                    self.add_score(10);
+                    self.audio.eat();
+                }
+                EdibleKind::PowerPellet => {
+                    self.add_score(50);
+                    self.audio.eat();
+                }
+                EdibleKind::Fruit(_fruit) => {
+                    self.add_score(100);
+                    self.audio.eat();
+                }
+            }
+            self.edibles.remove(i);
+        }
+        self.pacman.borrow_mut().tick();
+        self.blinky.tick();
     }
 
     /// Draws the entire game to the canvas.
@@ -273,41 +289,14 @@ impl Game<'_> {
             .copy(&self.map_texture, None, None)
             .expect("Could not render texture on canvas");
 
-        // Render pellets
-        for x in 0..BOARD_WIDTH {
-            for y in 0..BOARD_HEIGHT {
-                let tile = self
-                    .map
-                    .borrow()
-                    .get_tile((x as i32, y as i32))
-                    .unwrap_or(MapTile::Empty);
-
-                match tile {
-                    MapTile::Pellet => {
-                        let position = Map::cell_to_pixel((x, y));
-                        self.pellet_texture.render(
-                            self.canvas,
-                            position,
-                            Direction::Right,
-                            Some(0),
-                        );
-                    }
-                    MapTile::PowerPellet => {
-                        let position = Map::cell_to_pixel((x, y));
-                        self.power_pellet_texture.render(
-                            self.canvas,
-                            position,
-                            Direction::Right,
-                            Some(0),
-                        );
-                    }
-                    _ => {}
-                }
-            }
+        // Remove old pellet rendering
+        // Instead, render all edibles
+        for edible in &self.edibles {
+            edible.render(self.canvas);
         }
 
         // Render Pac-Man
-        self.pacman.borrow_mut().render(self.canvas);
+        self.pacman.borrow().render(self.canvas);
 
         // Render ghost
         self.blinky.render(self.canvas);
@@ -321,9 +310,10 @@ impl Game<'_> {
                 DebugRenderer::draw_debug_grid(
                     self.canvas,
                     &self.map.borrow(),
-                    self.pacman.borrow().base.cell_position,
+                    self.pacman.borrow().base.base.cell_position,
                 );
-                let next_cell = self.pacman.borrow().base.next_cell(None);
+                let next_cell =
+                    <Pacman as crate::entity::Moving>::next_cell(&*self.pacman.borrow(), None);
                 DebugRenderer::draw_next_cell(
                     self.canvas,
                     &self.map.borrow(),

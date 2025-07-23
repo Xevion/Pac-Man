@@ -36,6 +36,45 @@ pub enum MapTile {
     Tunnel,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum FruitType {
+    Cherry,
+    Strawberry,
+    Orange,
+    Apple,
+    Melon,
+    Galaxian,
+    Bell,
+    Key,
+}
+
+impl FruitType {
+    pub const ALL: [FruitType; 8] = [
+        FruitType::Cherry,
+        FruitType::Strawberry,
+        FruitType::Orange,
+        FruitType::Apple,
+        FruitType::Melon,
+        FruitType::Galaxian,
+        FruitType::Bell,
+        FruitType::Key,
+    ];
+
+    pub fn score(self) -> u32 {
+        match self {
+            FruitType::Cherry => 100,
+            FruitType::Strawberry => 300,
+            FruitType::Orange => 500,
+            FruitType::Apple => 700,
+            FruitType::Melon => 1000,
+            FruitType::Galaxian => 2000,
+            FruitType::Bell => 3000,
+            FruitType::Key => 5000,
+        }
+    }
+}
+
 /// The raw layout of the game board, as a 2D array of characters.
 pub const RAW_BOARD: [&str; BOARD_HEIGHT as usize] = [
     "############################",

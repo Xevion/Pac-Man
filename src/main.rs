@@ -65,6 +65,7 @@ mod map;
 mod modulation;
 mod pacman;
 mod debug;
+mod edible;
 
 /// The main entry point of the application.
 ///

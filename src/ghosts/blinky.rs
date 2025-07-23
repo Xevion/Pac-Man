@@ -46,22 +46,44 @@ impl<'a> Blinky<'a> {
         self.ghost.set_mode(mode);
     }
 
-    pub fn render(&mut self, canvas: &mut Canvas<Window>) {
-        Renderable::render(&mut self.ghost, canvas);
+    pub fn tick(&mut self) {
+        self.ghost.tick();
     }
 }
 
-impl<'a> Entity for Blinky<'a> {
-    fn base(&self) -> &MovableEntity {
-        self.ghost.base()
+impl<'a> crate::entity::Entity for Blinky<'a> {
+    fn base(&self) -> &crate::entity::StaticEntity {
+        self.ghost.base.base()
     }
+}
 
-    fn is_colliding(&self, other: &dyn Entity) -> bool {
-        self.ghost.is_colliding(other)
+impl<'a> crate::entity::Renderable for Blinky<'a> {
+    fn render(&self, canvas: &mut Canvas<Window>) {
+        self.ghost.render(canvas);
     }
+}
 
-    fn tick(&mut self) {
-        self.ghost.tick()
+impl<'a> crate::entity::Moving for Blinky<'a> {
+    fn move_forward(&mut self) {
+        self.ghost.move_forward();
+    }
+    fn update_cell_position(&mut self) {
+        self.ghost.update_cell_position();
+    }
+    fn next_cell(&self, direction: Option<crate::direction::Direction>) -> (i32, i32) {
+        self.ghost.next_cell(direction)
+    }
+    fn is_wall_ahead(&self, direction: Option<crate::direction::Direction>) -> bool {
+        self.ghost.is_wall_ahead(direction)
+    }
+    fn handle_tunnel(&mut self) -> bool {
+        self.ghost.handle_tunnel()
+    }
+    fn is_grid_aligned(&self) -> bool {
+        self.ghost.is_grid_aligned()
+    }
+    fn set_direction_if_valid(&mut self, new_direction: crate::direction::Direction) -> bool {
+        self.ghost.set_direction_if_valid(new_direction)
     }
 }
 

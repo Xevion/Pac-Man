@@ -10,7 +10,7 @@ use crate::direction::Direction;
 /// Trait for drawable atlas-based textures
 pub trait FrameDrawn {
     fn render(
-        &mut self,
+        &self,
         canvas: &mut Canvas<Window>,
         position: (i32, i32),
         direction: Direction,
@@ -63,7 +63,7 @@ impl<'a> AtlasTexture<'a> {
 
 impl<'a> FrameDrawn for AtlasTexture<'a> {
     fn render(
-        &mut self,
+        &self,
         canvas: &mut Canvas<Window>,
         position: (i32, i32),
         direction: Direction,
@@ -158,18 +158,13 @@ impl<'a> AnimatedAtlasTexture<'a> {
 
 impl<'a> FrameDrawn for AnimatedAtlasTexture<'a> {
     fn render(
-        &mut self,
+        &self,
         canvas: &mut Canvas<Window>,
         position: (i32, i32),
         direction: Direction,
         frame: Option<u32>,
     ) {
-        self.atlas.render(
-            canvas,
-            position,
-            direction,
-            frame.or(Some(self.current_frame())),
-        );
-        self.tick();
+        let frame = frame.unwrap_or_else(|| self.current_frame());
+        self.atlas.render(canvas, position, direction, Some(frame));
     }
 }

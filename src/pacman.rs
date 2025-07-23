@@ -11,7 +11,7 @@ use tracing::event;
 use crate::{
     animation::{AnimatedAtlasTexture, FrameDrawn},
     direction::Direction,
-    entity::{Entity, MovableEntity, Renderable},
+    entity::{Entity, MovableEntity, Moving, Renderable, StaticEntity},
     map::Map,
     modulation::{SimpleTickModulator, TickModulator},
 };
@@ -24,7 +24,37 @@ pub struct Pacman<'a> {
     pub next_direction: Option<Direction>,
     /// Whether Pac-Man is currently stopped.
     pub stopped: bool,
-    sprite: AnimatedAtlasTexture<'a>,
+    pub sprite: AnimatedAtlasTexture<'a>,
+}
+
+impl<'a> Entity for Pacman<'a> {
+    fn base(&self) -> &StaticEntity {
+        &self.base.base
+    }
+}
+
+impl<'a> Moving for Pacman<'a> {
+    fn move_forward(&mut self) {
+        self.base.move_forward();
+    }
+    fn update_cell_position(&mut self) {
+        self.base.update_cell_position();
+    }
+    fn next_cell(&self, direction: Option<Direction>) -> (i32, i32) {
+        self.base.next_cell(direction)
+    }
+    fn is_wall_ahead(&self, direction: Option<Direction>) -> bool {
+        self.base.is_wall_ahead(direction)
+    }
+    fn handle_tunnel(&mut self) -> bool {
+        self.base.handle_tunnel()
+    }
+    fn is_grid_aligned(&self) -> bool {
+        self.base.is_grid_aligned()
+    }
+    fn set_direction_if_valid(&mut self, new_direction: Direction) -> bool {
+        self.base.set_direction_if_valid(new_direction)
+    }
 }
 
 impl Pacman<'_> {
@@ -55,7 +85,7 @@ impl Pacman<'_> {
         match self.next_direction {
             None => return false,
             Some(next_direction) => {
-                if self.base.set_direction_if_valid(next_direction) {
+                if <Pacman as Moving>::set_direction_if_valid(self, next_direction) {
                     self.next_direction = None;
                     return true;
                 }
@@ -69,53 +99,37 @@ impl Pacman<'_> {
         let (x, y) = self.base.internal_position();
         ((x / 2u32) * 2u32, (y / 2u32) * 2u32)
     }
-}
 
-impl Entity for Pacman<'_> {
-    fn base(&self) -> &MovableEntity {
-        &self.base
-    }
-
-    fn tick(&mut self) {
+    pub fn tick(&mut self) {
         let can_change = self.internal_position_even() == (0, 0);
-
         if can_change {
-            self.base.update_cell_position();
-
-            if !self.base.handle_tunnel() {
-                // Handle direction change as normal if not in tunnel
+            <Pacman as Moving>::update_cell_position(self);
+            if !<Pacman as Moving>::handle_tunnel(self) {
                 self.handle_direction_change();
-
-                // Check if the next tile in the current direction is a wall
-                if !self.stopped && self.base.is_wall_ahead(None) {
+                if !self.stopped && <Pacman as Moving>::is_wall_ahead(self, None) {
                     self.stopped = true;
-                } else if self.stopped && !self.base.is_wall_ahead(None) {
+                } else if self.stopped && !<Pacman as Moving>::is_wall_ahead(self, None) {
                     self.stopped = false;
                 }
             }
         }
-
         if !self.stopped && self.base.modulation.next() {
-            self.base.move_forward();
+            <Pacman as Moving>::move_forward(self);
             if self.internal_position_even() == (0, 0) {
-                self.base.update_cell_position();
+                <Pacman as Moving>::update_cell_position(self);
             }
         }
     }
 }
 
 impl Renderable for Pacman<'_> {
-    fn render(&mut self, canvas: &mut Canvas<Window>) {
+    fn render(&self, canvas: &mut Canvas<Window>) {
+        let pos = self.base.base.pixel_position;
+        let dir = self.base.direction;
         if self.stopped {
-            self.sprite.render(
-                canvas,
-                self.base.pixel_position,
-                self.base.direction,
-                Some(2),
-            );
+            self.sprite.render(canvas, pos, dir, Some(2));
         } else {
-            self.sprite
-                .render(canvas, self.base.pixel_position, self.base.direction, None);
+            self.sprite.render(canvas, pos, dir, None);
         }
     }
 }

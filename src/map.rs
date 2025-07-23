@@ -28,6 +28,12 @@ impl Add<SignedPosition> for Position {
     }
 }
 
+impl PartialEq<(u32, u32)> for Position {
+    fn eq(&self, other: &(u32, u32)) -> bool {
+        self.x == other.0 && self.y == other.1
+    }
+}
+
 impl Position {
     pub fn as_i32(&self) -> (i32, i32) {
         (self.x as i32, self.y as i32)
