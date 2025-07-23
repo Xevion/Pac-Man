@@ -1,15 +1,17 @@
 use pathfinding::prelude::dijkstra;
 use rand::Rng;
 
-use crate::{
-    animation::{AnimatedAtlasTexture, FrameDrawn},
-    constants::{MapTile, BOARD_WIDTH},
-    direction::Direction,
-    entity::{Entity, MovableEntity, Moving, Renderable, StaticEntity},
-    map::Map,
-    modulation::{SimpleTickModulator, TickModulator},
-    pacman::Pacman,
-};
+use crate::animation::{AnimatedAtlasTexture, FrameDrawn};
+use crate::constants::{MapTile, BOARD_WIDTH};
+use crate::direction::Direction;
+use crate::entity::{Entity, MovableEntity, Moving, Renderable, StaticEntity};
+use crate::map::Map;
+use crate::modulation::{SimpleTickModulator, TickModulator};
+use crate::pacman::Pacman;
+use sdl2::pixels::Color;
+use sdl2::render::Texture;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// The different modes a ghost can be in
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -37,12 +39,12 @@ pub enum GhostType {
 
 impl GhostType {
     /// Returns the color of the ghost.
-    pub fn color(&self) -> sdl2::pixels::Color {
+    pub fn color(&self) -> Color {
         match self {
-            GhostType::Blinky => sdl2::pixels::Color::RGB(255, 0, 0),
-            GhostType::Pinky => sdl2::pixels::Color::RGB(255, 184, 255),
-            GhostType::Inky => sdl2::pixels::Color::RGB(0, 255, 255),
-            GhostType::Clyde => sdl2::pixels::Color::RGB(255, 184, 82),
+            GhostType::Blinky => Color::RGB(255, 0, 0),
+            GhostType::Pinky => Color::RGB(255, 184, 255),
+            GhostType::Inky => Color::RGB(0, 255, 255),
+            GhostType::Clyde => Color::RGB(255, 184, 82),
         }
     }
 }
@@ -56,7 +58,7 @@ pub struct Ghost<'a> {
     /// The type/personality of this ghost
     pub ghost_type: GhostType,
     /// Reference to Pac-Man for targeting
-    pub pacman: std::rc::Rc<std::cell::RefCell<Pacman<'a>>>,
+    pub pacman: Rc<RefCell<Pacman<'a>>>,
     pub body_sprite: AnimatedAtlasTexture<'a>,
     pub eyes_sprite: AnimatedAtlasTexture<'a>,
 }
@@ -66,10 +68,10 @@ impl Ghost<'_> {
     pub fn new<'a>(
         ghost_type: GhostType,
         starting_position: (u32, u32),
-        body_texture: sdl2::render::Texture<'a>,
-        eyes_texture: sdl2::render::Texture<'a>,
-        map: std::rc::Rc<std::cell::RefCell<Map>>,
-        pacman: std::rc::Rc<std::cell::RefCell<Pacman<'a>>>,
+        body_texture: Texture<'a>,
+        eyes_texture: Texture<'a>,
+        map: Rc<RefCell<Map>>,
+        pacman: Rc<RefCell<Pacman<'a>>>,
     ) -> Ghost<'a> {
         let color = ghost_type.color();
         let mut body_sprite = AnimatedAtlasTexture::new(body_texture, 8, 2, 32, 32, Some((-4, -4)));

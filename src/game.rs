@@ -13,16 +13,13 @@ use sdl2::{pixels::Color, render::Canvas, video::Window};
 use tracing::event;
 
 use crate::audio::Audio;
-use crate::{
-    animation::{AtlasTexture, FrameDrawn},
-    constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH, RAW_BOARD},
-    direction::Direction,
-    entity::{Entity, Renderable},
-    ghosts::blinky::Blinky,
-    map::Map,
-    pacman::Pacman,
-};
-
+use crate::animation::{AtlasTexture, FrameDrawn};
+use crate::constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH, RAW_BOARD};
+use crate::direction::Direction;
+use crate::entity::{Entity, Renderable};
+use crate::ghosts::blinky::Blinky;
+use crate::map::Map;
+use crate::pacman::Pacman;
 use crate::debug::{DebugMode, DebugRenderer};
 use crate::edible::{reconstruct_edibles, Edible, EdibleKind};
 
@@ -48,10 +45,10 @@ pub struct Game<'a> {
     power_pellet_texture: Rc<AtlasTexture<'a>>,
     font: Font<'a, 'static>,
     pacman: Rc<RefCell<Pacman<'a>>>,
-    map: Rc<std::cell::RefCell<Map>>,
+    map: Rc<RefCell<Map>>,
     debug_mode: DebugMode,
     score: u32,
-    audio: crate::audio::Audio,
+    audio: Audio,
     blinky: Blinky<'a>,
     edibles: Vec<Edible<'a>>,
 }
@@ -71,13 +68,13 @@ impl Game<'_> {
         ttf_context: &'a sdl2::ttf::Sdl2TtfContext,
         _audio_subsystem: &'a sdl2::AudioSubsystem,
     ) -> Game<'a> {
-        let map = Rc::new(std::cell::RefCell::new(Map::new(RAW_BOARD)));
+        let map = Rc::new(RefCell::new(Map::new(RAW_BOARD)));
 
         // Load Pacman texture from embedded data
         let pacman_atlas = texture_creator
             .load_texture_bytes(PACMAN_TEXTURE_DATA)
             .expect("Could not load pacman texture from embedded data");
-        let pacman = Rc::new(std::cell::RefCell::new(Pacman::new(
+        let pacman = Rc::new(RefCell::new(Pacman::new(
             (1, 1),
             pacman_atlas,
             Rc::clone(&map),

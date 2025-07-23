@@ -4,12 +4,11 @@ use std::rc::Rc;
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 
-use crate::{
-    entity::{Entity, MovableEntity, Renderable},
-    ghost::{Ghost, GhostMode, GhostType},
-    map::Map,
-    pacman::Pacman,
-};
+use crate::direction::Direction;
+use crate::entity::{Entity, MovableEntity, Moving, Renderable, StaticEntity};
+use crate::ghost::{Ghost, GhostMode, GhostType};
+use crate::map::Map;
+use crate::pacman::Pacman;
 
 pub struct Blinky<'a> {
     ghost: Ghost<'a>,
@@ -51,29 +50,29 @@ impl<'a> Blinky<'a> {
     }
 }
 
-impl<'a> crate::entity::Entity for Blinky<'a> {
-    fn base(&self) -> &crate::entity::StaticEntity {
+impl<'a> Entity for Blinky<'a> {
+    fn base(&self) -> &StaticEntity {
         self.ghost.base.base()
     }
 }
 
-impl<'a> crate::entity::Renderable for Blinky<'a> {
+impl<'a> Renderable for Blinky<'a> {
     fn render(&self, canvas: &mut Canvas<Window>) {
         self.ghost.render(canvas);
     }
 }
 
-impl<'a> crate::entity::Moving for Blinky<'a> {
+impl<'a> Moving for Blinky<'a> {
     fn move_forward(&mut self) {
         self.ghost.move_forward();
     }
     fn update_cell_position(&mut self) {
         self.ghost.update_cell_position();
     }
-    fn next_cell(&self, direction: Option<crate::direction::Direction>) -> (i32, i32) {
+    fn next_cell(&self, direction: Option<Direction>) -> (i32, i32) {
         self.ghost.next_cell(direction)
     }
-    fn is_wall_ahead(&self, direction: Option<crate::direction::Direction>) -> bool {
+    fn is_wall_ahead(&self, direction: Option<Direction>) -> bool {
         self.ghost.is_wall_ahead(direction)
     }
     fn handle_tunnel(&mut self) -> bool {
@@ -82,7 +81,7 @@ impl<'a> crate::entity::Moving for Blinky<'a> {
     fn is_grid_aligned(&self) -> bool {
         self.ghost.is_grid_aligned()
     }
-    fn set_direction_if_valid(&mut self, new_direction: crate::direction::Direction) -> bool {
+    fn set_direction_if_valid(&mut self, new_direction: Direction) -> bool {
         self.ghost.set_direction_if_valid(new_direction)
     }
 }
