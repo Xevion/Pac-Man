@@ -11,8 +11,6 @@ env:
 jobs:
   build:
     name: Build (${{ matrix.target }})
-    env:
-      VCPKG_SYSTEM_LIBRARIES: "OFF"
     strategy:
       fail-fast: false
       matrix:
@@ -55,7 +53,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential gettext libltdl-dev
+          sudo apt-get install -y build-essential gettext libltdl-dev zlib1g-dev
 
       - name: Vcpkg
         run: |
@@ -125,7 +123,7 @@ jobs:
           mkdir -p dist
           cp assets/site/{build.css,favicon.ico,index.html} dist
           output_folder="target/wasm32-unknown-emscripten/release"
-          cp $output_folder/pacman.{wasm,js,data} dist
+          cp $output_folder/pacman.{wasm,js} $output_folder/deps/pacman.data dist
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
