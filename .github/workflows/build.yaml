@@ -111,8 +111,21 @@ jobs:
           version: 8
           run_install: true
 
-      - name: Build
-        run: ./build.sh -er # release mode, skip emsdk
+      - name: Build with Emscripten
+        run: |
+          cargo build --target=wasm32-unknown-emscripten --release
+
+      - name: Assemble
+        run: |
+          echo "Generating CSS"
+          pnpx postcss-cli ./assets/site/styles.scss -o ./assets/site/build.css
+
+          echo "Copying WASM files"
+
+          mkdir -p dist
+          cp assets/site/{build.css,favicon.ico,index.html} dist
+          output_folder="target/wasm32-unknown-emscripten/release"
+          cp $output_folder/pacman.{wasm,js,data} dist
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
