@@ -5,10 +5,12 @@ on: [push]
 permissions:
   contents: write
 
+env:
+  RUST_TOOLCHAIN: 1.88.0
+
 jobs:
   wasm:
     runs-on: ubuntu-latest
-
     permissions:
       pages: write
       id-token: write
@@ -23,9 +25,10 @@ jobs:
           version: 3.1.43
 
       - name: Setup Rust (WASM32 Emscripten)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
           target: wasm32-unknown-emscripten
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -37,7 +40,7 @@ jobs:
           run_install: true
 
       - name: Build
-        run: ./scripts/build.sh -er # release mode, skip emsdk
+        run: ./build.sh -er # release mode, skip emsdk
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
@@ -61,9 +64,10 @@ jobs:
         run: sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libsdl2-gfx-dev
 
       - name: Setup Rust Toolchain (Linux)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
           target: ${{ env.TARGET }}
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -109,9 +113,10 @@ jobs:
         run: brew install sdl2 sdl2_image sdl2_mixer sdl2_ttf sdl2_gfx
 
       - name: Setup Rust Toolchain (MacOS)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
           target: ${{ env.TARGET }}
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -189,9 +194,10 @@ jobs:
           cp C:\vcpkg\packages\sdl2-gfx_x64-windows-release\lib\SDL2_gfx.lib ./
 
       - name: Setup Rust (Windows)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
-          targets: ${{ env.TARGET }}
+          target: ${{ env.TARGET }}
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
