@@ -10,3 +10,4 @@ pub trait FrameDrawn {
 
 pub mod animated;
 pub mod atlas;
+pub mod blinking;

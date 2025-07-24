@@ -26,6 +26,8 @@ use crate::entity::pacman::Pacman;
 use crate::entity::Renderable;
 use crate::map::Map;
 use crate::texture::atlas::{texture_to_static, AtlasTexture};
+use crate::texture::blinking::BlinkingTexture;
+use crate::texture::FrameDrawn;
 
 /// The main game state.
 ///
@@ -34,8 +36,8 @@ use crate::texture::atlas::{texture_to_static, AtlasTexture};
 pub struct Game {
     canvas: &'static mut Canvas<Window>,
     map_texture: Texture<'static>,
-    pellet_texture: Rc<AtlasTexture>,
-    power_pellet_texture: Rc<AtlasTexture>,
+    pellet_texture: Rc<Box<dyn FrameDrawn>>,
+    power_pellet_texture: Rc<RefCell<BlinkingTexture>>,
     font: Font<'static, 'static>,
     pacman: Rc<RefCell<Pacman>>,
     map: Rc<RefCell<Map>>,
@@ -92,7 +94,7 @@ impl Game {
         // Load pellet texture from asset API
         let pellet_bytes = get_asset_bytes(Asset::Pellet).expect("Failed to load asset");
         let power_pellet_bytes = get_asset_bytes(Asset::Energizer).expect("Failed to load asset");
-        let pellet_texture = Rc::new(AtlasTexture::new(
+        let pellet_texture: Rc<Box<dyn FrameDrawn>> = Rc::new(Box::new(AtlasTexture::new(
             unsafe {
                 texture_to_static(
                     texture_creator
@@ -104,20 +106,18 @@ impl Game {
             24,
             24,
             None,
-        ));
-        let power_pellet_texture = Rc::new(AtlasTexture::new(
-            unsafe {
-                texture_to_static(
-                    texture_creator
-                        .load_texture_bytes(&power_pellet_bytes)
-                        .expect("Could not load power pellet texture from asset API"),
-                )
-            },
+        )));
+        let power_pellet_texture = Rc::new(RefCell::new(BlinkingTexture::new(
+            texture_creator
+                .load_texture_bytes(&power_pellet_bytes)
+                .expect("Could not load power pellet texture from asset API"),
             1,
             24,
             24,
             None,
-        ));
+            30, // on_ticks
+            9,  // off_ticks
+        )));
 
         // Load map texture from asset API
         let map_bytes = get_asset_bytes(Asset::Map).expect("Failed to load asset");
@@ -261,6 +261,9 @@ impl Game {
         self.pacman.borrow_mut().sprite.tick();
         self.blinky.body_sprite.tick();
         self.blinky.eyes_sprite.tick();
+
+        // Advance blinking for power pellets
+        self.power_pellet_texture.borrow_mut().tick();
 
         let pacman = self.pacman.borrow();
         let mut eaten_indices = vec![];
