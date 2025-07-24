@@ -72,7 +72,7 @@ jobs:
       - name: Vcpkg
         run: |
           cargo install cargo-vcpkg
-          cargo vcpkg build
+          cargo vcpkg -v build
 
       - name: Build
         run: cargo build --release
