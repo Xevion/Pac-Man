@@ -3,16 +3,16 @@
 
 use std::borrow::Cow;
 use std::io;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum AssetError {
-    Io(io::Error),
-}
-
-impl From<io::Error> for AssetError {
-    fn from(e: io::Error) -> Self {
-        AssetError::Io(e)
-    }
+    #[error("IO error: {0}")]
+    Io(#[from] io::Error),
+    #[error("Asset not found: {0}")]
+    NotFound(String),
+    #[error("Invalid asset format: {0}")]
+    InvalidFormat(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -63,6 +63,9 @@ mod imp {
     use std::path::Path;
     pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
         let path = Path::new("assets").join(asset.path());
+        if !path.exists() {
+            return Err(AssetError::NotFound(asset.path().to_string()));
+        }
         let bytes = fs::read(&path)?;
         Ok(Cow::Owned(bytes))
     }
