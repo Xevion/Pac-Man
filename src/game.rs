@@ -22,10 +22,10 @@ use crate::constants::RAW_BOARD;
 use crate::debug::{DebugMode, DebugRenderer};
 use crate::direction::Direction;
 use crate::edible::{reconstruct_edibles, Edible, EdibleKind};
+use crate::entity::blinky::Blinky;
+use crate::entity::pacman::Pacman;
 use crate::entity::Renderable;
-use crate::ghosts::blinky::Blinky;
 use crate::map::Map;
-use crate::pacman::Pacman;
 
 /// The main game state.
 ///
@@ -232,7 +232,7 @@ impl<'a> Game<'a> {
                 self.blinky.base.base.cell_position = *pos;
                 self.blinky.base.in_tunnel = false;
                 self.blinky.base.direction = Direction::Left;
-                self.blinky.mode = crate::ghost::GhostMode::Chase;
+                self.blinky.mode = crate::entity::ghost::GhostMode::Chase;
             }
         }
 

@@ -63,12 +63,9 @@ mod edible;
 mod emscripten;
 mod entity;
 mod game;
-mod ghost;
-mod ghosts;
 mod helper;
 mod map;
 mod modulation;
-mod pacman;
 
 #[cfg(not(target_os = "emscripten"))]
 fn sleep(value: Duration) {

@@ -1,3 +1,7 @@
+pub mod blinky;
+pub mod ghost;
+pub mod pacman;
+
 use crate::{
     constants::{MapTile, BOARD_OFFSET, BOARD_WIDTH, CELL_SIZE},
     direction::Direction,

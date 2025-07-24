@@ -1,7 +1,7 @@
 //! Debug rendering utilities for Pac-Man.
 use crate::{
     constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH},
-    ghosts::blinky::Blinky,
+    entity::blinky::Blinky,
     map::Map,
 };
 use glam::{IVec2, UVec2};
