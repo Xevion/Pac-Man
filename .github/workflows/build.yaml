@@ -52,14 +52,10 @@ jobs:
       - name: Build
         run: cargo build --release
 
-      - name: Install Cargo Binstall
-        uses: cargo-bins/cargo-binstall@main
-
       - name: Acquire Package Version
         shell: bash
         run: |
-          cargo binstall toml-cli -y --no-cleanup --maximum-resolution-timeout 25
-          PACKAGE_VERSION=$(toml get ./Cargo.toml package.version --raw)
+          PACKAGE_VERSION=$(cargo metadata --format-version 1 --no-deps | jq '.packages[0].version')
           echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> $GITHUB_ENV
 
       - name: Upload Artifact
