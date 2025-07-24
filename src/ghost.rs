@@ -121,22 +121,14 @@ impl Ghost<'_> {
         let mut possible_moves = Vec::new();
 
         // Check all four directions
-        for dir in &[
-            Direction::Up,
-            Direction::Down,
-            Direction::Left,
-            Direction::Right,
-        ] {
+        for dir in &[Direction::Up, Direction::Down, Direction::Left, Direction::Right] {
             // Don't allow reversing direction
             if *dir == self.base.direction.opposite() {
                 continue;
             }
 
             let next_cell = self.base.next_cell(Some(*dir));
-            if !matches!(
-                self.base.map.borrow().get_tile(next_cell),
-                Some(MapTile::Wall)
-            ) {
+            if !matches!(self.base.map.borrow().get_tile(next_cell), Some(MapTile::Wall)) {
                 possible_moves.push(next_cell);
             }
         }
@@ -185,12 +177,7 @@ impl Ghost<'_> {
                         successors.push(((1, p.1), 1));
                     }
                 }
-                for dir in &[
-                    Direction::Up,
-                    Direction::Down,
-                    Direction::Left,
-                    Direction::Right,
-                ] {
+                for dir in &[Direction::Up, Direction::Down, Direction::Left, Direction::Right] {
                     let (dx, dy) = dir.offset();
                     let next_p = (p.0 as i32 + dx, p.1 as i32 + dy);
                     if let Some(tile) = map.get_tile(next_p) {
@@ -209,9 +196,8 @@ impl Ghost<'_> {
     /// Changes the ghost's mode and handles direction reversal
     pub fn set_mode(&mut self, new_mode: GhostMode) {
         // Don't reverse if going to/from frightened or if in house
-        let should_reverse = self.mode != GhostMode::House
-            && new_mode != GhostMode::Frightened
-            && self.mode != GhostMode::Frightened;
+        let should_reverse =
+            self.mode != GhostMode::House && new_mode != GhostMode::Frightened && self.mode != GhostMode::Frightened;
 
         self.mode = new_mode;
 
@@ -224,8 +210,7 @@ impl Ghost<'_> {
         };
 
         if should_reverse {
-            self.base
-                .set_direction_if_valid(self.base.direction.opposite());
+            self.base.set_direction_if_valid(self.base.direction.opposite());
         }
     }
 
@@ -241,9 +226,7 @@ impl Ghost<'_> {
             if !self.base.handle_tunnel() {
                 // Pathfinding logic (only if not in tunnel)
                 let target_tile = self.get_target_tile();
-                if let Some((path, _)) =
-                    self.get_path_to_target((target_tile.0 as u32, target_tile.1 as u32))
-                {
+                if let Some((path, _)) = self.get_path_to_target((target_tile.0 as u32, target_tile.1 as u32)) {
                     if path.len() > 1 {
                         let next_move = path[1];
                         let (x, y) = self.base.base.cell_position;
@@ -318,7 +301,6 @@ impl<'a> Renderable for Ghost<'a> {
                 Direction::Down => 3,
             }
         };
-        self.eyes_sprite
-            .render(canvas, pos, Direction::Right, Some(eye_frame));
+        self.eyes_sprite.render(canvas, pos, Direction::Right, Some(eye_frame));
     }
 }

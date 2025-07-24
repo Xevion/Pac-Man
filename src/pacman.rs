@@ -58,11 +58,7 @@ impl<'a> Moving for Pacman<'a> {
 
 impl Pacman<'_> {
     /// Creates a new `Pacman` instance.
-    pub fn new<'a>(
-        starting_position: (u32, u32),
-        atlas: Texture<'a>,
-        map: Rc<RefCell<Map>>,
-    ) -> Pacman<'a> {
+    pub fn new<'a>(starting_position: (u32, u32), atlas: Texture<'a>, map: Rc<RefCell<Map>>) -> Pacman<'a> {
         let pixel_position = Map::cell_to_pixel(starting_position);
         Pacman {
             base: MovableEntity::new(

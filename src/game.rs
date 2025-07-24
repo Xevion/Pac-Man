@@ -64,11 +64,7 @@ impl<'a> Game<'a> {
         let pacman_atlas = texture_creator
             .load_texture_bytes(&pacman_bytes)
             .expect("Could not load pacman texture from asset API");
-        let pacman = Rc::new(RefCell::new(Pacman::new(
-            (1, 1),
-            pacman_atlas,
-            Rc::clone(&map),
-        )));
+        let pacman = Rc::new(RefCell::new(Pacman::new((1, 1), pacman_atlas, Rc::clone(&map))));
 
         // Load ghost textures
         let ghost_body_bytes = get_asset_bytes(Asset::GhostBody).expect("Failed to load asset");
@@ -113,12 +109,9 @@ impl<'a> Game<'a> {
 
         // Load font from asset API
         let font = {
-            let font_bytes = get_asset_bytes(Asset::FontKonami)
-                .expect("Failed to load asset")
-                .into_owned();
+            let font_bytes = get_asset_bytes(Asset::FontKonami).expect("Failed to load asset").into_owned();
             let font_bytes_static: &'static [u8] = Box::leak(font_bytes.into_boxed_slice());
-            let font_rwops =
-                RWops::from_bytes(font_bytes_static).expect("Failed to create RWops for font");
+            let font_rwops = RWops::from_bytes(font_bytes_static).expect("Failed to create RWops for font");
             ttf_context
                 .load_font_from_rwops(font_rwops, 24)
                 .expect("Could not load font from asset API")
@@ -306,18 +299,9 @@ impl<'a> Game<'a> {
         // Draw the debug grid
         match self.debug_mode {
             DebugMode::Grid => {
-                DebugRenderer::draw_debug_grid(
-                    self.canvas,
-                    &self.map.borrow(),
-                    self.pacman.borrow().base.base.cell_position,
-                );
-                let next_cell =
-                    <Pacman as crate::entity::Moving>::next_cell(&*self.pacman.borrow(), None);
-                DebugRenderer::draw_next_cell(
-                    self.canvas,
-                    &self.map.borrow(),
-                    (next_cell.0 as u32, next_cell.1 as u32),
-                );
+                DebugRenderer::draw_debug_grid(self.canvas, &self.map.borrow(), self.pacman.borrow().base.base.cell_position);
+                let next_cell = <Pacman as crate::entity::Moving>::next_cell(&*self.pacman.borrow(), None);
+                DebugRenderer::draw_next_cell(self.canvas, &self.map.borrow(), (next_cell.0 as u32, next_cell.1 as u32));
             }
             DebugMode::ValidPositions => {
                 DebugRenderer::draw_valid_positions(self.canvas, &mut self.map.borrow_mut());
@@ -358,11 +342,7 @@ impl<'a> Game<'a> {
 
     /// Renders text to the screen at the given position.
     fn render_text(&mut self, text: &str, position: (i32, i32), color: Color) {
-        let surface = self
-            .font
-            .render(text)
-            .blended(color)
-            .expect("Could not render text surface");
+        let surface = self.font.render(text).blended(color).expect("Could not render text surface");
 
         let texture_creator = self.canvas.texture_creator();
         let texture = texture_creator

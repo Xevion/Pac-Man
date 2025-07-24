@@ -4,7 +4,7 @@
 ///
 /// # Arguments
 /// * `a` - First position as (x, y) coordinates
-/// * `b` - Second position as (x, y) coordinates  
+/// * `b` - Second position as (x, y) coordinates
 /// * `diagonal` - Whether to consider diagonal adjacency (true) or only orthogonal (false)
 ///
 /// # Returns
@@ -94,14 +94,8 @@ mod tests {
     #[test]
     fn test_commutative_property() {
         // The function should work the same regardless of parameter order
-        assert_eq!(
-            is_adjacent((1, 2), (2, 2), false),
-            is_adjacent((2, 2), (1, 2), false)
-        );
+        assert_eq!(is_adjacent((1, 2), (2, 2), false), is_adjacent((2, 2), (1, 2), false));
 
-        assert_eq!(
-            is_adjacent((1, 2), (2, 3), true),
-            is_adjacent((2, 3), (1, 2), true)
-        );
+        assert_eq!(is_adjacent((1, 2), (2, 3), true), is_adjacent((2, 3), (1, 2), true));
     }
 }

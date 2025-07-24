@@ -9,13 +9,7 @@ use crate::direction::Direction;
 
 /// Trait for drawable atlas-based textures
 pub trait FrameDrawn {
-    fn render(
-        &self,
-        canvas: &mut Canvas<Window>,
-        position: (i32, i32),
-        direction: Direction,
-        frame: Option<u32>,
-    );
+    fn render(&self, canvas: &mut Canvas<Window>, position: (i32, i32), direction: Direction, frame: Option<u32>);
 }
 
 /// A texture atlas abstraction for static (non-animated) rendering.
@@ -28,13 +22,7 @@ pub struct AtlasTexture<'a> {
 }
 
 impl<'a> AtlasTexture<'a> {
-    pub fn new(
-        texture: Texture<'a>,
-        frame_count: u32,
-        frame_width: u32,
-        frame_height: u32,
-        offset: Option<(i32, i32)>,
-    ) -> Self {
+    pub fn new(texture: Texture<'a>, frame_count: u32, frame_width: u32, frame_height: u32, offset: Option<(i32, i32)>) -> Self {
         AtlasTexture {
             raw_texture: texture,
             frame_count,
@@ -62,13 +50,7 @@ impl<'a> AtlasTexture<'a> {
 }
 
 impl<'a> FrameDrawn for AtlasTexture<'a> {
-    fn render(
-        &self,
-        canvas: &mut Canvas<Window>,
-        position: (i32, i32),
-        direction: Direction,
-        frame: Option<u32>,
-    ) {
+    fn render(&self, canvas: &mut Canvas<Window>, position: (i32, i32), direction: Direction, frame: Option<u32>) {
         let texture_source_frame_rect = self.get_frame_rect(frame.unwrap_or(0));
         let canvas_destination_rect = Rect::new(
             position.0 + self.offset.0,
@@ -157,13 +139,7 @@ impl<'a> AnimatedAtlasTexture<'a> {
 }
 
 impl<'a> FrameDrawn for AnimatedAtlasTexture<'a> {
-    fn render(
-        &self,
-        canvas: &mut Canvas<Window>,
-        position: (i32, i32),
-        direction: Direction,
-        frame: Option<u32>,
-    ) {
+    fn render(&self, canvas: &mut Canvas<Window>, position: (i32, i32), direction: Direction, frame: Option<u32>) {
         let frame = frame.unwrap_or_else(|| self.current_frame());
         self.atlas.render(canvas, position, direction, Some(frame));
     }

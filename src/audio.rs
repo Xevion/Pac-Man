@@ -39,8 +39,7 @@ impl Audio {
             .enumerate()
             .map(|(i, asset)| {
                 let data = get_asset_bytes(*asset).expect("Failed to load sound asset");
-                let rwops = RWops::from_bytes(&data)
-                    .unwrap_or_else(|_| panic!("Failed to create RWops for sound {}", i + 1));
+                let rwops = RWops::from_bytes(&data).unwrap_or_else(|_| panic!("Failed to create RWops for sound {}", i + 1));
                 rwops
                     .load_wav()
                     .unwrap_or_else(|_| panic!("Failed to load sound {} from asset API", i + 1))
@@ -61,11 +60,7 @@ impl Audio {
         if let Some(chunk) = self.sounds.get(self.next_sound_index) {
             match mixer::Channel(0).play(chunk, 0) {
                 Ok(channel) => {
-                    tracing::info!(
-                        "Playing sound #{} on channel {:?}",
-                        self.next_sound_index + 1,
-                        channel
-                    );
+                    tracing::info!("Playing sound #{} on channel {:?}", self.next_sound_index + 1, channel);
                 }
                 Err(e) => {
                     tracing::warn!("Could not play sound #{}: {}", self.next_sound_index + 1, e);

@@ -75,9 +75,7 @@ impl Map {
                     'o' => MapTile::PowerPellet,
                     ' ' => MapTile::Empty,
                     'T' => MapTile::Tunnel,
-                    c @ '0' | c @ '1' | c @ '2' | c @ '3' | c @ '4' => {
-                        MapTile::StartingPosition(c.to_digit(10).unwrap() as u8)
-                    }
+                    c @ '0' | c @ '1' | c @ '2' | c @ '3' | c @ '4' => MapTile::StartingPosition(c.to_digit(10).unwrap() as u8),
                     '=' => MapTile::Empty,
                     _ => panic!("Unknown character in board: {character}"),
                 };
@@ -94,12 +92,7 @@ impl Map {
     /// Resets the map to its original state.
     pub fn reset(&mut self) {
         // Restore the map to its original state
-        for (x, col) in self
-            .current
-            .iter_mut()
-            .enumerate()
-            .take(BOARD_WIDTH as usize)
-        {
+        for (x, col) in self.current.iter_mut().enumerate().take(BOARD_WIDTH as usize) {
             for (y, cell) in col.iter_mut().enumerate().take(BOARD_HEIGHT as usize) {
                 *cell = self.default[x][y];
             }
@@ -146,10 +139,7 @@ impl Map {
     ///
     /// * `cell` - The cell coordinates, in grid coordinates.
     pub fn cell_to_pixel(cell: (u32, u32)) -> (i32, i32) {
-        (
-            (cell.0 * CELL_SIZE) as i32,
-            ((cell.1 + BOARD_OFFSET.1) * CELL_SIZE) as i32,
-        )
+        ((cell.0 * CELL_SIZE) as i32, ((cell.1 + BOARD_OFFSET.1) * CELL_SIZE) as i32)
     }
 
     /// Returns a reference to a cached vector of all valid playable positions in the maze.
@@ -198,8 +188,7 @@ impl Map {
                     ] {
                         let neighbor = pos + offset;
                         if neighbor.x < BOARD_WIDTH && neighbor.y < BOARD_HEIGHT {
-                            let neighbor_tile =
-                                self.current[neighbor.x as usize][neighbor.y as usize];
+                            let neighbor_tile = self.current[neighbor.x as usize][neighbor.y as usize];
                             if matches!(neighbor_tile, Empty | Pellet | PowerPellet) {
                                 queue.push_back(neighbor);
                             }

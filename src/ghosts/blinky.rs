@@ -23,14 +23,7 @@ impl<'a> Blinky<'a> {
         pacman: Rc<RefCell<Pacman<'a>>>,
     ) -> Blinky<'a> {
         Blinky {
-            ghost: Ghost::new(
-                GhostType::Blinky,
-                starting_position,
-                body_texture,
-                eyes_texture,
-                map,
-                pacman,
-            ),
+            ghost: Ghost::new(GhostType::Blinky, starting_position, body_texture, eyes_texture, map, pacman),
         }
     }
 

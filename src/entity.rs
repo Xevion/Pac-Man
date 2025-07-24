@@ -108,10 +108,7 @@ impl Moving for MovableEntity {
     }
     fn next_cell(&self, direction: Option<Direction>) -> (i32, i32) {
         let (x, y) = direction.unwrap_or(self.direction).offset();
-        (
-            self.base.cell_position.0 as i32 + x,
-            self.base.cell_position.1 as i32 + y,
-        )
+        (self.base.cell_position.0 as i32 + x, self.base.cell_position.1 as i32 + y)
     }
     fn is_wall_ahead(&self, direction: Option<Direction>) -> bool {
         let next_cell = self.next_cell(direction);
@@ -119,10 +116,10 @@ impl Moving for MovableEntity {
     }
     fn handle_tunnel(&mut self) -> bool {
         if !self.in_tunnel {
-            let current_tile = self.map.borrow().get_tile((
-                self.base.cell_position.0 as i32,
-                self.base.cell_position.1 as i32,
-            ));
+            let current_tile = self
+                .map
+                .borrow()
+                .get_tile((self.base.cell_position.0 as i32, self.base.cell_position.1 as i32));
             if matches!(current_tile, Some(MapTile::Tunnel)) {
                 self.in_tunnel = true;
             }
@@ -130,14 +127,12 @@ impl Moving for MovableEntity {
         if self.in_tunnel {
             if self.base.cell_position.0 == 0 {
                 self.base.cell_position.0 = BOARD_WIDTH - 2;
-                self.base.pixel_position =
-                    Map::cell_to_pixel((self.base.cell_position.0, self.base.cell_position.1));
+                self.base.pixel_position = Map::cell_to_pixel((self.base.cell_position.0, self.base.cell_position.1));
                 self.in_tunnel = false;
                 true
             } else if self.base.cell_position.0 == BOARD_WIDTH - 1 {
                 self.base.cell_position.0 = 1;
-                self.base.pixel_position =
-                    Map::cell_to_pixel((self.base.cell_position.0, self.base.cell_position.1));
+                self.base.pixel_position = Map::cell_to_pixel((self.base.cell_position.0, self.base.cell_position.1));
                 self.in_tunnel = false;
                 true
             } else {

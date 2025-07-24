@@ -53,6 +53,7 @@ unsafe fn attach_console() {
 }
 
 mod animation;
+mod asset;
 mod audio;
 mod constants;
 mod debug;
@@ -66,7 +67,6 @@ mod helper;
 mod map;
 mod modulation;
 mod pacman;
-mod asset;
 
 /// The main entry point of the application.
 ///
@@ -99,26 +99,16 @@ pub fn main() {
         .build()
         .expect("Could not initialize window");
 
-    let mut canvas = window
-        .into_canvas()
-        .build()
-        .expect("Could not build canvas");
+    let mut canvas = window.into_canvas().build().expect("Could not build canvas");
 
     canvas
         .set_logical_size(WINDOW_WIDTH, WINDOW_HEIGHT)
         .expect("Could not set logical size");
 
     let texture_creator = canvas.texture_creator();
-    let mut game = Game::new(
-        &mut canvas,
-        &texture_creator,
-        &ttf_context,
-        &audio_subsystem,
-    );
+    let mut game = Game::new(&mut canvas, &texture_creator, &ttf_context, &audio_subsystem);
 
-    let mut event_pump = sdl_context
-        .event_pump()
-        .expect("Could not get SDL EventPump");
+    let mut event_pump = sdl_context.event_pump().expect("Could not get SDL EventPump");
 
     // Initial draw and tick
     game.draw();
@@ -169,11 +159,7 @@ pub fn main() {
                     ..
                 } => {
                     paused = !paused;
-                    event!(
-                        tracing::Level::INFO,
-                        "{}",
-                        if paused { "Paused" } else { "Unpaused" }
-                    );
+                    event!(tracing::Level::INFO, "{}", if paused { "Paused" } else { "Unpaused" });
                 }
                 Event::KeyDown { keycode, .. } => {
                     game.keyboard_event(keycode.unwrap());

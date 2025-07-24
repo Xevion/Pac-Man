@@ -64,18 +64,10 @@ pub fn reconstruct_edibles<'a>(
             let cell = (x, y);
             match tile {
                 Some(MapTile::Pellet) => {
-                    edibles.push(Edible::new(
-                        EdibleKind::Pellet,
-                        cell,
-                        Rc::clone(&pellet_sprite),
-                    ));
+                    edibles.push(Edible::new(EdibleKind::Pellet, cell, Rc::clone(&pellet_sprite)));
                 }
                 Some(MapTile::PowerPellet) => {
-                    edibles.push(Edible::new(
-                        EdibleKind::PowerPellet,
-                        cell,
-                        Rc::clone(&power_pellet_sprite),
-                    ));
+                    edibles.push(Edible::new(EdibleKind::PowerPellet, cell, Rc::clone(&power_pellet_sprite)));
                 }
                 // Fruits can be added here if you have fruit positions
                 _ => {}
