@@ -59,6 +59,8 @@ mod constants;
 mod debug;
 mod direction;
 mod edible;
+#[cfg(target_os = "emscripten")]
+mod emscripten;
 mod entity;
 mod game;
 mod ghost;
@@ -67,6 +69,26 @@ mod helper;
 mod map;
 mod modulation;
 mod pacman;
+
+#[cfg(not(target_os = "emscripten"))]
+fn sleep(value: Duration) {
+    spin_sleep::sleep(value);
+}
+
+#[cfg(target_os = "emscripten")]
+fn sleep(value: Duration) {
+    emscripten::emscripten::sleep(value.as_millis() as u32);
+}
+
+#[cfg(target_os = "emscripten")]
+fn now() -> std::time::Instant {
+    std::time::Instant::now() + std::time::Duration::from_millis(emscripten::emscripten::now() as u64)
+}
+
+#[cfg(not(target_os = "emscripten"))]
+fn now() -> std::time::Instant {
+    std::time::Instant::now()
+}
 
 /// The main entry point of the application.
 ///
@@ -179,14 +201,7 @@ pub fn main() {
         if start.elapsed() < loop_time {
             let time = loop_time.saturating_sub(start.elapsed());
             if time != Duration::ZERO {
-                #[cfg(not(target_os = "emscripten"))]
-                {
-                    spin_sleep::sleep(time);
-                }
-                #[cfg(target_os = "emscripten")]
-                {
-                    std::thread::sleep(time);
-                }
+                sleep(time);
             }
         } else {
             event!(
