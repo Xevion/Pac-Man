@@ -56,40 +56,47 @@ async function setupEmscripten() {
 
 async function buildWeb(release: boolean) {
   console.log("Building WASM with Emscripten...");
+  const rustcFlags = [
+    "-C",
+    "link-arg=--preload-file",
+    "-C",
+    "link-arg=assets",
+  ].join(" ");
+
   if (release) {
-    await $`cargo build --target=wasm32-unknown-emscripten --release`;
+    await $`env RUSTFLAGS=${rustcFlags} cargo build --target=wasm32-unknown-emscripten --release`;
   } else {
-    await $`cargo build --target=wasm32-unknown-emscripten`;
+    await $`env RUSTFLAGS=${rustcFlags} cargo build --target=wasm32-unknown-emscripten`;
   }
 
   console.log("Generating CSS...");
-  await $`pnpx postcss-cli ./assets/styles.scss -o ./assets/build.css`;
+  await $`pnpx postcss-cli ./assets/site/styles.scss -o ./assets/site/build.css`;
 
   console.log("Copying WASM files...");
   const buildType = release ? "release" : "debug";
   const outputFolder = `target/wasm32-unknown-emscripten/${buildType}`;
   await $`mkdir -p dist`;
-  await $`cp assets/index.html dist`;
-  await $`cp assets/*.woff* dist`;
-  await $`cp assets/build.css dist`;
-  await $`cp assets/favicon.ico dist`;
-  await $`cp ${outputFolder}/spiritus.wasm dist`;
-  await $`cp ${outputFolder}/spiritus.js dist`;
+  await $`cp assets/site/index.html dist`;
+  await $`cp assets/site/*.woff* dist`;
+  await $`cp assets/site/build.css dist`;
+  await $`cp assets/site/favicon.ico dist`;
+  await $`cp ${outputFolder}/pacman.wasm dist`;
+  await $`cp ${outputFolder}/pacman.js dist`;
 
   // Check if .data file exists before copying
   try {
-    await fs.access(`${outputFolder}/deps/spiritus.data`);
-    await $`cp ${outputFolder}/deps/spiritus.data dist`;
+    await fs.access(`${outputFolder}/pacman.data`);
+    await $`cp ${outputFolder}/pacman.data dist`;
   } catch (e) {
-    console.log("No spiritus.data file found, skipping copy.");
+    console.log("No pacman.data file found, skipping copy.");
   }
 
   // Check if .map file exists before copying
   try {
-    await fs.access(`${outputFolder}/spiritus.wasm.map`);
-    await $`cp ${outputFolder}/spiritus.wasm.map dist`;
+    await fs.access(`${outputFolder}/pacman.wasm.map`);
+    await $`cp ${outputFolder}/pacman.wasm.map dist`;
   } catch (e) {
-    console.log("No spiritus.wasm.map file found, skipping copy.");
+    console.log("No pacman.wasm.map file found, skipping copy.");
   }
 
   console.log("WASM files copied.");

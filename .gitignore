@@ -3,5 +3,5 @@
 .idea
 *.dll
 rust-sdl2-emscripten/
-assets/build.css
+assets/site/build.css
 emsdk/

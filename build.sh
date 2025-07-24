@@ -52,20 +52,18 @@ else
 fi
 
 echo "Generating CSS"
-pnpx postcss-cli ./assets/styles.scss -o ./assets/build.css
+pnpx postcss-cli ./assets/site/styles.scss -o ./assets/site/build.css
 
 echo "Copying WASM files"
 mkdir -p dist
 output_folder="target/wasm32-unknown-emscripten/$build_type"
-cp assets/index.html dist
 
-# cp assets/*.woff* dist
-cp assets/build.css dist
-cp assets/favicon.ico dist
-cp $output_folder/pacman.wasm dist
-cp $output_folder/pacman.js dist
-# only if .data file exists
-cp $output_folder/deps/pacman.data dist
+cp assets/site/{build.css,favicon.ico,index.html} dist
+cp $output_folder/pacman.{wasm,js} dist
+if [ -f $output_folder/deps/pacman.data ]; then
+    cp $output_folder/deps/pacman.data dist
+fi
+
 if [ -f $output_folder/pacman.wasm.map ]; then
     cp $output_folder/pacman.wasm.map dist
 fi

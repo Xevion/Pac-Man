@@ -8,5 +8,5 @@ rustflags = [
     # "-C", "link-args=-sALLOW_MEMORY_GROWTH=1",
     "-C", "link-args=-sUSE_SDL=2 -sUSE_SDL_IMAGE=2 -sUSE_SDL_MIXER=2 -sUSE_OGG=1 -sUSE_SDL_GFX=2 -sUSE_SDL_TTF=2 -sSDL2_IMAGE_FORMATS=['png']",
     # USE_OGG, USE_VORBIS for OGG/VORBIS usage
-    "-C", "link-args=--preload-file assets/",
+    "-C", "link-args=--preload-file assets/game/",
 ]

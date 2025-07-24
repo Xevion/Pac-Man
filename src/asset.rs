@@ -56,17 +56,17 @@ mod imp {
     macro_rules! asset_bytes_enum {
         ( $asset:expr ) => {
             match $asset {
-                Asset::Wav1 => Cow::Borrowed(include_bytes!("../assets/wav/1.ogg")),
-                Asset::Wav2 => Cow::Borrowed(include_bytes!("../assets/wav/2.ogg")),
-                Asset::Wav3 => Cow::Borrowed(include_bytes!("../assets/wav/3.ogg")),
-                Asset::Wav4 => Cow::Borrowed(include_bytes!("../assets/wav/4.ogg")),
-                Asset::Pacman => Cow::Borrowed(include_bytes!("../assets/32/pacman.png")),
-                Asset::Pellet => Cow::Borrowed(include_bytes!("../assets/24/pellet.png")),
-                Asset::Energizer => Cow::Borrowed(include_bytes!("../assets/24/energizer.png")),
-                Asset::Map => Cow::Borrowed(include_bytes!("../assets/map.png")),
-                Asset::FontKonami => Cow::Borrowed(include_bytes!("../assets/font/konami.ttf")),
-                Asset::GhostBody => Cow::Borrowed(include_bytes!("../assets/32/ghost_body.png")),
-                Asset::GhostEyes => Cow::Borrowed(include_bytes!("../assets/32/ghost_eyes.png")),
+                Asset::Wav1 => Cow::Borrowed(include_bytes!("../assets/game/wav/1.ogg")),
+                Asset::Wav2 => Cow::Borrowed(include_bytes!("../assets/game/wav/2.ogg")),
+                Asset::Wav3 => Cow::Borrowed(include_bytes!("../assets/game/wav/3.ogg")),
+                Asset::Wav4 => Cow::Borrowed(include_bytes!("../assets/game/wav/4.ogg")),
+                Asset::Pacman => Cow::Borrowed(include_bytes!("../assets/game/32/pacman.png")),
+                Asset::Pellet => Cow::Borrowed(include_bytes!("../assets/game/24/pellet.png")),
+                Asset::Energizer => Cow::Borrowed(include_bytes!("../assets/game/24/energizer.png")),
+                Asset::Map => Cow::Borrowed(include_bytes!("../assets/game/map.png")),
+                Asset::FontKonami => Cow::Borrowed(include_bytes!("../assets/game/font/konami.ttf")),
+                Asset::GhostBody => Cow::Borrowed(include_bytes!("../assets/game/32/ghost_body.png")),
+                Asset::GhostEyes => Cow::Borrowed(include_bytes!("../assets/game/32/ghost_eyes.png")),
             }
         };
     }
@@ -81,7 +81,7 @@ mod imp {
     use std::fs;
     use std::path::Path;
     pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
-        let path = Path::new("assets").join(asset.path());
+        let path = Path::new("assets/game").join(asset.path());
         if !path.exists() {
             return Err(AssetError::NotFound(asset.path().to_string()));
         }
