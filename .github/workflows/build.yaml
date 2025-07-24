@@ -77,14 +77,6 @@ jobs:
       - name: Build
         run: cargo build --release
 
-      - name: Assemble Archive
-        run: |
-          mkdir /tmp/example/
-          cp ./target/release/pacman /tmp/example/
-          chmod a+x /tmp/example/pacman
-          mkdir /tmp/example/assets
-          cp ./assets/TerminalVector.ttf ./assets/fruit.png /tmp/example/assets
-
       - name: Install Cargo Binstall
         uses: cargo-bins/cargo-binstall@main
 
@@ -98,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: "pacman-${{ env.PACKAGE_VERSION }}-${{ env.TARGET }}"
-          path: /tmp/example/
+          path: ./target/release/pacman
           retention-days: 7
           if-no-files-found: error
 
@@ -128,13 +120,6 @@ jobs:
       - name: Build
         run: cargo build --release
 
-      - name: Assemble Archive
-        run: |
-          mkdir /tmp/example/
-          cp ./target/release/pacman /tmp/example/
-          mkdir /tmp/example/assets
-          cp ./assets/TerminalVector.ttf ./assets/fruit.png /tmp/example/assets
-
       - name: Install Cargo Binstall
         uses: cargo-bins/cargo-binstall@main
 
@@ -148,7 +133,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: "pacman-${{ env.PACKAGE_VERSION }}-${{ env.TARGET }}"
-          path: /tmp/example/
+          path: ./target/release/pacman
           retention-days: 7
           if-no-files-found: error
 
@@ -183,14 +168,6 @@ jobs:
       - name: Build
         run: cargo build --release
 
-      - name: Prepare Archive
-        run: |
-          New-Item -Type Directory ./release/
-          Move-Item -Path ./target/release/pacman.exe -Destination ./release/
-          Move-Item -Path ./SDL2.dll, ./SDL2_image.dll, ./SDL2_ttf.dll, ./SDL2_mixer.dll, ./SDL2_gfx.dll -Destination ./release/
-          New-Item -Type Directory ./release/assets/
-          Move-Item -Path ./assets/TerminalVector.ttf, ./assets/fruit.png -Destination ./release/assets/
-
       - name: Install Cargo Binstall
         uses: cargo-bins/cargo-binstall@main
 
@@ -204,6 +181,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: "pacman-${{ env.PACKAGE_VERSION }}-${{ env.TARGET }}"
-          path: ./release/
+          path: ./target/release/pacman.exe
           retention-days: 7
           if-no-files-found: error
