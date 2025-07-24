@@ -31,12 +31,12 @@ use crate::texture::atlas::{texture_to_static, AtlasTexture};
 ///
 /// This struct contains all the information necessary to run the game, including
 /// the canvas, textures, fonts, game objects, and the current score.
-pub struct Game<'a> {
-    canvas: &'a mut Canvas<Window>,
-    map_texture: Texture<'a>,
+pub struct Game {
+    canvas: &'static mut Canvas<Window>,
+    map_texture: Texture<'static>,
     pellet_texture: Rc<AtlasTexture>,
     power_pellet_texture: Rc<AtlasTexture>,
-    font: Font<'a, 'static>,
+    font: Font<'static, 'static>,
     pacman: Rc<RefCell<Pacman>>,
     map: Rc<RefCell<Map>>,
     debug_mode: DebugMode,
@@ -46,7 +46,7 @@ pub struct Game<'a> {
     edibles: Vec<Edible>,
 }
 
-impl<'a> Game<'a> {
+impl Game {
     /// Creates a new `Game` instance.
     ///
     /// # Arguments
@@ -56,11 +56,11 @@ impl<'a> Game<'a> {
     /// * `ttf_context` - The SDL TTF context.
     /// * `_audio_subsystem` - The SDL audio subsystem (currently unused).
     pub fn new(
-        canvas: &'a mut Canvas<Window>,
-        texture_creator: &'a TextureCreator<WindowContext>,
-        ttf_context: &'a sdl2::ttf::Sdl2TtfContext,
-        _audio_subsystem: &'a sdl2::AudioSubsystem,
-    ) -> Game<'a> {
+        canvas: &'static mut Canvas<Window>,
+        texture_creator: &TextureCreator<WindowContext>,
+        ttf_context: &sdl2::ttf::Sdl2TtfContext,
+        _audio_subsystem: &sdl2::AudioSubsystem,
+    ) -> Game {
         let map = Rc::new(RefCell::new(Map::new(RAW_BOARD)));
 
         // Load Pacman texture from asset API
@@ -125,6 +125,7 @@ impl<'a> Game<'a> {
             .load_texture_bytes(&map_bytes)
             .expect("Could not load map texture from asset API");
         map_texture.set_color_mod(0, 0, 255);
+        let map_texture = unsafe { texture_to_static(map_texture) };
 
         let edibles = reconstruct_edibles(
             Rc::clone(&map),
@@ -138,7 +139,9 @@ impl<'a> Game<'a> {
             let font_bytes = get_asset_bytes(Asset::FontKonami).expect("Failed to load asset").into_owned();
             let font_bytes_static: &'static [u8] = Box::leak(font_bytes.into_boxed_slice());
             let font_rwops = RWops::from_bytes(font_bytes_static).expect("Failed to create RWops for font");
-            ttf_context
+            // Leak the ttf_context to get a 'static lifetime
+            let ttf_context_static: &'static sdl2::ttf::Sdl2TtfContext = unsafe { std::mem::transmute(ttf_context) };
+            ttf_context_static
                 .load_font_from_rwops(font_rwops, 24)
                 .expect("Could not load font from asset API")
         };

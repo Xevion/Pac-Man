@@ -123,7 +123,8 @@ pub fn main() {
         .expect("Could not set logical size");
 
     let texture_creator = canvas.texture_creator();
-    let mut game = Game::new(&mut canvas, &texture_creator, &ttf_context, &audio_subsystem);
+    let canvas_static: &'static mut sdl2::render::Canvas<sdl2::video::Window> = Box::leak(Box::new(canvas));
+    let mut game = Game::new(canvas_static, &texture_creator, &ttf_context, &audio_subsystem);
     game.audio.set_mute(cfg!(debug_assertions));
 
     let mut event_pump = sdl_context.event_pump().expect("Could not get SDL EventPump");
