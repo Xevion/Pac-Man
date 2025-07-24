@@ -11,6 +11,7 @@ env:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -36,10 +37,16 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
+      - name: Vcpkg Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install autoconf automake libtool pkg-config
+
       - name: Vcpkg
         run: |
           cargo install cargo-vcpkg
           cargo vcpkg -v build
+
       - name: Build
         run: cargo build --release
 
