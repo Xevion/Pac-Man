@@ -44,12 +44,10 @@ jobs:
       - name: Cache vcpkg
         uses: actions/cache@v4
         with:
-          save-always: true # deprecated
           path: target/vcpkg
-          key: vcpkg-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
+          key: A-vcpkg-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-vcpkg
-            vcpkg-${{ runner.os }}-${{ matrix.target }}-
+            A-vcpkg-${{ runner.os }}-${{ matrix.target }}-
 
       - name: Vcpkg Linux Dependencies
         if: runner.os == 'Linux'
