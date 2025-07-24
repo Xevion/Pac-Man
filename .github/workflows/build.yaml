@@ -44,6 +44,7 @@ jobs:
       - name: Cache vcpkg
         uses: actions/cache@v4
         with:
+          save-always: true # deprecated
           path: target/vcpkg
           key: vcpkg-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
           restore-keys: |
@@ -90,7 +91,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Emscripten SDK
-        uses: mymindstorm/setup-emsdk@v14
+        uses: pyodide/setup-emsdk@v15
         with:
           version: 3.1.43
           actions-cache-folder: "emsdk-cache"
