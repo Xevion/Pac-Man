@@ -55,7 +55,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential gettext libltdl-dev zlib1g-dev
+          sudo apt-get install -y libltdl-dev
 
       - name: Vcpkg
         run: |
