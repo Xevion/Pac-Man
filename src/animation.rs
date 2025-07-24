@@ -123,16 +123,6 @@ impl<'a> AnimatedAtlasTexture<'a> {
         }
     }
 
-    pub fn pause(&mut self) {
-        self.paused = true;
-    }
-    pub fn resume(&mut self) {
-        self.paused = false;
-    }
-    pub fn is_paused(&self) -> bool {
-        self.paused
-    }
-
     pub fn set_color_modulation(&mut self, r: u8, g: u8, b: u8) {
         self.atlas.set_color_modulation(r, g, b);
     }
