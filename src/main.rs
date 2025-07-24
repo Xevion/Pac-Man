@@ -52,7 +52,6 @@ unsafe fn attach_console() {
     // Do NOT call AllocConsole here - we don't want a console when launched from Explorer
 }
 
-mod animation;
 mod asset;
 mod audio;
 mod constants;
@@ -66,6 +65,7 @@ mod game;
 mod helper;
 mod map;
 mod modulation;
+mod texture;
 
 #[cfg(not(target_os = "emscripten"))]
 fn sleep(value: Duration) {

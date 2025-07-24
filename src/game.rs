@@ -15,7 +15,6 @@ use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 use sdl2::{pixels::Color, render::Canvas, video::Window};
 
-use crate::animation::AtlasTexture;
 use crate::asset::{get_asset_bytes, Asset};
 use crate::audio::Audio;
 use crate::constants::RAW_BOARD;
@@ -26,6 +25,7 @@ use crate::entity::blinky::Blinky;
 use crate::entity::pacman::Pacman;
 use crate::entity::Renderable;
 use crate::map::Map;
+use crate::texture::atlas::AtlasTexture;
 
 /// The main game state.
 ///

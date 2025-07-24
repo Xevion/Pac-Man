@@ -2,13 +2,14 @@ use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
 
-use crate::animation::{AnimatedAtlasTexture, FrameDrawn};
 use crate::constants::{MapTile, BOARD_WIDTH};
 use crate::direction::Direction;
 use crate::entity::pacman::Pacman;
 use crate::entity::{Entity, MovableEntity, Moving, Renderable};
 use crate::map::Map;
 use crate::modulation::{SimpleTickModulator, TickModulator};
+use crate::texture::animated::AnimatedAtlasTexture;
+use crate::texture::FrameDrawn;
 use glam::{IVec2, UVec2};
 use sdl2::pixels::Color;
 use sdl2::render::Texture;

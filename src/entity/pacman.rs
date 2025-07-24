@@ -8,11 +8,12 @@ use sdl2::{
 };
 
 use crate::{
-    animation::{AnimatedAtlasTexture, FrameDrawn},
     direction::Direction,
     entity::{Entity, MovableEntity, Moving, Renderable, StaticEntity},
     map::Map,
     modulation::{SimpleTickModulator, TickModulator},
+    texture::animated::AnimatedAtlasTexture,
+    texture::FrameDrawn,
 };
 
 use glam::{IVec2, UVec2};

@@ -1,9 +1,10 @@
 //! Edible entity for Pac-Man: pellets, power pellets, and fruits.
-use crate::animation::{AtlasTexture, FrameDrawn};
 use crate::constants::{FruitType, MapTile, BOARD_HEIGHT, BOARD_WIDTH};
 use crate::direction::Direction;
 use crate::entity::{Entity, Renderable, StaticEntity};
 use crate::map::Map;
+use crate::texture::atlas::AtlasTexture;
+use crate::texture::FrameDrawn;
 use glam::{IVec2, UVec2};
 use sdl2::{render::Canvas, video::Window};
 use std::cell::RefCell;
