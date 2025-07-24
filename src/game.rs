@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::ops::Not;
 use std::rc::Rc;
 
-use glam::UVec2;
+use glam::{IVec2, UVec2};
 use rand::rngs::SmallRng;
 use rand::seq::IteratorRandom;
 use rand::SeedableRng;
@@ -25,7 +25,7 @@ use crate::entity::edible::{reconstruct_edibles, Edible, EdibleKind};
 use crate::entity::pacman::Pacman;
 use crate::entity::Renderable;
 use crate::map::Map;
-use crate::texture::atlas::AtlasTexture;
+use crate::texture::atlas::{texture_to_static, AtlasTexture};
 
 /// The main game state.
 ///
@@ -34,16 +34,16 @@ use crate::texture::atlas::AtlasTexture;
 pub struct Game<'a> {
     canvas: &'a mut Canvas<Window>,
     map_texture: Texture<'a>,
-    pellet_texture: Rc<AtlasTexture<'a>>,
-    power_pellet_texture: Rc<AtlasTexture<'a>>,
+    pellet_texture: Rc<AtlasTexture>,
+    power_pellet_texture: Rc<AtlasTexture>,
     font: Font<'a, 'static>,
-    pacman: Rc<RefCell<Pacman<'a>>>,
+    pacman: Rc<RefCell<Pacman>>,
     map: Rc<RefCell<Map>>,
     debug_mode: DebugMode,
     score: u32,
     pub audio: Audio,
-    blinky: Blinky<'a>,
-    edibles: Vec<Edible<'a>>,
+    blinky: Blinky,
+    edibles: Vec<Edible>,
 }
 
 impl<'a> Game<'a> {
@@ -91,20 +91,28 @@ impl<'a> Game<'a> {
 
         // Load pellet texture from asset API
         let pellet_bytes = get_asset_bytes(Asset::Pellet).expect("Failed to load asset");
+        let power_pellet_bytes = get_asset_bytes(Asset::Energizer).expect("Failed to load asset");
         let pellet_texture = Rc::new(AtlasTexture::new(
-            texture_creator
-                .load_texture_bytes(&pellet_bytes)
-                .expect("Could not load pellet texture from asset API"),
+            unsafe {
+                texture_to_static(
+                    texture_creator
+                        .load_texture_bytes(&pellet_bytes)
+                        .expect("Could not load pellet texture from asset API"),
+                )
+            },
             1,
             24,
             24,
             None,
         ));
-        let power_pellet_bytes = get_asset_bytes(Asset::Energizer).expect("Failed to load asset");
         let power_pellet_texture = Rc::new(AtlasTexture::new(
-            texture_creator
-                .load_texture_bytes(&power_pellet_bytes)
-                .expect("Could not load power pellet texture from asset API"),
+            unsafe {
+                texture_to_static(
+                    texture_creator
+                        .load_texture_bytes(&power_pellet_bytes)
+                        .expect("Could not load power pellet texture from asset API"),
+                )
+            },
             1,
             24,
             24,
@@ -340,18 +348,18 @@ impl<'a> Game<'a> {
         // Render the score and high score
         self.render_text(
             &format!("{lives}UP   HIGH SCORE   "),
-            (24 * lives_offset + x_offset, y_offset),
+            IVec2::new(24 * lives_offset + x_offset, y_offset),
             Color::WHITE,
         );
         self.render_text(
             &score_text,
-            (24 * score_offset + x_offset, 24 + y_offset + gap_offset),
+            IVec2::new(24 * score_offset + x_offset, 24 + y_offset + gap_offset),
             Color::WHITE,
         );
     }
 
     /// Renders text to the screen at the given position.
-    fn render_text(&mut self, text: &str, position: (i32, i32), color: Color) {
+    fn render_text(&mut self, text: &str, position: IVec2, color: Color) {
         let surface = self.font.render(text).blended(color).expect("Could not render text surface");
 
         let texture_creator = self.canvas.texture_creator();
@@ -360,7 +368,7 @@ impl<'a> Game<'a> {
             .expect("Could not create texture from surface");
         let query = texture.query();
 
-        let dst_rect = sdl2::rect::Rect::new(position.0, position.1, query.width, query.height);
+        let dst_rect = sdl2::rect::Rect::new(position.x, position.y, query.width, query.height);
 
         self.canvas
             .copy(&texture, None, Some(dst_rect))

@@ -114,7 +114,7 @@ impl Moving for MovableEntity {
         );
     }
     fn next_cell(&self, direction: Option<Direction>) -> IVec2 {
-        let (x, y) = direction.unwrap_or(self.direction).offset();
+        let IVec2 { x, y } = direction.unwrap_or(self.direction).offset();
         IVec2::new(self.base.cell_position.x as i32 + x, self.base.cell_position.y as i32 + y)
     }
     fn is_wall_ahead(&self, direction: Option<Direction>) -> bool {

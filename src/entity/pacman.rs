@@ -18,23 +18,23 @@ use crate::{
 use glam::{IVec2, UVec2};
 
 /// The Pac-Man entity.
-pub struct Pacman<'a> {
+pub struct Pacman {
     /// Shared movement and position fields.
     pub base: MovableEntity,
     /// The next direction of Pac-Man, which will be applied when Pac-Man is next aligned with the grid.
     pub next_direction: Option<Direction>,
     /// Whether Pac-Man is currently stopped.
     pub stopped: bool,
-    pub sprite: AnimatedAtlasTexture<'a>,
+    pub sprite: AnimatedAtlasTexture,
 }
 
-impl<'a> Entity for Pacman<'a> {
+impl Entity for Pacman {
     fn base(&self) -> &StaticEntity {
         &self.base.base
     }
 }
 
-impl<'a> Moving for Pacman<'a> {
+impl Moving for Pacman {
     fn move_forward(&mut self) {
         self.base.move_forward();
     }
@@ -58,9 +58,9 @@ impl<'a> Moving for Pacman<'a> {
     }
 }
 
-impl Pacman<'_> {
+impl Pacman {
     /// Creates a new `Pacman` instance.
-    pub fn new<'a>(starting_position: UVec2, atlas: Texture<'a>, map: Rc<RefCell<Map>>) -> Pacman<'a> {
+    pub fn new(starting_position: UVec2, atlas: Texture<'_>, map: Rc<RefCell<Map>>) -> Pacman {
         let pixel_position = Map::cell_to_pixel(starting_position);
         Pacman {
             base: MovableEntity::new(
@@ -73,7 +73,14 @@ impl Pacman<'_> {
             ),
             next_direction: None,
             stopped: false,
-            sprite: AnimatedAtlasTexture::new(atlas, 2, 3, 32, 32, Some((-4, -4))),
+            sprite: AnimatedAtlasTexture::new(
+                unsafe { crate::texture::atlas::texture_to_static(atlas) },
+                2,
+                3,
+                32,
+                32,
+                Some(IVec2::new(-4, -4)),
+            ),
         }
     }
 
@@ -119,14 +126,14 @@ impl Pacman<'_> {
     }
 }
 
-impl Renderable for Pacman<'_> {
+impl Renderable for Pacman {
     fn render(&self, canvas: &mut Canvas<Window>) {
         let pos = self.base.base.pixel_position;
         let dir = self.base.direction;
         if self.stopped {
-            self.sprite.render(canvas, (pos.x, pos.y), dir, Some(2));
+            self.sprite.render(canvas, pos, dir, Some(2));
         } else {
-            self.sprite.render(canvas, (pos.x, pos.y), dir, None);
+            self.sprite.render(canvas, pos, dir, None);
         }
     }
 }

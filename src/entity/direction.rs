@@ -1,5 +1,6 @@
 //! This module defines the `Direction` enum, which is used to represent the
 //! direction of an entity.
+use glam::IVec2;
 use sdl2::keyboard::Keycode;
 
 /// An enum representing the direction of an entity.
@@ -23,12 +24,12 @@ impl Direction {
     }
 
     /// Returns the offset of the direction as a tuple of (x, y).
-    pub fn offset(&self) -> (i32, i32) {
+    pub fn offset(&self) -> IVec2 {
         match self {
-            Direction::Right => (1, 0),
-            Direction::Down => (0, 1),
-            Direction::Left => (-1, 0),
-            Direction::Up => (0, -1),
+            Direction::Right => IVec2::new(1, 0),
+            Direction::Down => IVec2::new(0, 1),
+            Direction::Left => IVec2::new(-1, 0),
+            Direction::Up => IVec2::new(0, -1),
         }
     }
 

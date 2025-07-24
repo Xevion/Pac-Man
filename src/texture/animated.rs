@@ -1,4 +1,5 @@
 //! This module provides a simple animation and atlas system for textures.
+use glam::IVec2;
 use sdl2::{
     render::{Canvas, Texture},
     video::Window,
@@ -9,22 +10,22 @@ use crate::texture::atlas::AtlasTexture;
 use crate::texture::FrameDrawn;
 
 /// An animated texture using a texture atlas.
-pub struct AnimatedAtlasTexture<'a> {
-    pub atlas: AtlasTexture<'a>,
+pub struct AnimatedAtlasTexture {
+    pub atlas: AtlasTexture,
     pub ticks_per_frame: u32,
     pub ticker: u32,
     pub reversed: bool,
     pub paused: bool,
 }
 
-impl<'a> AnimatedAtlasTexture<'a> {
+impl AnimatedAtlasTexture {
     pub fn new(
-        texture: Texture<'a>,
+        texture: Texture<'static>,
         ticks_per_frame: u32,
         frame_count: u32,
         width: u32,
         height: u32,
-        offset: Option<(i32, i32)>,
+        offset: Option<IVec2>,
     ) -> Self {
         AnimatedAtlasTexture {
             atlas: AtlasTexture::new(texture, frame_count, width, height, offset),
@@ -64,8 +65,8 @@ impl<'a> AnimatedAtlasTexture<'a> {
     }
 }
 
-impl<'a> FrameDrawn for AnimatedAtlasTexture<'a> {
-    fn render(&self, canvas: &mut Canvas<Window>, position: (i32, i32), direction: Direction, frame: Option<u32>) {
+impl FrameDrawn for AnimatedAtlasTexture {
+    fn render(&self, canvas: &mut Canvas<Window>, position: IVec2, direction: Direction, frame: Option<u32>) {
         let frame = frame.unwrap_or_else(|| self.current_frame());
         self.atlas.render(canvas, position, direction, Some(frame));
     }

@@ -11,18 +11,18 @@ use crate::entity::{Entity, Moving, Renderable, StaticEntity};
 use crate::map::Map;
 use glam::{IVec2, UVec2};
 
-pub struct Blinky<'a> {
-    ghost: Ghost<'a>,
+pub struct Blinky {
+    ghost: Ghost,
 }
 
-impl<'a> Blinky<'a> {
+impl Blinky {
     pub fn new(
         starting_position: UVec2,
-        body_texture: Texture<'a>,
-        eyes_texture: Texture<'a>,
+        body_texture: Texture<'_>,
+        eyes_texture: Texture<'_>,
         map: Rc<RefCell<Map>>,
-        pacman: Rc<RefCell<Pacman<'a>>>,
-    ) -> Blinky<'a> {
+        pacman: Rc<RefCell<Pacman>>,
+    ) -> Blinky {
         Blinky {
             ghost: Ghost::new(GhostType::Blinky, starting_position, body_texture, eyes_texture, map, pacman),
         }
@@ -44,19 +44,19 @@ impl<'a> Blinky<'a> {
     }
 }
 
-impl<'a> Entity for Blinky<'a> {
+impl Entity for Blinky {
     fn base(&self) -> &StaticEntity {
         self.ghost.base.base()
     }
 }
 
-impl<'a> Renderable for Blinky<'a> {
+impl Renderable for Blinky {
     fn render(&self, canvas: &mut Canvas<Window>) {
         self.ghost.render(canvas);
     }
 }
 
-impl<'a> Moving for Blinky<'a> {
+impl Moving for Blinky {
     fn move_forward(&mut self) {
         self.ghost.move_forward();
     }
@@ -81,15 +81,15 @@ impl<'a> Moving for Blinky<'a> {
 }
 
 // Allow direct access to ghost fields
-impl<'a> std::ops::Deref for Blinky<'a> {
-    type Target = Ghost<'a>;
+impl std::ops::Deref for Blinky {
+    type Target = Ghost;
 
     fn deref(&self) -> &Self::Target {
         &self.ghost
     }
 }
 
-impl<'a> std::ops::DerefMut for Blinky<'a> {
+impl std::ops::DerefMut for Blinky {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.ghost
     }

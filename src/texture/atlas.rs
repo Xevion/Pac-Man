@@ -1,3 +1,4 @@
+use glam::IVec2;
 use sdl2::{
     rect::Rect,
     render::{Canvas, Texture},
@@ -6,23 +7,29 @@ use sdl2::{
 
 use crate::{entity::direction::Direction, texture::FrameDrawn};
 
+/// Unsafely converts a Texture with any lifetime to a 'static lifetime.
+/// Only use this if you guarantee the renderer/context will never be dropped!
+pub unsafe fn texture_to_static<'a>(texture: Texture<'a>) -> Texture<'static> {
+    std::mem::transmute::<Texture<'a>, Texture<'static>>(texture)
+}
+
 /// A texture atlas abstraction for static (non-animated) rendering.
-pub struct AtlasTexture<'a> {
-    pub raw_texture: Texture<'a>,
-    pub offset: (i32, i32),
+pub struct AtlasTexture {
+    pub raw_texture: Texture<'static>,
+    pub offset: IVec2,
     pub frame_count: u32,
     pub frame_width: u32,
     pub frame_height: u32,
 }
 
-impl<'a> AtlasTexture<'a> {
-    pub fn new(texture: Texture<'a>, frame_count: u32, frame_width: u32, frame_height: u32, offset: Option<(i32, i32)>) -> Self {
+impl AtlasTexture {
+    pub fn new(texture: Texture<'static>, frame_count: u32, frame_width: u32, frame_height: u32, offset: Option<IVec2>) -> Self {
         AtlasTexture {
             raw_texture: texture,
             frame_count,
             frame_width,
             frame_height,
-            offset: offset.unwrap_or((0, 0)),
+            offset: offset.unwrap_or(IVec2::new(0, 0)).into(),
         }
     }
 
@@ -43,12 +50,12 @@ impl<'a> AtlasTexture<'a> {
     }
 }
 
-impl<'a> FrameDrawn for AtlasTexture<'a> {
-    fn render(&self, canvas: &mut Canvas<Window>, position: (i32, i32), direction: Direction, frame: Option<u32>) {
+impl FrameDrawn for AtlasTexture {
+    fn render(&self, canvas: &mut Canvas<Window>, position: IVec2, direction: Direction, frame: Option<u32>) {
         let texture_source_frame_rect = self.get_frame_rect(frame.unwrap_or(0));
         let canvas_destination_rect = Rect::new(
-            position.0 + self.offset.0,
-            position.1 + self.offset.1,
+            position.x + self.offset.x,
+            position.y + self.offset.y,
             self.frame_width,
             self.frame_height,
         );

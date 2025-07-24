@@ -9,6 +9,7 @@ use crate::entity::{Entity, MovableEntity, Moving, Renderable};
 use crate::map::Map;
 use crate::modulation::{SimpleTickModulator, TickModulator};
 use crate::texture::animated::AnimatedAtlasTexture;
+use crate::texture::atlas::{texture_to_static, AtlasTexture};
 use crate::texture::FrameDrawn;
 use glam::{IVec2, UVec2};
 use sdl2::pixels::Color;
@@ -53,7 +54,7 @@ impl GhostType {
 }
 
 /// Base ghost struct that contains common functionality
-pub struct Ghost<'a> {
+pub struct Ghost {
     /// Shared movement and position fields.
     pub base: MovableEntity,
     /// The current mode of the ghost
@@ -61,23 +62,30 @@ pub struct Ghost<'a> {
     /// The type/personality of this ghost
     pub ghost_type: GhostType,
     /// Reference to Pac-Man for targeting
-    pub pacman: Rc<RefCell<Pacman<'a>>>,
-    pub body_sprite: AnimatedAtlasTexture<'a>,
-    pub eyes_sprite: AnimatedAtlasTexture<'a>,
+    pub pacman: Rc<RefCell<Pacman>>,
+    pub body_sprite: AnimatedAtlasTexture,
+    pub eyes_sprite: AnimatedAtlasTexture,
 }
 
-impl Ghost<'_> {
+impl Ghost {
     /// Creates a new ghost instance
-    pub fn new<'a>(
+    pub fn new(
         ghost_type: GhostType,
         starting_position: UVec2,
-        body_texture: Texture<'a>,
-        eyes_texture: Texture<'a>,
+        body_texture: Texture<'_>,
+        eyes_texture: Texture<'_>,
         map: Rc<RefCell<Map>>,
-        pacman: Rc<RefCell<Pacman<'a>>>,
-    ) -> Ghost<'a> {
+        pacman: Rc<RefCell<Pacman>>,
+    ) -> Ghost {
         let color = ghost_type.color();
-        let mut body_sprite = AnimatedAtlasTexture::new(body_texture, 8, 2, 32, 32, Some((-4, -4)));
+        let mut body_sprite = AnimatedAtlasTexture::new(
+            unsafe { texture_to_static(body_texture) },
+            8,
+            2,
+            32,
+            32,
+            Some(IVec2::new(-4, -4)),
+        );
         body_sprite.set_color_modulation(color.r, color.g, color.b);
         let pixel_position = Map::cell_to_pixel(starting_position);
         Ghost {
@@ -93,7 +101,14 @@ impl Ghost<'_> {
             ghost_type,
             pacman,
             body_sprite,
-            eyes_sprite: AnimatedAtlasTexture::new(eyes_texture, 1, 4, 32, 32, Some((-4, -4))),
+            eyes_sprite: AnimatedAtlasTexture::new(
+                unsafe { texture_to_static(eyes_texture) },
+                1,
+                4,
+                32,
+                32,
+                Some((-4, -4).into()),
+            ),
         }
     }
 
@@ -181,8 +196,8 @@ impl Ghost<'_> {
                     }
                 }
                 for dir in &[Direction::Up, Direction::Down, Direction::Left, Direction::Right] {
-                    let (dx, dy) = dir.offset();
-                    let next_p = IVec2::new(p.x as i32 + dx, p.y as i32 + dy);
+                    let offset = dir.offset();
+                    let next_p = IVec2::new(p.x as i32 + offset.x, p.y as i32 + offset.y);
                     if let Some(tile) = map.get_tile(next_p) {
                         if tile == MapTile::Wall {
                             continue;
@@ -267,7 +282,7 @@ impl Ghost<'_> {
     }
 }
 
-impl<'a> Moving for Ghost<'a> {
+impl Moving for Ghost {
     fn move_forward(&mut self) {
         self.base.move_forward();
     }
@@ -291,10 +306,10 @@ impl<'a> Moving for Ghost<'a> {
     }
 }
 
-impl<'a> Renderable for Ghost<'a> {
+impl Renderable for Ghost {
     fn render(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         let pos = self.base.base.pixel_position;
-        self.body_sprite.render(canvas, (pos.x, pos.y), Direction::Right, None);
+        self.body_sprite.render(canvas, pos, Direction::Right, None);
         // Inline the eye_frame logic here
         let eye_frame = if self.mode == GhostMode::Frightened {
             4 // Frightened frame
@@ -306,7 +321,6 @@ impl<'a> Renderable for Ghost<'a> {
                 Direction::Down => 3,
             }
         };
-        self.eyes_sprite
-            .render(canvas, (pos.x, pos.y), Direction::Right, Some(eye_frame));
+        self.eyes_sprite.render(canvas, pos, Direction::Right, Some(eye_frame));
     }
 }
