@@ -24,7 +24,7 @@ impl Audio {
         let frequency = 44100;
         let format = DEFAULT_FORMAT;
         let channels = 4;
-        let chunk_size = 128;
+        let chunk_size = 256; // 256 is minimum for emscripten
 
         mixer::open_audio(frequency, format, 1, chunk_size).expect("Failed to open audio");
         mixer::allocate_channels(channels);
