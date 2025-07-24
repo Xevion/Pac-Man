@@ -31,6 +31,25 @@ pub enum Asset {
     // Add more as needed
 }
 
+impl Asset {
+    pub fn path(&self) -> &str {
+        use Asset::*;
+        match self {
+            Wav1 => "wav/1.ogg",
+            Wav2 => "wav/2.ogg",
+            Wav3 => "wav/3.ogg",
+            Wav4 => "wav/4.ogg",
+            Pacman => "32/pacman.png",
+            Pellet => "24/pellet.png",
+            Energizer => "24/energizer.png",
+            Map => "map.png",
+            FontKonami => "font/konami.ttf",
+            GhostBody => "32/ghost_body.png",
+            GhostEyes => "32/ghost_eyes.png",
+        }
+    }
+}
+
 #[cfg(not(target_os = "emscripten"))]
 mod imp {
     use super::*;
