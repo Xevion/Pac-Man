@@ -56,8 +56,6 @@ mod asset;
 mod audio;
 mod constants;
 mod debug;
-mod direction;
-mod edible;
 #[cfg(target_os = "emscripten")]
 mod emscripten;
 mod entity;

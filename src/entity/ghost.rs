@@ -3,7 +3,7 @@ use rand::Rng;
 use rand::SeedableRng;
 
 use crate::constants::{MapTile, BOARD_WIDTH};
-use crate::direction::Direction;
+use crate::entity::direction::Direction;
 use crate::entity::pacman::Pacman;
 use crate::entity::{Entity, MovableEntity, Moving, Renderable};
 use crate::map::Map;

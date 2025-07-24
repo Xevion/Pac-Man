@@ -1,6 +1,6 @@
 use sdl2::{render::Canvas, video::Window};
 
-use crate::direction::Direction;
+use crate::entity::direction::Direction;
 
 /// Trait for drawable atlas-based textures
 pub trait FrameDrawn {

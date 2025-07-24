@@ -4,7 +4,7 @@ use std::rc::Rc;
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 
-use crate::direction::Direction;
+use crate::entity::direction::Direction;
 use crate::entity::ghost::{Ghost, GhostMode, GhostType};
 use crate::entity::pacman::Pacman;
 use crate::entity::{Entity, Moving, Renderable, StaticEntity};

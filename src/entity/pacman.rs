@@ -8,8 +8,7 @@ use sdl2::{
 };
 
 use crate::{
-    direction::Direction,
-    entity::{Entity, MovableEntity, Moving, Renderable, StaticEntity},
+    entity::{direction::Direction, Entity, MovableEntity, Moving, Renderable, StaticEntity},
     map::Map,
     modulation::{SimpleTickModulator, TickModulator},
     texture::animated::AnimatedAtlasTexture,

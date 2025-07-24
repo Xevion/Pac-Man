@@ -1,10 +1,12 @@
 pub mod blinky;
+pub mod direction;
+pub mod edible;
 pub mod ghost;
 pub mod pacman;
 
 use crate::{
     constants::{MapTile, BOARD_OFFSET, BOARD_WIDTH, CELL_SIZE},
-    direction::Direction,
+    entity::direction::Direction,
     map::Map,
     modulation::SimpleTickModulator,
 };

@@ -4,7 +4,7 @@ use sdl2::{
     video::Window,
 };
 
-use crate::{direction::Direction, texture::FrameDrawn};
+use crate::{entity::direction::Direction, texture::FrameDrawn};
 
 /// A texture atlas abstraction for static (non-animated) rendering.
 pub struct AtlasTexture<'a> {

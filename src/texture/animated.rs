@@ -4,7 +4,7 @@ use sdl2::{
     video::Window,
 };
 
-use crate::direction::Direction;
+use crate::entity::direction::Direction;
 use crate::texture::atlas::AtlasTexture;
 use crate::texture::FrameDrawn;
 
