@@ -1,6 +1,16 @@
 [target.'cfg(target_os = "emscripten")']
 rustflags = [
+    # Stack size is required for this project, it will crash otherwise.
     "-C", "link-args=-sASYNCIFY=1 -sASYNCIFY_STACK_SIZE=8192 -sALLOW_MEMORY_GROWTH=1",
     "-C", "link-args=-sUSE_SDL=2 -sUSE_SDL_IMAGE=2 -sUSE_SDL_MIXER=2 -sUSE_OGG=1 -sUSE_SDL_GFX=2 -sUSE_SDL_TTF=2 -sSDL2_IMAGE_FORMATS=['png']",
     "-C", "link-args=--preload-file assets/game/",
+]
+
+[target.'cfg(target_os = "linux")']
+rustflags = [
+    # Manually link zlib.
+    # The `sdl2` crate's build script uses `libpng`, which requires `zlib`.
+    # By adding `-lz` here, we ensure it's passed to the linker after `libpng`,
+    # which is required for the linker to correctly resolve symbols.
+    "-C", "link-arg=-lz",
 ]
