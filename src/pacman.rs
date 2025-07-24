@@ -15,6 +15,8 @@ use crate::{
     modulation::{SimpleTickModulator, TickModulator},
 };
 
+use glam::{IVec2, UVec2};
+
 /// The Pac-Man entity.
 pub struct Pacman<'a> {
     /// Shared movement and position fields.
@@ -39,7 +41,7 @@ impl<'a> Moving for Pacman<'a> {
     fn update_cell_position(&mut self) {
         self.base.update_cell_position();
     }
-    fn next_cell(&self, direction: Option<Direction>) -> (i32, i32) {
+    fn next_cell(&self, direction: Option<Direction>) -> IVec2 {
         self.base.next_cell(direction)
     }
     fn is_wall_ahead(&self, direction: Option<Direction>) -> bool {
@@ -58,7 +60,7 @@ impl<'a> Moving for Pacman<'a> {
 
 impl Pacman<'_> {
     /// Creates a new `Pacman` instance.
-    pub fn new<'a>(starting_position: (u32, u32), atlas: Texture<'a>, map: Rc<RefCell<Map>>) -> Pacman<'a> {
+    pub fn new<'a>(starting_position: UVec2, atlas: Texture<'a>, map: Rc<RefCell<Map>>) -> Pacman<'a> {
         let pixel_position = Map::cell_to_pixel(starting_position);
         Pacman {
             base: MovableEntity::new(
@@ -90,13 +92,13 @@ impl Pacman<'_> {
     }
 
     /// Returns the internal position of Pac-Man, rounded down to the nearest even number.
-    fn internal_position_even(&self) -> (u32, u32) {
-        let (x, y) = self.base.internal_position();
-        ((x / 2u32) * 2u32, (y / 2u32) * 2u32)
+    fn internal_position_even(&self) -> UVec2 {
+        let pos = self.base.internal_position();
+        UVec2::new((pos.x / 2) * 2, (pos.y / 2) * 2)
     }
 
     pub fn tick(&mut self) {
-        let can_change = self.internal_position_even() == (0, 0);
+        let can_change = self.internal_position_even() == UVec2::ZERO;
         if can_change {
             <Pacman as Moving>::update_cell_position(self);
             if !<Pacman as Moving>::handle_tunnel(self) {
@@ -110,7 +112,7 @@ impl Pacman<'_> {
         }
         if !self.stopped && self.base.modulation.next() {
             <Pacman as Moving>::move_forward(self);
-            if self.internal_position_even() == (0, 0) {
+            if self.internal_position_even() == UVec2::ZERO {
                 <Pacman as Moving>::update_cell_position(self);
             }
         }
@@ -122,9 +124,9 @@ impl Renderable for Pacman<'_> {
         let pos = self.base.base.pixel_position;
         let dir = self.base.direction;
         if self.stopped {
-            self.sprite.render(canvas, pos, dir, Some(2));
+            self.sprite.render(canvas, (pos.x, pos.y), dir, Some(2));
         } else {
-            self.sprite.render(canvas, pos, dir, None);
+            self.sprite.render(canvas, (pos.x, pos.y), dir, None);
         }
     }
 }

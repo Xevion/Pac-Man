@@ -1,4 +1,3 @@
-use pathfinding::prelude::dijkstra;
 use rand::Rng;
 
 use crate::animation::{AnimatedAtlasTexture, FrameDrawn};
@@ -8,6 +7,7 @@ use crate::entity::{Entity, MovableEntity, Moving, Renderable};
 use crate::map::Map;
 use crate::modulation::{SimpleTickModulator, TickModulator};
 use crate::pacman::Pacman;
+use glam::{IVec2, UVec2};
 use sdl2::pixels::Color;
 use sdl2::render::Texture;
 use std::cell::RefCell;
@@ -67,7 +67,7 @@ impl Ghost<'_> {
     /// Creates a new ghost instance
     pub fn new<'a>(
         ghost_type: GhostType,
-        starting_position: (u32, u32),
+        starting_position: UVec2,
         body_texture: Texture<'a>,
         eyes_texture: Texture<'a>,
         map: Rc<RefCell<Map>>,
@@ -95,7 +95,7 @@ impl Ghost<'_> {
     }
 
     /// Gets the target tile for this ghost based on its current mode
-    pub fn get_target_tile(&self) -> (i32, i32) {
+    pub fn get_target_tile(&self) -> IVec2 {
         match self.mode {
             GhostMode::Scatter => self.get_scatter_target(),
             GhostMode::Chase => self.get_chase_target(),
@@ -106,17 +106,17 @@ impl Ghost<'_> {
     }
 
     /// Gets this ghost's home corner target for scatter mode
-    fn get_scatter_target(&self) -> (i32, i32) {
+    fn get_scatter_target(&self) -> IVec2 {
         match self.ghost_type {
-            GhostType::Blinky => (25, 0), // Top right
-            GhostType::Pinky => (2, 0),   // Top left
-            GhostType::Inky => (27, 35),  // Bottom right
-            GhostType::Clyde => (0, 35),  // Bottom left
+            GhostType::Blinky => IVec2::new(25, 0), // Top right
+            GhostType::Pinky => IVec2::new(2, 0),   // Top left
+            GhostType::Inky => IVec2::new(27, 35),  // Bottom right
+            GhostType::Clyde => IVec2::new(0, 35),  // Bottom left
         }
     }
 
     /// Gets a random adjacent tile for frightened mode
-    fn get_random_target(&self) -> (i32, i32) {
+    fn get_random_target(&self) -> IVec2 {
         let mut rng = rand::rng();
         let mut possible_moves = Vec::new();
 
@@ -143,48 +143,49 @@ impl Ghost<'_> {
     }
 
     /// Gets the ghost house target for returning eyes
-    fn get_house_target(&self) -> (i32, i32) {
-        (13, 14) // Center of ghost house
+    fn get_house_target(&self) -> IVec2 {
+        IVec2::new(13, 14) // Center of ghost house
     }
 
     /// Gets the exit point target when leaving house
-    fn get_house_exit_target(&self) -> (i32, i32) {
-        (13, 11) // Just above ghost house
+    fn get_house_exit_target(&self) -> IVec2 {
+        IVec2::new(13, 11) // Just above ghost house
     }
 
     /// Gets this ghost's chase mode target (to be implemented by each ghost type)
-    fn get_chase_target(&self) -> (i32, i32) {
+    fn get_chase_target(&self) -> IVec2 {
         let pacman = self.pacman.borrow();
         let cell = pacman.base().cell_position;
-        (cell.0 as i32, cell.1 as i32)
+        IVec2::new(cell.x as i32, cell.y as i32)
     }
 
     /// Calculates the path to the target tile using the A* algorithm.
-    pub fn get_path_to_target(&self, target: (u32, u32)) -> Option<(Vec<(u32, u32)>, u32)> {
+    pub fn get_path_to_target(&self, target: UVec2) -> Option<(Vec<UVec2>, u32)> {
         let start = self.base.base.cell_position;
         let map = self.base.map.borrow();
-
+        use pathfinding::prelude::dijkstra;
         dijkstra(
             &start,
             |&p| {
                 let mut successors = vec![];
-                let tile = map.get_tile((p.0 as i32, p.1 as i32));
+                let tile = map.get_tile(IVec2::new(p.x as i32, p.y as i32));
                 // Tunnel wrap: if currently in a tunnel, add the opposite exit as a neighbor
                 if let Some(MapTile::Tunnel) = tile {
-                    if p.0 == 0 {
-                        successors.push(((BOARD_WIDTH - 2, p.1), 1));
-                    } else if p.0 == BOARD_WIDTH - 1 {
-                        successors.push(((1, p.1), 1));
+                    if p.x == 0 {
+                        successors.push((UVec2::new(BOARD_WIDTH - 2, p.y), 1));
+                    } else if p.x == BOARD_WIDTH - 1 {
+                        successors.push((UVec2::new(1, p.y), 1));
                     }
                 }
                 for dir in &[Direction::Up, Direction::Down, Direction::Left, Direction::Right] {
                     let (dx, dy) = dir.offset();
-                    let next_p = (p.0 as i32 + dx, p.1 as i32 + dy);
+                    let next_p = IVec2::new(p.x as i32 + dx, p.y as i32 + dy);
                     if let Some(tile) = map.get_tile(next_p) {
                         if tile == MapTile::Wall {
                             continue;
                         }
-                        successors.push(((next_p.0 as u32, next_p.1 as u32), 1));
+                        let next_u = UVec2::new(next_p.x as u32, next_p.y as u32);
+                        successors.push((next_u, 1));
                     }
                 }
                 successors
@@ -226,12 +227,13 @@ impl Ghost<'_> {
             if !self.base.handle_tunnel() {
                 // Pathfinding logic (only if not in tunnel)
                 let target_tile = self.get_target_tile();
-                if let Some((path, _)) = self.get_path_to_target((target_tile.0 as u32, target_tile.1 as u32)) {
+                if let Some((path, _)) = self.get_path_to_target(target_tile.as_uvec2()) {
                     if path.len() > 1 {
                         let next_move = path[1];
-                        let (x, y) = self.base.base.cell_position;
-                        let dx = next_move.0 as i32 - x as i32;
-                        let dy = next_move.1 as i32 - y as i32;
+                        let x = self.base.base.cell_position.x;
+                        let y = self.base.base.cell_position.y;
+                        let dx = next_move.x as i32 - x as i32;
+                        let dy = next_move.y as i32 - y as i32;
                         let new_direction = if dx > 0 {
                             Direction::Right
                         } else if dx < 0 {
@@ -269,7 +271,7 @@ impl<'a> Moving for Ghost<'a> {
     fn update_cell_position(&mut self) {
         self.base.update_cell_position();
     }
-    fn next_cell(&self, direction: Option<Direction>) -> (i32, i32) {
+    fn next_cell(&self, direction: Option<Direction>) -> IVec2 {
         self.base.next_cell(direction)
     }
     fn is_wall_ahead(&self, direction: Option<Direction>) -> bool {
@@ -289,7 +291,7 @@ impl<'a> Moving for Ghost<'a> {
 impl<'a> Renderable for Ghost<'a> {
     fn render(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         let pos = self.base.base.pixel_position;
-        self.body_sprite.render(canvas, pos, Direction::Right, None);
+        self.body_sprite.render(canvas, (pos.x, pos.y), Direction::Right, None);
         // Inline the eye_frame logic here
         let eye_frame = if self.mode == GhostMode::Frightened {
             4 // Frightened frame
@@ -301,6 +303,7 @@ impl<'a> Renderable for Ghost<'a> {
                 Direction::Down => 3,
             }
         };
-        self.eyes_sprite.render(canvas, pos, Direction::Right, Some(eye_frame));
+        self.eyes_sprite
+            .render(canvas, (pos.x, pos.y), Direction::Right, Some(eye_frame));
     }
 }

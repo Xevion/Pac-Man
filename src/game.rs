@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::ops::Not;
 use std::rc::Rc;
 
+use glam::UVec2;
 use rand::seq::IteratorRandom;
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
@@ -65,7 +66,7 @@ impl<'a> Game<'a> {
         let pacman_atlas = texture_creator
             .load_texture_bytes(&pacman_bytes)
             .expect("Could not load pacman texture from asset API");
-        let pacman = Rc::new(RefCell::new(Pacman::new((1, 1), pacman_atlas, Rc::clone(&map))));
+        let pacman = Rc::new(RefCell::new(Pacman::new(UVec2::new(1, 1), pacman_atlas, Rc::clone(&map))));
 
         // Load ghost textures
         let ghost_body_bytes = get_asset_bytes(Asset::GhostBody).expect("Failed to load asset");
@@ -79,7 +80,7 @@ impl<'a> Game<'a> {
 
         // Create Blinky
         let blinky = Blinky::new(
-            (13, 11), // Starting position just above ghost house
+            UVec2::new(13, 11), // Starting position just above ghost house
             ghost_body,
             ghost_eyes,
             Rc::clone(&map),
@@ -215,8 +216,8 @@ impl<'a> Game<'a> {
             // Randomize Pac-Man position
             if let Some(pos) = valid_positions.iter().choose(&mut rng) {
                 let mut pacman = self.pacman.borrow_mut();
-                pacman.base.base.pixel_position = Map::cell_to_pixel((pos.x, pos.y));
-                pacman.base.base.cell_position = (pos.x, pos.y);
+                pacman.base.base.pixel_position = Map::cell_to_pixel(*pos);
+                pacman.base.base.cell_position = *pos;
                 pacman.base.in_tunnel = false;
                 pacman.base.direction = Direction::Right;
                 pacman.next_direction = None;
@@ -225,8 +226,8 @@ impl<'a> Game<'a> {
 
             // Randomize ghost position
             if let Some(pos) = valid_positions.iter().choose(&mut rng) {
-                self.blinky.base.base.pixel_position = Map::cell_to_pixel((pos.x, pos.y));
-                self.blinky.base.base.cell_position = (pos.x, pos.y);
+                self.blinky.base.base.pixel_position = Map::cell_to_pixel(*pos);
+                self.blinky.base.base.cell_position = *pos;
                 self.blinky.base.in_tunnel = false;
                 self.blinky.base.direction = Direction::Left;
                 self.blinky.mode = crate::ghost::GhostMode::Chase;
@@ -308,7 +309,7 @@ impl<'a> Game<'a> {
             DebugMode::Grid => {
                 DebugRenderer::draw_debug_grid(self.canvas, &self.map.borrow(), self.pacman.borrow().base.base.cell_position);
                 let next_cell = <Pacman as crate::entity::Moving>::next_cell(&*self.pacman.borrow(), None);
-                DebugRenderer::draw_next_cell(self.canvas, &self.map.borrow(), (next_cell.0 as u32, next_cell.1 as u32));
+                DebugRenderer::draw_next_cell(self.canvas, &self.map.borrow(), next_cell.as_uvec2());
             }
             DebugMode::ValidPositions => {
                 DebugRenderer::draw_valid_positions(self.canvas, &mut self.map.borrow_mut());

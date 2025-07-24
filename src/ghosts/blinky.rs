@@ -9,6 +9,7 @@ use crate::entity::{Entity, Moving, Renderable, StaticEntity};
 use crate::ghost::{Ghost, GhostMode, GhostType};
 use crate::map::Map;
 use crate::pacman::Pacman;
+use glam::{IVec2, UVec2};
 
 pub struct Blinky<'a> {
     ghost: Ghost<'a>,
@@ -16,7 +17,7 @@ pub struct Blinky<'a> {
 
 impl<'a> Blinky<'a> {
     pub fn new(
-        starting_position: (u32, u32),
+        starting_position: UVec2,
         body_texture: Texture<'a>,
         eyes_texture: Texture<'a>,
         map: Rc<RefCell<Map>>,
@@ -28,10 +29,10 @@ impl<'a> Blinky<'a> {
     }
 
     /// Gets Blinky's chase target - directly targets Pac-Man's current position
-    fn get_chase_target(&self) -> (i32, i32) {
+    fn get_chase_target(&self) -> IVec2 {
         let pacman = self.ghost.pacman.borrow();
         let cell = pacman.base().cell_position;
-        (cell.0 as i32, cell.1 as i32)
+        IVec2::new(cell.x as i32, cell.y as i32)
     }
 
     pub fn set_mode(&mut self, mode: GhostMode) {
@@ -62,7 +63,7 @@ impl<'a> Moving for Blinky<'a> {
     fn update_cell_position(&mut self) {
         self.ghost.update_cell_position();
     }
-    fn next_cell(&self, direction: Option<Direction>) -> (i32, i32) {
+    fn next_cell(&self, direction: Option<Direction>) -> IVec2 {
         self.ghost.next_cell(direction)
     }
     fn is_wall_ahead(&self, direction: Option<Direction>) -> bool {

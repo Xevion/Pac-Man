@@ -4,6 +4,7 @@ use crate::{
     map::Map,
     modulation::SimpleTickModulator,
 };
+use glam::{IVec2, UVec2};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -14,9 +15,9 @@ pub trait Entity {
 
     /// Returns true if the entity is colliding with the other entity.
     fn is_colliding(&self, other: &dyn Entity) -> bool {
-        let (x, y) = self.base().pixel_position;
-        let (other_x, other_y) = other.base().pixel_position;
-        x == other_x && y == other_y
+        let a = self.base().pixel_position;
+        let b = other.base().pixel_position;
+        a == b
     }
 }
 
@@ -24,7 +25,7 @@ pub trait Entity {
 pub trait Moving {
     fn move_forward(&mut self);
     fn update_cell_position(&mut self);
-    fn next_cell(&self, direction: Option<Direction>) -> (i32, i32);
+    fn next_cell(&self, direction: Option<Direction>) -> IVec2;
     fn is_wall_ahead(&self, direction: Option<Direction>) -> bool;
     fn handle_tunnel(&mut self) -> bool;
     fn is_grid_aligned(&self) -> bool;
@@ -33,12 +34,12 @@ pub trait Moving {
 
 /// A struct for static (non-moving) entities with position only.
 pub struct StaticEntity {
-    pub pixel_position: (i32, i32),
-    pub cell_position: (u32, u32),
+    pub pixel_position: IVec2,
+    pub cell_position: UVec2,
 }
 
 impl StaticEntity {
-    pub fn new(pixel_position: (i32, i32), cell_position: (u32, u32)) -> Self {
+    pub fn new(pixel_position: IVec2, cell_position: UVec2) -> Self {
         Self {
             pixel_position,
             cell_position,
@@ -58,8 +59,8 @@ pub struct MovableEntity {
 
 impl MovableEntity {
     pub fn new(
-        pixel_position: (i32, i32),
-        cell_position: (u32, u32),
+        pixel_position: IVec2,
+        cell_position: UVec2,
         direction: Direction,
         speed: u32,
         modulation: SimpleTickModulator,
@@ -76,10 +77,10 @@ impl MovableEntity {
     }
 
     /// Returns the position within the current cell, in pixels.
-    pub fn internal_position(&self) -> (u32, u32) {
-        (
-            self.base.pixel_position.0 as u32 % CELL_SIZE,
-            self.base.pixel_position.1 as u32 % CELL_SIZE,
+    pub fn internal_position(&self) -> UVec2 {
+        UVec2::new(
+            (self.base.pixel_position.x as u32) % CELL_SIZE,
+            (self.base.pixel_position.y as u32) % CELL_SIZE,
         )
     }
 }
@@ -94,21 +95,21 @@ impl Moving for MovableEntity {
     fn move_forward(&mut self) {
         let speed = self.speed as i32;
         match self.direction {
-            Direction::Right => self.base.pixel_position.0 += speed,
-            Direction::Left => self.base.pixel_position.0 -= speed,
-            Direction::Up => self.base.pixel_position.1 -= speed,
-            Direction::Down => self.base.pixel_position.1 += speed,
+            Direction::Right => self.base.pixel_position.x += speed,
+            Direction::Left => self.base.pixel_position.x -= speed,
+            Direction::Up => self.base.pixel_position.y -= speed,
+            Direction::Down => self.base.pixel_position.y += speed,
         }
     }
     fn update_cell_position(&mut self) {
-        self.base.cell_position = (
-            (self.base.pixel_position.0 as u32 / CELL_SIZE) - BOARD_OFFSET.0,
-            (self.base.pixel_position.1 as u32 / CELL_SIZE) - BOARD_OFFSET.1,
+        self.base.cell_position = UVec2::new(
+            (self.base.pixel_position.x as u32 / CELL_SIZE) - BOARD_OFFSET.0,
+            (self.base.pixel_position.y as u32 / CELL_SIZE) - BOARD_OFFSET.1,
         );
     }
-    fn next_cell(&self, direction: Option<Direction>) -> (i32, i32) {
+    fn next_cell(&self, direction: Option<Direction>) -> IVec2 {
         let (x, y) = direction.unwrap_or(self.direction).offset();
-        (self.base.cell_position.0 as i32 + x, self.base.cell_position.1 as i32 + y)
+        IVec2::new(self.base.cell_position.x as i32 + x, self.base.cell_position.y as i32 + y)
     }
     fn is_wall_ahead(&self, direction: Option<Direction>) -> bool {
         let next_cell = self.next_cell(direction);
@@ -119,20 +120,20 @@ impl Moving for MovableEntity {
             let current_tile = self
                 .map
                 .borrow()
-                .get_tile((self.base.cell_position.0 as i32, self.base.cell_position.1 as i32));
+                .get_tile(IVec2::new(self.base.cell_position.x as i32, self.base.cell_position.y as i32));
             if matches!(current_tile, Some(MapTile::Tunnel)) {
                 self.in_tunnel = true;
             }
         }
         if self.in_tunnel {
-            if self.base.cell_position.0 == 0 {
-                self.base.cell_position.0 = BOARD_WIDTH - 2;
-                self.base.pixel_position = Map::cell_to_pixel((self.base.cell_position.0, self.base.cell_position.1));
+            if self.base.cell_position.x == 0 {
+                self.base.cell_position.x = BOARD_WIDTH - 2;
+                self.base.pixel_position = Map::cell_to_pixel(self.base.cell_position);
                 self.in_tunnel = false;
                 true
-            } else if self.base.cell_position.0 == BOARD_WIDTH - 1 {
-                self.base.cell_position.0 = 1;
-                self.base.pixel_position = Map::cell_to_pixel((self.base.cell_position.0, self.base.cell_position.1));
+            } else if self.base.cell_position.x == BOARD_WIDTH - 1 {
+                self.base.cell_position.x = 1;
+                self.base.pixel_position = Map::cell_to_pixel(self.base.cell_position);
                 self.in_tunnel = false;
                 true
             } else {
@@ -143,7 +144,7 @@ impl Moving for MovableEntity {
         }
     }
     fn is_grid_aligned(&self) -> bool {
-        self.internal_position() == (0, 0)
+        self.internal_position() == UVec2::ZERO
     }
     fn set_direction_if_valid(&mut self, new_direction: Direction) -> bool {
         if new_direction == self.direction {
