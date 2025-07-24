@@ -41,7 +41,8 @@ rev = "2024.05.24" # release 2024.05.24 # to check for a new one, check https://
 
 [package.metadata.vcpkg.target]
 x86_64-pc-windows-msvc = { triplet = "x64-windows-static-md" }
-x86_64-unknown-linux-gnu = { triplet = "x86_64-unknown-linux-gnu" }
+x86_64-unknown-linux-gnu = { triplet = "x64-linux" }
+# x86_64-apple-darwin = { triplet = "x64-osx-release" }
 
 [target.'cfg(target_os = "emscripten")'.dependencies]
 libc = "0.2.16"
