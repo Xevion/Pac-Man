@@ -24,6 +24,7 @@ impl Audio {
         let format = DEFAULT_FORMAT;
         let channels = 4;
         let chunk_size = 128;
+
         mixer::open_audio(frequency, format, 1, chunk_size).expect("Failed to open audio");
         mixer::allocate_channels(channels);
 
@@ -54,13 +55,11 @@ impl Audio {
     }
 
     /// Plays the "eat" sound effect.
-    ///
-    /// This function also logs the time since the last sound effect was played.
     pub fn eat(&mut self) {
         if let Some(chunk) = self.sounds.get(self.next_sound_index) {
             match mixer::Channel(0).play(chunk, 0) {
                 Ok(channel) => {
-                    tracing::info!("Playing sound #{} on channel {:?}", self.next_sound_index + 1, channel);
+                    tracing::trace!("Playing sound #{} on channel {:?}", self.next_sound_index + 1, channel);
                 }
                 Err(e) => {
                     tracing::warn!("Could not play sound #{}: {}", self.next_sound_index + 1, e);
