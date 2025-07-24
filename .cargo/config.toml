@@ -1,6 +1,6 @@
 [target.'cfg(target_os = "emscripten")']
 rustflags = [
-    "-C", "link-args=-sASYNCIFY -sALLOW_MEMORY_GROWTH=1",
+    "-C", "link-args=-sASYNCIFY=1 -sASYNCIFY_STACK_SIZE=8192 -sALLOW_MEMORY_GROWTH=1",
     "-C", "link-args=-sUSE_SDL=2 -sUSE_SDL_IMAGE=2 -sUSE_SDL_MIXER=2 -sUSE_OGG=1 -sUSE_SDL_GFX=2 -sUSE_SDL_TTF=2 -sSDL2_IMAGE_FORMATS=['png']",
     "-C", "link-args=--preload-file assets/game/",
 ]
