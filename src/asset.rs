@@ -78,15 +78,17 @@ mod imp {
 #[cfg(target_os = "emscripten")]
 mod imp {
     use super::*;
-    use std::fs;
-    use std::path::Path;
+    use sdl2::rwops::RWops;
+    use std::io::Read;
     pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
-        let path = Path::new("assets/game").join(asset.path());
-        if !path.exists() {
-            return Err(AssetError::NotFound(asset.path().to_string()));
-        }
-        let bytes = fs::read(&path)?;
-        Ok(Cow::Owned(bytes))
+        let path = format!("assets/game/{}", asset.path());
+        let mut rwops = RWops::from_file(&path, "rb").map_err(|_| AssetError::NotFound(asset.path().to_string()))?;
+        let len = rwops.len().ok_or_else(|| AssetError::NotFound(asset.path().to_string()))?;
+        let mut buf = vec![0u8; len];
+        rwops
+            .read_exact(&mut buf)
+            .map_err(|e| AssetError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+        Ok(Cow::Owned(buf))
     }
 }
 
