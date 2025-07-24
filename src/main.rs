@@ -107,6 +107,7 @@ pub fn main() {
 
     let texture_creator = canvas.texture_creator();
     let mut game = Game::new(&mut canvas, &texture_creator, &ttf_context, &audio_subsystem);
+    game.audio.set_mute(cfg!(debug_assertions));
 
     let mut event_pump = sdl_context.event_pump().expect("Could not get SDL EventPump");
 

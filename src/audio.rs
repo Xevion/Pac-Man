@@ -15,6 +15,7 @@ pub struct Audio {
     _mixer_context: mixer::Sdl2MixerContext,
     sounds: Vec<Chunk>,
     next_sound_index: usize,
+    muted: bool,
 }
 
 impl Audio {
@@ -51,6 +52,7 @@ impl Audio {
             _mixer_context: mixer_context,
             sounds,
             next_sound_index: 0,
+            muted: false,
         }
     }
 
@@ -67,5 +69,19 @@ impl Audio {
             }
         }
         self.next_sound_index = (self.next_sound_index + 1) % self.sounds.len();
+    }
+
+    /// Instantly mute or unmute all channels.
+    pub fn set_mute(&mut self, mute: bool) {
+        let channels = 4;
+        let volume = if mute { 0 } else { 32 };
+        for i in 0..channels {
+            mixer::Channel(i).set_volume(volume);
+        }
+        self.muted = mute;
+    }
+
+    pub fn is_muted(&self) -> bool {
+        self.muted
     }
 }

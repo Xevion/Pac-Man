@@ -1,5 +1,6 @@
 //! This module contains the main game logic and state.
 use std::cell::RefCell;
+use std::ops::Not;
 use std::rc::Rc;
 
 use rand::seq::IteratorRandom;
@@ -37,7 +38,7 @@ pub struct Game<'a> {
     map: Rc<RefCell<Map>>,
     debug_mode: DebugMode,
     score: u32,
-    audio: Audio,
+    pub audio: Audio,
     blinky: Blinky<'a>,
     edibles: Vec<Edible<'a>>,
 }
@@ -107,18 +108,6 @@ impl<'a> Game<'a> {
             None,
         ));
 
-        // Load font from asset API
-        let font = {
-            let font_bytes = get_asset_bytes(Asset::FontKonami).expect("Failed to load asset").into_owned();
-            let font_bytes_static: &'static [u8] = Box::leak(font_bytes.into_boxed_slice());
-            let font_rwops = RWops::from_bytes(font_bytes_static).expect("Failed to create RWops for font");
-            ttf_context
-                .load_font_from_rwops(font_rwops, 24)
-                .expect("Could not load font from asset API")
-        };
-
-        let audio = Audio::new();
-
         // Load map texture from asset API
         let map_bytes = get_asset_bytes(Asset::Map).expect("Failed to load asset");
         let mut map_texture = texture_creator
@@ -132,6 +121,18 @@ impl<'a> Game<'a> {
             Rc::clone(&power_pellet_texture),
             Rc::clone(&pellet_texture), // placeholder for fruit sprite
         );
+
+        // Load font from asset API
+        let font = {
+            let font_bytes = get_asset_bytes(Asset::FontKonami).expect("Failed to load asset").into_owned();
+            let font_bytes_static: &'static [u8] = Box::leak(font_bytes.into_boxed_slice());
+            let font_rwops = RWops::from_bytes(font_bytes_static).expect("Failed to create RWops for font");
+            ttf_context
+                .load_font_from_rwops(font_rwops, 24)
+                .expect("Could not load font from asset API")
+        };
+
+        let audio = Audio::new();
 
         Game {
             canvas,
@@ -170,6 +171,12 @@ impl<'a> Game<'a> {
                 DebugMode::Pathfinding => DebugMode::ValidPositions,
                 DebugMode::ValidPositions => DebugMode::None,
             };
+            return;
+        }
+
+        // Toggle mute
+        if keycode == Keycode::M {
+            self.audio.set_mute(self.audio.is_muted().not());
             return;
         }
 
