@@ -60,9 +60,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install SDL2 Packages
-        run: sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libsdl2-gfx-dev
-
       - name: Setup Rust Toolchain (Linux)
         uses: dtolnay/rust-toolchain@master
         with:
@@ -71,6 +68,11 @@ jobs:
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+
+      - name: Vcpkg
+        run: |
+          cargo install cargo-vcpkg
+          cargo vcpkg build
 
       - name: Build
         run: cargo build --release
@@ -109,9 +111,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install SDL2 Packages
-        run: brew install sdl2 sdl2_image sdl2_mixer sdl2_ttf sdl2_gfx
-
       - name: Setup Rust Toolchain (MacOS)
         uses: dtolnay/rust-toolchain@master
         with:
@@ -120,6 +119,11 @@ jobs:
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+
+      - name: Vcpkg
+        run: |
+          cargo install cargo-vcpkg
+          cargo vcpkg build
 
       - name: Build
         run: cargo build --release
@@ -162,37 +166,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download SDL2 Libraries
-        run: |
-          curl -L "https://github.com/libsdl-org/SDL/releases/download/release-${{ env.SDL2 }}/SDL2-devel-${{ env.SDL2 }}-VC.zip" -o "sdl2_devel.zip"
-          curl -L "https://github.com/libsdl-org/SDL_mixer/releases/download/release-${{ env.SDL2_MIXER }}/SDL2_mixer-devel-${{ env.SDL2_MIXER }}-VC.zip" -o "sdl2_mixer_devel.zip"
-          curl -L "https://github.com/libsdl-org/SDL_ttf/releases/download/release-${{ env.SDL2_TTF }}/SDL2_ttf-devel-${{ env.SDL2_TTF }}-VC.zip" -o "sdl2_ttf_devel.zip"
-          curl -L "https://github.com/libsdl-org/SDL_image/releases/download/release-${{ env.SDL2_IMAGE }}/SDL2_image-devel-${{ env.SDL2_IMAGE }}-VC.zip" -o "sdl2_image_devel.zip"
-
-      - name: Extract SDL2 DLLs
-        run: |
-          7z x ./sdl2_devel.zip -o"./tmp/"
-          mv ./tmp/SDL2-${{ env.SDL2 }}/lib/x64/SDL2.dll ./
-          mv ./tmp/SDL2-${{ env.SDL2 }}/lib/x64/SDL2.lib ./
-
-          7z x ./sdl2_mixer_devel.zip -o"./tmp/"
-          mv ./tmp/SDL2_mixer-${{ env.SDL2_MIXER }}/lib/x64/SDL2_mixer.dll ./
-          mv ./tmp/SDL2_mixer-${{ env.SDL2_MIXER }}/lib/x64/SDL2_mixer.lib ./
-
-          7z x ./sdl2_ttf_devel.zip -o"./tmp/"
-          mv ./tmp/SDL2_ttf-${{ env.SDL2_TTF }}/lib/x64/SDL2_ttf.dll ./
-          mv ./tmp/SDL2_ttf-${{ env.SDL2_TTF }}/lib/x64/SDL2_ttf.lib ./
-
-          7z x ./sdl2_image_devel.zip -o"./tmp/"
-          mv ./tmp/SDL2_image-${{ env.SDL2_IMAGE }}/lib/x64/SDL2_image.dll ./
-          mv ./tmp/SDL2_image-${{ env.SDL2_IMAGE }}/lib/x64/SDL2_image.lib ./
-
-      - name: Install SDL2_gfx
-        run: |
-          C:\vcpkg\vcpkg.exe install sdl2-gfx:x64-windows-release
-          cp C:\vcpkg\packages\sdl2-gfx_x64-windows-release\bin\SDL2_gfx.dll ./
-          cp C:\vcpkg\packages\sdl2-gfx_x64-windows-release\lib\SDL2_gfx.lib ./
-
       - name: Setup Rust (Windows)
         uses: dtolnay/rust-toolchain@master
         with:
@@ -201,6 +174,11 @@ jobs:
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+
+      - name: Vcpkg
+        run: |
+          cargo install cargo-vcpkg
+          cargo vcpkg build
 
       - name: Build
         run: cargo build --release
