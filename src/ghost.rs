@@ -1,4 +1,6 @@
+use rand::rngs::SmallRng;
 use rand::Rng;
+use rand::SeedableRng;
 
 use crate::animation::{AnimatedAtlasTexture, FrameDrawn};
 use crate::constants::{MapTile, BOARD_WIDTH};
@@ -117,7 +119,7 @@ impl Ghost<'_> {
 
     /// Gets a random adjacent tile for frightened mode
     fn get_random_target(&self) -> IVec2 {
-        let mut rng = rand::rng();
+        let mut rng = SmallRng::from_os_rng();
         let mut possible_moves = Vec::new();
 
         // Check all four directions

@@ -1,5 +1,7 @@
 //! This module defines the game map and provides functions for interacting with it.
+use rand::rngs::SmallRng;
 use rand::seq::IteratorRandom;
+use rand::SeedableRng;
 
 use crate::constants::{MapTile, BOARD_OFFSET, CELL_SIZE};
 use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH};
@@ -120,7 +122,7 @@ impl Map {
                 }
             }
         }
-        let mut rng = rand::rng();
+        let mut rng = SmallRng::from_os_rng();
         let &start = pellet_positions
             .iter()
             .choose(&mut rng)

@@ -4,7 +4,9 @@ use std::ops::Not;
 use std::rc::Rc;
 
 use glam::UVec2;
+use rand::rngs::SmallRng;
 use rand::seq::IteratorRandom;
+use rand::SeedableRng;
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
 use sdl2::render::{Texture, TextureCreator};
@@ -211,7 +213,7 @@ impl<'a> Game<'a> {
         {
             let mut map = self.map.borrow_mut();
             let valid_positions = map.get_valid_playable_positions();
-            let mut rng = rand::rng();
+            let mut rng = SmallRng::from_os_rng();
 
             // Randomize Pac-Man position
             if let Some(pos) = valid_positions.iter().choose(&mut rng) {
