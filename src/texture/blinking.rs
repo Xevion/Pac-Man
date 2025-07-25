@@ -1,16 +1,13 @@
 //! A texture that blinks on/off for a specified number of ticks.
+use anyhow::Result;
 use glam::IVec2;
-use sdl2::{
-    render::{Canvas, Texture},
-    video::Window,
-};
+use sdl2::render::WindowCanvas;
 
-use crate::texture::atlas::AtlasTexture;
-use crate::texture::FrameDrawn;
-use crate::{entity::direction::Direction, texture::atlas::texture_to_static};
+use crate::texture::animated::AnimatedTexture;
 
+#[derive(Clone)]
 pub struct BlinkingTexture {
-    pub atlas: AtlasTexture,
+    pub animation: AnimatedTexture,
     pub on_ticks: u32,
     pub off_ticks: u32,
     pub ticker: u32,
@@ -18,17 +15,9 @@ pub struct BlinkingTexture {
 }
 
 impl BlinkingTexture {
-    pub fn new(
-        texture: Texture<'_>,
-        frame_count: u32,
-        width: u32,
-        height: u32,
-        offset: Option<IVec2>,
-        on_ticks: u32,
-        off_ticks: u32,
-    ) -> Self {
+    pub fn new(animation: AnimatedTexture, on_ticks: u32, off_ticks: u32) -> Self {
         BlinkingTexture {
-            atlas: AtlasTexture::new(unsafe { texture_to_static(texture) }, frame_count, width, height, offset),
+            animation,
             on_ticks,
             off_ticks,
             ticker: 0,
@@ -38,6 +27,7 @@ impl BlinkingTexture {
 
     /// Advances the blinking state by one tick.
     pub fn tick(&mut self) {
+        self.animation.tick();
         self.ticker += 1;
         if self.visible && self.ticker >= self.on_ticks {
             self.visible = false;
@@ -48,15 +38,12 @@ impl BlinkingTexture {
         }
     }
 
-    pub fn set_color_modulation(&mut self, r: u8, g: u8, b: u8) {
-        self.atlas.set_color_modulation(r, g, b);
-    }
-}
-
-impl FrameDrawn for BlinkingTexture {
-    fn render(&self, canvas: &mut Canvas<Window>, position: IVec2, direction: Direction, frame: Option<u32>) {
+    /// Renders the blinking texture.
+    pub fn render(&self, canvas: &mut WindowCanvas, dest: sdl2::rect::Rect) -> Result<()> {
         if self.visible {
-            self.atlas.render(canvas, position, direction, frame);
+            self.animation.render(canvas, dest)
+        } else {
+            Ok(())
         }
     }
 }
