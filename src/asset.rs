@@ -21,13 +21,9 @@ pub enum Asset {
     Wav2,
     Wav3,
     Wav4,
-    Pacman,
-    Pellet,
-    Energizer,
-    Map,
     FontKonami,
-    GhostBody,
-    GhostEyes,
+    Atlas,
+    AtlasJson,
     // Add more as needed
 }
 
@@ -35,17 +31,13 @@ impl Asset {
     pub fn path(&self) -> &str {
         use Asset::*;
         match self {
-            Wav1 => "wav/1.ogg",
-            Wav2 => "wav/2.ogg",
-            Wav3 => "wav/3.ogg",
-            Wav4 => "wav/4.ogg",
-            Pacman => "32/pacman.png",
-            Pellet => "24/pellet.png",
-            Energizer => "24/energizer.png",
-            Map => "map.png",
-            FontKonami => "font/konami.ttf",
-            GhostBody => "32/ghost_body.png",
-            GhostEyes => "32/ghost_eyes.png",
+            Wav1 => "sound/waka/1.ogg",
+            Wav2 => "sound/waka/2.ogg",
+            Wav3 => "sound/waka/3.ogg",
+            Wav4 => "sound/waka/4.ogg",
+            FontKonami => "konami.ttf",
+            Atlas => "atlas.png",
+            AtlasJson => "atlas.json",
         }
     }
 }
@@ -56,17 +48,13 @@ mod imp {
     macro_rules! asset_bytes_enum {
         ( $asset:expr ) => {
             match $asset {
-                Asset::Wav1 => Cow::Borrowed(include_bytes!("../assets/game/wav/1.ogg")),
-                Asset::Wav2 => Cow::Borrowed(include_bytes!("../assets/game/wav/2.ogg")),
-                Asset::Wav3 => Cow::Borrowed(include_bytes!("../assets/game/wav/3.ogg")),
-                Asset::Wav4 => Cow::Borrowed(include_bytes!("../assets/game/wav/4.ogg")),
-                Asset::Pacman => Cow::Borrowed(include_bytes!("../assets/game/32/pacman.png")),
-                Asset::Pellet => Cow::Borrowed(include_bytes!("../assets/game/24/pellet.png")),
-                Asset::Energizer => Cow::Borrowed(include_bytes!("../assets/game/24/energizer.png")),
-                Asset::Map => Cow::Borrowed(include_bytes!("../assets/game/map.png")),
-                Asset::FontKonami => Cow::Borrowed(include_bytes!("../assets/game/font/konami.ttf")),
-                Asset::GhostBody => Cow::Borrowed(include_bytes!("../assets/game/32/ghost_body.png")),
-                Asset::GhostEyes => Cow::Borrowed(include_bytes!("../assets/game/32/ghost_eyes.png")),
+                Asset::Wav1 => Cow::Borrowed(include_bytes!("../assets/game/sound/waka/1.ogg")),
+                Asset::Wav2 => Cow::Borrowed(include_bytes!("../assets/game/sound/waka/2.ogg")),
+                Asset::Wav3 => Cow::Borrowed(include_bytes!("../assets/game/sound/waka/3.ogg")),
+                Asset::Wav4 => Cow::Borrowed(include_bytes!("../assets/game/sound/waka/4.ogg")),
+                Asset::FontKonami => Cow::Borrowed(include_bytes!("../assets/game/konami.ttf")),
+                Asset::Atlas => Cow::Borrowed(include_bytes!("../assets/game/atlas.png")),
+                Asset::AtlasJson => Cow::Borrowed(include_bytes!("../assets/game/atlas.json")),
             }
         };
     }
