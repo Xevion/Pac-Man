@@ -49,7 +49,6 @@
 use anyhow::Result;
 use glam::UVec2;
 use sdl2::pixels::Color;
-use sdl2::rect::Rect;
 use sdl2::render::{Canvas, RenderTarget};
 use std::cell::RefCell;
 use std::collections::HashMap;

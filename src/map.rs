@@ -3,7 +3,7 @@ use rand::rngs::SmallRng;
 use rand::seq::IteratorRandom;
 use rand::SeedableRng;
 
-use crate::constants::{MapTile, BOARD_CELL_SIZE, BOARD_OFFSET, CELL_SIZE};
+use crate::constants::{MapTile, BOARD_CELL_OFFSET, BOARD_CELL_SIZE, BOARD_PIXEL_OFFSET, BOARD_PIXEL_SIZE, CELL_SIZE};
 use crate::texture::sprite::AtlasTile;
 use glam::{IVec2, UVec2};
 use once_cell::sync::OnceCell;
@@ -104,7 +104,10 @@ impl Map {
     ///
     /// * `cell` - The cell coordinates, in grid coordinates.
     pub fn cell_to_pixel(cell: UVec2) -> IVec2 {
-        IVec2::new((cell.x * CELL_SIZE) as i32, ((cell.y + BOARD_OFFSET.y) * CELL_SIZE) as i32)
+        IVec2::new(
+            (cell.x * CELL_SIZE) as i32,
+            ((cell.y + BOARD_CELL_OFFSET.y) * CELL_SIZE) as i32,
+        )
     }
 
     /// Returns a reference to a cached vector of all valid playable positions in the maze.
@@ -162,7 +165,12 @@ impl Map {
 
     /// Renders the map to the given canvas using the provided map texture.
     pub fn render(&self, canvas: &mut Canvas<Window>, map_texture: &mut AtlasTile) {
-        let dest = Rect::new(0, 0, CELL_SIZE * BOARD_CELL_SIZE.x, CELL_SIZE * BOARD_CELL_SIZE.y);
+        let dest = Rect::new(
+            BOARD_PIXEL_OFFSET.x as i32,
+            BOARD_PIXEL_OFFSET.y as i32,
+            BOARD_PIXEL_SIZE.x,
+            BOARD_PIXEL_SIZE.y,
+        );
         let _ = map_texture.render(canvas, dest);
     }
 }

@@ -6,7 +6,7 @@ pub mod pacman;
 pub mod speed;
 
 use crate::{
-    constants::{MapTile, BOARD_CELL_SIZE, BOARD_OFFSET, CELL_SIZE},
+    constants::{MapTile, BOARD_CELL_OFFSET, BOARD_CELL_SIZE, CELL_SIZE},
     entity::{direction::Direction, speed::SimpleTickModulator},
     map::Map,
 };
@@ -145,8 +145,8 @@ impl Moving for MovableEntity {
     }
     fn update_cell_position(&mut self) {
         self.base.cell_position = UVec2::new(
-            (self.base.pixel_position.x as u32 / CELL_SIZE) - BOARD_OFFSET.x,
-            (self.base.pixel_position.y as u32 / CELL_SIZE) - BOARD_OFFSET.y,
+            (self.base.pixel_position.x as u32 / CELL_SIZE) - BOARD_CELL_OFFSET.x,
+            (self.base.pixel_position.y as u32 / CELL_SIZE) - BOARD_CELL_OFFSET.y,
         );
     }
     fn next_cell(&self, direction: Option<Direction>) -> IVec2 {

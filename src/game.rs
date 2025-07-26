@@ -4,12 +4,13 @@ use std::ops::Not;
 use std::rc::Rc;
 
 use anyhow::Result;
-use glam::{IVec2, UVec2};
+use glam::UVec2;
 use rand::rngs::SmallRng;
 use rand::seq::IteratorRandom;
 use rand::SeedableRng;
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
+
 use sdl2::render::{Texture, TextureCreator};
 use sdl2::video::WindowContext;
 use sdl2::{pixels::Color, render::Canvas, video::Window};
@@ -268,7 +269,6 @@ impl Game {
                 }
                 let _ = this.pacman.borrow_mut().render(texture_canvas);
                 let _ = this.blinky.render(texture_canvas);
-                this.render_ui_on(texture_canvas);
                 match this.debug_mode {
                     DebugMode::Grid => {
                         DebugRenderer::draw_debug_grid(
@@ -290,10 +290,11 @@ impl Game {
             })
             .map_err(|e| anyhow::anyhow!(format!("Failed to render to backbuffer: {e}")))
     }
-    pub fn present_backbuffer(&self, canvas: &mut Canvas<Window>, backbuffer: &Texture) -> Result<()> {
+    pub fn present_backbuffer(&mut self, canvas: &mut Canvas<Window>, backbuffer: &Texture) -> Result<()> {
         canvas.set_draw_color(Color::BLACK);
         canvas.clear();
         canvas.copy(backbuffer, None, None).map_err(anyhow::Error::msg)?;
+        self.render_ui_on(canvas);
         canvas.present();
         Ok(())
     }
@@ -301,22 +302,21 @@ impl Game {
     fn render_ui_on<C: sdl2::render::RenderTarget>(&mut self, canvas: &mut sdl2::render::Canvas<C>) {
         let lives = 3;
         let score_text = format!("{:02}", self.score);
-        let x_offset = 12;
+        let x_offset = 4;
         let y_offset = 2;
         let lives_offset = 3;
         let score_offset = 7 - (score_text.len() as i32);
-        let gap_offset = 6;
-        self.text_texture.set_scale(2.0);
-        self.text_texture.render(
+        self.text_texture.set_scale(1.0);
+        let _ = self.text_texture.render(
             canvas,
             &format!("{lives}UP   HIGH SCORE   "),
-            UVec2::new(24 * lives_offset as u32 + x_offset, y_offset),
+            UVec2::new(8 * lives_offset as u32 + x_offset, y_offset),
             Color::WHITE,
         );
-        self.text_texture.render(
+        let _ = self.text_texture.render(
             canvas,
             &score_text,
-            UVec2::new(24 * score_offset as u32 + x_offset, 24 + y_offset + gap_offset),
+            UVec2::new(8 * score_offset as u32 + x_offset, 8 + y_offset),
             Color::WHITE,
         );
 

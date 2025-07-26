@@ -1,6 +1,6 @@
 #![windows_subsystem = "windows"]
 
-use crate::constants::{BOARD_PIXEL_SIZE, SCALE};
+use crate::constants::{CANVAS_SIZE, SCALE};
 use crate::game::Game;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
@@ -105,8 +105,8 @@ pub fn main() {
     let window = video_subsystem
         .window(
             "Pac-Man",
-            (BOARD_PIXEL_SIZE.x as f32 * SCALE).round() as u32,
-            (BOARD_PIXEL_SIZE.y as f32 * SCALE).round() as u32,
+            (CANVAS_SIZE.x as f32 * SCALE).round() as u32,
+            (CANVAS_SIZE.y as f32 * SCALE).round() as u32,
         )
         .resizable()
         .position_centered()
@@ -116,7 +116,7 @@ pub fn main() {
     let mut canvas = window.into_canvas().build().expect("Could not build canvas");
 
     canvas
-        .set_logical_size(BOARD_PIXEL_SIZE.x, BOARD_PIXEL_SIZE.y)
+        .set_logical_size(CANVAS_SIZE.x, CANVAS_SIZE.y)
         .expect("Could not set logical size");
 
     let texture_creator = canvas.texture_creator();
@@ -127,7 +127,7 @@ pub fn main() {
 
     // Create a backbuffer texture for drawing
     let mut backbuffer = texture_creator_static
-        .create_texture_target(None, BOARD_PIXEL_SIZE.x, BOARD_PIXEL_SIZE.y)
+        .create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)
         .expect("Could not create backbuffer texture");
 
     let mut event_pump = sdl_context.event_pump().expect("Could not get SDL EventPump");
@@ -154,7 +154,7 @@ pub fn main() {
     let mut last_frame_time = Instant::now();
 
     event!(tracing::Level::INFO, "Starting game loop ({:?})", loop_time);
-    let mut main_loop = || {
+    let mut main_loop = move || {
         let start = Instant::now();
         let current_frame_time = Instant::now();
         let frame_duration = current_frame_time.duration_since(last_frame_time);
