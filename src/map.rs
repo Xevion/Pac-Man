@@ -3,10 +3,13 @@ use rand::rngs::SmallRng;
 use rand::seq::IteratorRandom;
 use rand::SeedableRng;
 
-use crate::constants::{MapTile, BOARD_OFFSET, CELL_SIZE};
-use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH};
+use crate::constants::{MapTile, BOARD_CELL_SIZE, BOARD_OFFSET, CELL_SIZE};
+use crate::texture::sprite::AtlasTile;
 use glam::{IVec2, UVec2};
 use once_cell::sync::OnceCell;
+use sdl2::rect::Rect;
+use sdl2::render::Canvas;
+use sdl2::video::Window;
 use std::collections::{HashSet, VecDeque};
 
 /// The game map.
@@ -15,9 +18,9 @@ use std::collections::{HashSet, VecDeque};
 /// the original map, which can be used to reset the map to its initial state.
 pub struct Map {
     /// The current state of the map.
-    current: [[MapTile; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize],
+    current: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
     /// The default state of the map.
-    default: [[MapTile; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize],
+    default: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
 }
 
 impl Map {
@@ -26,11 +29,11 @@ impl Map {
     /// # Arguments
     ///
     /// * `raw_board` - A 2D array of characters representing the board layout.
-    pub fn new(raw_board: [&str; BOARD_HEIGHT as usize]) -> Map {
-        let mut map = [[MapTile::Empty; BOARD_HEIGHT as usize]; BOARD_WIDTH as usize];
+    pub fn new(raw_board: [&str; BOARD_CELL_SIZE.y as usize]) -> Map {
+        let mut map = [[MapTile::Empty; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize];
 
-        for (y, line) in raw_board.iter().enumerate().take(BOARD_HEIGHT as usize) {
-            for (x, character) in line.chars().enumerate().take(BOARD_WIDTH as usize) {
+        for (y, line) in raw_board.iter().enumerate().take(BOARD_CELL_SIZE.y as usize) {
+            for (x, character) in line.chars().enumerate().take(BOARD_CELL_SIZE.x as usize) {
                 let tile = match character {
                     '#' => MapTile::Wall,
                     '.' => MapTile::Pellet,
@@ -54,8 +57,8 @@ impl Map {
     /// Resets the map to its original state.
     pub fn reset(&mut self) {
         // Restore the map to its original state
-        for (x, col) in self.current.iter_mut().enumerate().take(BOARD_WIDTH as usize) {
-            for (y, cell) in col.iter_mut().enumerate().take(BOARD_HEIGHT as usize) {
+        for (x, col) in self.current.iter_mut().enumerate().take(BOARD_CELL_SIZE.x as usize) {
+            for (y, cell) in col.iter_mut().enumerate().take(BOARD_CELL_SIZE.y as usize) {
                 *cell = self.default[x][y];
             }
         }
@@ -70,7 +73,7 @@ impl Map {
         let x = cell.x as usize;
         let y = cell.y as usize;
 
-        if x >= BOARD_WIDTH as usize || y >= BOARD_HEIGHT as usize {
+        if x >= BOARD_CELL_SIZE.x as usize || y >= BOARD_CELL_SIZE.y as usize {
             return None;
         }
 
@@ -87,7 +90,7 @@ impl Map {
         let x = cell.x as usize;
         let y = cell.y as usize;
 
-        if x >= BOARD_WIDTH as usize || y >= BOARD_HEIGHT as usize {
+        if x >= BOARD_CELL_SIZE.x as usize || y >= BOARD_CELL_SIZE.y as usize {
             return false;
         }
 
@@ -101,7 +104,7 @@ impl Map {
     ///
     /// * `cell` - The cell coordinates, in grid coordinates.
     pub fn cell_to_pixel(cell: UVec2) -> IVec2 {
-        IVec2::new((cell.x * CELL_SIZE) as i32, ((cell.y + BOARD_OFFSET.1) * CELL_SIZE) as i32)
+        IVec2::new((cell.x * CELL_SIZE) as i32, ((cell.y + BOARD_OFFSET.y) * CELL_SIZE) as i32)
     }
 
     /// Returns a reference to a cached vector of all valid playable positions in the maze.
@@ -114,8 +117,8 @@ impl Map {
         }
         // Find a random starting pellet
         let mut pellet_positions = vec![];
-        for (x, col) in self.current.iter().enumerate().take(BOARD_WIDTH as usize) {
-            for (y, &cell) in col.iter().enumerate().take(BOARD_HEIGHT as usize) {
+        for (x, col) in self.current.iter().enumerate().take(BOARD_CELL_SIZE.x as usize) {
+            for (y, &cell) in col.iter().enumerate().take(BOARD_CELL_SIZE.y as usize) {
                 match cell {
                     Pellet | PowerPellet => pellet_positions.push(UVec2::new(x as u32, y as u32)),
                     _ => {}
@@ -141,7 +144,7 @@ impl Map {
                 Empty | Pellet | PowerPellet => {
                     for offset in [IVec2::new(-1, 0), IVec2::new(1, 0), IVec2::new(0, -1), IVec2::new(0, 1)] {
                         let neighbor = (pos.as_ivec2() + offset).as_uvec2();
-                        if neighbor.x < BOARD_WIDTH && neighbor.y < BOARD_HEIGHT {
+                        if neighbor.x < BOARD_CELL_SIZE.x && neighbor.y < BOARD_CELL_SIZE.y {
                             let neighbor_tile = self.current[neighbor.x as usize][neighbor.y as usize];
                             if matches!(neighbor_tile, Empty | Pellet | PowerPellet) {
                                 queue.push_back(neighbor);
@@ -155,5 +158,11 @@ impl Map {
         let mut result: Vec<UVec2> = visited.into_iter().collect();
         result.sort_unstable_by_key(|v| (v.x, v.y));
         CACHE.get_or_init(|| result)
+    }
+
+    /// Renders the map to the given canvas using the provided map texture.
+    pub fn render(&self, canvas: &mut Canvas<Window>, map_texture: &AtlasTile) {
+        let dest = Rect::new(0, 0, CELL_SIZE * BOARD_CELL_SIZE.x, CELL_SIZE * BOARD_CELL_SIZE.y);
+        let _ = map_texture.render(canvas, dest);
     }
 }

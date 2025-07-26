@@ -1,30 +1,24 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use sdl2::render::{Canvas, Texture};
-use sdl2::video::Window;
-
 use crate::entity::direction::Direction;
 use crate::entity::ghost::{Ghost, GhostMode, GhostType};
 use crate::entity::pacman::Pacman;
 use crate::entity::{Entity, Moving, Renderable, StaticEntity};
 use crate::map::Map;
+use crate::texture::sprite::SpriteAtlas;
+use anyhow::Result;
 use glam::{IVec2, UVec2};
+use sdl2::render::WindowCanvas;
 
 pub struct Blinky {
     ghost: Ghost,
 }
 
 impl Blinky {
-    pub fn new(
-        starting_position: UVec2,
-        body_texture: Texture<'_>,
-        eyes_texture: Texture<'_>,
-        map: Rc<RefCell<Map>>,
-        pacman: Rc<RefCell<Pacman>>,
-    ) -> Blinky {
+    pub fn new(starting_position: UVec2, atlas: Rc<SpriteAtlas>, map: Rc<RefCell<Map>>, pacman: Rc<RefCell<Pacman>>) -> Blinky {
         Blinky {
-            ghost: Ghost::new(GhostType::Blinky, starting_position, body_texture, eyes_texture, map, pacman),
+            ghost: Ghost::new(GhostType::Blinky, starting_position, atlas, map, pacman),
         }
     }
 
@@ -51,14 +45,14 @@ impl Entity for Blinky {
 }
 
 impl Renderable for Blinky {
-    fn render(&self, canvas: &mut Canvas<Window>) {
-        self.ghost.render(canvas);
+    fn render(&mut self, canvas: &mut WindowCanvas) -> Result<()> {
+        self.ghost.render(canvas)
     }
 }
 
 impl Moving for Blinky {
-    fn move_forward(&mut self) {
-        self.ghost.move_forward();
+    fn tick_movement(&mut self) {
+        self.ghost.tick_movement();
     }
     fn update_cell_position(&mut self) {
         self.ghost.update_cell_position();

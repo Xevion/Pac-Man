@@ -1,21 +1,16 @@
 //! This module defines the Pac-Man entity, including its behavior and rendering.
+use anyhow::Result;
+use glam::{IVec2, UVec2};
+use sdl2::render::WindowCanvas;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use sdl2::{
-    render::{Canvas, Texture},
-    video::Window,
-};
-
 use crate::{
-    entity::{direction::Direction, Entity, MovableEntity, Moving, Renderable, StaticEntity},
+    entity::speed::SimpleTickModulator,
+    entity::{direction::Direction, Entity, MovableEntity, Moving, QueuedDirection, Renderable, StaticEntity},
     map::Map,
-    modulation::{SimpleTickModulator, TickModulator},
-    texture::animated::AnimatedAtlasTexture,
-    texture::FrameDrawn,
+    texture::{animated::AnimatedTexture, directional::DirectionalAnimatedTexture, get_atlas_tile, sprite::SpriteAtlas},
 };
-
-use glam::{IVec2, UVec2};
 
 /// The Pac-Man entity.
 pub struct Pacman {
@@ -25,7 +20,9 @@ pub struct Pacman {
     pub next_direction: Option<Direction>,
     /// Whether Pac-Man is currently stopped.
     pub stopped: bool,
-    pub sprite: AnimatedAtlasTexture,
+    pub skip_move_tick: bool,
+    pub texture: DirectionalAnimatedTexture,
+    pub death_animation: AnimatedTexture,
 }
 
 impl Entity for Pacman {
@@ -35,8 +32,12 @@ impl Entity for Pacman {
 }
 
 impl Moving for Pacman {
-    fn move_forward(&mut self) {
-        self.base.move_forward();
+    fn tick_movement(&mut self) {
+        if self.skip_move_tick {
+            self.skip_move_tick = false;
+            return;
+        }
+        self.base.tick_movement();
     }
     fn update_cell_position(&mut self) {
         self.base.update_cell_position();
@@ -56,46 +57,59 @@ impl Moving for Pacman {
     fn set_direction_if_valid(&mut self, new_direction: Direction) -> bool {
         self.base.set_direction_if_valid(new_direction)
     }
+    fn on_grid_aligned(&mut self) {
+        Pacman::update_cell_position(self);
+        if !<Pacman as Moving>::handle_tunnel(self) {
+            <Pacman as QueuedDirection>::handle_direction_change(self);
+            if !self.stopped && <Pacman as Moving>::is_wall_ahead(self, None) {
+                self.stopped = true;
+            } else if self.stopped && !<Pacman as Moving>::is_wall_ahead(self, None) {
+                self.stopped = false;
+            }
+        }
+    }
+}
+
+impl QueuedDirection for Pacman {
+    fn next_direction(&self) -> Option<Direction> {
+        self.next_direction
+    }
+    fn set_next_direction(&mut self, dir: Option<Direction>) {
+        self.next_direction = dir;
+    }
 }
 
 impl Pacman {
     /// Creates a new `Pacman` instance.
-    pub fn new(starting_position: UVec2, atlas: Texture<'_>, map: Rc<RefCell<Map>>) -> Pacman {
+    pub fn new(starting_position: UVec2, atlas: Rc<SpriteAtlas>, map: Rc<RefCell<Map>>) -> Pacman {
         let pixel_position = Map::cell_to_pixel(starting_position);
+        let get = |name: &str| get_atlas_tile(&atlas, name);
+
         Pacman {
             base: MovableEntity::new(
                 pixel_position,
                 starting_position,
                 Direction::Right,
-                3,
-                SimpleTickModulator::new(1.0),
+                SimpleTickModulator::new(1f32),
                 map,
             ),
             next_direction: None,
             stopped: false,
-            sprite: AnimatedAtlasTexture::new(
-                unsafe { crate::texture::atlas::texture_to_static(atlas) },
-                2,
-                3,
-                32,
-                32,
-                Some(IVec2::new(-4, -4)),
+            skip_move_tick: false,
+            texture: DirectionalAnimatedTexture::new(
+                vec![get("pacman/up_a.png"), get("pacman/up_b.png"), get("pacman/full.png")],
+                vec![get("pacman/down_a.png"), get("pacman/down_b.png"), get("pacman/full.png")],
+                vec![get("pacman/left_a.png"), get("pacman/left_b.png"), get("pacman/full.png")],
+                vec![get("pacman/right_a.png"), get("pacman/right_b.png"), get("pacman/full.png")],
+                8,
+            ),
+            death_animation: AnimatedTexture::new(
+                (0..=10)
+                    .map(|i| get_atlas_tile(&atlas, &format!("pacman/death/{}.png", i)))
+                    .collect(),
+                5,
             ),
         }
-    }
-
-    /// Handles a requested direction change.
-    fn handle_direction_change(&mut self) -> bool {
-        match self.next_direction {
-            None => return false,
-            Some(next_direction) => {
-                if <Pacman as Moving>::set_direction_if_valid(self, next_direction) {
-                    self.next_direction = None;
-                    return true;
-                }
-            }
-        }
-        false
     }
 
     /// Returns the internal position of Pac-Man, rounded down to the nearest even number.
@@ -105,35 +119,25 @@ impl Pacman {
     }
 
     pub fn tick(&mut self) {
-        let can_change = self.internal_position_even() == UVec2::ZERO;
-        if can_change {
-            <Pacman as Moving>::update_cell_position(self);
-            if !<Pacman as Moving>::handle_tunnel(self) {
-                self.handle_direction_change();
-                if !self.stopped && <Pacman as Moving>::is_wall_ahead(self, None) {
-                    self.stopped = true;
-                } else if self.stopped && !<Pacman as Moving>::is_wall_ahead(self, None) {
-                    self.stopped = false;
-                }
-            }
-        }
-        if !self.stopped && self.base.modulation.next() {
-            <Pacman as Moving>::move_forward(self);
-            if self.internal_position_even() == UVec2::ZERO {
-                <Pacman as Moving>::update_cell_position(self);
-            }
-        }
+        <Pacman as Moving>::tick(self);
+        self.texture.tick();
     }
 }
 
 impl Renderable for Pacman {
-    fn render(&self, canvas: &mut Canvas<Window>) {
+    fn render(&mut self, canvas: &mut WindowCanvas) -> Result<()> {
         let pos = self.base.base.pixel_position;
         let dir = self.base.direction;
+
+        // Center the 16x16 sprite on the 8x8 cell by offsetting by -4
+        let dest = sdl2::rect::Rect::new(pos.x - 4, pos.y - 4, 16, 16);
+
         if self.stopped {
-            self.sprite.render(canvas, pos, dir, Some(2));
+            // When stopped, show the full sprite (mouth open)
+            self.texture.render_stopped(canvas, dest, dir)?;
         } else {
-            self.sprite.render(canvas, pos, dir, None);
+            self.texture.render(canvas, dest, dir)?;
         }
+        return Ok(());
     }
 }

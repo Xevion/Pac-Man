@@ -1,13 +1,12 @@
 //! Edible entity for Pac-Man: pellets, power pellets, and fruits.
-use crate::constants::{FruitType, MapTile, BOARD_HEIGHT, BOARD_WIDTH};
-use crate::entity::direction::Direction;
+use crate::constants::{FruitType, MapTile, BOARD_CELL_SIZE};
 use crate::entity::{Entity, Renderable, StaticEntity};
 use crate::map::Map;
-use crate::texture::atlas::AtlasTexture;
+use crate::texture::animated::AnimatedTexture;
 use crate::texture::blinking::BlinkingTexture;
-use crate::texture::FrameDrawn;
+use anyhow::Result;
 use glam::{IVec2, UVec2};
-use sdl2::{render::Canvas, video::Window};
+use sdl2::render::WindowCanvas;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -19,8 +18,8 @@ pub enum EdibleKind {
 }
 
 pub enum EdibleSprite {
-    Pellet(Rc<Box<dyn FrameDrawn>>),
-    PowerPellet(Rc<RefCell<BlinkingTexture>>),
+    Pellet(AnimatedTexture),
+    PowerPellet(BlinkingTexture),
 }
 
 pub struct Edible {
@@ -30,7 +29,7 @@ pub struct Edible {
 }
 
 impl Edible {
-    pub fn new_pellet(cell_position: UVec2, sprite: Rc<Box<dyn FrameDrawn>>) -> Self {
+    pub fn new_pellet(cell_position: UVec2, sprite: AnimatedTexture) -> Self {
         let pixel_position = Map::cell_to_pixel(cell_position);
         Edible {
             base: StaticEntity::new(pixel_position, cell_position),
@@ -38,7 +37,7 @@ impl Edible {
             sprite: EdibleSprite::Pellet(sprite),
         }
     }
-    pub fn new_power_pellet(cell_position: UVec2, sprite: Rc<RefCell<BlinkingTexture>>) -> Self {
+    pub fn new_power_pellet(cell_position: UVec2, sprite: BlinkingTexture) -> Self {
         let pixel_position = Map::cell_to_pixel(cell_position);
         Edible {
             base: StaticEntity::new(pixel_position, cell_position),
@@ -49,7 +48,7 @@ impl Edible {
 
     /// Checks collision with Pac-Man (or any entity)
     pub fn collide(&self, pacman: &dyn Entity) -> bool {
-        self.base.is_colliding(pacman)
+        self.base.cell_position == pacman.base().cell_position
     }
 }
 
@@ -60,11 +59,26 @@ impl Entity for Edible {
 }
 
 impl Renderable for Edible {
-    fn render(&self, canvas: &mut Canvas<Window>) {
+    fn render(&mut self, canvas: &mut WindowCanvas) -> Result<()> {
         let pos = self.base.pixel_position;
+        let dest = match &self.sprite {
+            EdibleSprite::Pellet(sprite) => {
+                let tile = sprite.current_tile();
+                let x = pos.x + ((crate::constants::CELL_SIZE as i32 - tile.size.x as i32) / 2);
+                let y = pos.y + ((crate::constants::CELL_SIZE as i32 - tile.size.y as i32) / 2);
+                sdl2::rect::Rect::new(x, y, tile.size.x as u32, tile.size.y as u32)
+            }
+            EdibleSprite::PowerPellet(sprite) => {
+                let tile = sprite.animation.current_tile();
+                let x = pos.x + ((crate::constants::CELL_SIZE as i32 - tile.size.x as i32) / 2);
+                let y = pos.y + ((crate::constants::CELL_SIZE as i32 - tile.size.y as i32) / 2);
+                sdl2::rect::Rect::new(x, y, tile.size.x as u32, tile.size.y as u32)
+            }
+        };
+
         match &self.sprite {
-            EdibleSprite::Pellet(sprite) => sprite.render(canvas, pos, Direction::Right, Some(0)),
-            EdibleSprite::PowerPellet(sprite) => sprite.borrow().render(canvas, pos, Direction::Right, Some(0)),
+            EdibleSprite::Pellet(sprite) => sprite.render(canvas, dest),
+            EdibleSprite::PowerPellet(sprite) => sprite.render(canvas, dest),
         }
     }
 }
@@ -72,20 +86,20 @@ impl Renderable for Edible {
 /// Reconstruct all edibles from the original map layout
 pub fn reconstruct_edibles(
     map: Rc<RefCell<Map>>,
-    pellet_sprite: Rc<Box<dyn FrameDrawn>>,
-    power_pellet_sprite: Rc<RefCell<BlinkingTexture>>,
-    _fruit_sprite: Rc<Box<dyn FrameDrawn>>,
+    pellet_sprite: AnimatedTexture,
+    power_pellet_sprite: BlinkingTexture,
+    _fruit_sprite: AnimatedTexture,
 ) -> Vec<Edible> {
     let mut edibles = Vec::new();
-    for x in 0..BOARD_WIDTH {
-        for y in 0..BOARD_HEIGHT {
+    for x in 0..BOARD_CELL_SIZE.x {
+        for y in 0..BOARD_CELL_SIZE.y {
             let tile = map.borrow().get_tile(IVec2::new(x as i32, y as i32));
             match tile {
                 Some(MapTile::Pellet) => {
-                    edibles.push(Edible::new_pellet(UVec2::new(x, y), Rc::clone(&pellet_sprite)));
+                    edibles.push(Edible::new_pellet(UVec2::new(x, y), pellet_sprite.clone()));
                 }
                 Some(MapTile::PowerPellet) => {
-                    edibles.push(Edible::new_power_pellet(UVec2::new(x, y), Rc::clone(&power_pellet_sprite)));
+                    edibles.push(Edible::new_power_pellet(UVec2::new(x, y), power_pellet_sprite.clone()));
                 }
                 // Fruits can be added here if you have fruit positions
                 _ => {}

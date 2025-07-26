@@ -1,9 +1,5 @@
-use glam::IVec2;
-use sdl2::{render::Canvas, video::Window};
-
 use std::rc::Rc;
 
-use crate::entity::direction::Direction;
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 
 pub mod animated;

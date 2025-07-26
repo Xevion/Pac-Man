@@ -1,6 +1,6 @@
 //! Debug rendering utilities for Pac-Man.
 use crate::{
-    constants::{MapTile, BOARD_HEIGHT, BOARD_WIDTH},
+    constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE},
     entity::blinky::Blinky,
     map::Map,
 };
@@ -22,13 +22,13 @@ impl DebugRenderer {
         let position = Map::cell_to_pixel(cell);
         canvas.set_draw_color(color);
         canvas
-            .draw_rect(sdl2::rect::Rect::new(position.x, position.y, 24, 24))
+            .draw_rect(sdl2::rect::Rect::new(position.x, position.y, CELL_SIZE, CELL_SIZE))
             .expect("Could not draw rectangle");
     }
 
     pub fn draw_debug_grid(canvas: &mut Canvas<Window>, map: &Map, pacman_cell: UVec2) {
-        for x in 0..BOARD_WIDTH {
-            for y in 0..BOARD_HEIGHT {
+        for x in 0..BOARD_CELL_SIZE.x {
+            for y in 0..BOARD_CELL_SIZE.y {
                 let tile = map.get_tile(IVec2::new(x as i32, y as i32)).unwrap_or(MapTile::Empty);
                 let cell = UVec2::new(x, y);
                 let mut color = None;

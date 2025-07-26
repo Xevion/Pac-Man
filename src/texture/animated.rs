@@ -1,6 +1,5 @@
 //! This module provides a simple animation and atlas system for textures.
 use anyhow::Result;
-use glam::IVec2;
 use sdl2::render::WindowCanvas;
 
 use crate::texture::sprite::AtlasTile;

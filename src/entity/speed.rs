@@ -22,34 +22,35 @@ pub trait TickModulator {
     fn new(percent: f32) -> Self;
     /// Returns whether or not the operation should be performed on this tick.
     fn next(&mut self) -> bool;
+    fn set_speed(&mut self, speed: f32);
 }
 
 /// A simple tick modulator that skips every Nth tick.
 pub struct SimpleTickModulator {
-    tick_count: u32,
-    ticks_left: u32,
+    accumulator: f32,
+    pixels_per_tick: f32,
 }
 
 // TODO: Add tests for the tick modulator to ensure that it is working correctly.
 // TODO: Look into average precision and binary code modulation strategies to see
 // if they would be a better fit for this use case.
-impl TickModulator for SimpleTickModulator {
-    fn new(percent: f32) -> Self {
-        let ticks_required: u32 = (1f32 / (1f32 - percent)).round() as u32;
-
-        SimpleTickModulator {
-            tick_count: ticks_required,
-            ticks_left: ticks_required,
+impl SimpleTickModulator {
+    pub fn new(pixels_per_tick: f32) -> Self {
+        Self {
+            accumulator: 0f32,
+            pixels_per_tick: pixels_per_tick * 0.47,
         }
     }
-
-    fn next(&mut self) -> bool {
-        if self.ticks_left == 0 {
-            self.ticks_left = self.tick_count;
-            return false;
+    pub fn set_speed(&mut self, pixels_per_tick: f32) {
+        self.pixels_per_tick = pixels_per_tick;
+    }
+    pub fn next(&mut self) -> bool {
+        self.accumulator += self.pixels_per_tick;
+        if self.accumulator >= 1f32 {
+            self.accumulator -= 1f32;
+            true
+        } else {
+            false
         }
-
-        self.ticks_left -= 1;
-        true
     }
 }

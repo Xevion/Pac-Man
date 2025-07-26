@@ -1,6 +1,5 @@
 //! A texture that blinks on/off for a specified number of ticks.
 use anyhow::Result;
-use glam::IVec2;
 use sdl2::render::WindowCanvas;
 
 use crate::texture::animated::AnimatedTexture;

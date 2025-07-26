@@ -2,18 +2,21 @@ use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::SeedableRng;
 
-use crate::constants::{MapTile, BOARD_WIDTH};
+use crate::constants::MapTile;
+use crate::constants::BOARD_CELL_SIZE;
 use crate::entity::direction::Direction;
 use crate::entity::pacman::Pacman;
+use crate::entity::speed::SimpleTickModulator;
 use crate::entity::{Entity, MovableEntity, Moving, Renderable};
 use crate::map::Map;
-use crate::modulation::{SimpleTickModulator, TickModulator};
-use crate::texture::animated::AnimatedAtlasTexture;
-use crate::texture::atlas::{texture_to_static, AtlasTexture};
-use crate::texture::FrameDrawn;
+use crate::texture::{
+    animated::AnimatedTexture, blinking::BlinkingTexture, directional::DirectionalAnimatedTexture, get_atlas_tile,
+    sprite::SpriteAtlas,
+};
+use anyhow::Result;
 use glam::{IVec2, UVec2};
 use sdl2::pixels::Color;
-use sdl2::render::Texture;
+use sdl2::render::WindowCanvas;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -63,8 +66,9 @@ pub struct Ghost {
     pub ghost_type: GhostType,
     /// Reference to Pac-Man for targeting
     pub pacman: Rc<RefCell<Pacman>>,
-    pub body_sprite: AnimatedAtlasTexture,
-    pub eyes_sprite: AnimatedAtlasTexture,
+    pub texture: DirectionalAnimatedTexture,
+    pub frightened_texture: BlinkingTexture,
+    pub eyes_texture: DirectionalAnimatedTexture,
 }
 
 impl Ghost {
@@ -72,43 +76,63 @@ impl Ghost {
     pub fn new(
         ghost_type: GhostType,
         starting_position: UVec2,
-        body_texture: Texture<'_>,
-        eyes_texture: Texture<'_>,
+        atlas: Rc<SpriteAtlas>,
         map: Rc<RefCell<Map>>,
         pacman: Rc<RefCell<Pacman>>,
     ) -> Ghost {
-        let color = ghost_type.color();
-        let mut body_sprite = AnimatedAtlasTexture::new(
-            unsafe { texture_to_static(body_texture) },
-            8,
-            2,
-            32,
-            32,
-            Some(IVec2::new(-4, -4)),
-        );
-        body_sprite.set_color_modulation(color.r, color.g, color.b);
         let pixel_position = Map::cell_to_pixel(starting_position);
+        let name = match ghost_type {
+            GhostType::Blinky => "blinky",
+            GhostType::Pinky => "pinky",
+            GhostType::Inky => "inky",
+            GhostType::Clyde => "clyde",
+        };
+        let get = |dir: &str, suffix: &str| get_atlas_tile(&atlas, &format!("ghost/{}/{}_{}.png", name, dir, suffix));
+
+        let texture = DirectionalAnimatedTexture::new(
+            vec![get("up", "a"), get("up", "b")],
+            vec![get("down", "a"), get("down", "b")],
+            vec![get("left", "a"), get("left", "b")],
+            vec![get("right", "a"), get("right", "b")],
+            25,
+        );
+
+        let frightened_texture = BlinkingTexture::new(
+            AnimatedTexture::new(
+                vec![
+                    get_atlas_tile(&atlas, "ghost/frightened/blue_a.png"),
+                    get_atlas_tile(&atlas, "ghost/frightened/blue_b.png"),
+                ],
+                10,
+            ),
+            45,
+            15,
+        );
+
+        let eyes_get = |dir: &str| get_atlas_tile(&atlas, &format!("ghost/eyes/{}.png", dir));
+
+        let eyes_texture = DirectionalAnimatedTexture::new(
+            vec![eyes_get("up")],
+            vec![eyes_get("down")],
+            vec![eyes_get("left")],
+            vec![eyes_get("right")],
+            0,
+        );
+
         Ghost {
             base: MovableEntity::new(
                 pixel_position,
                 starting_position,
                 Direction::Left,
-                3,
-                SimpleTickModulator::new(1.0),
+                SimpleTickModulator::new(0.9375),
                 map,
             ),
             mode: GhostMode::Chase,
             ghost_type,
             pacman,
-            body_sprite,
-            eyes_sprite: AnimatedAtlasTexture::new(
-                unsafe { texture_to_static(eyes_texture) },
-                1,
-                4,
-                32,
-                32,
-                Some((-4, -4).into()),
-            ),
+            texture,
+            frightened_texture,
+            eyes_texture,
         }
     }
 
@@ -190,8 +214,8 @@ impl Ghost {
                 // Tunnel wrap: if currently in a tunnel, add the opposite exit as a neighbor
                 if let Some(MapTile::Tunnel) = tile {
                     if p.x == 0 {
-                        successors.push((UVec2::new(BOARD_WIDTH - 2, p.y), 1));
-                    } else if p.x == BOARD_WIDTH - 1 {
+                        successors.push((UVec2::new(BOARD_CELL_SIZE.x - 2, p.y), 1));
+                    } else if p.x == BOARD_CELL_SIZE.x - 1 {
                         successors.push((UVec2::new(1, p.y), 1));
                     }
                 }
@@ -220,13 +244,13 @@ impl Ghost {
 
         self.mode = new_mode;
 
-        self.base.speed = match new_mode {
-            GhostMode::Chase => 3,
-            GhostMode::Scatter => 2,
-            GhostMode::Frightened => 2,
-            GhostMode::Eyes => 7,
-            GhostMode::House => 0,
-        };
+        self.base.speed.set_speed(match new_mode {
+            GhostMode::Chase => 0.9375,
+            GhostMode::Scatter => 0.85,
+            GhostMode::Frightened => 0.7,
+            GhostMode::Eyes => 1.5,
+            GhostMode::House => 0f32,
+        });
 
         if should_reverse {
             self.base.set_direction_if_valid(self.base.direction.opposite());
@@ -238,10 +262,8 @@ impl Ghost {
             // For now, do nothing in the house
             return;
         }
-
         if self.base.is_grid_aligned() {
             self.base.update_cell_position();
-
             if !self.base.handle_tunnel() {
                 // Pathfinding logic (only if not in tunnel)
                 let target_tile = self.get_target_tile();
@@ -265,26 +287,20 @@ impl Ghost {
                     }
                 }
             }
-
-            // Don't move if the next tile is a wall
-            if self.base.is_wall_ahead(None) {
-                return;
-            }
         }
-
-        if self.base.modulation.next() {
-            self.base.move_forward();
-
-            if self.base.is_grid_aligned() {
-                self.base.update_cell_position();
-            }
-        }
+        self.base.tick(); // Handles wall collision and movement
+        self.texture.tick();
+        self.frightened_texture.tick();
+        self.eyes_texture.tick();
     }
 }
 
 impl Moving for Ghost {
-    fn move_forward(&mut self) {
-        self.base.move_forward();
+    fn tick_movement(&mut self) {
+        self.base.tick_movement();
+    }
+    fn tick(&mut self) {
+        self.base.tick();
     }
     fn update_cell_position(&mut self) {
         self.base.update_cell_position();
@@ -307,20 +323,26 @@ impl Moving for Ghost {
 }
 
 impl Renderable for Ghost {
-    fn render(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+    fn render(&mut self, canvas: &mut WindowCanvas) -> Result<()> {
         let pos = self.base.base.pixel_position;
-        self.body_sprite.render(canvas, pos, Direction::Right, None);
-        // Inline the eye_frame logic here
-        let eye_frame = if self.mode == GhostMode::Frightened {
-            4 // Frightened frame
-        } else {
-            match self.base.direction {
-                Direction::Right => 0,
-                Direction::Up => 1,
-                Direction::Left => 2,
-                Direction::Down => 3,
+        let dir = self.base.direction;
+
+        match self.mode {
+            GhostMode::Frightened => {
+                let tile = self.frightened_texture.animation.current_tile();
+                let dest = sdl2::rect::Rect::new(pos.x - 4, pos.y - 4, tile.size.x as u32, tile.size.y as u32);
+                self.frightened_texture.render(canvas, dest)
             }
-        };
-        self.eyes_sprite.render(canvas, pos, Direction::Right, Some(eye_frame));
+            GhostMode::Eyes => {
+                let tile = self.eyes_texture.up.get(0).unwrap();
+                let dest = sdl2::rect::Rect::new(pos.x - 4, pos.y - 4, tile.size.x as u32, tile.size.y as u32);
+                self.eyes_texture.render(canvas, dest, dir)
+            }
+            _ => {
+                let tile = self.texture.up.get(0).unwrap();
+                let dest = sdl2::rect::Rect::new(pos.x - 4, pos.y - 4, tile.size.x as u32, tile.size.y as u32);
+                self.texture.render(canvas, dest, dir)
+            }
+        }
     }
 }

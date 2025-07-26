@@ -1,6 +1,6 @@
 #![windows_subsystem = "windows"]
 
-use crate::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
+use crate::constants::{BOARD_PIXEL_SIZE, SCALE};
 use crate::game::Game;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
@@ -62,7 +62,6 @@ mod entity;
 mod game;
 mod helper;
 mod map;
-mod modulation;
 mod texture;
 
 #[cfg(not(target_os = "emscripten"))]
@@ -73,16 +72,6 @@ fn sleep(value: Duration) {
 #[cfg(target_os = "emscripten")]
 fn sleep(value: Duration) {
     emscripten::emscripten::sleep(value.as_millis() as u32);
-}
-
-#[cfg(target_os = "emscripten")]
-fn now() -> std::time::Instant {
-    std::time::Instant::now() + std::time::Duration::from_millis(emscripten::emscripten::now() as u64)
-}
-
-#[cfg(not(target_os = "emscripten"))]
-fn now() -> std::time::Instant {
-    std::time::Instant::now()
 }
 
 /// The main entry point of the application.
@@ -101,6 +90,9 @@ pub fn main() {
     let audio_subsystem = sdl_context.audio().unwrap();
     let ttf_context = sdl2::ttf::init().unwrap();
 
+    // Set nearest-neighbor scaling for pixelated rendering
+    sdl2::hint::set("SDL_RENDER_SCALE_QUALITY", "nearest");
+
     // Setup tracing
     let subscriber = tracing_subscriber::fmt()
         .with_ansi(cfg!(not(target_os = "emscripten")))
@@ -111,7 +103,12 @@ pub fn main() {
     tracing::subscriber::set_global_default(subscriber).expect("Could not set global default");
 
     let window = video_subsystem
-        .window("Pac-Man", WINDOW_WIDTH, WINDOW_HEIGHT)
+        .window(
+            "Pac-Man",
+            (BOARD_PIXEL_SIZE.x as f32 * SCALE).round() as u32,
+            (BOARD_PIXEL_SIZE.y as f32 * SCALE).round() as u32,
+        )
+        .resizable()
         .position_centered()
         .build()
         .expect("Could not initialize window");
@@ -119,18 +116,29 @@ pub fn main() {
     let mut canvas = window.into_canvas().build().expect("Could not build canvas");
 
     canvas
-        .set_logical_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+        .set_logical_size(BOARD_PIXEL_SIZE.x, BOARD_PIXEL_SIZE.y)
         .expect("Could not set logical size");
 
     let texture_creator = canvas.texture_creator();
-    let canvas_static: &'static mut sdl2::render::Canvas<sdl2::video::Window> = Box::leak(Box::new(canvas));
-    let mut game = Game::new(canvas_static, &texture_creator, &ttf_context, &audio_subsystem);
+    let texture_creator_static: &'static sdl2::render::TextureCreator<sdl2::video::WindowContext> =
+        Box::leak(Box::new(texture_creator));
+    let mut game = Game::new(texture_creator_static, &ttf_context, &audio_subsystem);
     game.audio.set_mute(cfg!(debug_assertions));
+
+    // Create a backbuffer texture for drawing
+    let mut backbuffer = texture_creator_static
+        .create_texture_target(None, BOARD_PIXEL_SIZE.x, BOARD_PIXEL_SIZE.y)
+        .expect("Could not create backbuffer texture");
 
     let mut event_pump = sdl_context.event_pump().expect("Could not get SDL EventPump");
 
     // Initial draw and tick
-    game.draw();
+    if let Err(e) = game.draw(&mut canvas, &mut backbuffer) {
+        eprintln!("Initial draw failed: {}", e);
+    }
+    if let Err(e) = game.present_backbuffer(&mut canvas, &backbuffer) {
+        eprintln!("Initial present failed: {}", e);
+    }
     game.tick();
 
     // The target time for each frame of the game loop (60 FPS).
@@ -140,13 +148,54 @@ pub fn main() {
     // Whether the window is currently shown.
     let mut shown = false;
 
-    event!(
-        tracing::Level::INFO,
-        "Starting game loop ({:.3}ms)",
-        loop_time.as_secs_f32() * 1000.0
-    );
+    // FPS tracking
+    let mut frame_times_1s = Vec::new();
+    let mut frame_times_10s = Vec::new();
+    let mut last_frame_time = Instant::now();
+
+    event!(tracing::Level::INFO, "Starting game loop ({:?})", loop_time);
     let mut main_loop = || {
         let start = Instant::now();
+        let current_frame_time = Instant::now();
+        let frame_duration = current_frame_time.duration_since(last_frame_time);
+        last_frame_time = current_frame_time;
+
+        // Update FPS tracking
+        frame_times_1s.push(frame_duration);
+        frame_times_10s.push(frame_duration);
+
+        // Keep only last 1 second of data (assuming 60 FPS = ~60 frames)
+        while frame_times_1s.len() > 60 {
+            frame_times_1s.remove(0);
+        }
+
+        // Keep only last 10 seconds of data
+        while frame_times_10s.len() > 600 {
+            frame_times_10s.remove(0);
+        }
+
+        // Calculate FPS averages
+        let fps_1s = if !frame_times_1s.is_empty() {
+            let total_time: Duration = frame_times_1s.iter().sum();
+            if total_time > Duration::ZERO {
+                frame_times_1s.len() as f64 / total_time.as_secs_f64()
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+
+        let fps_10s = if !frame_times_10s.is_empty() {
+            let total_time: Duration = frame_times_10s.iter().sum();
+            if total_time > Duration::ZERO {
+                frame_times_10s.len() as f64 / total_time.as_secs_f64()
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
 
         // TODO: Fix key repeat delay issues by using a queue for keyboard events.
         // This would allow for instant key repeat without being affected by the
@@ -191,8 +240,16 @@ pub fn main() {
         // statistic gathering and other background tasks.
         if !paused {
             game.tick();
-            game.draw();
+            if let Err(e) = game.draw(&mut canvas, &mut backbuffer) {
+                eprintln!("Failed to draw game: {}", e);
+            }
+            if let Err(e) = game.present_backbuffer(&mut canvas, &backbuffer) {
+                eprintln!("Failed to present backbuffer: {}", e);
+            }
         }
+
+        // Update game with FPS data
+        game.update_fps(fps_1s, fps_10s);
 
         if start.elapsed() < loop_time {
             let time = loop_time.saturating_sub(start.elapsed());
