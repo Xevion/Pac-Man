@@ -81,7 +81,9 @@ impl Game {
             Rc::clone(&map),
         )));
         let blinky = Blinky::new(UVec2::new(13, 11), Rc::clone(&atlas), Rc::clone(&map), Rc::clone(&pacman));
-        let map_texture = get_atlas_tile(&atlas, "maze/full.png");
+        let mut map_texture = get_atlas_tile(&atlas, "maze/full.png");
+        map_texture.color = Some(Color::RGB(0x20, 0x20, 0xf9));
+
         let edibles = reconstruct_edibles(
             Rc::clone(&map),
             AnimatedTexture::new(vec![get_atlas_tile(&atlas, "maze/pellet.png")], 0),
