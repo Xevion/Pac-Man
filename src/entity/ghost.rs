@@ -76,7 +76,7 @@ impl Ghost {
     pub fn new(
         ghost_type: GhostType,
         starting_position: UVec2,
-        atlas: Rc<SpriteAtlas>,
+        atlas: Rc<RefCell<SpriteAtlas>>,
         map: Rc<RefCell<Map>>,
         pacman: Rc<RefCell<Pacman>>,
     ) -> Ghost {

@@ -161,7 +161,7 @@ impl Map {
     }
 
     /// Renders the map to the given canvas using the provided map texture.
-    pub fn render(&self, canvas: &mut Canvas<Window>, map_texture: &AtlasTile) {
+    pub fn render(&self, canvas: &mut Canvas<Window>, map_texture: &mut AtlasTile) {
         let dest = Rect::new(0, 0, CELL_SIZE * BOARD_CELL_SIZE.x, CELL_SIZE * BOARD_CELL_SIZE.y);
         let _ = map_texture.render(canvas, dest);
     }

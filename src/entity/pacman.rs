@@ -81,7 +81,7 @@ impl QueuedDirection for Pacman {
 
 impl Pacman {
     /// Creates a new `Pacman` instance.
-    pub fn new(starting_position: UVec2, atlas: Rc<SpriteAtlas>, map: Rc<RefCell<Map>>) -> Pacman {
+    pub fn new(starting_position: UVec2, atlas: Rc<RefCell<SpriteAtlas>>, map: Rc<RefCell<Map>>) -> Pacman {
         let pixel_position = Map::cell_to_pixel(starting_position);
         let get = |name: &str| get_atlas_tile(&atlas, name);
 

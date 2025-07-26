@@ -1,6 +1,6 @@
 //! This module provides a simple animation and atlas system for textures.
 use anyhow::Result;
-use sdl2::render::WindowCanvas;
+use sdl2::{pixels::Color, render::WindowCanvas};
 
 use crate::texture::sprite::AtlasTile;
 
@@ -34,16 +34,16 @@ impl AnimatedTexture {
         self.ticker += 1;
     }
 
-    pub fn current_tile(&self) -> &AtlasTile {
+    pub fn current_tile(&mut self) -> &mut AtlasTile {
         if self.ticks_per_frame == 0 {
-            return &self.frames[0];
+            return &mut self.frames[0];
         }
         let frame_index = (self.ticker / self.ticks_per_frame) as usize % self.frames.len();
-        &self.frames[frame_index]
+        &mut self.frames[frame_index]
     }
 
-    pub fn render(&self, canvas: &mut WindowCanvas, dest: sdl2::rect::Rect) -> Result<()> {
-        let tile = self.current_tile();
+    pub fn render(&mut self, canvas: &mut WindowCanvas, dest: sdl2::rect::Rect) -> Result<()> {
+        let mut tile = self.current_tile();
         tile.render(canvas, dest)
     }
 }

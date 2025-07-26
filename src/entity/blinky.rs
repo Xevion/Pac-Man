@@ -16,7 +16,12 @@ pub struct Blinky {
 }
 
 impl Blinky {
-    pub fn new(starting_position: UVec2, atlas: Rc<SpriteAtlas>, map: Rc<RefCell<Map>>, pacman: Rc<RefCell<Pacman>>) -> Blinky {
+    pub fn new(
+        starting_position: UVec2,
+        atlas: Rc<RefCell<SpriteAtlas>>,
+        map: Rc<RefCell<Map>>,
+        pacman: Rc<RefCell<Pacman>>,
+    ) -> Blinky {
         Blinky {
             ghost: Ghost::new(GhostType::Blinky, starting_position, atlas, map, pacman),
         }

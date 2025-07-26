@@ -61,22 +61,22 @@ impl Entity for Edible {
 impl Renderable for Edible {
     fn render(&mut self, canvas: &mut WindowCanvas) -> Result<()> {
         let pos = self.base.pixel_position;
-        let dest = match &self.sprite {
+        let dest = match &mut self.sprite {
             EdibleSprite::Pellet(sprite) => {
-                let tile = sprite.current_tile();
+                let mut tile = sprite.current_tile();
                 let x = pos.x + ((crate::constants::CELL_SIZE as i32 - tile.size.x as i32) / 2);
                 let y = pos.y + ((crate::constants::CELL_SIZE as i32 - tile.size.y as i32) / 2);
                 sdl2::rect::Rect::new(x, y, tile.size.x as u32, tile.size.y as u32)
             }
             EdibleSprite::PowerPellet(sprite) => {
-                let tile = sprite.animation.current_tile();
+                let mut tile = sprite.animation.current_tile();
                 let x = pos.x + ((crate::constants::CELL_SIZE as i32 - tile.size.x as i32) / 2);
                 let y = pos.y + ((crate::constants::CELL_SIZE as i32 - tile.size.y as i32) / 2);
                 sdl2::rect::Rect::new(x, y, tile.size.x as u32, tile.size.y as u32)
             }
         };
 
-        match &self.sprite {
+        match &mut self.sprite {
             EdibleSprite::Pellet(sprite) => sprite.render(canvas, dest),
             EdibleSprite::PowerPellet(sprite) => sprite.render(canvas, dest),
         }

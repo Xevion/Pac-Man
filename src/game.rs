@@ -11,8 +11,6 @@ use rand::SeedableRng;
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
 use sdl2::render::{Texture, TextureCreator};
-use sdl2::rwops::RWops;
-use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 use sdl2::{pixels::Color, render::Canvas, video::Window};
 
@@ -50,8 +48,7 @@ pub struct Game {
     fps_10s: f64,
 
     // Rendering resources
-    atlas: Rc<SpriteAtlas>,
-    font: Font<'static, 'static>,
+    atlas: Rc<RefCell<SpriteAtlas>>,
     map_texture: AtlasTile,
     text_texture: TextTexture,
 
@@ -76,7 +73,7 @@ impl Game {
         };
         let atlas_json = get_asset_bytes(Asset::AtlasJson).expect("Failed to load asset");
         let atlas_mapper: AtlasMapper = serde_json::from_slice(&atlas_json).expect("Could not parse atlas JSON");
-        let atlas = Rc::new(SpriteAtlas::new(atlas_texture, atlas_mapper));
+        let atlas = Rc::new(RefCell::new(SpriteAtlas::new(atlas_texture, atlas_mapper)));
         let pacman = Rc::new(RefCell::new(Pacman::new(
             UVec2::new(1, 1),
             Rc::clone(&atlas),
@@ -94,15 +91,6 @@ impl Game {
             ),
             AnimatedTexture::new(vec![get_atlas_tile(&atlas, "edible/cherry.png")], 0),
         );
-        let font = {
-            let font_bytes = get_asset_bytes(Asset::FontKonami).expect("Failed to load asset").into_owned();
-            let font_bytes_static: &'static [u8] = Box::leak(font_bytes.into_boxed_slice());
-            let font_rwops = RWops::from_bytes(font_bytes_static).expect("Failed to create RWops for font");
-            let ttf_context_static: &'static sdl2::ttf::Sdl2TtfContext = unsafe { std::mem::transmute(ttf_context) };
-            ttf_context_static
-                .load_font_from_rwops(font_rwops, 24)
-                .expect("Could not load font from asset API")
-        };
         let text_texture = TextTexture::new(Rc::clone(&atlas), 1.0);
         let audio = Audio::new();
         Game {
@@ -113,7 +101,6 @@ impl Game {
             score: 0,
             debug_mode: DebugMode::None,
             atlas,
-            font,
             map_texture,
             text_texture,
             audio,
@@ -269,20 +256,19 @@ impl Game {
 
     /// Draws the entire game to the canvas using a backbuffer.
     pub fn draw(&mut self, window_canvas: &mut Canvas<Window>, backbuffer: &mut Texture) -> Result<()> {
-        let texture_creator = window_canvas.texture_creator();
         window_canvas
             .with_texture_canvas(backbuffer, |texture_canvas| {
                 let this = self as *mut Self;
                 let this = unsafe { &mut *this };
                 texture_canvas.set_draw_color(Color::BLACK);
                 texture_canvas.clear();
-                this.map.borrow_mut().render(texture_canvas, &this.map_texture);
+                this.map.borrow_mut().render(texture_canvas, &mut this.map_texture);
                 for edible in this.edibles.iter_mut() {
                     let _ = edible.render(texture_canvas);
                 }
                 let _ = this.pacman.borrow_mut().render(texture_canvas);
                 let _ = this.blinky.render(texture_canvas);
-                this.render_ui_on(texture_canvas, &texture_creator);
+                this.render_ui_on(texture_canvas);
                 match this.debug_mode {
                     DebugMode::Grid => {
                         DebugRenderer::draw_debug_grid(
@@ -312,11 +298,7 @@ impl Game {
         Ok(())
     }
 
-    fn render_ui_on<C: sdl2::render::RenderTarget>(
-        &mut self,
-        canvas: &mut sdl2::render::Canvas<C>,
-        texture_creator: &TextureCreator<WindowContext>,
-    ) {
+    fn render_ui_on<C: sdl2::render::RenderTarget>(&mut self, canvas: &mut sdl2::render::Canvas<C>) {
         let lives = 3;
         let score_text = format!("{:02}", self.score);
         let x_offset = 12;
@@ -325,18 +307,16 @@ impl Game {
         let score_offset = 7 - (score_text.len() as i32);
         let gap_offset = 6;
         self.text_texture.set_scale(2.0);
-        self.render_text_on(
+        self.text_texture.render(
             canvas,
-            &*texture_creator,
             &format!("{lives}UP   HIGH SCORE   "),
-            IVec2::new(24 * lives_offset + x_offset, y_offset),
+            UVec2::new(24 * lives_offset as u32 + x_offset, y_offset),
             Color::WHITE,
         );
-        self.render_text_on(
+        self.text_texture.render(
             canvas,
-            &*texture_creator,
             &score_text,
-            IVec2::new(24 * score_offset + x_offset, 24 + y_offset + gap_offset),
+            UVec2::new(24 * score_offset as u32 + x_offset, 24 + y_offset + gap_offset),
             Color::WHITE,
         );
 
@@ -349,18 +329,5 @@ impl Game {
         //     IVec2::new(10, 10),
         //     Color::RGB(255, 255, 0), // Yellow color for FPS display
         // );
-    }
-
-    fn render_text_on<C: sdl2::render::RenderTarget>(
-        &mut self,
-        canvas: &mut sdl2::render::Canvas<C>,
-        texture_creator: &TextureCreator<WindowContext>,
-        text: &str,
-        position: IVec2,
-        color: Color,
-    ) {
-        self.text_texture
-            .render(canvas, text, glam::UVec2::new(position.x as u32, position.y as u32))
-            .unwrap();
     }
 }

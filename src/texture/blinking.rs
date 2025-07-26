@@ -38,7 +38,7 @@ impl BlinkingTexture {
     }
 
     /// Renders the blinking texture.
-    pub fn render(&self, canvas: &mut WindowCanvas, dest: sdl2::rect::Rect) -> Result<()> {
+    pub fn render(&mut self, canvas: &mut WindowCanvas, dest: sdl2::rect::Rect) -> Result<()> {
         if self.visible {
             self.animation.render(canvas, dest)
         } else {

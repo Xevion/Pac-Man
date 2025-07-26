@@ -48,8 +48,10 @@
 
 use anyhow::Result;
 use glam::UVec2;
+use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, RenderTarget};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -57,14 +59,14 @@ use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 
 /// A text texture that renders characters from the atlas.
 pub struct TextTexture {
-    atlas: Rc<SpriteAtlas>,
+    atlas: Rc<RefCell<SpriteAtlas>>,
     char_map: HashMap<char, AtlasTile>,
     scale: f32,
 }
 
 impl TextTexture {
     /// Creates a new text texture with the given atlas and scale.
-    pub fn new(atlas: Rc<SpriteAtlas>, scale: f32) -> Self {
+    pub fn new(atlas: Rc<RefCell<SpriteAtlas>>, scale: f32) -> Self {
         Self {
             atlas,
             char_map: HashMap::new(),
@@ -107,13 +109,13 @@ impl TextTexture {
     }
 
     /// Renders a string of text at the given position.
-    pub fn render<C: RenderTarget>(&mut self, canvas: &mut Canvas<C>, text: &str, position: UVec2) -> Result<()> {
+    pub fn render<C: RenderTarget>(&mut self, canvas: &mut Canvas<C>, text: &str, position: UVec2, color: Color) -> Result<()> {
         let mut x_offset = 0;
         let char_width = (8.0 * self.scale) as u32;
         let char_height = (8.0 * self.scale) as u32;
 
         for c in text.chars() {
-            if let Some(tile) = self.get_char_tile(c) {
+            if let Some(mut tile) = self.get_char_tile(c) {
                 let dest = sdl2::rect::Rect::new((position.x + x_offset) as i32, position.y as i32, char_width, char_height);
                 tile.render(canvas, dest)?;
             }
