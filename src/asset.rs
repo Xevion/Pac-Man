@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use std::io;
 use thiserror::Error;
 
+#[allow(dead_code)]
 #[derive(Error, Debug)]
 pub enum AssetError {
     #[error("IO error: {0}")]
@@ -28,6 +29,7 @@ pub enum Asset {
 }
 
 impl Asset {
+    #[allow(dead_code)]
     pub fn path(&self) -> &str {
         use Asset::*;
         match self {
