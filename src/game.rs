@@ -29,6 +29,7 @@ use crate::map::Map;
 use crate::texture::animated::AnimatedTexture;
 use crate::texture::blinking::BlinkingTexture;
 use crate::texture::sprite::{AtlasMapper, AtlasTile, SpriteAtlas};
+use crate::texture::text::TextTexture;
 use crate::texture::{get_atlas_tile, sprite};
 
 /// The main game state.
@@ -52,6 +53,7 @@ pub struct Game {
     atlas: Rc<SpriteAtlas>,
     font: Font<'static, 'static>,
     map_texture: AtlasTile,
+    text_texture: TextTexture,
 
     // Audio
     pub audio: Audio,
@@ -67,11 +69,10 @@ impl Game {
         let map = Rc::new(RefCell::new(Map::new(RAW_BOARD)));
         let atlas_bytes = get_asset_bytes(Asset::Atlas).expect("Failed to load asset");
         let atlas_texture = unsafe {
-            sprite::texture_to_static(
-                texture_creator
-                    .load_texture_bytes(&atlas_bytes)
-                    .expect("Could not load atlas texture from asset API"),
-            )
+            let texture = texture_creator
+                .load_texture_bytes(&atlas_bytes)
+                .expect("Could not load atlas texture from asset API");
+            sprite::texture_to_static(texture)
         };
         let atlas_json = get_asset_bytes(Asset::AtlasJson).expect("Failed to load asset");
         let atlas_mapper: AtlasMapper = serde_json::from_slice(&atlas_json).expect("Could not parse atlas JSON");
@@ -102,6 +103,7 @@ impl Game {
                 .load_font_from_rwops(font_rwops, 24)
                 .expect("Could not load font from asset API")
         };
+        let text_texture = TextTexture::new(Rc::clone(&atlas), 1.0);
         let audio = Audio::new();
         Game {
             pacman,
@@ -113,6 +115,7 @@ impl Game {
             atlas,
             font,
             map_texture,
+            text_texture,
             audio,
             fps_1s: 0.0,
             fps_10s: 0.0,
@@ -321,6 +324,7 @@ impl Game {
         let lives_offset = 3;
         let score_offset = 7 - (score_text.len() as i32);
         let gap_offset = 6;
+        self.text_texture.set_scale(2.0);
         self.render_text_on(
             canvas,
             &*texture_creator,
@@ -355,14 +359,8 @@ impl Game {
         position: IVec2,
         color: Color,
     ) {
-        let surface = self.font.render(text).blended(color).expect("Could not render text surface");
-        let texture = texture_creator
-            .create_texture_from_surface(&surface)
-            .expect("Could not create texture from surface");
-        let query = texture.query();
-        let dst_rect = sdl2::rect::Rect::new(position.x, position.y, query.width, query.height);
-        canvas
-            .copy(&texture, None, Some(dst_rect))
-            .expect("Could not render text texture");
+        self.text_texture
+            .render(canvas, text, glam::UVec2::new(position.x as u32, position.y as u32))
+            .unwrap();
     }
 }

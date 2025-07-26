@@ -1,7 +1,7 @@
 use anyhow::Result;
 use glam::U16Vec2;
 use sdl2::rect::Rect;
-use sdl2::render::{Texture, WindowCanvas};
+use sdl2::render::{Canvas, RenderTarget, Texture};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -27,7 +27,7 @@ pub struct AtlasTile {
 }
 
 impl AtlasTile {
-    pub fn render(&self, canvas: &mut WindowCanvas, dest: Rect) -> Result<()> {
+    pub fn render<C: RenderTarget>(&self, canvas: &mut Canvas<C>, dest: Rect) -> Result<()> {
         let src = Rect::new(self.pos.x as i32, self.pos.y as i32, self.size.x as u32, self.size.y as u32);
         canvas.copy(&self.atlas.texture, src, dest).map_err(anyhow::Error::msg)?;
         Ok(())
@@ -53,6 +53,10 @@ impl SpriteAtlas {
             pos: U16Vec2::new(frame.x, frame.y),
             size: U16Vec2::new(frame.width, frame.height),
         })
+    }
+
+    pub fn texture(&self) -> &Texture<'static> {
+        &self.texture
     }
 }
 
