@@ -162,13 +162,18 @@ impl Moving for MovableEntity {
         let at_left_tunnel = x == 0;
         let at_right_tunnel = x == BOARD_CELL_SIZE.x - 1;
 
+        // Reset tunnel state if we're not at a tunnel position
         if !at_left_tunnel && !at_right_tunnel {
+            self.in_tunnel = false;
             return false;
         }
+
+        // If we're already in a tunnel, stay in tunnel state
         if self.in_tunnel {
             return true;
         }
 
+        // Enter the tunnel and teleport to the other side
         let new_x = if at_left_tunnel { BOARD_CELL_SIZE.x - 2 } else { 1 };
         self.base.cell_position.x = new_x;
         self.base.pixel_position = Map::cell_to_pixel(self.base.cell_position);
