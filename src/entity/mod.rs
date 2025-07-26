@@ -126,17 +126,15 @@ impl Entity for MovableEntity {
 
 impl Moving for MovableEntity {
     fn tick_movement(&mut self) {
-        if self.speed.next() {
-            if !self.is_wall_ahead(None) {
-                match self.direction {
-                    Direction::Right => self.base.pixel_position.x += 1,
-                    Direction::Left => self.base.pixel_position.x -= 1,
-                    Direction::Up => self.base.pixel_position.y -= 1,
-                    Direction::Down => self.base.pixel_position.y += 1,
-                }
-                if self.is_grid_aligned() {
-                    self.update_cell_position();
-                }
+        if self.speed.next() && !self.is_wall_ahead(None) {
+            match self.direction {
+                Direction::Right => self.base.pixel_position.x += 1,
+                Direction::Left => self.base.pixel_position.x -= 1,
+                Direction::Up => self.base.pixel_position.y -= 1,
+                Direction::Down => self.base.pixel_position.y += 1,
+            }
+            if self.is_grid_aligned() {
+                self.update_cell_position();
             }
         }
         if self.is_grid_aligned() {

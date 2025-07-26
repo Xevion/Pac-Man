@@ -134,10 +134,10 @@ pub fn main() {
 
     // Initial draw and tick
     if let Err(e) = game.draw(&mut canvas, &mut backbuffer) {
-        eprintln!("Initial draw failed: {}", e);
+        eprintln!("Initial draw failed: {e}");
     }
     if let Err(e) = game.present_backbuffer(&mut canvas, &backbuffer) {
-        eprintln!("Initial present failed: {}", e);
+        eprintln!("Initial present failed: {e}");
     }
     game.tick();
 
@@ -145,8 +145,6 @@ pub fn main() {
     let loop_time = Duration::from_secs(1) / 60;
 
     let mut paused = false;
-    // Whether the window is currently shown.
-    let mut shown = false;
 
     // FPS tracking
     let mut frame_times_1s = Vec::new();
@@ -205,11 +203,9 @@ pub fn main() {
                 Event::Window { win_event, .. } => match win_event {
                     WindowEvent::Hidden => {
                         event!(tracing::Level::DEBUG, "Window hidden");
-                        shown = false;
                     }
                     WindowEvent::Shown => {
                         event!(tracing::Level::DEBUG, "Window shown");
-                        shown = true;
                     }
                     _ => {}
                 },
@@ -241,10 +237,10 @@ pub fn main() {
         if !paused {
             game.tick();
             if let Err(e) = game.draw(&mut canvas, &mut backbuffer) {
-                eprintln!("Failed to draw game: {}", e);
+                eprintln!("Failed to draw game: {e}");
             }
             if let Err(e) = game.present_backbuffer(&mut canvas, &backbuffer) {
-                eprintln!("Failed to present backbuffer: {}", e);
+                eprintln!("Failed to present backbuffer: {e}");
             }
         }
 

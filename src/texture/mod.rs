@@ -10,5 +10,5 @@ pub mod sprite;
 pub mod text;
 
 pub fn get_atlas_tile(atlas: &Rc<RefCell<SpriteAtlas>>, name: &str) -> AtlasTile {
-    SpriteAtlas::get_tile(atlas, name).unwrap_or_else(|| panic!("Could not find tile {}", name))
+    SpriteAtlas::get_tile(atlas, name).unwrap_or_else(|| panic!("Could not find tile {name}"))
 }

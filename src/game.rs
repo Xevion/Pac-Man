@@ -61,7 +61,7 @@ impl Game {
     /// Creates a new `Game` instance.
     pub fn new(
         texture_creator: &TextureCreator<WindowContext>,
-        ttf_context: &sdl2::ttf::Sdl2TtfContext,
+        _ttf_context: &sdl2::ttf::Sdl2TtfContext,
         _audio_subsystem: &sdl2::AudioSubsystem,
     ) -> Game {
         let map = Rc::new(RefCell::new(Map::new(RAW_BOARD)));
@@ -313,13 +313,11 @@ impl Game {
             canvas,
             &format!("{lives}UP   HIGH SCORE   "),
             UVec2::new(8 * lives_offset as u32 + x_offset, y_offset),
-            Color::WHITE,
         );
         let _ = self.text_texture.render(
             canvas,
             &score_text,
             UVec2::new(8 * score_offset as u32 + x_offset, 8 + y_offset),
-            Color::WHITE,
         );
 
         // Display FPS information in top-left corner

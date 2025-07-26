@@ -87,7 +87,7 @@ impl Ghost {
             GhostType::Inky => "inky",
             GhostType::Clyde => "clyde",
         };
-        let get = |dir: &str, suffix: &str| get_atlas_tile(&atlas, &format!("ghost/{}/{}_{}.png", name, dir, suffix));
+        let get = |dir: &str, suffix: &str| get_atlas_tile(&atlas, &format!("ghost/{name}/{dir}_{suffix}.png"));
 
         let texture = DirectionalAnimatedTexture::new(
             vec![get("up", "a"), get("up", "b")],
@@ -109,7 +109,7 @@ impl Ghost {
             15,
         );
 
-        let eyes_get = |dir: &str| get_atlas_tile(&atlas, &format!("ghost/eyes/{}.png", dir));
+        let eyes_get = |dir: &str| get_atlas_tile(&atlas, &format!("ghost/eyes/{dir}.png"));
 
         let eyes_texture = DirectionalAnimatedTexture::new(
             vec![eyes_get("up")],
@@ -334,12 +334,12 @@ impl Renderable for Ghost {
                 self.frightened_texture.render(canvas, dest)
             }
             GhostMode::Eyes => {
-                let tile = self.eyes_texture.up.get(0).unwrap();
+                let tile = self.eyes_texture.up.first().unwrap();
                 let dest = sdl2::rect::Rect::new(pos.x - 4, pos.y - 4, tile.size.x as u32, tile.size.y as u32);
                 self.eyes_texture.render(canvas, dest, dir)
             }
             _ => {
-                let tile = self.texture.up.get(0).unwrap();
+                let tile = self.texture.up.first().unwrap();
                 let dest = sdl2::rect::Rect::new(pos.x - 4, pos.y - 4, tile.size.x as u32, tile.size.y as u32);
                 self.texture.render(canvas, dest, dir)
             }

@@ -105,7 +105,7 @@ impl Pacman {
             ),
             death_animation: AnimatedTexture::new(
                 (0..=10)
-                    .map(|i| get_atlas_tile(&atlas, &format!("pacman/death/{}.png", i)))
+                    .map(|i| get_atlas_tile(&atlas, &format!("pacman/death/{i}.png")))
                     .collect(),
                 5,
             ),
@@ -138,6 +138,6 @@ impl Renderable for Pacman {
         } else {
             self.texture.render(canvas, dest, dir)?;
         }
-        return Ok(());
+        Ok(())
     }
 }

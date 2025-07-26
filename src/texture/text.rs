@@ -48,7 +48,7 @@
 
 use anyhow::Result;
 use glam::UVec2;
-use sdl2::pixels::Color;
+
 use sdl2::render::{Canvas, RenderTarget};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -89,9 +89,9 @@ impl TextTexture {
     fn char_to_tile_name(&self, c: char) -> Option<String> {
         let name = match c {
             // Letters A-Z
-            'A'..='Z' => format!("text/{}.png", c),
+            'A'..='Z' => format!("text/{c}.png"),
             // Numbers 0-9
-            '0'..='9' => format!("text/{}.png", c),
+            '0'..='9' => format!("text/{c}.png"),
             // Special characters
             '!' => "text/!.png".to_string(),
             '-' => "text/-.png".to_string(),
@@ -108,7 +108,7 @@ impl TextTexture {
     }
 
     /// Renders a string of text at the given position.
-    pub fn render<C: RenderTarget>(&mut self, canvas: &mut Canvas<C>, text: &str, position: UVec2, color: Color) -> Result<()> {
+    pub fn render<C: RenderTarget>(&mut self, canvas: &mut Canvas<C>, text: &str, position: UVec2) -> Result<()> {
         let mut x_offset = 0;
         let char_width = (8.0 * self.scale) as u32;
         let char_height = (8.0 * self.scale) as u32;
