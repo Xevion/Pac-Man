@@ -10,7 +10,6 @@ pub struct AnimatedTexture {
     pub frames: Vec<AtlasTile>,
     pub ticks_per_frame: u32,
     pub ticker: u32,
-    pub reversed: bool,
     pub paused: bool,
 }
 
@@ -20,7 +19,6 @@ impl AnimatedTexture {
             frames,
             ticks_per_frame,
             ticker: 0,
-            reversed: false,
             paused: false,
         }
     }

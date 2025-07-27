@@ -1,4 +1,3 @@
-pub mod blinky;
 pub mod direction;
 pub mod edible;
 pub mod ghost;
@@ -23,8 +22,8 @@ pub trait Entity {
 
     /// Returns true if the entity is colliding with the other entity.
     fn is_colliding(&self, other: &dyn Entity) -> bool {
-        let a = self.base().pixel_position;
-        let b = other.base().pixel_position;
+        let a = self.base().cell_position;
+        let b = other.base().cell_position;
         a == b
     }
 }

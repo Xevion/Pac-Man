@@ -163,6 +163,28 @@ impl Map {
         CACHE.get_or_init(|| result)
     }
 
+    /// Finds the starting position for a given entity ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity_id` - The entity ID (0 for Pac-Man, 1-4 for ghosts)
+    ///
+    /// # Returns
+    ///
+    /// The starting position as UVec2, or None if not found
+    pub fn find_starting_position(&self, entity_id: u8) -> Option<UVec2> {
+        for (x, col) in self.current.iter().enumerate().take(BOARD_CELL_SIZE.x as usize) {
+            for (y, &cell) in col.iter().enumerate().take(BOARD_CELL_SIZE.y as usize) {
+                if let MapTile::StartingPosition(id) = cell {
+                    if id == entity_id {
+                        return Some(UVec2::new(x as u32, y as u32));
+                    }
+                }
+            }
+        }
+        None
+    }
+
     /// Renders the map to the given canvas using the provided map texture.
     pub fn render(&self, canvas: &mut Canvas<Window>, map_texture: &mut AtlasTile) {
         let dest = Rect::new(

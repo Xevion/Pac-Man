@@ -5,9 +5,7 @@ use std::rc::Rc;
 
 use anyhow::Result;
 use glam::UVec2;
-use rand::rngs::SmallRng;
-use rand::seq::IteratorRandom;
-use rand::SeedableRng;
+
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
 
@@ -19,9 +17,9 @@ use crate::asset::{get_asset_bytes, Asset};
 use crate::audio::Audio;
 use crate::constants::RAW_BOARD;
 use crate::debug::{DebugMode, DebugRenderer};
-use crate::entity::blinky::Blinky;
 use crate::entity::direction::Direction;
 use crate::entity::edible::{reconstruct_edibles, Edible, EdibleKind};
+use crate::entity::ghost::{Ghost, GhostMode, GhostType, HouseMode};
 use crate::entity::pacman::Pacman;
 use crate::entity::Renderable;
 use crate::map::Map;
@@ -38,7 +36,10 @@ use crate::texture::{get_atlas_tile, sprite};
 pub struct Game {
     // Game state
     pacman: Rc<RefCell<Pacman>>,
-    blinky: Blinky,
+    blinky: Ghost,
+    pinky: Ghost,
+    inky: Ghost,
+    clyde: Ghost,
     edibles: Vec<Edible>,
     map: Rc<RefCell<Map>>,
     score: u32,
@@ -80,7 +81,60 @@ impl Game {
             Rc::clone(&atlas),
             Rc::clone(&map),
         )));
-        let blinky = Blinky::new(UVec2::new(13, 11), Rc::clone(&atlas), Rc::clone(&map), Rc::clone(&pacman));
+
+        // Find starting positions
+        let pacman_start = map.borrow().find_starting_position(0).unwrap_or(UVec2::new(13, 23));
+        let blinky_start = map.borrow().find_starting_position(1).unwrap_or(UVec2::new(13, 11));
+        let pinky_start = map.borrow().find_starting_position(2).unwrap_or(UVec2::new(13, 14));
+        let inky_start = map.borrow().find_starting_position(3).unwrap_or(UVec2::new(13, 14));
+        let clyde_start = map.borrow().find_starting_position(4).unwrap_or(UVec2::new(13, 14));
+
+        // Update Pac-Man to proper starting position
+        {
+            let mut pacman_mut = pacman.borrow_mut();
+            pacman_mut.base.base.pixel_position = Map::cell_to_pixel(pacman_start);
+            pacman_mut.base.base.cell_position = pacman_start;
+        }
+
+        let mut blinky = Ghost::new(
+            GhostType::Blinky,
+            blinky_start,
+            Rc::clone(&atlas),
+            Rc::clone(&map),
+            Rc::clone(&pacman),
+            -8,
+        );
+        blinky.mode = GhostMode::Chase;
+
+        let mut pinky = Ghost::new(
+            GhostType::Pinky,
+            pinky_start,
+            Rc::clone(&atlas),
+            Rc::clone(&map),
+            Rc::clone(&pacman),
+            8,
+        );
+        pinky.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
+
+        let mut inky = Ghost::new(
+            GhostType::Inky,
+            inky_start,
+            Rc::clone(&atlas),
+            Rc::clone(&map),
+            Rc::clone(&pacman),
+            -8,
+        );
+        inky.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
+
+        let mut clyde = Ghost::new(
+            GhostType::Clyde,
+            clyde_start,
+            Rc::clone(&atlas),
+            Rc::clone(&map),
+            Rc::clone(&pacman),
+            8,
+        );
+        clyde.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
         let mut map_texture = get_atlas_tile(&atlas, "maze/full.png");
         map_texture.color = Some(Color::RGB(0x20, 0x20, 0xf9));
 
@@ -99,6 +153,9 @@ impl Game {
         Game {
             pacman,
             blinky,
+            pinky,
+            inky,
+            clyde,
             edibles,
             map,
             score: 0,
@@ -170,30 +227,52 @@ impl Game {
         // Reset the score
         self.score = 0;
 
-        // Get valid positions from the cached flood fill and randomize positions in a single block
+        // Reset entities to their proper starting positions
         {
-            let mut map = self.map.borrow_mut();
-            let valid_positions = map.get_valid_playable_positions();
-            let mut rng = SmallRng::from_os_rng();
+            let map = self.map.borrow();
 
-            // Randomize Pac-Man position
-            if let Some(pos) = valid_positions.iter().choose(&mut rng) {
+            // Reset Pac-Man to proper starting position
+            if let Some(pacman_start) = map.find_starting_position(0) {
                 let mut pacman = self.pacman.borrow_mut();
-                pacman.base.base.pixel_position = Map::cell_to_pixel(*pos);
-                pacman.base.base.cell_position = *pos;
+                pacman.base.base.pixel_position = Map::cell_to_pixel(pacman_start);
+                pacman.base.base.cell_position = pacman_start;
                 pacman.base.in_tunnel = false;
                 pacman.base.direction = Direction::Right;
                 pacman.next_direction = None;
                 pacman.stopped = false;
             }
 
-            // Randomize ghost position
-            if let Some(pos) = valid_positions.iter().choose(&mut rng) {
-                self.blinky.base.base.pixel_position = Map::cell_to_pixel(*pos);
-                self.blinky.base.base.cell_position = *pos;
+            // Reset ghosts to their starting positions
+            if let Some(blinky_start) = map.find_starting_position(1) {
+                self.blinky.base.base.pixel_position = Map::cell_to_pixel(blinky_start);
+                self.blinky.base.base.cell_position = blinky_start;
                 self.blinky.base.in_tunnel = false;
                 self.blinky.base.direction = Direction::Left;
-                self.blinky.mode = crate::entity::ghost::GhostMode::Chase;
+                self.blinky.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
+            }
+
+            if let Some(pinky_start) = map.find_starting_position(2) {
+                self.pinky.base.base.pixel_position = Map::cell_to_pixel(pinky_start);
+                self.pinky.base.base.cell_position = pinky_start;
+                self.pinky.base.in_tunnel = false;
+                self.pinky.base.direction = Direction::Down;
+                self.pinky.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
+            }
+
+            if let Some(inky_start) = map.find_starting_position(3) {
+                self.inky.base.base.pixel_position = Map::cell_to_pixel(inky_start);
+                self.inky.base.base.cell_position = inky_start;
+                self.inky.base.in_tunnel = false;
+                self.inky.base.direction = Direction::Up;
+                self.inky.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
+            }
+
+            if let Some(clyde_start) = map.find_starting_position(4) {
+                self.clyde.base.base.pixel_position = Map::cell_to_pixel(clyde_start);
+                self.clyde.base.base.cell_position = clyde_start;
+                self.clyde.base.in_tunnel = false;
+                self.clyde.base.direction = Direction::Down;
+                self.clyde.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
             }
         }
 
@@ -218,6 +297,9 @@ impl Game {
     fn tick_entities(&mut self) {
         self.pacman.borrow_mut().tick();
         self.blinky.tick();
+        self.pinky.tick();
+        self.inky.tick();
+        self.clyde.tick();
         for edible in self.edibles.iter_mut() {
             if let EdibleKind::PowerPellet = edible.kind {
                 if let crate::entity::edible::EdibleSprite::PowerPellet(texture) = &mut edible.sprite {
@@ -271,6 +353,9 @@ impl Game {
                 }
                 let _ = this.pacman.borrow_mut().render(texture_canvas);
                 let _ = this.blinky.render(texture_canvas);
+                let _ = this.pinky.render(texture_canvas);
+                let _ = this.inky.render(texture_canvas);
+                let _ = this.clyde.render(texture_canvas);
                 match this.debug_mode {
                     DebugMode::Grid => {
                         DebugRenderer::draw_debug_grid(

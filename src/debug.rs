@@ -1,7 +1,7 @@
 //! Debug rendering utilities for Pac-Man.
 use crate::{
     constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE},
-    entity::blinky::Blinky,
+    entity::ghost::Ghost,
     map::Map,
 };
 use glam::{IVec2, UVec2};
@@ -62,9 +62,9 @@ impl DebugRenderer {
         }
     }
 
-    pub fn draw_pathfinding(canvas: &mut Canvas<Window>, blinky: &Blinky, map: &Map) {
-        let target = blinky.get_target_tile();
-        if let Some((path, _)) = blinky.get_path_to_target(target.as_uvec2()) {
+    pub fn draw_pathfinding(canvas: &mut Canvas<Window>, ghost: &Ghost, map: &Map) {
+        let target = ghost.get_target_tile();
+        if let Some((path, _)) = ghost.get_path_to_target(target.unwrap().as_uvec2()) {
             for pos in &path {
                 Self::draw_cell(canvas, map, *pos, Color::YELLOW);
             }
