@@ -1,5 +1,4 @@
 //! This module contains the main game logic and state.
-use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use glam::UVec2;

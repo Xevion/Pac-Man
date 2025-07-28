@@ -1,7 +1,5 @@
 #![windows_subsystem = "windows"]
 
-use std::time::Duration;
-
 use crate::{app::App, constants::LOOP_TIME};
 use tracing::info;
 use tracing_error::ErrorLayer;
@@ -85,10 +83,6 @@ pub fn main() {
 
     info!("Starting game loop ({:?})", LOOP_TIME);
 
-    #[cfg(target_os = "emscripten")]
-    emscripten::set_main_loop_callback(app.run);
-
-    #[cfg(not(target_os = "emscripten"))]
     loop {
         if !app.run() {
             break;
