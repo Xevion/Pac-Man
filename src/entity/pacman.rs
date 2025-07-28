@@ -1,13 +1,13 @@
-use glam::Vec2;
+use glam::{UVec2, Vec2};
 
 use crate::constants::BOARD_PIXEL_OFFSET;
 use crate::entity::direction::Direction;
 use crate::entity::graph::{Graph, NodeId, Position, Traverser};
+use crate::helpers::centered_with_size;
 use crate::texture::animated::AnimatedTexture;
 use crate::texture::directional::DirectionalAnimatedTexture;
 use crate::texture::sprite::SpriteAtlas;
 use sdl2::keyboard::Keycode;
-use sdl2::rect::Rect;
 use sdl2::render::{Canvas, RenderTarget};
 use std::collections::HashMap;
 
@@ -71,15 +71,14 @@ impl Pacman {
             Position::BetweenNodes { from, to, traversed } => {
                 let from_pos = graph.get_node(from).unwrap().position;
                 let to_pos = graph.get_node(to).unwrap().position;
-                let weight = from_pos.distance(to_pos);
-                from_pos.lerp(to_pos, traversed / weight)
+                from_pos.lerp(to_pos, traversed / from_pos.distance(to_pos))
             }
         }
     }
 
     pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, graph: &Graph) {
         let pixel_pos = self.get_pixel_pos(graph).round().as_ivec2() + BOARD_PIXEL_OFFSET.as_ivec2();
-        let dest = Rect::new(pixel_pos.x - 8, pixel_pos.y - 8, 16, 16);
+        let dest = centered_with_size(pixel_pos, UVec2::new(16, 16));
         let is_stopped = self.traverser.position.is_stopped();
 
         if is_stopped {

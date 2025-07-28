@@ -56,6 +56,7 @@ mod constants;
 mod emscripten;
 mod entity;
 mod game;
+mod helpers;
 mod map;
 mod texture;
 

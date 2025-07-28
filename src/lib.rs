@@ -7,5 +7,6 @@ pub mod constants;
 pub mod emscripten;
 pub mod entity;
 pub mod game;
+pub mod helpers;
 pub mod map;
 pub mod texture;
