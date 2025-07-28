@@ -4,9 +4,7 @@ use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, RenderTarget, Texture};
 use serde::Deserialize;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct AtlasMapper {
@@ -21,26 +19,28 @@ pub struct MapperFrame {
     pub height: u16,
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct AtlasTile {
-    pub atlas: Rc<RefCell<SpriteAtlas>>,
     pub pos: U16Vec2,
     pub size: U16Vec2,
     pub color: Option<Color>,
 }
 
 impl AtlasTile {
-    pub fn render<C: RenderTarget>(&mut self, canvas: &mut Canvas<C>, dest: Rect) -> Result<()> {
-        let color = self
-            .color
-            .unwrap_or(self.atlas.borrow().default_color.unwrap_or(Color::WHITE));
-        self.render_with_color(canvas, dest, color)
+    pub fn render<C: RenderTarget>(&mut self, canvas: &mut Canvas<C>, atlas: &mut SpriteAtlas, dest: Rect) -> Result<()> {
+        let color = self.color.unwrap_or(atlas.default_color.unwrap_or(Color::WHITE));
+        self.render_with_color(canvas, atlas, dest, color)
     }
 
-    pub fn render_with_color<C: RenderTarget>(&mut self, canvas: &mut Canvas<C>, dest: Rect, color: Color) -> Result<()> {
+    pub fn render_with_color<C: RenderTarget>(
+        &mut self,
+        canvas: &mut Canvas<C>,
+        atlas: &mut SpriteAtlas,
+        dest: Rect,
+        color: Color,
+    ) -> Result<()> {
         let src = Rect::new(self.pos.x as i32, self.pos.y as i32, self.size.x as u32, self.size.y as u32);
 
-        let mut atlas = self.atlas.borrow_mut();
         if atlas.last_modulation != Some(color) {
             atlas.texture.set_color_mod(color.r, color.g, color.b);
             atlas.last_modulation = Some(color);
@@ -68,10 +68,8 @@ impl SpriteAtlas {
         }
     }
 
-    pub fn get_tile(atlas: &Rc<RefCell<SpriteAtlas>>, name: &str) -> Option<AtlasTile> {
-        let atlas_ref = atlas.borrow();
-        atlas_ref.tiles.get(name).map(|frame| AtlasTile {
-            atlas: Rc::clone(atlas),
+    pub fn get_tile(&self, name: &str) -> Option<AtlasTile> {
+        self.tiles.get(name).map(|frame| AtlasTile {
             pos: U16Vec2::new(frame.x, frame.y),
             size: U16Vec2::new(frame.width, frame.height),
             color: None,
@@ -87,6 +85,6 @@ impl SpriteAtlas {
     }
 }
 
-pub unsafe fn texture_to_static<'a>(texture: Texture<'a>) -> Texture<'static> {
+pub unsafe fn texture_to_static(texture: Texture) -> Texture<'static> {
     std::mem::transmute(texture)
 }

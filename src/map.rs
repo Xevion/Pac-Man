@@ -1,16 +1,18 @@
 //! This module defines the game map and provides functions for interacting with it.
-use rand::rngs::SmallRng;
-use rand::seq::IteratorRandom;
-use rand::SeedableRng;
 
-use crate::constants::{MapTile, BOARD_CELL_OFFSET, BOARD_CELL_SIZE, BOARD_PIXEL_OFFSET, BOARD_PIXEL_SIZE, CELL_SIZE};
-use crate::texture::sprite::AtlasTile;
-use glam::{IVec2, UVec2};
-use once_cell::sync::OnceCell;
-use sdl2::rect::Rect;
-use sdl2::render::Canvas;
-use sdl2::video::Window;
-use std::collections::{HashSet, VecDeque};
+use crate::constants::{MapTile, BOARD_CELL_SIZE, BOARD_PIXEL_OFFSET, BOARD_PIXEL_SIZE, CELL_SIZE};
+use crate::entity::direction::DIRECTIONS;
+use crate::texture::sprite::{AtlasTile, SpriteAtlas};
+use glam::{IVec2, UVec2, Vec2};
+use sdl2::pixels::Color;
+use sdl2::rect::{Point, Rect};
+use sdl2::render::{Canvas, RenderTarget};
+use smallvec::SmallVec;
+use std::collections::{HashMap, VecDeque};
+use tracing::info;
+
+use crate::entity::graph::{Graph, Node};
+use crate::texture::text::TextTexture;
 
 /// The game map.
 ///
@@ -19,8 +21,8 @@ use std::collections::{HashSet, VecDeque};
 pub struct Map {
     /// The current state of the map.
     current: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
-    /// The default state of the map.
-    default: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
+    /// The node map for entity movement.
+    pub graph: Graph,
 }
 
 impl Map {
@@ -31,7 +33,7 @@ impl Map {
     /// * `raw_board` - A 2D array of characters representing the board layout.
     pub fn new(raw_board: [&str; BOARD_CELL_SIZE.y as usize]) -> Map {
         let mut map = [[MapTile::Empty; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize];
-
+        let mut house_door = SmallVec::<[IVec2; 2]>::new();
         for (y, line) in raw_board.iter().enumerate().take(BOARD_CELL_SIZE.y as usize) {
             for (x, character) in line.chars().enumerate().take(BOARD_CELL_SIZE.x as usize) {
                 let tile = match character {
@@ -40,127 +42,114 @@ impl Map {
                     'o' => MapTile::PowerPellet,
                     ' ' => MapTile::Empty,
                     'T' => MapTile::Tunnel,
-                    c @ '0' | c @ '1' | c @ '2' | c @ '3' | c @ '4' => MapTile::StartingPosition(c.to_digit(10).unwrap() as u8),
-                    '=' => MapTile::Empty,
+                    c @ '0'..='4' => MapTile::StartingPosition(c.to_digit(10).unwrap() as u8),
+                    '=' => {
+                        house_door.push(IVec2::new(x as i32, y as i32));
+                        MapTile::Wall
+                    }
                     _ => panic!("Unknown character in board: {character}"),
                 };
                 map[x][y] = tile;
             }
         }
 
-        Map {
-            current: map,
-            default: map,
+        if house_door.len() != 2 {
+            panic!("House door must have exactly 2 positions");
         }
+
+        let mut graph = Self::create_graph(&map);
+
+        let house_door_node_id = {
+            let offset = Vec2::splat(CELL_SIZE as f32 / 2.0);
+
+            let position_a = house_door[0].as_vec2() * Vec2::splat(CELL_SIZE as f32) + offset;
+            let position_b = house_door[1].as_vec2() * Vec2::splat(CELL_SIZE as f32) + offset;
+            info!("Position A: {position_a}, Position B: {position_b}");
+            let position = position_a.lerp(position_b, 0.5);
+
+            graph.add_node(Node { position })
+        };
+        info!("House door node id: {house_door_node_id}");
+
+        Map { current: map, graph }
     }
 
-    /// Resets the map to its original state.
-    pub fn reset(&mut self) {
-        // Restore the map to its original state
-        for (x, col) in self.current.iter_mut().enumerate().take(BOARD_CELL_SIZE.x as usize) {
-            for (y, cell) in col.iter_mut().enumerate().take(BOARD_CELL_SIZE.y as usize) {
-                *cell = self.default[x][y];
-            }
-        }
-    }
+    fn create_graph(map: &[[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize]) -> Graph {
+        let mut graph = Graph::new();
+        let mut grid_to_node = HashMap::new();
 
-    /// Returns the tile at the given cell coordinates.
-    ///
-    /// # Arguments
-    ///
-    /// * `cell` - The cell coordinates, in grid coordinates.
-    pub fn get_tile(&self, cell: IVec2) -> Option<MapTile> {
-        let x = cell.x as usize;
-        let y = cell.y as usize;
+        let cell_offset = Vec2::splat(CELL_SIZE as f32 / 2.0);
 
-        if x >= BOARD_CELL_SIZE.x as usize || y >= BOARD_CELL_SIZE.y as usize {
-            return None;
-        }
+        // Find a starting point for the graph generation, preferably Pac-Man's position.
+        let start_pos = (0..BOARD_CELL_SIZE.y)
+            .flat_map(|y| (0..BOARD_CELL_SIZE.x).map(move |x| IVec2::new(x as i32, y as i32)))
+            .find(|&p| matches!(map[p.x as usize][p.y as usize], MapTile::StartingPosition(0)))
+            .unwrap_or_else(|| {
+                // Fallback to any valid walkable tile if Pac-Man's start is not found
+                (0..BOARD_CELL_SIZE.y)
+                    .flat_map(|y| (0..BOARD_CELL_SIZE.x).map(move |x| IVec2::new(x as i32, y as i32)))
+                    .find(|&p| {
+                        matches!(
+                            map[p.x as usize][p.y as usize],
+                            MapTile::Pellet
+                                | MapTile::PowerPellet
+                                | MapTile::Empty
+                                | MapTile::Tunnel
+                                | MapTile::StartingPosition(_)
+                        )
+                    })
+                    .expect("No valid starting position found on map for graph generation")
+            });
 
-        Some(self.current[x][y])
-    }
-
-    /// Sets the tile at the given cell coordinates.
-    ///
-    /// # Arguments
-    ///
-    /// * `cell` - The cell coordinates, in grid coordinates.
-    /// * `tile` - The tile to set.
-    pub fn set_tile(&mut self, cell: IVec2, tile: MapTile) -> bool {
-        let x = cell.x as usize;
-        let y = cell.y as usize;
-
-        if x >= BOARD_CELL_SIZE.x as usize || y >= BOARD_CELL_SIZE.y as usize {
-            return false;
-        }
-
-        self.current[x][y] = tile;
-        true
-    }
-
-    /// Converts cell coordinates to pixel coordinates.
-    ///
-    /// # Arguments
-    ///
-    /// * `cell` - The cell coordinates, in grid coordinates.
-    pub fn cell_to_pixel(cell: UVec2) -> IVec2 {
-        IVec2::new(
-            (cell.x * CELL_SIZE) as i32,
-            ((cell.y + BOARD_CELL_OFFSET.y) * CELL_SIZE) as i32,
-        )
-    }
-
-    /// Returns a reference to a cached vector of all valid playable positions in the maze.
-    /// This is computed once using a flood fill from a random pellet, and then cached.
-    pub fn get_valid_playable_positions(&mut self) -> &Vec<UVec2> {
-        use MapTile::*;
-        static CACHE: OnceCell<Vec<UVec2>> = OnceCell::new();
-        if let Some(cached) = CACHE.get() {
-            return cached;
-        }
-        // Find a random starting pellet
-        let mut pellet_positions = vec![];
-        for (x, col) in self.current.iter().enumerate().take(BOARD_CELL_SIZE.x as usize) {
-            for (y, &cell) in col.iter().enumerate().take(BOARD_CELL_SIZE.y as usize) {
-                match cell {
-                    Pellet | PowerPellet => pellet_positions.push(UVec2::new(x as u32, y as u32)),
-                    _ => {}
-                }
-            }
-        }
-        let mut rng = SmallRng::from_os_rng();
-        let &start = pellet_positions
-            .iter()
-            .choose(&mut rng)
-            .expect("No pellet found for flood fill");
-        // Flood fill
-        let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
+        queue.push_back(start_pos);
 
-        queue.push_back(start);
-        while let Some(pos) = queue.pop_front() {
-            if !visited.insert(pos) {
-                continue;
-            }
+        let pos = Vec2::new(
+            (start_pos.x * CELL_SIZE as i32) as f32,
+            (start_pos.y * CELL_SIZE as i32) as f32,
+        ) + cell_offset;
+        let node_id = graph.add_node(Node { position: pos });
+        grid_to_node.insert(start_pos, node_id);
 
-            match self.current[pos.x as usize][pos.y as usize] {
-                Empty | Pellet | PowerPellet => {
-                    for offset in [IVec2::new(-1, 0), IVec2::new(1, 0), IVec2::new(0, -1), IVec2::new(0, 1)] {
-                        let neighbor = (pos.as_ivec2() + offset).as_uvec2();
-                        if neighbor.x < BOARD_CELL_SIZE.x && neighbor.y < BOARD_CELL_SIZE.y {
-                            let neighbor_tile = self.current[neighbor.x as usize][neighbor.y as usize];
-                            if matches!(neighbor_tile, Empty | Pellet | PowerPellet) {
-                                queue.push_back(neighbor);
-                            }
-                        }
-                    }
+        while let Some(grid_pos) = queue.pop_front() {
+            for &dir in DIRECTIONS.iter() {
+                let neighbor = grid_pos + dir.to_ivec2();
+
+                if neighbor.x < 0
+                    || neighbor.x >= BOARD_CELL_SIZE.x as i32
+                    || neighbor.y < 0
+                    || neighbor.y >= BOARD_CELL_SIZE.y as i32
+                {
+                    continue;
                 }
-                StartingPosition(_) | Wall | Tunnel => {}
+
+                if grid_to_node.contains_key(&neighbor) {
+                    continue;
+                }
+
+                if matches!(
+                    map[neighbor.x as usize][neighbor.y as usize],
+                    MapTile::Pellet | MapTile::PowerPellet | MapTile::Empty | MapTile::Tunnel | MapTile::StartingPosition(_)
+                ) {
+                    let pos =
+                        Vec2::new((neighbor.x * CELL_SIZE as i32) as f32, (neighbor.y * CELL_SIZE as i32) as f32) + cell_offset;
+                    let node_id = graph.add_node(Node { position: pos });
+                    grid_to_node.insert(neighbor, node_id);
+                    queue.push_back(neighbor);
+                }
             }
         }
-        let mut result: Vec<UVec2> = visited.into_iter().collect();
-        result.sort_unstable_by_key(|v| (v.x, v.y));
-        CACHE.get_or_init(|| result)
+
+        for (grid_pos, &node_id) in &grid_to_node {
+            for &dir in DIRECTIONS.iter() {
+                let neighbor = grid_pos + dir.to_ivec2();
+
+                if let Some(&neighbor_id) = grid_to_node.get(&neighbor) {
+                    graph.add_edge(node_id, neighbor_id, None, dir).expect("Failed to add edge");
+                }
+            }
+        }
+        graph
     }
 
     /// Finds the starting position for a given entity ID.
@@ -186,13 +175,51 @@ impl Map {
     }
 
     /// Renders the map to the given canvas using the provided map texture.
-    pub fn render(&self, canvas: &mut Canvas<Window>, map_texture: &mut AtlasTile) {
+    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, map_texture: &mut AtlasTile) {
         let dest = Rect::new(
             BOARD_PIXEL_OFFSET.x as i32,
             BOARD_PIXEL_OFFSET.y as i32,
             BOARD_PIXEL_SIZE.x,
             BOARD_PIXEL_SIZE.y,
         );
-        let _ = map_texture.render(canvas, dest);
+        let _ = map_texture.render(canvas, atlas, dest);
+    }
+
+    pub fn debug_render_nodes<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, text: &mut TextTexture) {
+        for i in 0..self.graph.node_count() {
+            let node = self.graph.get_node(i).unwrap();
+            let pos = node.position + BOARD_PIXEL_OFFSET.as_vec2();
+
+            // Draw connections
+            // TODO: fix this
+            // canvas.set_draw_color(Color::BLUE);
+
+            // for neighbor in node.neighbors() {
+            //     let end_pos = neighbor.get(&self.node_map).position + BOARD_PIXEL_OFFSET.as_vec2();
+            //     canvas
+            //         .draw_line((pos.x as i32, pos.y as i32), (end_pos.x as i32, end_pos.y as i32))
+            //         .unwrap();
+            // }
+
+            // Draw node
+            // let color = if pacman.position.from_node_idx() == i.into() {
+            //     Color::GREEN
+            // } else if let Some(to_idx) = pacman.position.to_node_idx() {
+            //     if to_idx == i.into() {
+            //         Color::CYAN
+            //     } else {
+            //         Color::RED
+            //     }
+            // } else {
+            //     Color::RED
+            // };
+            canvas.set_draw_color(Color::GREEN);
+            canvas
+                .fill_rect(Rect::new(0, 0, 3, 3).centered_on(Point::new(pos.x as i32, pos.y as i32)))
+                .unwrap();
+
+            // Draw node index
+            // text.render(canvas, atlas, &i.to_string(), pos.as_uvec2()).unwrap();
+        }
     }
 }

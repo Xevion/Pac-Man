@@ -81,6 +81,7 @@ impl Audio {
         self.muted = mute;
     }
 
+    /// Returns `true` if the audio is muted.
     pub fn is_muted(&self) -> bool {
         self.muted
     }

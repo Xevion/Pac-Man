@@ -22,7 +22,6 @@ pub enum Asset {
     Wav2,
     Wav3,
     Wav4,
-    FontKonami,
     Atlas,
     AtlasJson,
     // Add more as needed
@@ -37,7 +36,6 @@ impl Asset {
             Wav2 => "sound/waka/2.ogg",
             Wav3 => "sound/waka/3.ogg",
             Wav4 => "sound/waka/4.ogg",
-            FontKonami => "konami.ttf",
             Atlas => "atlas.png",
             AtlasJson => "atlas.json",
         }
@@ -54,7 +52,6 @@ mod imp {
                 Asset::Wav2 => Cow::Borrowed(include_bytes!("../assets/game/sound/waka/2.ogg")),
                 Asset::Wav3 => Cow::Borrowed(include_bytes!("../assets/game/sound/waka/3.ogg")),
                 Asset::Wav4 => Cow::Borrowed(include_bytes!("../assets/game/sound/waka/4.ogg")),
-                Asset::FontKonami => Cow::Borrowed(include_bytes!("../assets/game/konami.ttf")),
                 Asset::Atlas => Cow::Borrowed(include_bytes!("../assets/game/atlas.png")),
                 Asset::AtlasJson => Cow::Borrowed(include_bytes!("../assets/game/atlas.json")),
             }

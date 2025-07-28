@@ -1,65 +1,57 @@
-//! A texture that changes based on the direction of an entity.
-use crate::entity::direction::Direction;
-use crate::texture::sprite::AtlasTile;
 use anyhow::Result;
-use sdl2::render::WindowCanvas;
+use sdl2::rect::Rect;
+use sdl2::render::{Canvas, RenderTarget};
+use std::collections::HashMap;
 
+use crate::entity::direction::Direction;
+use crate::texture::animated::AnimatedTexture;
+use crate::texture::sprite::SpriteAtlas;
+
+#[derive(Clone)]
 pub struct DirectionalAnimatedTexture {
-    pub up: Vec<AtlasTile>,
-    pub down: Vec<AtlasTile>,
-    pub left: Vec<AtlasTile>,
-    pub right: Vec<AtlasTile>,
-    pub ticker: u32,
-    pub ticks_per_frame: u32,
+    textures: HashMap<Direction, AnimatedTexture>,
+    stopped_textures: HashMap<Direction, AnimatedTexture>,
 }
 
 impl DirectionalAnimatedTexture {
-    pub fn new(
-        up: Vec<AtlasTile>,
-        down: Vec<AtlasTile>,
-        left: Vec<AtlasTile>,
-        right: Vec<AtlasTile>,
-        ticks_per_frame: u32,
-    ) -> Self {
+    pub fn new(textures: HashMap<Direction, AnimatedTexture>, stopped_textures: HashMap<Direction, AnimatedTexture>) -> Self {
         Self {
-            up,
-            down,
-            left,
-            right,
-            ticker: 0,
-            ticks_per_frame,
+            textures,
+            stopped_textures,
         }
     }
 
-    pub fn tick(&mut self) {
-        self.ticker += 1;
+    pub fn tick(&mut self, dt: f32) {
+        for texture in self.textures.values_mut() {
+            texture.tick(dt);
+        }
     }
 
-    pub fn render(&mut self, canvas: &mut WindowCanvas, dest: sdl2::rect::Rect, direction: Direction) -> Result<()> {
-        let frames = match direction {
-            Direction::Up => &mut self.up,
-            Direction::Down => &mut self.down,
-            Direction::Left => &mut self.left,
-            Direction::Right => &mut self.right,
-        };
-
-        let frame_index = (self.ticker / self.ticks_per_frame) as usize % frames.len();
-        let tile = &mut frames[frame_index];
-
-        tile.render(canvas, dest)
+    pub fn render<T: RenderTarget>(
+        &self,
+        canvas: &mut Canvas<T>,
+        atlas: &mut SpriteAtlas,
+        dest: Rect,
+        direction: Direction,
+    ) -> Result<()> {
+        if let Some(texture) = self.textures.get(&direction) {
+            texture.render(canvas, atlas, dest)
+        } else {
+            Ok(())
+        }
     }
 
-    pub fn render_stopped(&mut self, canvas: &mut WindowCanvas, dest: sdl2::rect::Rect, direction: Direction) -> Result<()> {
-        let frames = match direction {
-            Direction::Up => &mut self.up,
-            Direction::Down => &mut self.down,
-            Direction::Left => &mut self.left,
-            Direction::Right => &mut self.right,
-        };
-
-        // Show the last frame (full sprite) when stopped
-        let tile = &mut frames[1];
-
-        tile.render(canvas, dest)
+    pub fn render_stopped<T: RenderTarget>(
+        &self,
+        canvas: &mut Canvas<T>,
+        atlas: &mut SpriteAtlas,
+        dest: Rect,
+        direction: Direction,
+    ) -> Result<()> {
+        if let Some(texture) = self.stopped_textures.get(&direction) {
+            texture.render(canvas, atlas, dest)
+        } else {
+            Ok(())
+        }
     }
 }

@@ -1,71 +1,59 @@
 //! This module contains the main game logic and state.
-use std::cell::RefCell;
-use std::ops::Not;
-use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use glam::UVec2;
+use sdl2::{
+    image::LoadTexture,
+    keyboard::Keycode,
+    pixels::Color,
+    render::{Canvas, RenderTarget, Texture, TextureCreator},
+    video::WindowContext,
+};
 
-use sdl2::image::LoadTexture;
-use sdl2::keyboard::Keycode;
-
-use sdl2::render::{Texture, TextureCreator};
-use sdl2::video::WindowContext;
-use sdl2::{pixels::Color, render::Canvas, video::Window};
-
-use crate::asset::{get_asset_bytes, Asset};
-use crate::audio::Audio;
-use crate::constants::RAW_BOARD;
-use crate::debug::{DebugMode, DebugRenderer};
-use crate::entity::direction::Direction;
-use crate::entity::edible::{reconstruct_edibles, Edible, EdibleKind};
-use crate::entity::ghost::{Ghost, GhostMode, GhostType, HouseMode};
-use crate::entity::pacman::Pacman;
-use crate::entity::Renderable;
-use crate::map::Map;
-use crate::texture::animated::AnimatedTexture;
-use crate::texture::blinking::BlinkingTexture;
-use crate::texture::sprite::{AtlasMapper, AtlasTile, SpriteAtlas};
-use crate::texture::text::TextTexture;
-use crate::texture::{get_atlas_tile, sprite};
+use crate::{
+    asset::{get_asset_bytes, Asset},
+    audio::Audio,
+    constants::RAW_BOARD,
+    entity::pacman::Pacman,
+    map::Map,
+    texture::{
+        sprite::{self, AtlasMapper, AtlasTile, SpriteAtlas},
+        text::TextTexture,
+    },
+};
 
 /// The main game state.
 ///
 /// Contains all the information necessary to run the game, including
 /// the game state, rendering resources, and audio.
 pub struct Game {
-    // Game state
-    pacman: Rc<RefCell<Pacman>>,
-    blinky: Ghost,
-    pinky: Ghost,
-    inky: Ghost,
-    clyde: Ghost,
-    edibles: Vec<Edible>,
-    map: Rc<RefCell<Map>>,
-    score: u32,
-    debug_mode: DebugMode,
-
-    // FPS tracking
-    fps_1s: f64,
-    fps_10s: f64,
+    pub score: u32,
+    pub map: Map,
+    pub pacman: Pacman,
+    pub debug_mode: bool,
 
     // Rendering resources
-    atlas: Rc<RefCell<SpriteAtlas>>,
+    atlas: SpriteAtlas,
     map_texture: AtlasTile,
     text_texture: TextTexture,
+    debug_text_texture: TextTexture,
 
     // Audio
     pub audio: Audio,
 }
 
 impl Game {
-    /// Creates a new `Game` instance.
     pub fn new(
         texture_creator: &TextureCreator<WindowContext>,
         _ttf_context: &sdl2::ttf::Sdl2TtfContext,
         _audio_subsystem: &sdl2::AudioSubsystem,
     ) -> Game {
-        let map = Rc::new(RefCell::new(Map::new(RAW_BOARD)));
+        let map = Map::new(RAW_BOARD);
+
+        let _pacman_start_pos = map.find_starting_position(0).unwrap();
+        let pacman_start_node = 0; // TODO: Find the actual start node
+
         let atlas_bytes = get_asset_bytes(Asset::Atlas).expect("Failed to load asset");
         let atlas_texture = unsafe {
             let texture = texture_creator
@@ -75,318 +63,65 @@ impl Game {
         };
         let atlas_json = get_asset_bytes(Asset::AtlasJson).expect("Failed to load asset");
         let atlas_mapper: AtlasMapper = serde_json::from_slice(&atlas_json).expect("Could not parse atlas JSON");
-        let atlas = Rc::new(RefCell::new(SpriteAtlas::new(atlas_texture, atlas_mapper)));
-        let pacman = Rc::new(RefCell::new(Pacman::new(
-            UVec2::new(1, 1),
-            Rc::clone(&atlas),
-            Rc::clone(&map),
-        )));
+        let atlas = SpriteAtlas::new(atlas_texture, atlas_mapper);
 
-        // Find starting positions
-        let pacman_start = map.borrow().find_starting_position(0).unwrap_or(UVec2::new(13, 23));
-        let blinky_start = map.borrow().find_starting_position(1).unwrap_or(UVec2::new(13, 11));
-        let pinky_start = map.borrow().find_starting_position(2).unwrap_or(UVec2::new(13, 14));
-        let inky_start = map.borrow().find_starting_position(3).unwrap_or(UVec2::new(13, 14));
-        let clyde_start = map.borrow().find_starting_position(4).unwrap_or(UVec2::new(13, 14));
-
-        // Update Pac-Man to proper starting position
-        {
-            let mut pacman_mut = pacman.borrow_mut();
-            pacman_mut.base.base.pixel_position = Map::cell_to_pixel(pacman_start);
-            pacman_mut.base.base.cell_position = pacman_start;
-        }
-
-        let mut blinky = Ghost::new(
-            GhostType::Blinky,
-            blinky_start,
-            Rc::clone(&atlas),
-            Rc::clone(&map),
-            Rc::clone(&pacman),
-            -8,
-        );
-        blinky.mode = GhostMode::Chase;
-
-        let mut pinky = Ghost::new(
-            GhostType::Pinky,
-            pinky_start,
-            Rc::clone(&atlas),
-            Rc::clone(&map),
-            Rc::clone(&pacman),
-            8,
-        );
-        pinky.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
-
-        let mut inky = Ghost::new(
-            GhostType::Inky,
-            inky_start,
-            Rc::clone(&atlas),
-            Rc::clone(&map),
-            Rc::clone(&pacman),
-            -8,
-        );
-        inky.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
-
-        let mut clyde = Ghost::new(
-            GhostType::Clyde,
-            clyde_start,
-            Rc::clone(&atlas),
-            Rc::clone(&map),
-            Rc::clone(&pacman),
-            8,
-        );
-        clyde.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
-        let mut map_texture = get_atlas_tile(&atlas, "maze/full.png");
+        let mut map_texture = SpriteAtlas::get_tile(&atlas, "maze/full.png").expect("Failed to load map tile");
         map_texture.color = Some(Color::RGB(0x20, 0x20, 0xf9));
 
-        let edibles = reconstruct_edibles(
-            Rc::clone(&map),
-            AnimatedTexture::new(vec![get_atlas_tile(&atlas, "maze/pellet.png")], 0),
-            BlinkingTexture::new(
-                AnimatedTexture::new(vec![get_atlas_tile(&atlas, "maze/energizer.png")], 0),
-                17,
-                17,
-            ),
-            AnimatedTexture::new(vec![get_atlas_tile(&atlas, "edible/cherry.png")], 0),
-        );
-        let text_texture = TextTexture::new(Rc::clone(&atlas), 1.0);
+        let text_texture = TextTexture::new(1.0);
+        let debug_text_texture = TextTexture::new(0.5);
         let audio = Audio::new();
+        let pacman = Pacman::new(&map.graph, pacman_start_node, &atlas);
         Game {
-            pacman,
-            blinky,
-            pinky,
-            inky,
-            clyde,
-            edibles,
-            map,
             score: 0,
-            debug_mode: DebugMode::None,
-            atlas,
+            map,
+            pacman,
+            debug_mode: false,
             map_texture,
             text_texture,
+            debug_text_texture,
             audio,
-            fps_1s: 0.0,
-            fps_10s: 0.0,
+            atlas,
         }
     }
 
-    /// Handles a keyboard event.
     pub fn keyboard_event(&mut self, keycode: Keycode) {
-        // Change direction
-        let direction = Direction::from_keycode(keycode);
-        if direction.is_some() {
-            self.pacman.borrow_mut().next_direction = direction;
-            return;
-        }
+        self.pacman.handle_key(keycode);
 
-        // Toggle debug mode
-        if keycode == Keycode::Space {
-            self.debug_mode = match self.debug_mode {
-                DebugMode::None => DebugMode::Grid,
-                DebugMode::Grid => DebugMode::Pathfinding,
-                DebugMode::Pathfinding => DebugMode::ValidPositions,
-                DebugMode::ValidPositions => DebugMode::None,
-            };
-            return;
-        }
-
-        // Toggle mute
         if keycode == Keycode::M {
-            self.audio.set_mute(self.audio.is_muted().not());
+            self.audio.set_mute(!self.audio.is_muted());
             return;
         }
-
-        // Reset game
-        if keycode == Keycode::R {
-            self.reset();
-        }
     }
 
-    /// Adds points to the score.
-    ///
-    /// # Arguments
-    ///
-    /// * `points` - The number of points to add.
-    pub fn add_score(&mut self, points: u32) {
-        self.score += points;
+    pub fn tick(&mut self, dt: f32) {
+        self.pacman.tick(dt, &self.map.graph);
     }
 
-    /// Updates the FPS tracking values.
-    pub fn update_fps(&mut self, fps_1s: f64, fps_10s: f64) {
-        self.fps_1s = fps_1s;
-        self.fps_10s = fps_10s;
+    pub fn draw<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>, backbuffer: &mut Texture) -> Result<()> {
+        canvas.with_texture_canvas(backbuffer, |canvas| {
+            canvas.set_draw_color(Color::BLACK);
+            canvas.clear();
+            self.map.render(canvas, &mut self.atlas, &mut self.map_texture);
+            self.pacman.render(canvas, &mut self.atlas, &self.map.graph);
+        })?;
+
+        Ok(())
     }
 
-    /// Resets the game to its initial state.
-    pub fn reset(&mut self) {
-        // Reset the map to restore all pellets
-        {
-            let mut map = self.map.borrow_mut();
-            map.reset();
-        }
-
-        // Reset the score
-        self.score = 0;
-
-        // Reset entities to their proper starting positions
-        {
-            let map = self.map.borrow();
-
-            // Reset Pac-Man to proper starting position
-            if let Some(pacman_start) = map.find_starting_position(0) {
-                let mut pacman = self.pacman.borrow_mut();
-                pacman.base.base.pixel_position = Map::cell_to_pixel(pacman_start);
-                pacman.base.base.cell_position = pacman_start;
-                pacman.base.in_tunnel = false;
-                pacman.base.direction = Direction::Right;
-                pacman.next_direction = None;
-                pacman.stopped = false;
-            }
-
-            // Reset ghosts to their starting positions
-            if let Some(blinky_start) = map.find_starting_position(1) {
-                self.blinky.base.base.pixel_position = Map::cell_to_pixel(blinky_start);
-                self.blinky.base.base.cell_position = blinky_start;
-                self.blinky.base.in_tunnel = false;
-                self.blinky.base.direction = Direction::Left;
-                self.blinky.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
-            }
-
-            if let Some(pinky_start) = map.find_starting_position(2) {
-                self.pinky.base.base.pixel_position = Map::cell_to_pixel(pinky_start);
-                self.pinky.base.base.cell_position = pinky_start;
-                self.pinky.base.in_tunnel = false;
-                self.pinky.base.direction = Direction::Down;
-                self.pinky.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
-            }
-
-            if let Some(inky_start) = map.find_starting_position(3) {
-                self.inky.base.base.pixel_position = Map::cell_to_pixel(inky_start);
-                self.inky.base.base.cell_position = inky_start;
-                self.inky.base.in_tunnel = false;
-                self.inky.base.direction = Direction::Up;
-                self.inky.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
-            }
-
-            if let Some(clyde_start) = map.find_starting_position(4) {
-                self.clyde.base.base.pixel_position = Map::cell_to_pixel(clyde_start);
-                self.clyde.base.base.cell_position = clyde_start;
-                self.clyde.base.in_tunnel = false;
-                self.clyde.base.direction = Direction::Down;
-                self.clyde.mode = crate::entity::ghost::GhostMode::House(crate::entity::ghost::HouseMode::Waiting);
-            }
-        }
-
-        self.edibles = reconstruct_edibles(
-            Rc::clone(&self.map),
-            AnimatedTexture::new(vec![get_atlas_tile(&self.atlas, "maze/pellet.png")], 0),
-            BlinkingTexture::new(
-                AnimatedTexture::new(vec![get_atlas_tile(&self.atlas, "maze/energizer.png")], 0),
-                12,
-                12,
-            ),
-            AnimatedTexture::new(vec![get_atlas_tile(&self.atlas, "edible/cherry.png")], 0),
-        );
-    }
-
-    /// Advances the game by one tick.
-    pub fn tick(&mut self) {
-        self.tick_entities();
-        self.handle_edible_collisions();
-        self.tick_entities();
-    }
-    fn tick_entities(&mut self) {
-        self.pacman.borrow_mut().tick();
-        self.blinky.tick();
-        self.pinky.tick();
-        self.inky.tick();
-        self.clyde.tick();
-        for edible in self.edibles.iter_mut() {
-            if let EdibleKind::PowerPellet = edible.kind {
-                if let crate::entity::edible::EdibleSprite::PowerPellet(texture) = &mut edible.sprite {
-                    texture.tick();
-                }
-            }
-        }
-    }
-    fn handle_edible_collisions(&mut self) {
-        let pacman = self.pacman.borrow();
-        let mut eaten_indices = vec![];
-        for (i, edible) in self.edibles.iter().enumerate() {
-            if edible.collide(&*pacman) {
-                eaten_indices.push(i);
-            }
-        }
-        drop(pacman);
-        for &i in eaten_indices.iter().rev() {
-            let edible = &self.edibles[i];
-            match edible.kind {
-                EdibleKind::Pellet => {
-                    self.add_score(10);
-                    self.audio.eat();
-                }
-                EdibleKind::PowerPellet => {
-                    self.add_score(50);
-                    self.audio.eat();
-                }
-                EdibleKind::Fruit(_fruit) => {
-                    self.add_score(100);
-                    self.audio.eat();
-                }
-            }
-            self.edibles.remove(i);
-            // Set Pac-Man to skip the next movement tick
-            self.pacman.borrow_mut().skip_move_tick = true;
-        }
-    }
-
-    /// Draws the entire game to the canvas using a backbuffer.
-    pub fn draw(&mut self, window_canvas: &mut Canvas<Window>, backbuffer: &mut Texture) -> Result<()> {
-        window_canvas
-            .with_texture_canvas(backbuffer, |texture_canvas| {
-                let this = self as *mut Self;
-                let this = unsafe { &mut *this };
-                texture_canvas.set_draw_color(Color::BLACK);
-                texture_canvas.clear();
-                this.map.borrow_mut().render(texture_canvas, &mut this.map_texture);
-                for edible in this.edibles.iter_mut() {
-                    let _ = edible.render(texture_canvas);
-                }
-                let _ = this.pacman.borrow_mut().render(texture_canvas);
-                let _ = this.blinky.render(texture_canvas);
-                let _ = this.pinky.render(texture_canvas);
-                let _ = this.inky.render(texture_canvas);
-                let _ = this.clyde.render(texture_canvas);
-                match this.debug_mode {
-                    DebugMode::Grid => {
-                        DebugRenderer::draw_debug_grid(
-                            texture_canvas,
-                            &this.map.borrow(),
-                            this.pacman.borrow().base.base.cell_position,
-                        );
-                        let next_cell = <Pacman as crate::entity::Moving>::next_cell(&*this.pacman.borrow(), None);
-                        DebugRenderer::draw_next_cell(texture_canvas, &this.map.borrow(), next_cell.as_uvec2());
-                    }
-                    DebugMode::ValidPositions => {
-                        DebugRenderer::draw_valid_positions(texture_canvas, &mut this.map.borrow_mut());
-                    }
-                    DebugMode::Pathfinding => {
-                        DebugRenderer::draw_pathfinding(texture_canvas, &this.blinky, &this.map.borrow());
-                    }
-                    DebugMode::None => {}
-                }
-            })
-            .map_err(|e| anyhow::anyhow!(format!("Failed to render to backbuffer: {e}")))
-    }
-    pub fn present_backbuffer(&mut self, canvas: &mut Canvas<Window>, backbuffer: &Texture) -> Result<()> {
-        canvas.set_draw_color(Color::BLACK);
-        canvas.clear();
+    pub fn present_backbuffer<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>, backbuffer: &Texture) -> Result<()> {
         canvas.copy(backbuffer, None, None).map_err(anyhow::Error::msg)?;
-        self.render_ui_on(canvas);
+        if self.debug_mode {
+            self.map
+                .debug_render_nodes(canvas, &mut self.atlas, &mut self.debug_text_texture);
+        }
+        self.draw_hud(canvas)?;
         canvas.present();
         Ok(())
     }
 
-    fn render_ui_on<C: sdl2::render::RenderTarget>(&mut self, canvas: &mut sdl2::render::Canvas<C>) {
+    fn draw_hud<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>) -> Result<()> {
+        let score_text = self.score.to_string();
         let lives = 3;
         let score_text = format!("{:02}", self.score);
         let x_offset = 4;
@@ -396,11 +131,13 @@ impl Game {
         self.text_texture.set_scale(1.0);
         let _ = self.text_texture.render(
             canvas,
+            &mut self.atlas,
             &format!("{lives}UP   HIGH SCORE   "),
             UVec2::new(8 * lives_offset as u32 + x_offset, y_offset),
         );
         let _ = self.text_texture.render(
             canvas,
+            &mut self.atlas,
             &score_text,
             UVec2::new(8 * score_offset as u32 + x_offset, 8 + y_offset),
         );
@@ -414,5 +151,7 @@ impl Game {
         //     IVec2::new(10, 10),
         //     Color::RGB(255, 255, 0), // Yellow color for FPS display
         // );
+
+        Ok(())
     }
 }

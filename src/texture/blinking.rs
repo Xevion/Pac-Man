@@ -1,48 +1,36 @@
-//! A texture that blinks on/off for a specified number of ticks.
-use anyhow::Result;
-use sdl2::render::WindowCanvas;
-
-use crate::texture::animated::AnimatedTexture;
+use crate::texture::sprite::AtlasTile;
 
 #[derive(Clone)]
 pub struct BlinkingTexture {
-    pub animation: AnimatedTexture,
-    pub on_ticks: u32,
-    pub off_ticks: u32,
-    pub ticker: u32,
-    pub visible: bool,
+    tile: AtlasTile,
+    blink_duration: f32,
+    time_bank: f32,
+    is_on: bool,
 }
 
 impl BlinkingTexture {
-    pub fn new(animation: AnimatedTexture, on_ticks: u32, off_ticks: u32) -> Self {
-        BlinkingTexture {
-            animation,
-            on_ticks,
-            off_ticks,
-            ticker: 0,
-            visible: true,
+    pub fn new(tile: AtlasTile, blink_duration: f32) -> Self {
+        Self {
+            tile,
+            blink_duration,
+            time_bank: 0.0,
+            is_on: true,
         }
     }
 
-    /// Advances the blinking state by one tick.
-    pub fn tick(&mut self) {
-        self.animation.tick();
-        self.ticker += 1;
-        if self.visible && self.ticker >= self.on_ticks {
-            self.visible = false;
-            self.ticker = 0;
-        } else if !self.visible && self.ticker >= self.off_ticks {
-            self.visible = true;
-            self.ticker = 0;
+    pub fn tick(&mut self, dt: f32) {
+        self.time_bank += dt;
+        if self.time_bank >= self.blink_duration {
+            self.time_bank -= self.blink_duration;
+            self.is_on = !self.is_on;
         }
     }
 
-    /// Renders the blinking texture.
-    pub fn render(&mut self, canvas: &mut WindowCanvas, dest: sdl2::rect::Rect) -> Result<()> {
-        if self.visible {
-            self.animation.render(canvas, dest)
-        } else {
-            Ok(())
-        }
+    pub fn is_on(&self) -> bool {
+        self.is_on
+    }
+
+    pub fn tile(&self) -> &AtlasTile {
+        &self.tile
     }
 }

@@ -1,47 +1,41 @@
-//! This module provides a simple animation and atlas system for textures.
 use anyhow::Result;
-use sdl2::render::WindowCanvas;
+use sdl2::rect::Rect;
+use sdl2::render::{Canvas, RenderTarget};
 
-use crate::texture::sprite::AtlasTile;
+use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 
-/// An animated texture using a texture atlas.
 #[derive(Clone)]
 pub struct AnimatedTexture {
-    pub frames: Vec<AtlasTile>,
-    pub ticks_per_frame: u32,
-    pub ticker: u32,
-    pub paused: bool,
+    tiles: Vec<AtlasTile>,
+    frame_duration: f32,
+    current_frame: usize,
+    time_bank: f32,
 }
 
 impl AnimatedTexture {
-    pub fn new(frames: Vec<AtlasTile>, ticks_per_frame: u32) -> Self {
-        AnimatedTexture {
-            frames,
-            ticks_per_frame,
-            ticker: 0,
-            paused: false,
+    pub fn new(tiles: Vec<AtlasTile>, frame_duration: f32) -> Self {
+        Self {
+            tiles,
+            frame_duration,
+            current_frame: 0,
+            time_bank: 0.0,
         }
     }
 
-    /// Advances the animation by one tick, unless paused.
-    pub fn tick(&mut self) {
-        if self.paused || self.ticks_per_frame == 0 {
-            return;
+    pub fn tick(&mut self, dt: f32) {
+        self.time_bank += dt;
+        while self.time_bank >= self.frame_duration {
+            self.time_bank -= self.frame_duration;
+            self.current_frame = (self.current_frame + 1) % self.tiles.len();
         }
-
-        self.ticker += 1;
     }
 
-    pub fn current_tile(&mut self) -> &mut AtlasTile {
-        if self.ticks_per_frame == 0 {
-            return &mut self.frames[0];
-        }
-        let frame_index = (self.ticker / self.ticks_per_frame) as usize % self.frames.len();
-        &mut self.frames[frame_index]
+    pub fn current_tile(&self) -> &AtlasTile {
+        &self.tiles[self.current_frame]
     }
 
-    pub fn render(&mut self, canvas: &mut WindowCanvas, dest: sdl2::rect::Rect) -> Result<()> {
-        let tile = self.current_tile();
-        tile.render(canvas, dest)
+    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, dest: Rect) -> Result<()> {
+        let mut tile = self.current_tile().clone();
+        tile.render(canvas, atlas, dest)
     }
 }
