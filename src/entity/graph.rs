@@ -1,7 +1,5 @@
 use glam::Vec2;
 
-use crate::entity::direction::DIRECTIONS;
-
 use super::direction::Direction;
 
 /// A unique identifier for a node, represented by its index in the graph's storage.

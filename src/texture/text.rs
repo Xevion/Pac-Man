@@ -7,18 +7,13 @@
 //! # Example Usage
 //!
 //! ```rust
-//! use crate::texture::text::TextTexture;
-//! use std::rc::Rc;
+//! use pacman::texture::text::TextTexture;
 //!
 //! // Create a text texture with 1.0 scale (8x8 pixels per character)
-//! let mut text_renderer = TextTexture::new(atlas.clone(), 1.0);
+//! let mut text_renderer = TextTexture::new(1.0);
 //!
-//! // Render text at position (100, 50)
-//! text_renderer.render(canvas, "PAC-MAN", glam::UVec2::new(100, 50))?;
-//!
-//! // Change scale for larger text
+//! // Set scale for larger text
 //! text_renderer.set_scale(2.0);
-//! text_renderer.render(canvas, "SCORE: 1000", glam::UVec2::new(50, 100))?;
 //!
 //! // Calculate text width for positioning
 //! let width = text_renderer.text_width("GAME OVER");
