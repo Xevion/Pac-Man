@@ -32,6 +32,7 @@ The problem is that much of this work was done for pure-Rust applications - and 
 This requires a C++ WebAssembly compiler such as Emscripten; and it's a pain to get working.
 
 Luckily though, someone else has done this before, and they fully documented it - [RuggRouge][ruggrouge].
+
 - Built with Rust
 - Uses SDL2
 - Compiling for WebAssembly with Emscripten
@@ -45,7 +46,6 @@ Some extensions I had installed were capturing keys.
 The issue presented with some keys never being sent to the application.
 To confirm, enter safe mode or switch to a different browser without said extensions.
 If the issue disappears, it's because of an extension in your browser stealing keys in a way that is incompatible with the batshit insanity of Emscripten.
-
 
 ## A Long Break
 
@@ -78,7 +78,7 @@ But this did help me narrow my search even more for a good example. I needed to 
 
 I found [one such repository](https://github.com/KyleMiles/Rust-SDL-Emscripten-Template/), and interestingly, it used `latest` Emscripten (not a specific target like 1.39.20), and was new enough (2 years old, but still new enough) to be relevant.
 
-Even more interesting, it didn't use the `main` loop closure, but instead used Emscripten's *Asyncify* feature to handle the main loop.
+Even more interesting, it didn't use the `main` loop closure, but instead used Emscripten's _Asyncify_ feature to handle the main loop.
 
 But, unlike my original project which called `std::thread::sleep` directly, it used bindings into Emscripten's functions like `emscripten_sleep`.
 
@@ -124,6 +124,7 @@ While working on the next extension of SDL2 for my test repository, SDL2-TTF had
 Luckily, I had a recently updated repository to copy off of, and the working fix was to lower the EMSDK version to `3.1.43`.
 
 [Source](https://github.com/aelred/tetris/blob/0ad88153db1ca7962b42277504c0f7f9f3c675a9/tetris-sdl/src/main.rs#L34)
+
 ```rust
 static FONT_DATA: &[u8] = include_bytes!("../assets/TerminalVector.ttf");
 
@@ -176,7 +177,7 @@ But I also didn't want to include some big framework on this, like Astro, so I l
 
 After fiddling and failing to find Hugo suitable, I stuck to plain HTML & the PostCSS method, which worked great. It's definitely not that fast for rapid development, but it works well enough.
 
-The only thing I'm unsatisfied with is why `postcss-cli` wasn't working when executed from `pnpm`. It works just fine from `pnpx`, but it has to download and setup the whole package on *every single invocation*, which is super slow. And probably expensive, in the long run.
+The only thing I'm unsatisfied with is why `postcss-cli` wasn't working when executed from `pnpm`. It works just fine from `pnpx`, but it has to download and setup the whole package on _every single invocation_, which is super slow. And probably expensive, in the long run.
 
 ## Cross-platform Builds
 
@@ -253,6 +254,7 @@ After a couple attempts with various test commits, I couldn't find it, and just 
 > Note: VCPKG is annoying to install, the executable provided by Visual Studio Community does not permit classic-mode usage, so you'll still need to clone and bootstrap VCPKG (instructions in the repository README).
 
 As it happens, they were placed in
+
 - `$VCPKG_ROOT\packages\sdl2-gfx_x64-windows-release\bin\SDL2_gfx.dll` and
 - `$VCPKG_ROOT\packages\sdl2-gfx_x64-windows-release\lib\SDL2_gfx.lib` respectively.
 
@@ -324,6 +326,91 @@ I was thinking of a github-pages artifact name that aligns with the others, but 
 
 Perhaps at the least I'll look into a 32-bit build for Windows, just for demonstration purposes.
 
+## My Return to Pac-Man
+
+It's been 15 months since I last touched the demo codebase, and much longer since I've touched the core Pac-Man project, and I got inspired to look back into it recently. I'm finally touching up on the story document, so if this reads a bit disjointed, that's why.
+
+- I switched the dependency linking to use the internal statically-linked `vcpkg` feature, which is a lot easier to maintain. It's not perfect, but it's much better than the manual downloads and the dynamically linked `.dll` files I was doing before. With caching, it also tends to be far quicker.
+- I switched all of the commits to use conventional commit messages, which is easier to read and understand.
+- I integrated the demo project's emscripten workflow, updated sdl2 and started poking around in the project. I got into adding fonts, adding a reset button, a debug mode, score tracking, pellet consumption, etc.
+- I spent a lot of time working on the audio timing, getting it to work flawlessly and compare really well with the original Pac-Man; the sound is incredibly important to the game, so I wanted to get it right.
+
+## Pathfinding and Tunnelling
+
+Pathfinding was very easy to get working, although tunnelling was a bit more difficult, and unfortunately I never got it working with the way I was doing things at the time. A lot of issues were happening with trying to get the transition between the tunnels to work, I could only get Pac-Man to teleport from one tunnel to the other, but moving smoothly between them was nigh impossible.
+
+I did however get pathfinding to work between the tunnels, which was very satisfying to see using the debug visuals.
+
+I ended up using the `pathfinding` crate and it was a breeze to use.
+
+## Atlas Tiles
+
+When I was looking around for Pac-Man sprites, I kept coming across atlas images, and I had been noticing for some time how my sprites were not correctly sized, and some of them just didn't match the original Pac-Man. I had been spending a lot of time making this Pac-Man project as close to the original as possible, and I felt like if I didn't use the original sprites, I wasn't doing it justice.
+
+This had me thinking about how asset loading was a real pain in this project, and how I wanted to look into atlas tiles.
+
+The arguments for copying between a texture and a canvas/surface/texture were very obviously rigged to allow for this, given that you had to specify the source `Rect`, meaning you could target a specific area of the texture. Such as tiles on an atlas image.
+
+It didn't take long for me to get it working, I chose an existing crate called `clutterd` which provided a CLI for building atlas images with an metadata file describing the positions and sizes of the tiles.
+
+Doing so required a full re-work of the animation and texture system, and I ended up making a breakthrough on how I managed lifetimes: lifetime annotations were plaguing the codebase, literally everywhere, and it was super annoying to keep writing and dealing with them.
+
+So, I ended up using `unsafe` to forcibly cast the lifetimes to `'static`, which was a bit of a gamble, but given that they essentially behave as `'static` in practice, there wasn't much risk as I see it. I might re-look into my understanding of lifetimes and this in the future, but for the time being, it's a good solution that makes the codebase far easier to work with.
+
+## Cross-platform Builds
+
+Since the original `rust-sdl2-emscripten` demo project had cross-platform builds, I was ready to get it working for this project. For the most part, it wasn't hard, things tended to click into place, but unfortunately, the `emscripten` os target and somehow, the `linux` os target were both failing.
+
+I'm still not sure what exactly causes it, but `emscripten` strongly prefers to be built on 1.86 (1.88 does not work, 1.87 might though).
+Changing the toolchain to 1.86 fixed the issue when it was failing.
+
+It did turn out though, that despite me getting the `emscripten` target building, it did not mean the application was functioning properly.
+
+- Upon launch, it was immediately crashing due to issues with the audio subsystem; this was fixed with a simple increase to the audio buffer chunksize, apparently it has a minimum size of 256.
+- Then, it was failing due to issues with the main loop, referencing the `ASYNCIFY_STACK_SIZE` variable in `.cargo/config.toml`, asking for it to be increased. I really didn't like the idea of increasing it for whatever reason, so I ended up looking into the `emscripten_main_loop` method of looping again, but nothing worked all that well, just like the last time I tried. So I increased the variable, doubling it from the default of 4096 to 8192. Things immediately worked, and the browser build was working.
+
+Linux however was a far more annoying task, as it was failing to due the `cargo-vcpkg` build step (which built the SDL2 libraries necessary for static linking and building the project). It was hard to pin down at first, but packages seemed to be failing due to system dependencies not being available, so after adding a couple `apt` packages to the steps, things started to work.
+
+Eventually though, it kept failing at the `sdl2` package, which was failing to build due to the `libpng` package not being able to find a bunch of symbols related to `zlib`. Almost nothing was written about this online, except for one issue on GitHub which hadn't been updated in 2 years.
+
+I won't lie, Gemini helped me out here, suggesting adding `"-C", "link-arg=-lz",` to the `rustflags` section of `.cargo/config.toml`.
+It seems like it moved the `zlib` library to the front of the link order, and things started magically working both locally and on the GitHub Actions runner.
+
+I also added an ARM64 build for MacOS, which worked without any issues. Surprisingly, MacOS is the only platform that I've been able to get working without any issues. At least, I hope it's working; I don't really have a way to test it myself.
+
+## Caching
+
+I spent a bit of time after this improving the build process to take advantage of caching so that most builds would fly. The `cargo-vcpkg` was by far the most expensive step, and it unfortunately, despite being in the `target` directory (which is supposed to be cached by the `Swatinem/rust-cache@v2` action), was not being cached.
+
+I played with the parameters for a bit before giving up and just manually adding a cache step to the workflow. It's expensive, uploading 300MB of artifact data to GitHub, but it works well, and I'm really doubtful it will change that much.
+
+I also ended up improving the build process to use `cargo metadata` to get the package version, which means I could drop the `toml-cli` dependency and just use the `cargo` command + `jq` (which is already installed on the runner).
+
+## Atlas Text
+
+At some point, I wanted to use the original text from the game, so I created a text texture type for rendering text using the existing sprite atlas, which means I wasn't using the `ttf` feature at all. I'm stil unsure whether or not I'll use it, I might keep it because it seems like more hassle to remove it at this point. Perhaps I'll still use normal ttf fonts like Arial for debug-related displays, or maybe I'll create/use a custom font.
+
+## Node Graph Positioning
+
+After getting all this working, I was really excited to finally get closer to actually finishing the project. I felt like I had finally started checking a bunch of important boxes, so I started actually working on the 'ghost house' part of Pac-Man.
+
+The ghost house is very different from the rest of the game as it doesn't render the tiles in the same way, on a static grid.
+
+It's actually offset by 8 pixels, and the ghosts exit the house between two tiles, requiring a lot more customization and flexibility in my
+rendering system.
+
+I spent a fair bit of time trying to implement hacks into this to get it working, but I eventually gave up after realizing that there's no solution here using my existing system.
+
+I remembered how I was having trouble with the transition states between the two tunnels (still not resolved), and it felt quite similar to my current situation; the inflexibility of my integer grid system was the main cause of the issue.
+
+I started thinking of different ways to approach movement, and realized that the Pac-Man and Ghost's movement is quite limited and simple like railroad tracks, like nodes on a graph. Both problems could be solved by switching to a graph - most of the maze would look like a grid, each cell connected to eachother.
+
+By representing one's position as a distance from the start node towards an end node, I could achieve smooth linear movement between nodes
+that, for the most part, appears to use a cell-based grid, which also allowing more customized offsets.
+
+The bigger downside was that I had to toss out almost all the existing code for the game, only keeping the audio and most of the texturing system, as well as the initialization code. It also meant I was using floating points for a lot of internal state, which is not ideal.
+
+This ended up being okay though, as I was able to clean up a lot of gross code, and the system ended up being easier to work with by comparison.
 
 [code-review-video]: https://www.youtube.com/watch?v=OKs_JewEeOo
 [code-review-thumbnail]: https://img.youtube.com/vi/OKs_JewEeOo/hqdefault.jpg
