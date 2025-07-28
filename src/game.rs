@@ -36,7 +36,6 @@ pub struct Game {
     atlas: SpriteAtlas,
     map_texture: AtlasTile,
     text_texture: TextTexture,
-    debug_text_texture: TextTexture,
 
     // Audio
     pub audio: Audio,
@@ -71,9 +70,9 @@ impl Game {
         map_texture.color = Some(Color::RGB(0x20, 0x20, 0xf9));
 
         let text_texture = TextTexture::new(1.0);
-        let debug_text_texture = TextTexture::new(0.5);
         let audio = Audio::new();
         let pacman = Pacman::new(&map.graph, pacman_start_node, &atlas);
+
         Game {
             score: 0,
             map,
@@ -81,7 +80,6 @@ impl Game {
             debug_mode: false,
             map_texture,
             text_texture,
-            debug_text_texture,
             audio,
             atlas,
         }
@@ -92,7 +90,6 @@ impl Game {
 
         if keycode == Keycode::M {
             self.audio.set_mute(!self.audio.is_muted());
-            return;
         }
     }
 
@@ -122,7 +119,6 @@ impl Game {
     }
 
     fn draw_hud<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>) -> Result<()> {
-        let score_text = self.score.to_string();
         let lives = 3;
         let score_text = format!("{:02}", self.score);
         let x_offset = 4;

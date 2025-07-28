@@ -81,7 +81,7 @@ impl Map {
         // Iterate over the queue, adding nodes to the graph and connecting them to their neighbors
         while let Some(source_position) = queue.pop_front() {
             for &dir in DIRECTIONS.iter() {
-                let new_position = source_position + dir.to_ivec2();
+                let new_position = source_position + dir.as_ivec2();
 
                 // Skip if the new position is out of bounds
                 if new_position.x < 0
@@ -114,7 +114,7 @@ impl Map {
                     // Connect the new node to the source node
                     let source_node_id = grid_to_node
                         .get(&source_position)
-                        .expect(&format!("Source node not found for {source_position}"));
+                        .unwrap_or_else(|| panic!("Source node not found for {source_position}"));
 
                     // Connect the new node to the source node
                     graph
@@ -129,7 +129,7 @@ impl Map {
             for dir in DIRECTIONS {
                 // If the node doesn't have an edge in this direction, look for a neighbor in that direction
                 if graph.adjacency_list[node_id].get(dir).is_none() {
-                    let neighbor = grid_pos + dir.to_ivec2();
+                    let neighbor = grid_pos + dir.as_ivec2();
                     // If the neighbor exists, connect the node to it
                     if let Some(&neighbor_id) = grid_to_node.get(&neighbor) {
                         graph
@@ -198,10 +198,10 @@ impl Map {
         let (house_entrance_node_id, house_entrance_node_position) = {
             // Translate the grid positions to the actual node ids
             let left_node = grid_to_node
-                .get(&(house_door[0].expect("First house door position not acquired") + Direction::Left.to_ivec2()))
+                .get(&(house_door[0].expect("First house door position not acquired") + Direction::Left.as_ivec2()))
                 .expect("Left house door node  not found");
             let right_node = grid_to_node
-                .get(&(house_door[1].expect("Second house door position not acquired") + Direction::Right.to_ivec2()))
+                .get(&(house_door[1].expect("Second house door position not acquired") + Direction::Right.as_ivec2()))
                 .expect("Right house door node  not found");
 
             // Calculate the position of the house node
@@ -230,10 +230,10 @@ impl Map {
             // Place the nodes at, above, and below the center position
             let center_node_id = graph.add_node(Node { position: center_pos });
             let top_node_id = graph.add_node(Node {
-                position: center_pos + (Direction::Up.to_ivec2() * (CELL_SIZE as i32 / 2)).as_vec2(),
+                position: center_pos + (Direction::Up.as_ivec2() * (CELL_SIZE as i32 / 2)).as_vec2(),
             });
             let bottom_node_id = graph.add_node(Node {
-                position: center_pos + (Direction::Down.to_ivec2() * (CELL_SIZE as i32 / 2)).as_vec2(),
+                position: center_pos + (Direction::Down.as_ivec2() * (CELL_SIZE as i32 / 2)).as_vec2(),
             });
 
             // Connect the center node to the top and bottom nodes
@@ -249,7 +249,7 @@ impl Map {
 
         // Calculate the position of the center line's center node
         let center_line_center_position =
-            house_entrance_node_position + (Direction::Down.to_ivec2() * (3 * CELL_SIZE as i32)).as_vec2();
+            house_entrance_node_position + (Direction::Down.as_ivec2() * (3 * CELL_SIZE as i32)).as_vec2();
 
         // Create the center line
         let (center_center_node_id, center_top_node_id) = create_house_line(graph, center_line_center_position);
@@ -262,13 +262,13 @@ impl Map {
         // Create the left line
         let (left_center_node_id, _) = create_house_line(
             graph,
-            center_line_center_position + (Direction::Left.to_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
+            center_line_center_position + (Direction::Left.as_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
         );
 
         // Create the right line
         let (right_center_node_id, _) = create_house_line(
             graph,
-            center_line_center_position + (Direction::Right.to_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
+            center_line_center_position + (Direction::Right.as_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
         );
 
         debug!("Left center node id: {left_center_node_id}");
@@ -300,7 +300,7 @@ impl Map {
                     Direction::Left,
                     Node {
                         position: left_tunnel_entrance_node.position
-                            + (Direction::Left.to_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
+                            + (Direction::Left.as_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
                     },
                 )
                 .expect("Failed to connect left tunnel entrance to left tunnel hidden node")
@@ -319,7 +319,7 @@ impl Map {
                     Direction::Right,
                     Node {
                         position: right_tunnel_entrance_node.position
-                            + (Direction::Right.to_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
+                            + (Direction::Right.as_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
                     },
                 )
                 .expect("Failed to connect right tunnel entrance to right tunnel hidden node")

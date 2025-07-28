@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Cross-platform asset loading abstraction.
 //! On desktop, assets are embedded using include_bytes!; on Emscripten, assets are loaded from the filesystem.
 
@@ -5,7 +6,6 @@ use std::borrow::Cow;
 use std::io;
 use thiserror::Error;
 
-#[allow(dead_code)]
 #[derive(Error, Debug)]
 pub enum AssetError {
     #[error("IO error: {0}")]

@@ -18,7 +18,7 @@ impl Direction {
         }
     }
 
-    pub fn to_ivec2(&self) -> IVec2 {
+    pub fn as_ivec2(&self) -> IVec2 {
         (*self).into()
     }
 }

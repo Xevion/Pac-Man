@@ -35,7 +35,7 @@ impl AnimatedTexture {
     }
 
     pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, dest: Rect) -> Result<()> {
-        let mut tile = self.current_tile().clone();
+        let mut tile = *self.current_tile();
         tile.render(canvas, atlas, dest)
     }
 }

@@ -11,11 +11,18 @@ const SOUND_ASSETS: [Asset; 4] = [Asset::Wav1, Asset::Wav2, Asset::Wav3, Asset::
 ///
 /// This struct is responsible for initializing the audio device, loading sounds,
 /// and playing them.
+#[allow(dead_code)]
 pub struct Audio {
     _mixer_context: mixer::Sdl2MixerContext,
     sounds: Vec<Chunk>,
     next_sound_index: usize,
     muted: bool,
+}
+
+impl Default for Audio {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Audio {
@@ -57,6 +64,7 @@ impl Audio {
     }
 
     /// Plays the "eat" sound effect.
+    #[allow(dead_code)]
     pub fn eat(&mut self) {
         if let Some(chunk) = self.sounds.get(self.next_sound_index) {
             match mixer::Channel(0).play(chunk, 0) {

@@ -76,15 +76,30 @@ impl SpriteAtlas {
         })
     }
 
+    #[allow(dead_code)]
     pub fn set_color(&mut self, color: Color) {
         self.default_color = Some(color);
     }
 
+    #[allow(dead_code)]
     pub fn texture(&self) -> &Texture<'static> {
         &self.texture
     }
 }
 
+/// Converts a `Texture` to a `Texture<'static>` using transmute.
+///
+/// # Safety
+///
+/// This function is unsafe because it uses `std::mem::transmute` to change the lifetime
+/// of the texture from the original lifetime to `'static`. The caller must ensure that:
+///
+/// - The original `Texture` will live for the entire duration of the program
+/// - No references to the original texture exist that could become invalid
+/// - The texture is not dropped while still being used as a `'static` reference
+///
+/// This is typically used when you have a texture that you know will live for the entire
+/// program duration and need to store it in a structure that requires a `'static` lifetime.
 pub unsafe fn texture_to_static(texture: Texture) -> Texture<'static> {
     std::mem::transmute(texture)
 }

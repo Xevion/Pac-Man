@@ -28,7 +28,7 @@ pub struct Node {
 /// Each field contains an optional edge leading in that direction.
 /// This structure is used to represent the adjacency list for each node,
 /// providing O(1) access to edges in any cardinal direction.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Intersection {
     /// Edge leading upward from this node, if it exists.
     pub up: Option<Edge>,
@@ -38,17 +38,6 @@ pub struct Intersection {
     pub left: Option<Edge>,
     /// Edge leading rightward from this node, if it exists.
     pub right: Option<Edge>,
-}
-
-impl Default for Intersection {
-    fn default() -> Self {
-        Self {
-            up: None,
-            down: None,
-            left: None,
-            right: None,
-        }
-    }
 }
 
 impl Intersection {
@@ -253,6 +242,7 @@ pub enum Position {
     },
 }
 
+#[allow(dead_code)]
 impl Position {
     /// Returns `true` if the position is exactly at a node.
     pub fn is_at_node(&self) -> bool {
@@ -260,6 +250,7 @@ impl Position {
     }
 
     /// Returns the `NodeId` of the current or most recently departed node.
+    #[allow(clippy::wrong_self_convention)]
     pub fn from_node_id(&self) -> NodeId {
         match self {
             Position::AtNode(id) => *id,
@@ -268,6 +259,7 @@ impl Position {
     }
 
     /// Returns the `NodeId` of the destination node, if currently on an edge.
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_node_id(&self) -> Option<NodeId> {
         match self {
             Position::AtNode(_) => None,

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 //! This module provides text rendering using the texture atlas.
 //!
 //! The TextTexture system renders text from the atlas using character mapping.

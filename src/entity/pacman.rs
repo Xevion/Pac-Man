@@ -29,12 +29,12 @@ impl Pacman {
                 Direction::Right => "pacman/right",
             };
             let moving_tiles = vec![
-                SpriteAtlas::get_tile(&atlas, &format!("{}_a.png", moving_prefix)).unwrap(),
-                SpriteAtlas::get_tile(&atlas, &format!("{}_b.png", moving_prefix)).unwrap(),
-                SpriteAtlas::get_tile(&atlas, "pacman/full.png").unwrap(),
+                SpriteAtlas::get_tile(atlas, &format!("{moving_prefix}_a.png")).unwrap(),
+                SpriteAtlas::get_tile(atlas, &format!("{moving_prefix}_b.png")).unwrap(),
+                SpriteAtlas::get_tile(atlas, "pacman/full.png").unwrap(),
             ];
 
-            let stopped_tiles = vec![SpriteAtlas::get_tile(&atlas, &format!("{}_b.png", moving_prefix)).unwrap()];
+            let stopped_tiles = vec![SpriteAtlas::get_tile(atlas, &format!("{moving_prefix}_b.png")).unwrap()];
 
             textures.insert(direction, AnimatedTexture::new(moving_tiles, 0.08));
             stopped_textures.insert(direction, AnimatedTexture::new(stopped_tiles, 0.1));
