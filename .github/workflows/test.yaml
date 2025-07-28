@@ -19,7 +19,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
-          components: clippy
+          components: clippy, rustfmt
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
