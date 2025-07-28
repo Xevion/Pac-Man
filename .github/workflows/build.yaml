@@ -5,15 +5,13 @@ on: ["push", "pull_request"]
 permissions:
   contents: write
 
-env:
-  RUST_TOOLCHAIN: 1.86.0
-
 jobs:
   build:
     name: Build (${{ matrix.target }})
     strategy:
       fail-fast: false
       matrix:
+        toolchain: [1.88.0]
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
@@ -36,7 +34,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           target: ${{ matrix.target }}
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          toolchain: ${{ matrix.toolchain }}
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -98,7 +96,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           target: wasm32-unknown-emscripten
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          toolchain: 1.86.0 # we are unfortunately pinned to 1.86.0 for some reason, bulk-memory-opt related issues
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
