@@ -10,7 +10,7 @@ use sdl2::render::{Canvas, RenderTarget};
 use std::collections::{HashMap, VecDeque};
 use tracing::info;
 
-use crate::entity::graph::{Graph, Node};
+use crate::entity::graph::{Graph, Node, NodeId};
 use crate::texture::text::TextTexture;
 
 /// The game map, responsible for holding the tile-based layout and the navigation graph.
@@ -79,6 +79,9 @@ impl Map {
         };
         info!("House door node id: {house_door_node_id}");
 
+        // Connect the house door node to nearby nodes
+        Self::connect_house_door(&mut graph, house_door_node_id, &map);
+
         Map { current: map, graph }
     }
 
@@ -125,45 +128,121 @@ impl Map {
         let node_id = graph.add_node(Node { position: pos });
         grid_to_node.insert(start_pos, node_id);
 
-        while let Some(grid_pos) = queue.pop_front() {
+        while let Some(source_position) = queue.pop_front() {
             for &dir in DIRECTIONS.iter() {
-                let neighbor = grid_pos + dir.to_ivec2();
+                let new_position = source_position + dir.to_ivec2();
 
-                if neighbor.x < 0
-                    || neighbor.x >= BOARD_CELL_SIZE.x as i32
-                    || neighbor.y < 0
-                    || neighbor.y >= BOARD_CELL_SIZE.y as i32
+                if new_position.x < 0
+                    || new_position.x >= BOARD_CELL_SIZE.x as i32
+                    || new_position.y < 0
+                    || new_position.y >= BOARD_CELL_SIZE.y as i32
                 {
                     continue;
                 }
 
-                if grid_to_node.contains_key(&neighbor) {
+                if grid_to_node.contains_key(&new_position) {
                     continue;
                 }
 
                 if matches!(
-                    map[neighbor.x as usize][neighbor.y as usize],
+                    map[new_position.x as usize][new_position.y as usize],
                     MapTile::Pellet | MapTile::PowerPellet | MapTile::Empty | MapTile::Tunnel | MapTile::StartingPosition(_)
                 ) {
-                    let pos =
-                        Vec2::new((neighbor.x * CELL_SIZE as i32) as f32, (neighbor.y * CELL_SIZE as i32) as f32) + cell_offset;
-                    let node_id = graph.add_node(Node { position: pos });
-                    grid_to_node.insert(neighbor, node_id);
-                    queue.push_back(neighbor);
+                    let pos = Vec2::new(
+                        (new_position.x * CELL_SIZE as i32) as f32,
+                        (new_position.y * CELL_SIZE as i32) as f32,
+                    ) + cell_offset;
+                    let new_node_id = graph.add_node(Node { position: pos });
+                    grid_to_node.insert(new_position, new_node_id);
+                    queue.push_back(new_position);
+
+                    // Connect the new node to the source node
+                    let source_node_id = grid_to_node
+                        .get(&source_position)
+                        .expect(&format!("Source node not found for {source_position}"));
+
+                    graph
+                        .connect(*source_node_id, new_node_id, None, dir)
+                        .expect("Failed to add edge");
                 }
             }
         }
 
         for (grid_pos, &node_id) in &grid_to_node {
-            for &dir in DIRECTIONS.iter() {
-                let neighbor = grid_pos + dir.to_ivec2();
-
-                if let Some(&neighbor_id) = grid_to_node.get(&neighbor) {
-                    graph.add_edge(node_id, neighbor_id, None, dir).expect("Failed to add edge");
+            for dir in DIRECTIONS {
+                if graph.adjacency_list[node_id].get(dir).is_none() {
+                    let neighbor = grid_pos + dir.to_ivec2();
+                    if let Some(&neighbor_id) = grid_to_node.get(&neighbor) {
+                        let _ = graph.connect(node_id, neighbor_id, None, dir);
+                    }
                 }
             }
         }
+
         graph
+    }
+
+    /// Connects the house door node to nearby walkable nodes in the graph.
+    ///
+    /// This function finds nodes within a reasonable distance of the house door
+    /// and creates bidirectional connections to them.
+    fn connect_house_door(
+        graph: &mut Graph,
+        house_door_node_id: NodeId,
+        _map: &[[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
+    ) {
+        let house_position = graph.get_node(house_door_node_id).unwrap().position;
+        let connection_distance = CELL_SIZE as f32 * 1.5; // Connect to nodes within 1.5 cells
+
+        // Find all nodes that should be connected to the house door
+        for node_id in 0..graph.node_count() {
+            if node_id == house_door_node_id {
+                continue; // Skip the house door node itself
+            }
+
+            let node_position = graph.get_node(node_id).unwrap().position;
+            let distance = house_position.distance(node_position);
+
+            if distance <= connection_distance {
+                // Determine the direction from house door to this node
+                let direction = Self::direction_from_to(house_position, node_position);
+
+                // Add bidirectional connection
+                if let Err(e) = graph.add_edge(house_door_node_id, node_id, None, direction) {
+                    info!("Failed to connect house door to node {}: {}", node_id, e);
+                }
+
+                // Add reverse connection
+                let reverse_direction = direction.opposite();
+                if let Err(e) = graph.add_edge(node_id, house_door_node_id, None, reverse_direction) {
+                    info!("Failed to connect node {} to house door: {}", node_id, e);
+                }
+            }
+        }
+    }
+
+    /// Determines the primary direction from one position to another.
+    ///
+    /// This is a simplified direction calculation that prioritizes the axis
+    /// with the larger difference.
+    fn direction_from_to(from: Vec2, to: Vec2) -> crate::entity::direction::Direction {
+        let diff = to - from;
+        let abs_x = diff.x.abs();
+        let abs_y = diff.y.abs();
+
+        if abs_x > abs_y {
+            if diff.x > 0.0 {
+                crate::entity::direction::Direction::Right
+            } else {
+                crate::entity::direction::Direction::Left
+            }
+        } else {
+            if diff.y > 0.0 {
+                crate::entity::direction::Direction::Down
+            } else {
+                crate::entity::direction::Direction::Up
+            }
+        }
     }
 
     /// Finds the starting position for a given entity ID.
@@ -213,15 +292,14 @@ impl Map {
             let pos = node.position + BOARD_PIXEL_OFFSET.as_vec2();
 
             // Draw connections
-            // TODO: fix this
-            // canvas.set_draw_color(Color::BLUE);
+            canvas.set_draw_color(Color::BLUE);
 
-            // for neighbor in node.neighbors() {
-            //     let end_pos = neighbor.get(&self.node_map).position + BOARD_PIXEL_OFFSET.as_vec2();
-            //     canvas
-            //         .draw_line((pos.x as i32, pos.y as i32), (end_pos.x as i32, end_pos.y as i32))
-            //         .unwrap();
-            // }
+            for edge in self.graph.adjacency_list[i].edges() {
+                let end_pos = self.graph.get_node(edge.target).unwrap().position + BOARD_PIXEL_OFFSET.as_vec2();
+                canvas
+                    .draw_line((pos.x as i32, pos.y as i32), (end_pos.x as i32, end_pos.y as i32))
+                    .unwrap();
+            }
 
             // Draw node
             // let color = if pacman.position.from_node_idx() == i.into() {

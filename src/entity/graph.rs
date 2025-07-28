@@ -1,5 +1,7 @@
 use glam::Vec2;
 
+use crate::entity::direction::DIRECTIONS;
+
 use super::direction::Direction;
 
 /// A unique identifier for a node, represented by its index in the graph's storage.
@@ -59,6 +61,11 @@ impl Intersection {
         [self.up, self.down, self.left, self.right].into_iter().flatten()
     }
 
+    /// Returns an iterator over all directions that don't have an edge.
+    pub fn empty_directions(&self) -> impl Iterator<Item = Direction> + '_ {
+        DIRECTIONS.into_iter().filter(|dir| self.get(*dir).is_none())
+    }
+
     /// Retrieves the edge in the specified direction, if it exists.
     pub fn get(&self, direction: Direction) -> Option<Edge> {
         match direction {
@@ -89,7 +96,7 @@ impl Intersection {
 /// in an adjacency list, where each node has a list of outgoing edges.
 pub struct Graph {
     nodes: Vec<Node>,
-    adjacency_list: Vec<Intersection>,
+    pub adjacency_list: Vec<Intersection>,
 }
 
 impl Graph {
@@ -107,6 +114,31 @@ impl Graph {
         self.nodes.push(data);
         self.adjacency_list.push(Intersection::default());
         id
+    }
+
+    /// Connects a new node to the graph and adds an edge between the existing node and the new node.
+    pub fn connect_node(&mut self, from: NodeId, direction: Direction, new_node: Node) -> Result<(), &'static str> {
+        let to = self.add_node(new_node);
+        self.connect(from, to, None, direction)
+    }
+
+    /// Connects two existing nodes with an edge.
+    pub fn connect(&mut self, from: NodeId, to: NodeId, distance: Option<f32>, direction: Direction) -> Result<(), &'static str> {
+        if from >= self.adjacency_list.len() {
+            return Err("From node does not exist.");
+        }
+        if to >= self.adjacency_list.len() {
+            return Err("To node does not exist.");
+        }
+
+        let edge_a = self.add_edge(from, to, distance, direction);
+        let edge_b = self.add_edge(to, from, distance, direction.opposite());
+
+        if edge_a.is_err() && edge_b.is_err() {
+            return Err("Failed to connect nodes in both directions.");
+        }
+
+        Ok(())
     }
 
     /// Adds a directed edge between two nodes.
