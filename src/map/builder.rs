@@ -6,7 +6,6 @@ use crate::entity::graph::{Graph, Node, NodeId};
 use crate::map::parser::MapTileParser;
 use crate::map::render::MapRenderer;
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
-use crate::texture::text::TextTexture;
 use glam::{IVec2, UVec2, Vec2};
 use sdl2::render::{Canvas, RenderTarget};
 use std::collections::{HashMap, VecDeque};
@@ -189,8 +188,8 @@ impl Map {
     /// This function is intended for development and debugging purposes. It draws the
     /// nodes and edges of the graph on top of the map, allowing for visual
     /// inspection of the navigation paths.
-    pub fn debug_render_nodes<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, text: &mut TextTexture) {
-        MapRenderer::debug_render_nodes(&self.graph, canvas, atlas, text);
+    pub fn debug_render_nodes<T: RenderTarget>(&self, canvas: &mut Canvas<T>) {
+        MapRenderer::debug_render_nodes(&self.graph, canvas);
     }
 
     /// Builds the house structure in the graph.

@@ -2,7 +2,6 @@
 
 use crate::constants::{BOARD_PIXEL_OFFSET, BOARD_PIXEL_SIZE};
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
-use crate::texture::text::TextTexture;
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::{Canvas, RenderTarget};
@@ -30,12 +29,7 @@ impl MapRenderer {
     /// This function is intended for development and debugging purposes. It draws the
     /// nodes and edges of the graph on top of the map, allowing for visual
     /// inspection of the navigation paths.
-    pub fn debug_render_nodes<T: RenderTarget>(
-        graph: &crate::entity::graph::Graph,
-        canvas: &mut Canvas<T>,
-        _atlas: &mut SpriteAtlas,
-        _text: &mut TextTexture,
-    ) {
+    pub fn debug_render_nodes<T: RenderTarget>(graph: &crate::entity::graph::Graph, canvas: &mut Canvas<T>) {
         for i in 0..graph.node_count() {
             let node = graph.get_node(i).unwrap();
             let pos = node.position + BOARD_PIXEL_OFFSET.as_vec2();

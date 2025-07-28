@@ -114,8 +114,7 @@ impl Game {
     pub fn present_backbuffer<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>, backbuffer: &Texture) -> Result<()> {
         canvas.copy(backbuffer, None, None).map_err(anyhow::Error::msg)?;
         if self.debug_mode {
-            self.map
-                .debug_render_nodes(canvas, &mut self.atlas, &mut self.debug_text_texture);
+            self.map.debug_render_nodes(canvas);
         }
         self.draw_hud(canvas)?;
         canvas.present();
