@@ -1,125 +1,16 @@
-//! This module defines the game map and provides functions for interacting with it.
+//! Map construction and building functionality.
 
-use crate::constants::{MapTile, BOARD_CELL_SIZE, BOARD_PIXEL_OFFSET, BOARD_PIXEL_SIZE, CELL_SIZE};
+use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE};
 use crate::entity::direction::{Direction, DIRECTIONS};
+use crate::entity::graph::{Graph, Node, NodeId};
+use crate::map::parser::MapTileParser;
+use crate::map::render::MapRenderer;
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
+use crate::texture::text::TextTexture;
 use glam::{IVec2, UVec2, Vec2};
-use sdl2::pixels::Color;
-use sdl2::rect::{Point, Rect};
 use sdl2::render::{Canvas, RenderTarget};
 use std::collections::{HashMap, VecDeque};
 use tracing::debug;
-
-use crate::entity::graph::{Graph, Node, NodeId};
-use crate::texture::text::TextTexture;
-
-/// Error type for map parsing operations.
-#[derive(Debug, thiserror::Error)]
-pub enum ParseError {
-    #[error("Unknown character in board: {0}")]
-    UnknownCharacter(char),
-    #[error("House door must have exactly 2 positions, found {0}")]
-    InvalidHouseDoorCount(usize),
-}
-
-/// Represents the parsed data from a raw board layout.
-#[derive(Debug)]
-pub struct ParsedMap {
-    /// The parsed tile layout.
-    pub tiles: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
-    /// The positions of the house door tiles.
-    pub house_door: [Option<IVec2>; 2],
-    /// The positions of the tunnel end tiles.
-    pub tunnel_ends: [Option<IVec2>; 2],
-}
-
-/// Parser for converting raw board layouts into structured map data.
-pub struct MapTileParser;
-
-impl MapTileParser {
-    /// Parses a single character into a map tile.
-    ///
-    /// # Arguments
-    ///
-    /// * `c` - The character to parse
-    /// * `_x` - The x coordinate of the character (unused but kept for API consistency)
-    /// * `_y` - The y coordinate of the character (unused but kept for API consistency)
-    ///
-    /// # Returns
-    ///
-    /// The parsed map tile, or an error if the character is unknown.
-    pub fn parse_character(c: char) -> Result<MapTile, ParseError> {
-        match c {
-            '#' => Ok(MapTile::Wall),
-            '.' => Ok(MapTile::Pellet),
-            'o' => Ok(MapTile::PowerPellet),
-            ' ' => Ok(MapTile::Empty),
-            'T' => Ok(MapTile::Tunnel),
-            c @ '0'..='4' => Ok(MapTile::StartingPosition(c.to_digit(10).unwrap() as u8)),
-            '=' => Ok(MapTile::Wall), // House door is represented as a wall tile
-            _ => Err(ParseError::UnknownCharacter(c)),
-        }
-    }
-
-    /// Parses a raw board layout into structured map data.
-    ///
-    /// # Arguments
-    ///
-    /// * `raw_board` - The raw board layout as an array of strings
-    ///
-    /// # Returns
-    ///
-    /// The parsed map data, or an error if parsing fails.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the board contains unknown characters or if the house door
-    /// is not properly defined by exactly two '=' characters.
-    pub fn parse_board(raw_board: [&str; BOARD_CELL_SIZE.y as usize]) -> Result<ParsedMap, ParseError> {
-        let mut tiles = [[MapTile::Empty; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize];
-        let mut house_door = [None; 2];
-        let mut tunnel_ends = [None; 2];
-
-        for (y, line) in raw_board.iter().enumerate().take(BOARD_CELL_SIZE.y as usize) {
-            for (x, character) in line.chars().enumerate().take(BOARD_CELL_SIZE.x as usize) {
-                let tile = Self::parse_character(character)?;
-
-                // Track special positions
-                match tile {
-                    MapTile::Tunnel => {
-                        if tunnel_ends[0].is_none() {
-                            tunnel_ends[0] = Some(IVec2::new(x as i32, y as i32));
-                        } else {
-                            tunnel_ends[1] = Some(IVec2::new(x as i32, y as i32));
-                        }
-                    }
-                    MapTile::Wall if character == '=' => {
-                        if house_door[0].is_none() {
-                            house_door[0] = Some(IVec2::new(x as i32, y as i32));
-                        } else {
-                            house_door[1] = Some(IVec2::new(x as i32, y as i32));
-                        }
-                    }
-                    _ => {}
-                }
-
-                tiles[x][y] = tile;
-            }
-        }
-
-        // Validate house door configuration
-        let house_door_count = house_door.iter().filter(|x| x.is_some()).count();
-        if house_door_count != 2 {
-            return Err(ParseError::InvalidHouseDoorCount(house_door_count));
-        }
-
-        Ok(ParsedMap {
-            tiles,
-            house_door,
-            tunnel_ends,
-        })
-    }
-}
 
 /// The game map, responsible for holding the tile-based layout and the navigation graph.
 ///
@@ -250,6 +141,60 @@ impl Map {
             }
         }
 
+        // Build house structure
+        Self::build_house(&mut graph, &grid_to_node, &house_door);
+
+        // Build tunnel connections
+        Self::build_tunnels(&mut graph, &grid_to_node, &tunnel_ends);
+
+        Map {
+            current: map,
+            grid_to_node,
+            graph,
+        }
+    }
+
+    /// Finds the starting position for a given entity ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity_id` - The entity ID (0 for Pac-Man, 1-4 for ghosts)
+    ///
+    /// # Returns
+    ///
+    /// The starting position as a grid coordinate (`UVec2`), or `None` if not found.
+    pub fn find_starting_position(&self, entity_id: u8) -> Option<UVec2> {
+        for (x, col) in self.current.iter().enumerate().take(BOARD_CELL_SIZE.x as usize) {
+            for (y, &cell) in col.iter().enumerate().take(BOARD_CELL_SIZE.y as usize) {
+                if let MapTile::StartingPosition(id) = cell {
+                    if id == entity_id {
+                        return Some(UVec2::new(x as u32, y as u32));
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Renders the map to the given canvas.
+    ///
+    /// This function draws the static map texture to the screen at the correct
+    /// position and scale.
+    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, map_texture: &mut AtlasTile) {
+        MapRenderer::render_map(canvas, atlas, map_texture);
+    }
+
+    /// Renders a debug visualization of the navigation graph.
+    ///
+    /// This function is intended for development and debugging purposes. It draws the
+    /// nodes and edges of the graph on top of the map, allowing for visual
+    /// inspection of the navigation paths.
+    pub fn debug_render_nodes<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, text: &mut TextTexture) {
+        MapRenderer::debug_render_nodes(&self.graph, canvas, atlas, text);
+    }
+
+    /// Builds the house structure in the graph.
+    fn build_house(graph: &mut Graph, grid_to_node: &HashMap<IVec2, NodeId>, house_door: &[Option<IVec2>; 2]) {
         // Calculate the position of the house entrance node
         let (house_entrance_node_id, house_entrance_node_position) = {
             // Translate the grid positions to the actual node ids
@@ -308,7 +253,7 @@ impl Map {
             house_entrance_node_position + (Direction::Down.to_ivec2() * (3 * CELL_SIZE as i32)).as_vec2();
 
         // Create the center line
-        let (center_center_node_id, center_top_node_id) = create_house_line(&mut graph, center_line_center_position);
+        let (center_center_node_id, center_top_node_id) = create_house_line(graph, center_line_center_position);
 
         // Connect the house entrance to the top line
         graph
@@ -317,13 +262,13 @@ impl Map {
 
         // Create the left line
         let (left_center_node_id, _) = create_house_line(
-            &mut graph,
+            graph,
             center_line_center_position + (Direction::Left.to_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
         );
 
         // Create the right line
         let (right_center_node_id, _) = create_house_line(
-            &mut graph,
+            graph,
             center_line_center_position + (Direction::Right.to_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
         );
 
@@ -339,7 +284,10 @@ impl Map {
             .expect("Failed to connect house entrance to right top line");
 
         debug!("House entrance node id: {house_entrance_node_id}");
+    }
 
+    /// Builds the tunnel connections in the graph.
+    fn build_tunnels(graph: &mut Graph, grid_to_node: &HashMap<IVec2, NodeId>, tunnel_ends: &[Option<IVec2>; 2]) {
         // Create the hidden tunnel nodes
         let left_tunnel_hidden_node_id = {
             let left_tunnel_entrance_node_id = grid_to_node[&tunnel_ends[0].expect("Left tunnel end not found")];
@@ -388,146 +336,5 @@ impl Map {
                 Direction::Left,
             )
             .expect("Failed to connect left tunnel hidden node to right tunnel hidden node");
-
-        Map {
-            current: map,
-            grid_to_node,
-            graph,
-        }
-    }
-
-    /// Finds the starting position for a given entity ID.
-    ///
-    /// # Arguments
-    ///
-    /// * `entity_id` - The entity ID (0 for Pac-Man, 1-4 for ghosts)
-    ///
-    /// # Returns
-    ///
-    /// The starting position as a grid coordinate (`UVec2`), or `None` if not found.
-    pub fn find_starting_position(&self, entity_id: u8) -> Option<UVec2> {
-        for (x, col) in self.current.iter().enumerate().take(BOARD_CELL_SIZE.x as usize) {
-            for (y, &cell) in col.iter().enumerate().take(BOARD_CELL_SIZE.y as usize) {
-                if let MapTile::StartingPosition(id) = cell {
-                    if id == entity_id {
-                        return Some(UVec2::new(x as u32, y as u32));
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    /// Renders the map to the given canvas.
-    ///
-    /// This function draws the static map texture to the screen at the correct
-    /// position and scale.
-    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, map_texture: &mut AtlasTile) {
-        let dest = Rect::new(
-            BOARD_PIXEL_OFFSET.x as i32,
-            BOARD_PIXEL_OFFSET.y as i32,
-            BOARD_PIXEL_SIZE.x,
-            BOARD_PIXEL_SIZE.y,
-        );
-        let _ = map_texture.render(canvas, atlas, dest);
-    }
-
-    /// Renders a debug visualization of the navigation graph.
-    ///
-    /// This function is intended for development and debugging purposes. It draws the
-    /// nodes and edges of the graph on top of the map, allowing for visual
-    /// inspection of the navigation paths.
-    pub fn debug_render_nodes<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, text: &mut TextTexture) {
-        for i in 0..self.graph.node_count() {
-            let node = self.graph.get_node(i).unwrap();
-            let pos = node.position + BOARD_PIXEL_OFFSET.as_vec2();
-
-            // Draw connections
-            canvas.set_draw_color(Color::BLUE);
-
-            for edge in self.graph.adjacency_list[i].edges() {
-                let end_pos = self.graph.get_node(edge.target).unwrap().position + BOARD_PIXEL_OFFSET.as_vec2();
-                canvas
-                    .draw_line((pos.x as i32, pos.y as i32), (end_pos.x as i32, end_pos.y as i32))
-                    .unwrap();
-            }
-
-            // Draw node
-            // let color = if pacman.position.from_node_idx() == i.into() {
-            //     Color::GREEN
-            // } else if let Some(to_idx) = pacman.position.to_node_idx() {
-            //     if to_idx == i.into() {
-            //         Color::CYAN
-            //     } else {
-            //         Color::RED
-            //     }
-            // } else {
-            //     Color::RED
-            // };
-            canvas.set_draw_color(Color::GREEN);
-            canvas
-                .fill_rect(Rect::new(0, 0, 3, 3).centered_on(Point::new(pos.x as i32, pos.y as i32)))
-                .unwrap();
-
-            // Draw node index
-            // text.render(canvas, atlas, &i.to_string(), pos.as_uvec2()).unwrap();
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::constants::RAW_BOARD;
-
-    #[test]
-    fn test_parse_character() {
-        assert!(matches!(MapTileParser::parse_character('#').unwrap(), MapTile::Wall));
-        assert!(matches!(MapTileParser::parse_character('.').unwrap(), MapTile::Pellet));
-        assert!(matches!(MapTileParser::parse_character('o').unwrap(), MapTile::PowerPellet));
-        assert!(matches!(MapTileParser::parse_character(' ').unwrap(), MapTile::Empty));
-        assert!(matches!(MapTileParser::parse_character('T').unwrap(), MapTile::Tunnel));
-        assert!(matches!(
-            MapTileParser::parse_character('0').unwrap(),
-            MapTile::StartingPosition(0)
-        ));
-        assert!(matches!(
-            MapTileParser::parse_character('4').unwrap(),
-            MapTile::StartingPosition(4)
-        ));
-        assert!(matches!(MapTileParser::parse_character('=').unwrap(), MapTile::Wall));
-
-        // Test invalid character
-        assert!(MapTileParser::parse_character('X').is_err());
-    }
-
-    #[test]
-    fn test_parse_board() {
-        let result = MapTileParser::parse_board(RAW_BOARD);
-        assert!(result.is_ok());
-
-        let parsed = result.unwrap();
-
-        // Verify we have tiles
-        assert_eq!(parsed.tiles.len(), BOARD_CELL_SIZE.x as usize);
-        assert_eq!(parsed.tiles[0].len(), BOARD_CELL_SIZE.y as usize);
-
-        // Verify we found house door positions
-        assert!(parsed.house_door[0].is_some());
-        assert!(parsed.house_door[1].is_some());
-
-        // Verify we found tunnel ends
-        assert!(parsed.tunnel_ends[0].is_some());
-        assert!(parsed.tunnel_ends[1].is_some());
-    }
-
-    #[test]
-    fn test_parse_board_invalid_character() {
-        let mut invalid_board = RAW_BOARD.clone();
-        invalid_board[0] = "###########################X";
-
-        let result = MapTileParser::parse_board(invalid_board);
-        assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), ParseError::UnknownCharacter('X')));
     }
 }
