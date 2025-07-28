@@ -7,17 +7,17 @@ use glam::{IVec2, UVec2, Vec2};
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::{Canvas, RenderTarget};
-use smallvec::SmallVec;
 use std::collections::{HashMap, VecDeque};
 use tracing::info;
 
 use crate::entity::graph::{Graph, Node};
 use crate::texture::text::TextTexture;
 
-/// The game map.
+/// The game map, responsible for holding the tile-based layout and the navigation graph.
 ///
-/// The map is represented as a 2D array of `MapTile`s. It also stores a copy of
-/// the original map, which can be used to reset the map to its initial state.
+/// The map is represented as a 2D array of `MapTile`s. It also stores a navigation
+/// `Graph` that entities like Pac-Man and ghosts use for movement. The graph is
+/// generated from the walkable tiles of the map.
 pub struct Map {
     /// The current state of the map.
     current: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
@@ -28,12 +28,16 @@ pub struct Map {
 impl Map {
     /// Creates a new `Map` instance from a raw board layout.
     ///
-    /// # Arguments
+    /// This constructor initializes the map tiles based on the provided character layout
+    /// and then generates a navigation graph from the walkable areas.
     ///
-    /// * `raw_board` - A 2D array of characters representing the board layout.
+    /// # Panics
+    ///
+    /// This function will panic if the board layout contains unknown characters or if
+    /// the house door is not defined by exactly two '=' characters.
     pub fn new(raw_board: [&str; BOARD_CELL_SIZE.y as usize]) -> Map {
         let mut map = [[MapTile::Empty; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize];
-        let mut house_door = SmallVec::<[IVec2; 2]>::new();
+        let mut house_door = [None; 2];
         for (y, line) in raw_board.iter().enumerate().take(BOARD_CELL_SIZE.y as usize) {
             for (x, character) in line.chars().enumerate().take(BOARD_CELL_SIZE.x as usize) {
                 let tile = match character {
@@ -44,7 +48,11 @@ impl Map {
                     'T' => MapTile::Tunnel,
                     c @ '0'..='4' => MapTile::StartingPosition(c.to_digit(10).unwrap() as u8),
                     '=' => {
-                        house_door.push(IVec2::new(x as i32, y as i32));
+                        if house_door[0].is_none() {
+                            house_door[0] = Some(IVec2::new(x as i32, y as i32));
+                        } else {
+                            house_door[1] = Some(IVec2::new(x as i32, y as i32));
+                        }
                         MapTile::Wall
                     }
                     _ => panic!("Unknown character in board: {character}"),
@@ -53,17 +61,17 @@ impl Map {
             }
         }
 
-        if house_door.len() != 2 {
+        if house_door.iter().filter(|x| x.is_some()).count() != 2 {
             panic!("House door must have exactly 2 positions");
         }
 
-        let mut graph = Self::create_graph(&map);
+        let mut graph = Self::generate_graph(&map);
 
         let house_door_node_id = {
             let offset = Vec2::splat(CELL_SIZE as f32 / 2.0);
 
-            let position_a = house_door[0].as_vec2() * Vec2::splat(CELL_SIZE as f32) + offset;
-            let position_b = house_door[1].as_vec2() * Vec2::splat(CELL_SIZE as f32) + offset;
+            let position_a = house_door[0].unwrap().as_vec2() * Vec2::splat(CELL_SIZE as f32) + offset;
+            let position_b = house_door[1].unwrap().as_vec2() * Vec2::splat(CELL_SIZE as f32) + offset;
             info!("Position A: {position_a}, Position B: {position_b}");
             let position = position_a.lerp(position_b, 0.5);
 
@@ -74,7 +82,13 @@ impl Map {
         Map { current: map, graph }
     }
 
-    fn create_graph(map: &[[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize]) -> Graph {
+    /// Generates a navigation graph from the given map layout.
+    ///
+    /// This function performs a breadth-first search (BFS) starting from Pac-Man's
+    /// initial position to identify all walkable tiles and create a connected graph.
+    /// Nodes are placed at the center of each walkable tile, and edges are created
+    /// between adjacent walkable tiles.
+    fn generate_graph(map: &[[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize]) -> Graph {
         let mut graph = Graph::new();
         let mut grid_to_node = HashMap::new();
 
@@ -160,7 +174,7 @@ impl Map {
     ///
     /// # Returns
     ///
-    /// The starting position as UVec2, or None if not found
+    /// The starting position as a grid coordinate (`UVec2`), or `None` if not found.
     pub fn find_starting_position(&self, entity_id: u8) -> Option<UVec2> {
         for (x, col) in self.current.iter().enumerate().take(BOARD_CELL_SIZE.x as usize) {
             for (y, &cell) in col.iter().enumerate().take(BOARD_CELL_SIZE.y as usize) {
@@ -174,7 +188,10 @@ impl Map {
         None
     }
 
-    /// Renders the map to the given canvas using the provided map texture.
+    /// Renders the map to the given canvas.
+    ///
+    /// This function draws the static map texture to the screen at the correct
+    /// position and scale.
     pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, map_texture: &mut AtlasTile) {
         let dest = Rect::new(
             BOARD_PIXEL_OFFSET.x as i32,
@@ -185,6 +202,11 @@ impl Map {
         let _ = map_texture.render(canvas, atlas, dest);
     }
 
+    /// Renders a debug visualization of the navigation graph.
+    ///
+    /// This function is intended for development and debugging purposes. It draws the
+    /// nodes and edges of the graph on top of the map, allowing for visual
+    /// inspection of the navigation paths.
     pub fn debug_render_nodes<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, text: &mut TextTexture) {
         for i in 0..self.graph.node_count() {
             let node = self.graph.get_node(i).unwrap();

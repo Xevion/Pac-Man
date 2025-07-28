@@ -1,5 +1,4 @@
 use glam::Vec2;
-use smallvec::SmallVec;
 
 use super::direction::Direction;
 
@@ -9,21 +8,88 @@ pub type NodeId = usize;
 /// Represents a directed edge from one node to another with a given weight (e.g., distance).
 #[derive(Debug, Clone, Copy)]
 pub struct Edge {
+    /// The destination node of this edge.
     pub target: NodeId,
+    /// The length of the edge.
     pub distance: f32,
+    /// The cardinal direction of this edge.
     pub direction: Direction,
 }
 
+/// Represents a node in the graph, defined by its position.
 #[derive(Debug)]
 pub struct Node {
+    /// The 2D coordinates of the node.
     pub position: Vec2,
 }
 
-/// A generic, arena-based graph.
-/// The graph owns all node data and connection information.
+/// Represents the four possible directions from a node in the graph.
+///
+/// Each field contains an optional edge leading in that direction.
+/// This structure is used to represent the adjacency list for each node,
+/// providing O(1) access to edges in any cardinal direction.
+#[derive(Debug)]
+pub struct Intersection {
+    /// Edge leading upward from this node, if it exists.
+    pub up: Option<Edge>,
+    /// Edge leading downward from this node, if it exists.
+    pub down: Option<Edge>,
+    /// Edge leading leftward from this node, if it exists.
+    pub left: Option<Edge>,
+    /// Edge leading rightward from this node, if it exists.
+    pub right: Option<Edge>,
+}
+
+impl Default for Intersection {
+    fn default() -> Self {
+        Self {
+            up: None,
+            down: None,
+            left: None,
+            right: None,
+        }
+    }
+}
+
+impl Intersection {
+    /// Returns an iterator over all edges from this intersection.
+    ///
+    /// This iterator yields only the edges that exist (non-None values).
+    pub fn edges(&self) -> impl Iterator<Item = Edge> {
+        [self.up, self.down, self.left, self.right].into_iter().flatten()
+    }
+
+    /// Retrieves the edge in the specified direction, if it exists.
+    pub fn get(&self, direction: Direction) -> Option<Edge> {
+        match direction {
+            Direction::Up => self.up,
+            Direction::Down => self.down,
+            Direction::Left => self.left,
+            Direction::Right => self.right,
+        }
+    }
+
+    /// Sets the edge in the specified direction.
+    ///
+    /// This will overwrite any existing edge in that direction.
+    pub fn set(&mut self, direction: Direction, edge: Edge) {
+        match direction {
+            Direction::Up => self.up = Some(edge),
+            Direction::Down => self.down = Some(edge),
+            Direction::Left => self.left = Some(edge),
+            Direction::Right => self.right = Some(edge),
+        }
+    }
+}
+
+/// A directed graph structure using an adjacency list representation.
+///
+/// Nodes are stored in a vector, and their indices serve as their `NodeId`.
+/// This design provides fast, O(1) lookups for node data. Edges are stored
+/// in an adjacency list, where each node has a list of outgoing edges.
 pub struct Graph {
     nodes: Vec<Node>,
-    adjacency_list: Vec<SmallVec<[Edge; 4]>>,
+    adjacency_list: Vec<Intersection>,
 }
 
 impl Graph {
@@ -39,11 +105,22 @@ impl Graph {
     pub fn add_node(&mut self, data: Node) -> NodeId {
         let id = self.nodes.len();
         self.nodes.push(data);
-        self.adjacency_list.push(SmallVec::new());
+        self.adjacency_list.push(Intersection::default());
         id
     }
 
     /// Adds a directed edge between two nodes.
+    ///
+    /// If `distance` is `None`, it will be calculated automatically based on the
+    /// Euclidean distance between the two nodes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The `from` node does not exist
+    /// - An edge already exists in the specified direction
+    /// - An edge already exists to the target node
+    /// - The provided distance is not positive
     pub fn add_edge(
         &mut self,
         from: NodeId,
@@ -77,7 +154,7 @@ impl Graph {
         let adjacency_list = &mut self.adjacency_list[from];
 
         // Check if the edge already exists in this direction or to the same target
-        if let Some(err) = adjacency_list.iter().find_map(|e| {
+        if let Some(err) = adjacency_list.edges().find_map(|e| {
             if e.direction == direction {
                 Some(Err("Edge already exists in this direction."))
             } else if e.target == to {
@@ -89,7 +166,7 @@ impl Graph {
             return err;
         }
 
-        adjacency_list.push(edge);
+        adjacency_list.set(direction, edge);
 
         Ok(())
     }
@@ -99,17 +176,19 @@ impl Graph {
         self.nodes.get(id)
     }
 
+    /// Returns the total number of nodes in the graph.
     pub fn node_count(&self) -> usize {
         self.nodes.len()
     }
 
     /// Finds a specific edge from a source node to a target node.
-    pub fn find_edge(&self, from: NodeId, to: NodeId) -> Option<&Edge> {
-        self.adjacency_list.get(from)?.iter().find(|edge| edge.target == to)
+    pub fn find_edge(&self, from: NodeId, to: NodeId) -> Option<Edge> {
+        self.adjacency_list.get(from)?.edges().find(|edge| edge.target == to)
     }
 
-    pub fn find_edge_in_direction(&self, from: NodeId, direction: Direction) -> Option<&Edge> {
-        self.adjacency_list.get(from)?.iter().find(|edge| edge.direction == direction)
+    /// Finds an edge originating from a given node that follows a specific direction.
+    pub fn find_edge_in_direction(&self, from: NodeId, direction: Direction) -> Option<Edge> {
+        self.adjacency_list.get(from)?.get(direction)
     }
 }
 
@@ -122,7 +201,10 @@ impl Default for Graph {
 
 // --- Traversal State and Logic ---
 
-/// Represents the traverser's current position within the graph.
+/// Represents the current position of an entity traversing the graph.
+///
+/// This enum allows for precise tracking of whether an entity is exactly at a node
+/// or moving along an edge between two nodes.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Position {
     /// The traverser is located exactly at a node.
@@ -137,10 +219,12 @@ pub enum Position {
 }
 
 impl Position {
+    /// Returns `true` if the position is exactly at a node.
     pub fn is_at_node(&self) -> bool {
         matches!(self, Position::AtNode(_))
     }
 
+    /// Returns the `NodeId` of the current or most recently departed node.
     pub fn from_node_id(&self) -> NodeId {
         match self {
             Position::AtNode(id) => *id,
@@ -148,6 +232,7 @@ impl Position {
         }
     }
 
+    /// Returns the `NodeId` of the destination node, if currently on an edge.
     pub fn to_node_id(&self) -> Option<NodeId> {
         match self {
             Position::AtNode(_) => None,
@@ -155,21 +240,34 @@ impl Position {
         }
     }
 
+    /// Returns `true` if the traverser is stopped at a node.
     pub fn is_stopped(&self) -> bool {
         matches!(self, Position::AtNode(_))
     }
 }
 
-/// Manages a traversal session over a graph.
-/// It holds a reference to the graph and the current position state.
+/// Manages an entity's movement through the graph.
+///
+/// A `Traverser` encapsulates the state of an entity's position and direction,
+/// providing a way to advance along the graph's paths based on a given distance.
+/// It also handles direction changes, buffering the next intended direction.
 pub struct Traverser {
+    /// The current position of the traverser in the graph.
     pub position: Position,
+    /// The current direction of movement.
     pub direction: Direction,
+    /// Buffered direction change with remaining frame count for timing.
+    ///
+    /// The `u8` value represents the number of frames remaining before
+    /// the buffered direction expires. This allows for responsive controls
+    /// by storing direction changes for a limited time.
     pub next_direction: Option<(Direction, u8)>,
 }
 
 impl Traverser {
     /// Creates a new traverser starting at the given node ID.
+    ///
+    /// The traverser will immediately attempt to start moving in the initial direction.
     pub fn new(graph: &Graph, start_node: NodeId, initial_direction: Direction) -> Self {
         let mut traverser = Traverser {
             position: Position::AtNode(start_node),
@@ -183,12 +281,27 @@ impl Traverser {
         traverser
     }
 
+    /// Sets the next direction for the traverser to take.
+    ///
+    /// The direction is buffered and will be applied at the next opportunity,
+    /// typically when the traverser reaches a new node. This allows for responsive
+    /// controls, as the new direction is stored for a limited time.
     pub fn set_next_direction(&mut self, new_direction: Direction) {
         if self.direction != new_direction {
             self.next_direction = Some((new_direction, 30));
         }
     }
 
+    /// Advances the traverser along the graph by a specified distance.
+    ///
+    /// This method updates the traverser's position based on its current state
+    /// and the distance to travel.
+    ///
+    /// - If at a node, it checks for a buffered direction to start moving.
+    /// - If between nodes, it moves along the current edge.
+    /// - If it reaches a node, it attempts to transition to a new edge based on
+    ///   the buffered direction or by continuing straight.
+    /// - If no valid move is possible, it stops at the node.
     pub fn advance(&mut self, graph: &Graph, distance: f32) {
         // Decrement the remaining frames for the next direction
         if let Some((direction, remaining)) = self.next_direction {
