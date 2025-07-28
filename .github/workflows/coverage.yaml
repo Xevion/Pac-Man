@@ -44,7 +44,12 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Generate coverage report
-        run: cargo tarpaulin --out Html --output-dir coverage
+        run: |
+          cargo tarpaulin \
+            --out Html \
+            --output-dir coverage \
+            # Manually link zlib. This should be synchronized with the flags set for Linux in .cargo/config.toml.
+            --rustflags="-C link-arg=-lz"
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
