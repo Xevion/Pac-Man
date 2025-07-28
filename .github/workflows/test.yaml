@@ -1,0 +1,51 @@
+name: Test
+
+on: ["push", "pull_request"]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: 1.86.0
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: target/vcpkg
+          key: A-vcpkg-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
+          restore-keys: |
+            A-vcpkg-${{ runner.os }}-
+
+      - name: Vcpkg Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libltdl-dev
+
+      - name: Vcpkg
+        run: |
+          cargo install cargo-vcpkg
+          cargo vcpkg -v build
+
+      - name: Run tests
+        run: cargo test --workspace --verbose
+
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Check formatting
+        run: cargo fmt -- --check
