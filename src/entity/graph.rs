@@ -61,11 +61,6 @@ impl Intersection {
         [self.up, self.down, self.left, self.right].into_iter().flatten()
     }
 
-    /// Returns an iterator over all directions that don't have an edge.
-    pub fn empty_directions(&self) -> impl Iterator<Item = Direction> + '_ {
-        DIRECTIONS.into_iter().filter(|dir| self.get(*dir).is_none())
-    }
-
     /// Retrieves the edge in the specified direction, if it exists.
     pub fn get(&self, direction: Direction) -> Option<Edge> {
         match direction {

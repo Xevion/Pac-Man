@@ -168,12 +168,15 @@ impl Map {
             }
         }
 
+        // While most nodes are already connected to their neighbors, some may not be
         for (grid_pos, &node_id) in &grid_to_node {
             for dir in DIRECTIONS {
+                // If the node doesn't have an edge in this direction, look for a neighbor in that direction
                 if graph.adjacency_list[node_id].get(dir).is_none() {
                     let neighbor = grid_pos + dir.to_ivec2();
+                    // If the neighbor exists, connect the node to it
                     if let Some(&neighbor_id) = grid_to_node.get(&neighbor) {
-                        let _ = graph.connect(node_id, neighbor_id, None, dir);
+                        graph.connect(node_id, neighbor_id, None, dir).expect("Failed to add edge");
                     }
                 }
             }
