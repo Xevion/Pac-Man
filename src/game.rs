@@ -50,8 +50,11 @@ impl Game {
     ) -> Game {
         let map = Map::new(RAW_BOARD);
 
-        let _pacman_start_pos = map.find_starting_position(0).unwrap();
-        let pacman_start_node = 0; // TODO: Find the actual start node
+        let pacman_start_pos = map.find_starting_position(0).unwrap();
+        let pacman_start_node = *map
+            .grid_to_node
+            .get(&glam::IVec2::new(pacman_start_pos.x as i32, pacman_start_pos.y as i32))
+            .expect("Pac-Man starting position not found in graph");
 
         let atlas_bytes = get_asset_bytes(Asset::Atlas).expect("Failed to load asset");
         let atlas_texture = unsafe {

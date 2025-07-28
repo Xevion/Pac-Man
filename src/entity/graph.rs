@@ -112,13 +112,21 @@ impl Graph {
     }
 
     /// Connects a new node to the graph and adds an edge between the existing node and the new node.
-    pub fn connect_node(&mut self, from: NodeId, direction: Direction, new_node: Node) -> Result<(), &'static str> {
+    pub fn connect_node(&mut self, from: NodeId, direction: Direction, new_node: Node) -> Result<NodeId, &'static str> {
         let to = self.add_node(new_node);
-        self.connect(from, to, None, direction)
+        self.connect(from, to, false, None, direction)?;
+        Ok(to)
     }
 
     /// Connects two existing nodes with an edge.
-    pub fn connect(&mut self, from: NodeId, to: NodeId, distance: Option<f32>, direction: Direction) -> Result<(), &'static str> {
+    pub fn connect(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        replace: bool,
+        distance: Option<f32>,
+        direction: Direction,
+    ) -> Result<(), &'static str> {
         if from >= self.adjacency_list.len() {
             return Err("From node does not exist.");
         }
@@ -126,8 +134,8 @@ impl Graph {
             return Err("To node does not exist.");
         }
 
-        let edge_a = self.add_edge(from, to, distance, direction);
-        let edge_b = self.add_edge(to, from, distance, direction.opposite());
+        let edge_a = self.add_edge(from, to, replace, distance, direction);
+        let edge_b = self.add_edge(to, from, replace, distance, direction.opposite());
 
         if edge_a.is_err() && edge_b.is_err() {
             return Err("Failed to connect nodes in both directions.");
@@ -152,6 +160,7 @@ impl Graph {
         &mut self,
         from: NodeId,
         to: NodeId,
+        replace: bool,
         distance: Option<f32>,
         direction: Direction,
     ) -> Result<(), &'static str> {
@@ -159,8 +168,8 @@ impl Graph {
             target: to,
             distance: match distance {
                 Some(distance) => {
-                    if distance <= 0.0 {
-                        return Err("Edge distance must be positive.");
+                    if distance < 0.0 {
+                        return Err("Edge distance must be on-negative.");
                     }
                     distance
                 }
@@ -182,7 +191,8 @@ impl Graph {
 
         // Check if the edge already exists in this direction or to the same target
         if let Some(err) = adjacency_list.edges().find_map(|e| {
-            if e.direction == direction {
+            // If we're not replacing the edge, we don't want to replace an edge that already exists in this direction
+            if !replace && e.direction == direction {
                 Some(Err("Edge already exists in this direction."))
             } else if e.target == to {
                 Some(Err("Edge already exists."))
