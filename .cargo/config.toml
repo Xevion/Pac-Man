@@ -5,6 +5,7 @@ rustflags = [
     "-C", "link-args=-sUSE_SDL=2 -sUSE_SDL_IMAGE=2 -sUSE_SDL_MIXER=2 -sUSE_OGG=1 -sUSE_SDL_GFX=2 -sUSE_SDL_TTF=2 -sSDL2_IMAGE_FORMATS=['png']",
     "-C", "link-args=--preload-file assets/game/",
 ]
+runner = "node"
 
 [target.'cfg(target_os = "linux")']
 rustflags = [
