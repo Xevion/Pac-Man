@@ -49,6 +49,16 @@ impl AtlasTile {
         canvas.copy(&atlas.texture, src, dest).map_err(anyhow::Error::msg)?;
         Ok(())
     }
+
+    // Helper methods for testing
+    pub fn new(pos: U16Vec2, size: U16Vec2, color: Option<Color>) -> Self {
+        Self { pos, size, color }
+    }
+
+    pub fn with_color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
 }
 
 pub struct SpriteAtlas {
@@ -85,6 +95,19 @@ impl SpriteAtlas {
     pub fn texture(&self) -> &Texture<'static> {
         &self.texture
     }
+
+    // Helper methods for testing
+    pub fn tiles_count(&self) -> usize {
+        self.tiles.len()
+    }
+
+    pub fn has_tile(&self, name: &str) -> bool {
+        self.tiles.contains_key(name)
+    }
+
+    pub fn default_color(&self) -> Option<Color> {
+        self.default_color
+    }
 }
 
 /// Converts a `Texture` to a `Texture<'static>` using transmute.
@@ -102,4 +125,237 @@ impl SpriteAtlas {
 /// program duration and need to store it in a structure that requires a `'static` lifetime.
 pub unsafe fn texture_to_static(texture: Texture) -> Texture<'static> {
     std::mem::transmute(texture)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sdl2::pixels::Color;
+
+    // Mock texture for testing - we'll use a dummy approach since we can't create real SDL2 textures
+    fn mock_texture() -> Texture<'static> {
+        // This is unsafe and only for testing - in real usage this would be a proper texture
+        unsafe { std::mem::transmute(0usize) }
+    }
+
+    #[test]
+    fn test_atlas_tile_new() {
+        let pos = U16Vec2::new(10, 20);
+        let size = U16Vec2::new(32, 32);
+        let tile = AtlasTile::new(pos, size, None);
+
+        assert_eq!(tile.pos, pos);
+        assert_eq!(tile.size, size);
+        assert_eq!(tile.color, None);
+    }
+
+    #[test]
+    fn test_atlas_tile_with_color() {
+        let pos = U16Vec2::new(10, 20);
+        let size = U16Vec2::new(32, 32);
+        let color = Color::RGB(255, 0, 0);
+        let tile = AtlasTile::new(pos, size, None).with_color(color);
+
+        assert_eq!(tile.pos, pos);
+        assert_eq!(tile.size, size);
+        assert_eq!(tile.color, Some(color));
+    }
+
+    #[test]
+    fn test_mapper_frame() {
+        let frame = MapperFrame {
+            x: 10,
+            y: 20,
+            width: 32,
+            height: 32,
+        };
+
+        assert_eq!(frame.x, 10);
+        assert_eq!(frame.y, 20);
+        assert_eq!(frame.width, 32);
+        assert_eq!(frame.height, 32);
+    }
+
+    #[test]
+    fn test_atlas_mapper_new() {
+        let mut frames = HashMap::new();
+        frames.insert(
+            "test".to_string(),
+            MapperFrame {
+                x: 0,
+                y: 0,
+                width: 32,
+                height: 32,
+            },
+        );
+
+        let mapper = AtlasMapper { frames };
+
+        assert_eq!(mapper.frames.len(), 1);
+        assert!(mapper.frames.contains_key("test"));
+    }
+
+    #[test]
+    fn test_sprite_atlas_new() {
+        let mut frames = HashMap::new();
+        frames.insert(
+            "test".to_string(),
+            MapperFrame {
+                x: 0,
+                y: 0,
+                width: 32,
+                height: 32,
+            },
+        );
+
+        let mapper = AtlasMapper { frames };
+        let texture = mock_texture();
+        let atlas = SpriteAtlas::new(texture, mapper);
+
+        assert_eq!(atlas.tiles_count(), 1);
+        assert!(atlas.has_tile("test"));
+        assert_eq!(atlas.default_color(), None);
+    }
+
+    #[test]
+    fn test_sprite_atlas_get_tile() {
+        let mut frames = HashMap::new();
+        frames.insert(
+            "test".to_string(),
+            MapperFrame {
+                x: 10,
+                y: 20,
+                width: 32,
+                height: 64,
+            },
+        );
+
+        let mapper = AtlasMapper { frames };
+        let texture = mock_texture();
+        let atlas = SpriteAtlas::new(texture, mapper);
+
+        let tile = atlas.get_tile("test");
+        assert!(tile.is_some());
+
+        let tile = tile.unwrap();
+        assert_eq!(tile.pos, U16Vec2::new(10, 20));
+        assert_eq!(tile.size, U16Vec2::new(32, 64));
+        assert_eq!(tile.color, None);
+    }
+
+    #[test]
+    fn test_sprite_atlas_get_tile_nonexistent() {
+        let mapper = AtlasMapper { frames: HashMap::new() };
+        let texture = mock_texture();
+        let atlas = SpriteAtlas::new(texture, mapper);
+
+        let tile = atlas.get_tile("nonexistent");
+        assert!(tile.is_none());
+    }
+
+    #[test]
+    fn test_sprite_atlas_set_color() {
+        let mapper = AtlasMapper { frames: HashMap::new() };
+        let texture = mock_texture();
+        let mut atlas = SpriteAtlas::new(texture, mapper);
+
+        assert_eq!(atlas.default_color(), None);
+
+        let color = Color::RGB(255, 0, 0);
+        atlas.set_color(color);
+
+        assert_eq!(atlas.default_color(), Some(color));
+    }
+
+    #[test]
+    fn test_sprite_atlas_empty() {
+        let mapper = AtlasMapper { frames: HashMap::new() };
+        let texture = mock_texture();
+        let atlas = SpriteAtlas::new(texture, mapper);
+
+        assert_eq!(atlas.tiles_count(), 0);
+        assert!(!atlas.has_tile("any"));
+    }
+
+    #[test]
+    fn test_sprite_atlas_multiple_tiles() {
+        let mut frames = HashMap::new();
+        frames.insert(
+            "tile1".to_string(),
+            MapperFrame {
+                x: 0,
+                y: 0,
+                width: 32,
+                height: 32,
+            },
+        );
+        frames.insert(
+            "tile2".to_string(),
+            MapperFrame {
+                x: 32,
+                y: 0,
+                width: 64,
+                height: 64,
+            },
+        );
+
+        let mapper = AtlasMapper { frames };
+        let texture = mock_texture();
+        let atlas = SpriteAtlas::new(texture, mapper);
+
+        assert_eq!(atlas.tiles_count(), 2);
+        assert!(atlas.has_tile("tile1"));
+        assert!(atlas.has_tile("tile2"));
+        assert!(!atlas.has_tile("tile3"));
+    }
+
+    #[test]
+    fn test_atlas_tile_clone() {
+        let pos = U16Vec2::new(10, 20);
+        let size = U16Vec2::new(32, 32);
+        let color = Color::RGB(255, 0, 0);
+        let tile = AtlasTile::new(pos, size, Some(color));
+        let cloned = tile;
+
+        assert_eq!(tile.pos, cloned.pos);
+        assert_eq!(tile.size, cloned.size);
+        assert_eq!(tile.color, cloned.color);
+    }
+
+    #[test]
+    fn test_mapper_frame_clone() {
+        let frame = MapperFrame {
+            x: 10,
+            y: 20,
+            width: 32,
+            height: 64,
+        };
+        let cloned = frame;
+
+        assert_eq!(frame.x, cloned.x);
+        assert_eq!(frame.y, cloned.y);
+        assert_eq!(frame.width, cloned.width);
+        assert_eq!(frame.height, cloned.height);
+    }
+
+    #[test]
+    fn test_atlas_mapper_clone() {
+        let mut frames = HashMap::new();
+        frames.insert(
+            "test".to_string(),
+            MapperFrame {
+                x: 0,
+                y: 0,
+                width: 32,
+                height: 32,
+            },
+        );
+
+        let mapper = AtlasMapper { frames };
+        let cloned = mapper.clone();
+
+        assert_eq!(mapper.frames.len(), cloned.frames.len());
+        assert!(mapper.frames.contains_key("test"));
+        assert!(cloned.frames.contains_key("test"));
+    }
 }

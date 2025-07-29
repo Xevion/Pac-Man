@@ -151,3 +151,228 @@ impl TextTexture {
         (8.0 * self.scale) as u32
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::texture::sprite::{AtlasMapper, MapperFrame, SpriteAtlas};
+    use std::collections::HashMap;
+
+    fn create_mock_atlas() -> SpriteAtlas {
+        let mut frames = HashMap::new();
+        frames.insert(
+            "text/A.png".to_string(),
+            MapperFrame {
+                x: 0,
+                y: 0,
+                width: 8,
+                height: 8,
+            },
+        );
+        frames.insert(
+            "text/1.png".to_string(),
+            MapperFrame {
+                x: 8,
+                y: 0,
+                width: 8,
+                height: 8,
+            },
+        );
+        frames.insert(
+            "text/!.png".to_string(),
+            MapperFrame {
+                x: 16,
+                y: 0,
+                width: 8,
+                height: 8,
+            },
+        );
+        frames.insert(
+            "text/-.png".to_string(),
+            MapperFrame {
+                x: 24,
+                y: 0,
+                width: 8,
+                height: 8,
+            },
+        );
+        frames.insert(
+            "text/_double_quote.png".to_string(),
+            MapperFrame {
+                x: 32,
+                y: 0,
+                width: 8,
+                height: 8,
+            },
+        );
+        frames.insert(
+            "text/_forward_slash.png".to_string(),
+            MapperFrame {
+                x: 40,
+                y: 0,
+                width: 8,
+                height: 8,
+            },
+        );
+
+        let mapper = AtlasMapper { frames };
+        // Note: In real tests, we'd need a proper texture, but for unit tests we can work around this
+        unsafe { SpriteAtlas::new(std::mem::zeroed(), mapper) }
+    }
+
+    #[test]
+    fn test_text_texture_new() {
+        let text_texture = TextTexture::new(1.0);
+        assert_eq!(text_texture.scale(), 1.0);
+        assert!(text_texture.char_map.is_empty());
+    }
+
+    #[test]
+    fn test_text_texture_new_with_scale() {
+        let text_texture = TextTexture::new(2.5);
+        assert_eq!(text_texture.scale(), 2.5);
+    }
+
+    #[test]
+    fn test_char_to_tile_name_letters() {
+        let text_texture = TextTexture::new(1.0);
+
+        assert_eq!(text_texture.char_to_tile_name('A'), Some("text/A.png".to_string()));
+        assert_eq!(text_texture.char_to_tile_name('Z'), Some("text/Z.png".to_string()));
+        assert_eq!(text_texture.char_to_tile_name('a'), None); // lowercase not supported
+    }
+
+    #[test]
+    fn test_char_to_tile_name_numbers() {
+        let text_texture = TextTexture::new(1.0);
+
+        assert_eq!(text_texture.char_to_tile_name('0'), Some("text/0.png".to_string()));
+        assert_eq!(text_texture.char_to_tile_name('9'), Some("text/9.png".to_string()));
+    }
+
+    #[test]
+    fn test_char_to_tile_name_special_characters() {
+        let text_texture = TextTexture::new(1.0);
+
+        assert_eq!(text_texture.char_to_tile_name('!'), Some("text/!.png".to_string()));
+        assert_eq!(text_texture.char_to_tile_name('-'), Some("text/-.png".to_string()));
+        assert_eq!(
+            text_texture.char_to_tile_name('"'),
+            Some("text/_double_quote.png".to_string())
+        );
+        assert_eq!(
+            text_texture.char_to_tile_name('/'),
+            Some("text/_forward_slash.png".to_string())
+        );
+    }
+
+    #[test]
+    fn test_char_to_tile_name_unsupported() {
+        let text_texture = TextTexture::new(1.0);
+
+        assert_eq!(text_texture.char_to_tile_name(' '), None);
+        assert_eq!(text_texture.char_to_tile_name('@'), None);
+        assert_eq!(text_texture.char_to_tile_name('a'), None);
+        assert_eq!(text_texture.char_to_tile_name('z'), None);
+    }
+
+    #[test]
+    fn test_set_scale() {
+        let mut text_texture = TextTexture::new(1.0);
+        assert_eq!(text_texture.scale(), 1.0);
+
+        text_texture.set_scale(3.0);
+        assert_eq!(text_texture.scale(), 3.0);
+
+        text_texture.set_scale(0.5);
+        assert_eq!(text_texture.scale(), 0.5);
+    }
+
+    #[test]
+    fn test_text_width_empty_string() {
+        let text_texture = TextTexture::new(1.0);
+        assert_eq!(text_texture.text_width(""), 0);
+    }
+
+    #[test]
+    fn test_text_width_single_character() {
+        let text_texture = TextTexture::new(1.0);
+        assert_eq!(text_texture.text_width("A"), 8); // 8 pixels per character at scale 1.0
+    }
+
+    #[test]
+    fn test_text_width_multiple_characters() {
+        let text_texture = TextTexture::new(1.0);
+        assert_eq!(text_texture.text_width("ABC"), 24); // 3 * 8 = 24 pixels
+    }
+
+    #[test]
+    fn test_text_width_with_scale() {
+        let text_texture = TextTexture::new(2.0);
+        assert_eq!(text_texture.text_width("A"), 16); // 8 * 2 = 16 pixels
+        assert_eq!(text_texture.text_width("ABC"), 48); // 3 * 16 = 48 pixels
+    }
+
+    #[test]
+    fn test_text_width_with_unsupported_characters() {
+        let text_texture = TextTexture::new(1.0);
+        // Only supported characters should be counted
+        assert_eq!(text_texture.text_width("A B"), 16); // A and B only, space ignored
+        assert_eq!(text_texture.text_width("A@B"), 16); // A and B only, @ ignored
+    }
+
+    #[test]
+    fn test_text_height() {
+        let text_texture = TextTexture::new(1.0);
+        assert_eq!(text_texture.text_height(), 8); // 8 pixels per character at scale 1.0
+    }
+
+    #[test]
+    fn test_text_height_with_scale() {
+        let text_texture = TextTexture::new(2.0);
+        assert_eq!(text_texture.text_height(), 16); // 8 * 2 = 16 pixels
+    }
+
+    #[test]
+    fn test_text_height_with_fractional_scale() {
+        let text_texture = TextTexture::new(1.5);
+        assert_eq!(text_texture.text_height(), 12); // 8 * 1.5 = 12 pixels
+    }
+
+    #[test]
+    fn test_get_char_tile_caching() {
+        let mut text_texture = TextTexture::new(1.0);
+        let atlas = create_mock_atlas();
+
+        // First call should cache the tile
+        let tile1 = text_texture.get_char_tile(&atlas, 'A');
+        assert!(tile1.is_some());
+
+        // Second call should use cached tile
+        let tile2 = text_texture.get_char_tile(&atlas, 'A');
+        assert!(tile2.is_some());
+
+        // Both should be the same tile
+        assert_eq!(tile1.unwrap().pos, tile2.unwrap().pos);
+        assert_eq!(tile1.unwrap().size, tile2.unwrap().size);
+    }
+
+    #[test]
+    fn test_get_char_tile_unsupported_character() {
+        let mut text_texture = TextTexture::new(1.0);
+        let atlas = create_mock_atlas();
+
+        let tile = text_texture.get_char_tile(&atlas, ' ');
+        assert!(tile.is_none());
+    }
+
+    #[test]
+    fn test_get_char_tile_missing_from_atlas() {
+        let mut text_texture = TextTexture::new(1.0);
+        let atlas = create_mock_atlas();
+
+        // 'B' is not in our mock atlas
+        let tile = text_texture.get_char_tile(&atlas, 'B');
+        assert!(tile.is_none());
+    }
+}

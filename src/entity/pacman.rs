@@ -36,8 +36,14 @@ impl Pacman {
 
             let stopped_tiles = vec![SpriteAtlas::get_tile(atlas, &format!("{moving_prefix}_b.png")).unwrap()];
 
-            textures.insert(direction, AnimatedTexture::new(moving_tiles, 0.08));
-            stopped_textures.insert(direction, AnimatedTexture::new(stopped_tiles, 0.1));
+            textures.insert(
+                direction,
+                AnimatedTexture::new(moving_tiles, 0.08).expect("Invalid frame duration"),
+            );
+            stopped_textures.insert(
+                direction,
+                AnimatedTexture::new(stopped_tiles, 0.1).expect("Invalid frame duration"),
+            );
         }
 
         Self {
