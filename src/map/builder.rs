@@ -19,11 +19,7 @@ pub struct NodePositions {
     pub clyde: NodeId,
 }
 
-/// The game map, responsible for holding the tile-based layout and the navigation graph.
-///
-/// The map is represented as a 2D array of `MapTile`s. It also stores a navigation
-/// `Graph` that entities like Pac-Man and ghosts use for movement. The graph is
-/// generated from the walkable tiles of the map.
+/// The main map structure containing the game board and navigation graph.
 pub struct Map {
     /// The current state of the map.
     current: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
@@ -33,6 +29,8 @@ pub struct Map {
     pub grid_to_node: HashMap<IVec2, NodeId>,
     /// A mapping of the starting positions of the entities.
     pub start_positions: NodePositions,
+    /// Pac-Man's starting position.
+    pacman_start: Option<IVec2>,
 }
 
 impl Map {
@@ -51,6 +49,7 @@ impl Map {
         let map = parsed_map.tiles;
         let house_door = parsed_map.house_door;
         let tunnel_ends = parsed_map.tunnel_ends;
+        let pacman_start = parsed_map.pacman_start;
 
         let mut graph = Graph::new();
         let mut grid_to_node = HashMap::new();
@@ -58,25 +57,7 @@ impl Map {
         let cell_offset = Vec2::splat(CELL_SIZE as f32 / 2.0);
 
         // Find a starting point for the graph generation, preferably Pac-Man's position.
-        let start_pos = (0..BOARD_CELL_SIZE.y)
-            .flat_map(|y| (0..BOARD_CELL_SIZE.x).map(move |x| IVec2::new(x as i32, y as i32)))
-            .find(|&p| matches!(map[p.x as usize][p.y as usize], MapTile::StartingPosition(0)))
-            .unwrap_or_else(|| {
-                // Fallback to any valid walkable tile if Pac-Man's start is not found
-                (0..BOARD_CELL_SIZE.y)
-                    .flat_map(|y| (0..BOARD_CELL_SIZE.x).map(move |x| IVec2::new(x as i32, y as i32)))
-                    .find(|&p| {
-                        matches!(
-                            map[p.x as usize][p.y as usize],
-                            MapTile::Pellet
-                                | MapTile::PowerPellet
-                                | MapTile::Empty
-                                | MapTile::Tunnel
-                                | MapTile::StartingPosition(_)
-                        )
-                    })
-                    .expect("No valid starting position found on map for graph generation")
-            });
+        let start_pos = pacman_start.expect("Pac-Man's starting position not found");
 
         // Add the starting position to the graph/queue
         let mut queue = VecDeque::new();
@@ -110,7 +91,7 @@ impl Map {
                 // Skip if the new position is not a walkable tile
                 if matches!(
                     map[new_position.x as usize][new_position.y as usize],
-                    MapTile::Pellet | MapTile::PowerPellet | MapTile::Empty | MapTile::Tunnel | MapTile::StartingPosition(_)
+                    MapTile::Pellet | MapTile::PowerPellet | MapTile::Empty | MapTile::Tunnel
                 ) {
                     // Add the new position to the graph/queue
                     let pos = Vec2::new(
@@ -167,9 +148,10 @@ impl Map {
 
         Map {
             current: map,
-            grid_to_node,
             graph,
+            grid_to_node,
             start_positions,
+            pacman_start,
         }
     }
 
@@ -183,14 +165,9 @@ impl Map {
     ///
     /// The starting position as a grid coordinate (`UVec2`), or `None` if not found.
     pub fn find_starting_position(&self, entity_id: u8) -> Option<UVec2> {
-        for (x, col) in self.current.iter().enumerate().take(BOARD_CELL_SIZE.x as usize) {
-            for (y, &cell) in col.iter().enumerate().take(BOARD_CELL_SIZE.y as usize) {
-                if let MapTile::StartingPosition(id) = cell {
-                    if id == entity_id {
-                        return Some(UVec2::new(x as u32, y as u32));
-                    }
-                }
-            }
+        // For now, only Pac-Man (entity_id 0) is supported
+        if entity_id == 0 {
+            return self.pacman_start.map(|pos| UVec2::new(pos.x as u32, pos.y as u32));
         }
         None
     }
@@ -401,7 +378,7 @@ mod tests {
         board[20] = "#............##............#";
         board[21] = "#.####.#####.##.#####.####.#";
         board[22] = "#.####.#####.##.#####.####.#";
-        board[23] = "#o..##.......0 .......##..o#";
+        board[23] = "#o..##.......X .......##..o#";
         board[24] = "###.##.##.########.##.##.###";
         board[25] = "###.##.##.########.##.##.###";
         board[26] = "#......##....##....##......#";

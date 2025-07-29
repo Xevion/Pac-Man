@@ -22,6 +22,8 @@ pub struct ParsedMap {
     pub house_door: [Option<IVec2>; 2],
     /// The positions of the tunnel end tiles.
     pub tunnel_ends: [Option<IVec2>; 2],
+    /// Pac-Man's starting position.
+    pub pacman_start: Option<IVec2>,
 }
 
 /// Parser for converting raw board layouts into structured map data.
@@ -44,8 +46,8 @@ impl MapTileParser {
             'o' => Ok(MapTile::PowerPellet),
             ' ' => Ok(MapTile::Empty),
             'T' => Ok(MapTile::Tunnel),
-            c @ '0'..='4' => Ok(MapTile::StartingPosition(c.to_digit(10).unwrap() as u8)),
-            '=' => Ok(MapTile::Wall), // House door is represented as a wall tile
+            'X' => Ok(MapTile::Empty), // Pac-Man's starting position, treated as empty
+            '=' => Ok(MapTile::Wall),  // House door is represented as a wall tile
             _ => Err(ParseError::UnknownCharacter(c)),
         }
     }
@@ -68,6 +70,7 @@ impl MapTileParser {
         let mut tiles = [[MapTile::Empty; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize];
         let mut house_door = [None; 2];
         let mut tunnel_ends = [None; 2];
+        let mut pacman_start: Option<IVec2> = None;
 
         for (y, line) in raw_board.iter().enumerate().take(BOARD_CELL_SIZE.y as usize) {
             for (x, character) in line.chars().enumerate().take(BOARD_CELL_SIZE.x as usize) {
@@ -92,6 +95,11 @@ impl MapTileParser {
                     _ => {}
                 }
 
+                // Track Pac-Man's starting position
+                if character == 'X' {
+                    pacman_start = Some(IVec2::new(x as i32, y as i32));
+                }
+
                 tiles[x][y] = tile;
             }
         }
@@ -106,6 +114,7 @@ impl MapTileParser {
             tiles,
             house_door,
             tunnel_ends,
+            pacman_start,
         })
     }
 }
@@ -122,18 +131,11 @@ mod tests {
         assert!(matches!(MapTileParser::parse_character('o').unwrap(), MapTile::PowerPellet));
         assert!(matches!(MapTileParser::parse_character(' ').unwrap(), MapTile::Empty));
         assert!(matches!(MapTileParser::parse_character('T').unwrap(), MapTile::Tunnel));
-        assert!(matches!(
-            MapTileParser::parse_character('0').unwrap(),
-            MapTile::StartingPosition(0)
-        ));
-        assert!(matches!(
-            MapTileParser::parse_character('4').unwrap(),
-            MapTile::StartingPosition(4)
-        ));
+        assert!(matches!(MapTileParser::parse_character('X').unwrap(), MapTile::Empty));
         assert!(matches!(MapTileParser::parse_character('=').unwrap(), MapTile::Wall));
 
         // Test invalid character
-        assert!(MapTileParser::parse_character('X').is_err());
+        assert!(MapTileParser::parse_character('Z').is_err());
     }
 
     #[test]
@@ -154,15 +156,18 @@ mod tests {
         // Verify we found tunnel ends
         assert!(parsed.tunnel_ends[0].is_some());
         assert!(parsed.tunnel_ends[1].is_some());
+
+        // Verify we found Pac-Man's starting position
+        assert!(parsed.pacman_start.is_some());
     }
 
     #[test]
     fn test_parse_board_invalid_character() {
         let mut invalid_board = RAW_BOARD.clone();
-        invalid_board[0] = "###########################X";
+        invalid_board[0] = "###########################Z";
 
         let result = MapTileParser::parse_board(invalid_board);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), ParseError::UnknownCharacter('X')));
+        assert!(matches!(result.unwrap_err(), ParseError::UnknownCharacter('Z')));
     }
 }

@@ -37,8 +37,6 @@ pub enum MapTile {
     Pellet,
     /// A power pellet.
     PowerPellet,
-    /// A starting position for an entity.
-    StartingPosition(u8),
     /// A tunnel tile.
     Tunnel,
 }
@@ -68,7 +66,7 @@ pub const RAW_BOARD: [&str; BOARD_CELL_SIZE.y as usize] = [
     "#............##............#",
     "#.####.#####.##.#####.####.#",
     "#.####.#####.##.#####.####.#",
-    "#o..##.......0 .......##..o#",
+    "#o..##.......X .......##..o#",
     "###.##.##.########.##.##.###",
     "###.##.##.########.##.##.###",
     "#......##....##....##......#",
@@ -139,30 +137,12 @@ mod tests {
     fn test_map_tile_variants() {
         assert_ne!(MapTile::Empty, MapTile::Wall);
         assert_ne!(MapTile::Pellet, MapTile::PowerPellet);
-        assert_ne!(MapTile::StartingPosition(0), MapTile::StartingPosition(1));
         assert_ne!(MapTile::Tunnel, MapTile::Empty);
     }
 
     #[test]
-    fn test_map_tile_starting_position() {
-        let pos0 = MapTile::StartingPosition(0);
-        let pos1 = MapTile::StartingPosition(1);
-        let pos0_clone = MapTile::StartingPosition(0);
-
-        assert_eq!(pos0, pos0_clone);
-        assert_ne!(pos0, pos1);
-    }
-
-    #[test]
-    fn test_map_tile_debug() {
-        let tile = MapTile::Wall;
-        let debug_str = format!("{:?}", tile);
-        assert!(!debug_str.is_empty());
-    }
-
-    #[test]
     fn test_map_tile_clone() {
-        let original = MapTile::StartingPosition(5);
+        let original = MapTile::Wall;
         let cloned = original;
         assert_eq!(original, cloned);
     }
@@ -217,10 +197,10 @@ mod tests {
 
     #[test]
     fn test_raw_board_starting_position() {
-        // Should have a starting position '0' for Pac-Man
+        // Should have a starting position 'X' for Pac-Man
         let mut found_starting_position = false;
         for row in RAW_BOARD.iter() {
-            if row.contains('0') {
+            if row.contains('X') {
                 found_starting_position = true;
                 break;
             }
