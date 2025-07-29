@@ -129,10 +129,10 @@ jobs:
 
               # Check if the failure was due to the specific hash error
               if grep -q "emcc: error: Unexpected hash:" /tmp/build_output.log; then
-                echo "Detected 'emcc: error: Unexpected hash:' error - will retry"
+                echo "::warning::Detected 'emcc: error: Unexpected hash:' error - will retry (attempt $attempt of $MAX_RETRIES)"
 
                 if [ $attempt -eq $MAX_RETRIES ]; then
-                  echo "All retry attempts failed. Exiting with error."
+                  echo "::error::All retry attempts failed. Exiting with error."
                   exit 1
                 fi
 
