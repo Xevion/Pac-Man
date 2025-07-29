@@ -10,13 +10,15 @@ const SOUND_ASSETS: [Asset; 4] = [Asset::Wav1, Asset::Wav2, Asset::Wav3, Asset::
 /// The audio system for the game.
 ///
 /// This struct is responsible for initializing the audio device, loading sounds,
-/// and playing them.
+/// and playing them. If audio fails to initialize, it will be disabled and all
+/// functions will silently do nothing.
 #[allow(dead_code)]
 pub struct Audio {
-    _mixer_context: mixer::Sdl2MixerContext,
+    _mixer_context: Option<mixer::Sdl2MixerContext>,
     sounds: Vec<Chunk>,
     next_sound_index: usize,
     muted: bool,
+    disabled: bool,
 }
 
 impl Default for Audio {
@@ -27,13 +29,27 @@ impl Default for Audio {
 
 impl Audio {
     /// Creates a new `Audio` instance.
+    ///
+    /// If audio fails to initialize, the audio system will be disabled and
+    /// all functions will silently do nothing.
     pub fn new() -> Self {
         let frequency = 44100;
         let format = DEFAULT_FORMAT;
         let channels = 4;
         let chunk_size = 256; // 256 is minimum for emscripten
 
-        mixer::open_audio(frequency, format, 1, chunk_size).expect("Failed to open audio");
+        // Try to open audio, but don't panic if it fails
+        if let Err(e) = mixer::open_audio(frequency, format, 1, chunk_size) {
+            tracing::warn!("Failed to open audio: {}. Audio will be disabled.", e);
+            return Self {
+                _mixer_context: None,
+                sounds: Vec::new(),
+                next_sound_index: 0,
+                muted: false,
+                disabled: true,
+            };
+        }
+
         mixer::allocate_channels(channels);
 
         // set channel volume
@@ -41,31 +57,72 @@ impl Audio {
             mixer::Channel(i).set_volume(32);
         }
 
-        let mixer_context = mixer::init(InitFlag::OGG).expect("Failed to initialize SDL2_mixer");
+        // Try to initialize mixer, but don't panic if it fails
+        let mixer_context = match mixer::init(InitFlag::OGG) {
+            Ok(ctx) => ctx,
+            Err(e) => {
+                tracing::warn!("Failed to initialize SDL2_mixer: {}. Audio will be disabled.", e);
+                return Self {
+                    _mixer_context: None,
+                    sounds: Vec::new(),
+                    next_sound_index: 0,
+                    muted: false,
+                    disabled: true,
+                };
+            }
+        };
 
-        let sounds: Vec<Chunk> = SOUND_ASSETS
-            .iter()
-            .enumerate()
-            .map(|(i, asset)| {
-                let data = get_asset_bytes(*asset).expect("Failed to load sound asset");
-                let rwops = RWops::from_bytes(&data).unwrap_or_else(|_| panic!("Failed to create RWops for sound {}", i + 1));
-                rwops
-                    .load_wav()
-                    .unwrap_or_else(|_| panic!("Failed to load sound {} from asset API", i + 1))
-            })
-            .collect();
+        // Try to load sounds, but don't panic if any fail
+        let mut sounds = Vec::new();
+        for (i, asset) in SOUND_ASSETS.iter().enumerate() {
+            match get_asset_bytes(*asset) {
+                Ok(data) => match RWops::from_bytes(&data) {
+                    Ok(rwops) => match rwops.load_wav() {
+                        Ok(chunk) => sounds.push(chunk),
+                        Err(e) => {
+                            tracing::warn!("Failed to load sound {} from asset API: {}", i + 1, e);
+                        }
+                    },
+                    Err(e) => {
+                        tracing::warn!("Failed to create RWops for sound {}: {}", i + 1, e);
+                    }
+                },
+                Err(e) => {
+                    tracing::warn!("Failed to load sound asset {}: {}", i + 1, e);
+                }
+            }
+        }
+
+        // If no sounds loaded successfully, disable audio
+        if sounds.is_empty() {
+            tracing::warn!("No sounds loaded successfully. Audio will be disabled.");
+            return Self {
+                _mixer_context: Some(mixer_context),
+                sounds: Vec::new(),
+                next_sound_index: 0,
+                muted: false,
+                disabled: true,
+            };
+        }
 
         Audio {
-            _mixer_context: mixer_context,
+            _mixer_context: Some(mixer_context),
             sounds,
             next_sound_index: 0,
             muted: false,
+            disabled: false,
         }
     }
 
     /// Plays the "eat" sound effect.
+    ///
+    /// If audio is disabled or muted, this function does nothing.
     #[allow(dead_code)]
     pub fn eat(&mut self) {
+        if self.disabled || self.muted || self.sounds.is_empty() {
+            return;
+        }
+
         if let Some(chunk) = self.sounds.get(self.next_sound_index) {
             match mixer::Channel(0).play(chunk, 0) {
                 Ok(channel) => {
@@ -80,7 +137,13 @@ impl Audio {
     }
 
     /// Instantly mute or unmute all channels.
+    ///
+    /// If audio is disabled, this function does nothing.
     pub fn set_mute(&mut self, mute: bool) {
+        if self.disabled {
+            return;
+        }
+
         let channels = 4;
         let volume = if mute { 0 } else { 32 };
         for i in 0..channels {
@@ -92,6 +155,11 @@ impl Audio {
     /// Returns `true` if the audio is muted.
     pub fn is_muted(&self) -> bool {
         self.muted
+    }
+
+    /// Returns `true` if the audio system is disabled.
+    pub fn is_disabled(&self) -> bool {
+        self.disabled
     }
 }
 
@@ -143,7 +211,11 @@ mod tests {
         let audio = Audio::new();
         assert_eq!(audio.is_muted(), false);
         assert_eq!(audio.next_sound_index, 0);
-        assert_eq!(audio.sounds.len(), 4);
+
+        // Audio might be disabled if initialization failed
+        if !audio.is_disabled() {
+            assert_eq!(audio.sounds.len(), 4);
+        }
     }
 
     #[test]
@@ -171,6 +243,13 @@ mod tests {
         }
 
         let mut audio = Audio::new();
+
+        // Skip test if audio is disabled
+        if audio.is_disabled() {
+            eprintln!("Skipping sound rotation test due to disabled audio");
+            return;
+        }
+
         let initial_index = audio.next_sound_index;
 
         // Test sound rotation
@@ -190,6 +269,13 @@ mod tests {
         }
 
         let audio = Audio::new();
+
+        // Skip test if audio is disabled
+        if audio.is_disabled() {
+            eprintln!("Skipping sound index bounds test due to disabled audio");
+            return;
+        }
+
         assert!(audio.next_sound_index < audio.sounds.len());
     }
 
@@ -203,6 +289,29 @@ mod tests {
         let audio = Audio::default();
         assert_eq!(audio.is_muted(), false);
         assert_eq!(audio.next_sound_index, 0);
-        assert_eq!(audio.sounds.len(), 4);
+
+        // Audio might be disabled if initialization failed
+        if !audio.is_disabled() {
+            assert_eq!(audio.sounds.len(), 4);
+        }
+    }
+
+    #[test]
+    fn test_audio_disabled_state() {
+        if let Err(_) = init_sdl() {
+            eprintln!("Skipping SDL2-dependent tests due to initialization failure");
+            return;
+        }
+
+        // Test that disabled audio doesn't crash when calling functions
+        let mut audio = Audio::new();
+
+        // These should not panic even if audio is disabled
+        audio.eat();
+        audio.set_mute(true);
+        audio.set_mute(false);
+
+        // Test that we can check the disabled state
+        let _is_disabled = audio.is_disabled();
     }
 }
