@@ -354,7 +354,7 @@ impl Map {
 mod tests {
     use super::*;
     use crate::constants::{BOARD_CELL_SIZE, CELL_SIZE};
-    use glam::{IVec2, UVec2, Vec2};
+    use glam::{IVec2, Vec2};
 
     fn create_minimal_test_board() -> [&'static str; BOARD_CELL_SIZE.y as usize] {
         let mut board = [""; BOARD_CELL_SIZE.y as usize];
@@ -498,7 +498,7 @@ mod tests {
         // Check that adjacent walkable tiles are connected
         // Find any node that has connections
         let mut found_connected_node = false;
-        for (grid_pos, &node_id) in &map.grid_to_node {
+        for &node_id in map.grid_to_node.values() {
             let intersection = &map.graph.adjacency_list[node_id];
             if intersection.edges().next().is_some() {
                 found_connected_node = true;
