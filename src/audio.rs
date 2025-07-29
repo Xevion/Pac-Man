@@ -140,15 +140,14 @@ impl Audio {
     ///
     /// If audio is disabled, this function does nothing.
     pub fn set_mute(&mut self, mute: bool) {
-        if self.disabled {
-            return;
+        if !self.disabled {
+            let channels = 4;
+            let volume = if mute { 0 } else { 32 };
+            for i in 0..channels {
+                mixer::Channel(i).set_volume(volume);
+            }
         }
 
-        let channels = 4;
-        let volume = if mute { 0 } else { 32 };
-        for i in 0..channels {
-            mixer::Channel(i).set_volume(volume);
-        }
         self.muted = mute;
     }
 
