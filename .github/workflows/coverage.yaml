@@ -18,6 +18,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: llvm-tools-preview
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -40,20 +41,17 @@ jobs:
           cargo install cargo-vcpkg
           cargo vcpkg -v build
 
-      - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: taiki-e/install-action@nextest
 
       # Note: We manually link zlib. This should be synchronized with the flags set for Linux in .cargo/config.toml.
       - name: Generate coverage report
         run: |
-          cargo tarpaulin \
-            --out Lcov \
-            --output-dir coverage \
-            --rustflags="-C link-arg=-lz"
+          cargo llvm-cov --no-fail-fast --lcov --output-path lcov.info nextest
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:
-          files: ./coverage/lcov.info
+          files: ./lcov.info
           format: lcov
           allow-empty: false

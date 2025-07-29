@@ -42,8 +42,10 @@ jobs:
           cargo install cargo-vcpkg
           cargo vcpkg -v build
 
-      - name: Run tests
-        run: cargo test --workspace --verbose
+      - uses: taiki-e/install-action@nextest
+
+      - name: Run nextest
+        run: cargo nextest run --workspace
 
       - name: Run clippy
         run: cargo clippy -- -D warnings
