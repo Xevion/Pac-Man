@@ -157,6 +157,7 @@ impl Audio {
     }
 
     /// Returns `true` if the audio system is disabled.
+    #[allow(dead_code)]
     pub fn is_disabled(&self) -> bool {
         self.disabled
     }

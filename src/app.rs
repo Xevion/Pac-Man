@@ -33,7 +33,7 @@ pub struct App<'a> {
     last_tick: Instant,
 }
 
-impl<'a> App<'a> {
+impl App<'_> {
     pub fn new() -> Result<Self> {
         let sdl_context = sdl2::init().map_err(|e| anyhow!(e))?;
         let video_subsystem = sdl_context.video().map_err(|e| anyhow!(e))?;

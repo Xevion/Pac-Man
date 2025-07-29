@@ -50,19 +50,26 @@ impl AnimatedTexture {
         tile.render(canvas, atlas, dest)
     }
 
-    // Helper methods for testing
+    /// Returns the current frame index.
+    #[allow(dead_code)]
     pub fn current_frame(&self) -> usize {
         self.current_frame
     }
 
+    /// Returns the time bank.
+    #[allow(dead_code)]
     pub fn time_bank(&self) -> f32 {
         self.time_bank
     }
 
+    /// Returns the frame duration.
+    #[allow(dead_code)]
     pub fn frame_duration(&self) -> f32 {
         self.frame_duration
     }
 
+    /// Returns the number of tiles in the animation.
+    #[allow(dead_code)]
     pub fn tiles_len(&self) -> usize {
         self.tiles.len()
     }

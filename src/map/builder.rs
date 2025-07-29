@@ -11,6 +11,8 @@ use sdl2::render::{Canvas, RenderTarget};
 use std::collections::{HashMap, VecDeque};
 use tracing::debug;
 
+/// The starting positions of the entities in the game.
+#[allow(dead_code)]
 pub struct NodePositions {
     pub pacman: NodeId,
     pub blinky: NodeId,
@@ -22,12 +24,14 @@ pub struct NodePositions {
 /// The main map structure containing the game board and navigation graph.
 pub struct Map {
     /// The current state of the map.
+    #[allow(dead_code)]
     current: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
     /// The node map for entity movement.
     pub graph: Graph,
     /// A mapping from grid positions to node IDs.
     pub grid_to_node: HashMap<IVec2, NodeId>,
     /// A mapping of the starting positions of the entities.
+    #[allow(dead_code)]
     pub start_positions: NodePositions,
     /// Pac-Man's starting position.
     pacman_start: Option<IVec2>,

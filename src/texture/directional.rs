@@ -55,19 +55,26 @@ impl DirectionalAnimatedTexture {
         }
     }
 
-    // Helper methods for testing
+    /// Returns true if the texture has a direction.
+    #[allow(dead_code)]
     pub fn has_direction(&self, direction: Direction) -> bool {
         self.textures.contains_key(&direction)
     }
 
+    /// Returns true if the texture has a stopped direction.
+    #[allow(dead_code)]
     pub fn has_stopped_direction(&self, direction: Direction) -> bool {
         self.stopped_textures.contains_key(&direction)
     }
 
+    /// Returns the number of textures.
+    #[allow(dead_code)]
     pub fn texture_count(&self) -> usize {
         self.textures.len()
     }
 
+    /// Returns the number of stopped textures.
+    #[allow(dead_code)]
     pub fn stopped_texture_count(&self) -> usize {
         self.stopped_textures.len()
     }
