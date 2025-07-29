@@ -11,6 +11,14 @@ use sdl2::render::{Canvas, RenderTarget};
 use std::collections::{HashMap, VecDeque};
 use tracing::debug;
 
+pub struct NodePositions {
+    pub pacman: NodeId,
+    pub blinky: NodeId,
+    pub pinky: NodeId,
+    pub inky: NodeId,
+    pub clyde: NodeId,
+}
+
 /// The game map, responsible for holding the tile-based layout and the navigation graph.
 ///
 /// The map is represented as a 2D array of `MapTile`s. It also stores a navigation
@@ -23,6 +31,8 @@ pub struct Map {
     pub graph: Graph,
     /// A mapping from grid positions to node IDs.
     pub grid_to_node: HashMap<IVec2, NodeId>,
+    /// A mapping of the starting positions of the entities.
+    pub start_positions: NodePositions,
 }
 
 impl Map {
@@ -141,7 +151,16 @@ impl Map {
         }
 
         // Build house structure
-        Self::build_house(&mut graph, &grid_to_node, &house_door);
+        let (house_entrance_node_id, left_center_node_id, center_center_node_id, right_center_node_id) =
+            Self::build_house(&mut graph, &grid_to_node, &house_door);
+
+        let start_positions = NodePositions {
+            pacman: grid_to_node[&start_pos],
+            blinky: house_entrance_node_id,
+            pinky: left_center_node_id,
+            inky: right_center_node_id,
+            clyde: center_center_node_id,
+        };
 
         // Build tunnel connections
         Self::build_tunnels(&mut graph, &grid_to_node, &tunnel_ends);
@@ -150,6 +169,7 @@ impl Map {
             current: map,
             grid_to_node,
             graph,
+            start_positions,
         }
     }
 
@@ -193,7 +213,11 @@ impl Map {
     }
 
     /// Builds the house structure in the graph.
-    fn build_house(graph: &mut Graph, grid_to_node: &HashMap<IVec2, NodeId>, house_door: &[Option<IVec2>; 2]) {
+    fn build_house(
+        graph: &mut Graph,
+        grid_to_node: &HashMap<IVec2, NodeId>,
+        house_door: &[Option<IVec2>; 2],
+    ) -> (usize, usize, usize, usize) {
         // Calculate the position of the house entrance node
         let (house_entrance_node_id, house_entrance_node_position) = {
             // Translate the grid positions to the actual node ids
@@ -283,6 +307,13 @@ impl Map {
             .expect("Failed to connect house entrance to right top line");
 
         debug!("House entrance node id: {house_entrance_node_id}");
+
+        (
+            house_entrance_node_id,
+            left_center_node_id,
+            center_center_node_id,
+            right_center_node_id,
+        )
     }
 
     /// Builds the tunnel connections in the graph.
