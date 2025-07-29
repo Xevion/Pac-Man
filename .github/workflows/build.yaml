@@ -111,8 +111,42 @@ jobs:
           run_install: true
 
       - name: Build with Emscripten
+        shell: bash
         run: |
-          cargo build --target=wasm32-unknown-emscripten --release
+          # Retry mechanism for Emscripten build - only retry on specific hash errors
+          MAX_RETRIES=3
+          RETRY_DELAY=30
+
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "Build attempt $attempt of $MAX_RETRIES"
+
+            # Capture output and check for specific error while preserving real-time output
+            if cargo build --target=wasm32-unknown-emscripten --release 2>&1 | tee /tmp/build_output.log; then
+              echo "Build successful on attempt $attempt"
+              break
+            else
+              echo "Build failed on attempt $attempt"
+
+              # Check if the failure was due to the specific hash error
+              if grep -q "emcc: error: Unexpected hash:" /tmp/build_output.log; then
+                echo "Detected 'emcc: error: Unexpected hash:' error - will retry"
+
+                if [ $attempt -eq $MAX_RETRIES ]; then
+                  echo "All retry attempts failed. Exiting with error."
+                  exit 1
+                fi
+
+                echo "Waiting $RETRY_DELAY seconds before retry..."
+                sleep $RETRY_DELAY
+
+                # Exponential backoff: double the delay for next attempt
+                RETRY_DELAY=$((RETRY_DELAY * 2))
+              else
+                echo "Build failed but not due to hash error - not retrying"
+                exit 1
+              fi
+            fi
+          done
 
       - name: Assemble
         run: |
