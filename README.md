@@ -50,3 +50,15 @@ Built with SDL2 for cross-platform graphics and audio, this implementation can r
 - Online Scoreboard
   - WebAssembly build contains a special API key for communicating with server.
   - To prevent abuse, the server will only accept scores from the WebAssembly build.
+
+## Build Notes
+
+- Install `cargo-vcpkg` with `cargo install cargo-vcpkg`, then run `cargo vcpkg build` to build the requisite dependencies via vcpkg.
+- For the WASM build, you need to have the Emscripten SDK cloned; you can do so with `git clone https://github.com/emscripten-core/emsdk.git`
+  - The first time you clone, you'll need to install the appropriate SDK version with `./emsdk install 3.1.43` and then activate it with `./emsdk activate 3.1.43`. On Windows, use `./emsdk/emsdk.ps1` instead.
+  - You can then activate the Emscripten SDK with `source ./emsdk/emsdk_env.sh` or `./emsdk/emsdk_env.ps1` or `./emsdk/emsdk_env.bat` depending on your OS/terminal.
+  - While using the `web.build.ts` is not technically required, it simplifies the build process and is very helpful.
+    - It is intended to be run with `bun`, which you can acquire at [bun.sh](https://bun.sh/)
+  - Tip: You can launch a fileserver with `python` or `caddy` to serve the files in the `dist` folder.
+    - `python3 -m http.server 8080 -d dist`
+    - `caddy file-server --root dist` (install with `[sudo apt|brew|choco] install caddy` or [a dozen other ways](https://caddyserver.com/docs/install))
