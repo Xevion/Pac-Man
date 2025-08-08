@@ -5,6 +5,16 @@ use super::direction::Direction;
 /// A unique identifier for a node, represented by its index in the graph's storage.
 pub type NodeId = usize;
 
+/// Defines who can traverse a given edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum EdgePermissions {
+    /// Anyone can use this edge.
+    #[default]
+    All,
+    /// Only ghosts can use this edge.
+    GhostsOnly,
+}
+
 /// Represents a directed edge from one node to another with a given weight (e.g., distance).
 #[derive(Debug, Clone, Copy)]
 pub struct Edge {
@@ -14,6 +24,8 @@ pub struct Edge {
     pub distance: f32,
     /// The cardinal direction of this edge.
     pub direction: Direction,
+    /// Defines who is allowed to traverse this edge.
+    pub permissions: EdgePermissions,
 }
 
 /// Represents a node in the graph, defined by its position.
@@ -121,8 +133,8 @@ impl Graph {
             return Err("To node does not exist.");
         }
 
-        let edge_a = self.add_edge(from, to, replace, distance, direction);
-        let edge_b = self.add_edge(to, from, replace, distance, direction.opposite());
+        let edge_a = self.add_edge(from, to, replace, distance, direction, EdgePermissions::default());
+        let edge_b = self.add_edge(to, from, replace, distance, direction.opposite(), EdgePermissions::default());
 
         if edge_a.is_err() && edge_b.is_err() {
             return Err("Failed to connect nodes in both directions.");
@@ -150,6 +162,7 @@ impl Graph {
         replace: bool,
         distance: Option<f32>,
         direction: Direction,
+        permissions: EdgePermissions,
     ) -> Result<(), &'static str> {
         let edge = Edge {
             target: to,
@@ -168,6 +181,7 @@ impl Graph {
                 }
             },
             direction,
+            permissions,
         };
 
         if from >= self.adjacency_list.len() {
@@ -295,7 +309,10 @@ impl Traverser {
     /// Creates a new traverser starting at the given node ID.
     ///
     /// The traverser will immediately attempt to start moving in the initial direction.
-    pub fn new(graph: &Graph, start_node: NodeId, initial_direction: Direction) -> Self {
+    pub fn new<F>(graph: &Graph, start_node: NodeId, initial_direction: Direction, can_traverse: &F) -> Self
+    where
+        F: Fn(Edge) -> bool,
+    {
         let mut traverser = Traverser {
             position: Position::AtNode(start_node),
             direction: initial_direction,
@@ -303,7 +320,7 @@ impl Traverser {
         };
 
         // This will kickstart the traverser into motion
-        traverser.advance(graph, 0.0);
+        traverser.advance(graph, 0.0, can_traverse);
 
         traverser
     }
@@ -329,7 +346,10 @@ impl Traverser {
     /// - If it reaches a node, it attempts to transition to a new edge based on
     ///   the buffered direction or by continuing straight.
     /// - If no valid move is possible, it stops at the node.
-    pub fn advance(&mut self, graph: &Graph, distance: f32) {
+    pub fn advance<F>(&mut self, graph: &Graph, distance: f32, can_traverse: &F)
+    where
+        F: Fn(Edge) -> bool,
+    {
         // Decrement the remaining frames for the next direction
         if let Some((direction, remaining)) = self.next_direction {
             if remaining > 0 {
@@ -344,13 +364,15 @@ impl Traverser {
                 // We're not moving, but a buffered direction is available.
                 if let Some((next_direction, _)) = self.next_direction {
                     if let Some(edge) = graph.find_edge_in_direction(node_id, next_direction) {
-                        // Start moving in that direction
-                        self.position = Position::BetweenNodes {
-                            from: node_id,
-                            to: edge.target,
-                            traversed: distance.max(0.0),
-                        };
-                        self.direction = next_direction;
+                        if can_traverse(edge) {
+                            // Start moving in that direction
+                            self.position = Position::BetweenNodes {
+                                from: node_id,
+                                to: edge.target,
+                                traversed: distance.max(0.0),
+                            };
+                            self.direction = next_direction;
+                        }
                     }
 
                     self.next_direction = None; // Consume the buffered direction regardless of whether we started moving with it
@@ -382,26 +404,33 @@ impl Traverser {
                     // If we buffered a direction, try to find an edge in that direction
                     if let Some((next_dir, _)) = self.next_direction {
                         if let Some(edge) = graph.find_edge_in_direction(to, next_dir) {
-                            self.position = Position::BetweenNodes {
-                                from: to,
-                                to: edge.target,
-                                traversed: overflow,
-                            };
+                            if can_traverse(edge) {
+                                self.position = Position::BetweenNodes {
+                                    from: to,
+                                    to: edge.target,
+                                    traversed: overflow,
+                                };
 
-                            self.direction = next_dir; // Remember our new direction
-                            self.next_direction = None; // Consume the buffered direction
-                            moved = true;
+                                self.direction = next_dir; // Remember our new direction
+                                self.next_direction = None; // Consume the buffered direction
+                                moved = true;
+                            }
                         }
                     }
 
                     // If we didn't move, try to continue in the current direction
                     if !moved {
                         if let Some(edge) = graph.find_edge_in_direction(to, self.direction) {
-                            self.position = Position::BetweenNodes {
-                                from: to,
-                                to: edge.target,
-                                traversed: overflow,
-                            };
+                            if can_traverse(edge) {
+                                self.position = Position::BetweenNodes {
+                                    from: to,
+                                    to: edge.target,
+                                    traversed: overflow,
+                                };
+                            } else {
+                                self.position = Position::AtNode(to);
+                                self.next_direction = None;
+                            }
                         } else {
                             self.position = Position::AtNode(to);
                             self.next_direction = None;
@@ -577,6 +606,7 @@ mod tests {
                 target: 1,
                 distance: 10.0,
                 direction: Direction::Up,
+                permissions: EdgePermissions::All,
             },
         );
         intersection.set(
@@ -585,6 +615,7 @@ mod tests {
                 target: 2,
                 distance: 15.0,
                 direction: Direction::Right,
+                permissions: EdgePermissions::All,
             },
         );
 
@@ -607,6 +638,7 @@ mod tests {
             target: 1,
             distance: 10.0,
             direction: Direction::Up,
+            permissions: EdgePermissions::All,
         };
         intersection.set(Direction::Up, edge);
 
@@ -624,6 +656,7 @@ mod tests {
             target: 1,
             distance: 10.0,
             direction: Direction::Left,
+            permissions: EdgePermissions::All,
         };
 
         intersection.set(Direction::Left, edge);
@@ -687,7 +720,7 @@ mod tests {
     #[test]
     fn test_traverser_new() {
         let graph = create_test_graph();
-        let traverser = Traverser::new(&graph, 0, Direction::Left);
+        let traverser = Traverser::new(&graph, 0, Direction::Left, &|_| true);
 
         assert_eq!(traverser.direction, Direction::Left);
         // The next_direction might be consumed immediately when the traverser starts moving
@@ -698,7 +731,7 @@ mod tests {
     #[test]
     fn test_traverser_set_next_direction() {
         let graph = create_test_graph();
-        let mut traverser = Traverser::new(&graph, 0, Direction::Left);
+        let mut traverser = Traverser::new(&graph, 0, Direction::Left, &|_| true);
 
         traverser.set_next_direction(Direction::Up);
         assert!(traverser.next_direction.is_some());
@@ -712,10 +745,10 @@ mod tests {
     #[test]
     fn test_traverser_advance_at_node() {
         let graph = create_test_graph();
-        let mut traverser = Traverser::new(&graph, 0, Direction::Right);
+        let mut traverser = Traverser::new(&graph, 0, Direction::Right, &|_| true);
 
         // Should start moving in the initial direction
-        traverser.advance(&graph, 5.0);
+        traverser.advance(&graph, 5.0, &|_| true);
 
         match traverser.position {
             Position::BetweenNodes { from, to, traversed } => {
@@ -730,13 +763,13 @@ mod tests {
     #[test]
     fn test_traverser_advance_between_nodes() {
         let graph = create_test_graph();
-        let mut traverser = Traverser::new(&graph, 0, Direction::Right);
+        let mut traverser = Traverser::new(&graph, 0, Direction::Right, &|_| true);
 
         // Move to between nodes
-        traverser.advance(&graph, 5.0);
+        traverser.advance(&graph, 5.0, &|_| true);
 
         // Advance further
-        traverser.advance(&graph, 3.0);
+        traverser.advance(&graph, 3.0, &|_| true);
 
         match traverser.position {
             Position::BetweenNodes { from, to, traversed } => {
@@ -754,6 +787,7 @@ mod tests {
             target: 5,
             distance: 10.5,
             direction: Direction::Up,
+            permissions: EdgePermissions::All,
         };
 
         assert_eq!(edge.target, 5);

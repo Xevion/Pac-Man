@@ -2,7 +2,7 @@
 
 use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE};
 use crate::entity::direction::{Direction, DIRECTIONS};
-use crate::entity::graph::{Graph, Node, NodeId};
+use crate::entity::graph::{EdgePermissions, Graph, Node, NodeId};
 use crate::map::parser::MapTileParser;
 use crate::map::render::MapRenderer;
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
@@ -259,10 +259,29 @@ impl Map {
         // Create the center line
         let (center_center_node_id, center_top_node_id) = create_house_line(graph, center_line_center_position);
 
-        // Connect the house entrance to the top line
+        // Create a ghost-only, two-way connection for the house door.
+        // This prevents Pac-Man from entering or exiting through the door.
         graph
-            .connect(house_entrance_node_id, center_top_node_id, false, None, Direction::Down)
-            .expect("Failed to connect house entrance to top line");
+            .add_edge(
+                house_entrance_node_id,
+                center_top_node_id,
+                false,
+                None,
+                Direction::Down,
+                EdgePermissions::GhostsOnly,
+            )
+            .expect("Failed to create ghost-only entrance to house");
+
+        graph
+            .add_edge(
+                center_top_node_id,
+                house_entrance_node_id,
+                false,
+                None,
+                Direction::Up,
+                EdgePermissions::GhostsOnly,
+            )
+            .expect("Failed to create ghost-only exit from house");
 
         // Create the left line
         let (left_center_node_id, _) = create_house_line(

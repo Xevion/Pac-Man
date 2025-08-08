@@ -2,7 +2,7 @@ use glam::{UVec2, Vec2};
 
 use crate::constants::BOARD_PIXEL_OFFSET;
 use crate::entity::direction::Direction;
-use crate::entity::graph::{Graph, NodeId, Position, Traverser};
+use crate::entity::graph::{Edge, EdgePermissions, Graph, NodeId, Position, Traverser};
 use crate::helpers::centered_with_size;
 use crate::texture::animated::AnimatedTexture;
 use crate::texture::directional::DirectionalAnimatedTexture;
@@ -10,6 +10,10 @@ use crate::texture::sprite::SpriteAtlas;
 use sdl2::keyboard::Keycode;
 use sdl2::render::{Canvas, RenderTarget};
 use std::collections::HashMap;
+
+fn can_pacman_traverse(edge: Edge) -> bool {
+    matches!(edge.permissions, EdgePermissions::All)
+}
 
 pub struct Pacman {
     pub traverser: Traverser,
@@ -47,13 +51,13 @@ impl Pacman {
         }
 
         Self {
-            traverser: Traverser::new(graph, start_node, Direction::Left),
+            traverser: Traverser::new(graph, start_node, Direction::Left, &can_pacman_traverse),
             texture: DirectionalAnimatedTexture::new(textures, stopped_textures),
         }
     }
 
     pub fn tick(&mut self, dt: f32, graph: &Graph) {
-        self.traverser.advance(graph, dt * 60.0 * 1.125);
+        self.traverser.advance(graph, dt * 60.0 * 1.125, &can_pacman_traverse);
         self.texture.tick(dt);
     }
 
@@ -281,7 +285,7 @@ mod tests {
         let mut pacman = Pacman::new(&graph, 0, &atlas);
 
         // Move pacman between nodes - need to advance with a larger distance to ensure movement
-        pacman.traverser.advance(&graph, 5.0); // Larger advance to ensure movement
+        pacman.traverser.advance(&graph, 5.0, &can_pacman_traverse); // Larger advance to ensure movement
 
         let pos = pacman.get_pixel_pos(&graph);
         // Should be between (0,0) and (16,0), but not exactly at (8,0) due to advance distance
