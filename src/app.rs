@@ -92,6 +92,8 @@ impl App<'_> {
                         }
                         _ => {}
                     },
+                    // It doesn't really make sense to have this available in the browser
+                    #[cfg(not(target_os = "emscripten"))]
                     Event::Quit { .. }
                     | Event::KeyDown {
                         keycode: Some(Keycode::Escape) | Some(Keycode::Q),
