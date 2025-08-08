@@ -2,36 +2,18 @@ use glam::{IVec2, UVec2};
 use pacman::helpers::centered_with_size;
 
 #[test]
-fn test_centered_with_size_basic() {
-    let rect = centered_with_size(IVec2::new(100, 100), UVec2::new(50, 30));
-    assert_eq!(rect.origin(), (75, 85));
-    assert_eq!(rect.size(), (50, 30));
-}
+fn test_centered_with_size() {
+    let test_cases = [
+        ((100, 100), (50, 30), (75, 85)),
+        ((50, 50), (51, 31), (25, 35)),
+        ((0, 0), (100, 100), (-50, -50)),
+        ((-100, -50), (80, 40), (-140, -70)),
+        ((1000, 1000), (1000, 1000), (500, 500)),
+    ];
 
-#[test]
-fn test_centered_with_size_odd_dimensions() {
-    let rect = centered_with_size(IVec2::new(50, 50), UVec2::new(51, 31));
-    assert_eq!(rect.origin(), (25, 35));
-    assert_eq!(rect.size(), (51, 31));
-}
-
-#[test]
-fn test_centered_with_size_zero_position() {
-    let rect = centered_with_size(IVec2::new(0, 0), UVec2::new(100, 100));
-    assert_eq!(rect.origin(), (-50, -50));
-    assert_eq!(rect.size(), (100, 100));
-}
-
-#[test]
-fn test_centered_with_size_negative_position() {
-    let rect = centered_with_size(IVec2::new(-100, -50), UVec2::new(80, 40));
-    assert_eq!(rect.origin(), (-140, -70));
-    assert_eq!(rect.size(), (80, 40));
-}
-
-#[test]
-fn test_centered_with_size_large_dimensions() {
-    let rect = centered_with_size(IVec2::new(1000, 1000), UVec2::new(1000, 1000));
-    assert_eq!(rect.origin(), (500, 500));
-    assert_eq!(rect.size(), (1000, 1000));
+    for ((pos_x, pos_y), (size_x, size_y), (expected_x, expected_y)) in test_cases {
+        let rect = centered_with_size(IVec2::new(pos_x, pos_y), UVec2::new(size_x, size_y));
+        assert_eq!(rect.origin(), (expected_x, expected_y));
+        assert_eq!(rect.size(), (size_x, size_y));
+    }
 }

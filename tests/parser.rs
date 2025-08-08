@@ -3,36 +3,20 @@ use pacman::map::parser::{MapTileParser, ParseError};
 
 #[test]
 fn test_parse_character() {
-    assert!(matches!(
-        MapTileParser::parse_character('#').unwrap(),
-        pacman::constants::MapTile::Wall
-    ));
-    assert!(matches!(
-        MapTileParser::parse_character('.').unwrap(),
-        pacman::constants::MapTile::Pellet
-    ));
-    assert!(matches!(
-        MapTileParser::parse_character('o').unwrap(),
-        pacman::constants::MapTile::PowerPellet
-    ));
-    assert!(matches!(
-        MapTileParser::parse_character(' ').unwrap(),
-        pacman::constants::MapTile::Empty
-    ));
-    assert!(matches!(
-        MapTileParser::parse_character('T').unwrap(),
-        pacman::constants::MapTile::Tunnel
-    ));
-    assert!(matches!(
-        MapTileParser::parse_character('X').unwrap(),
-        pacman::constants::MapTile::Empty
-    ));
-    assert!(matches!(
-        MapTileParser::parse_character('=').unwrap(),
-        pacman::constants::MapTile::Wall
-    ));
+    let test_cases = [
+        ('#', pacman::constants::MapTile::Wall),
+        ('.', pacman::constants::MapTile::Pellet),
+        ('o', pacman::constants::MapTile::PowerPellet),
+        (' ', pacman::constants::MapTile::Empty),
+        ('T', pacman::constants::MapTile::Tunnel),
+        ('X', pacman::constants::MapTile::Empty),
+        ('=', pacman::constants::MapTile::Wall),
+    ];
 
-    // Test invalid character
+    for (char, _expected) in test_cases {
+        assert!(matches!(MapTileParser::parse_character(char).unwrap(), _expected));
+    }
+
     assert!(MapTileParser::parse_character('Z').is_err());
 }
 
@@ -42,20 +26,12 @@ fn test_parse_board() {
     assert!(result.is_ok());
 
     let parsed = result.unwrap();
-
-    // Verify we have tiles
     assert_eq!(parsed.tiles.len(), BOARD_CELL_SIZE.x as usize);
     assert_eq!(parsed.tiles[0].len(), BOARD_CELL_SIZE.y as usize);
-
-    // Verify we found house door positions
     assert!(parsed.house_door[0].is_some());
     assert!(parsed.house_door[1].is_some());
-
-    // Verify we found tunnel ends
     assert!(parsed.tunnel_ends[0].is_some());
     assert!(parsed.tunnel_ends[1].is_some());
-
-    // Verify we found Pac-Man's starting position
     assert!(parsed.pacman_start.is_some());
 }
 

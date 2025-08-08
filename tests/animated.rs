@@ -12,55 +12,49 @@ fn mock_atlas_tile(id: u32) -> AtlasTile {
 }
 
 #[test]
-fn test_new_animated_texture_zero_duration() {
+fn test_animated_texture_creation_errors() {
     let tiles = vec![mock_atlas_tile(1), mock_atlas_tile(2)];
-    let result = AnimatedTexture::new(tiles, 0.0);
-    assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), AnimatedTextureError::InvalidFrameDuration(0.0)));
-}
 
-#[test]
-fn test_new_animated_texture_negative_duration() {
-    let tiles = vec![mock_atlas_tile(1), mock_atlas_tile(2)];
-    let result = AnimatedTexture::new(tiles, -0.1);
-    assert!(result.is_err());
     assert!(matches!(
-        result.unwrap_err(),
+        AnimatedTexture::new(tiles.clone(), 0.0).unwrap_err(),
+        AnimatedTextureError::InvalidFrameDuration(0.0)
+    ));
+
+    assert!(matches!(
+        AnimatedTexture::new(tiles, -0.1).unwrap_err(),
         AnimatedTextureError::InvalidFrameDuration(-0.1)
     ));
 }
 
 #[test]
-fn test_tick_multiple_frame_changes() {
+fn test_animated_texture_advancement() {
     let tiles = vec![mock_atlas_tile(1), mock_atlas_tile(2), mock_atlas_tile(3)];
     let mut texture = AnimatedTexture::new(tiles, 0.1).unwrap();
 
-    // Tick with 2.5 frame durations
+    assert_eq!(texture.current_frame(), 0);
+
     texture.tick(0.25);
     assert_eq!(texture.current_frame(), 2);
     assert!((texture.time_bank() - 0.05).abs() < 0.001);
 }
 
 #[test]
-fn test_tick_wrap_around() {
+fn test_animated_texture_wrap_around() {
     let tiles = vec![mock_atlas_tile(1), mock_atlas_tile(2)];
     let mut texture = AnimatedTexture::new(tiles, 0.1).unwrap();
 
-    // Advance to last frame
     texture.tick(0.1);
     assert_eq!(texture.current_frame(), 1);
 
-    // Advance again to wrap around
     texture.tick(0.1);
     assert_eq!(texture.current_frame(), 0);
 }
 
 #[test]
-fn test_single_tile_animation() {
+fn test_animated_texture_single_frame() {
     let tiles = vec![mock_atlas_tile(1)];
     let mut texture = AnimatedTexture::new(tiles, 0.1).unwrap();
 
-    // Should stay on same frame
     texture.tick(0.1);
     assert_eq!(texture.current_frame(), 0);
     assert_eq!(texture.current_tile().color.unwrap().r, 1);

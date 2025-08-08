@@ -24,46 +24,32 @@ fn create_test_graph() -> Graph {
 }
 
 fn create_test_atlas() -> SpriteAtlas {
-    // Create a minimal test atlas with required tiles
     let mut frames = HashMap::new();
+    let directions = ["up", "down", "left", "right"];
+
+    for (i, dir) in directions.iter().enumerate() {
+        frames.insert(
+            format!("pacman/{dir}_a.png"),
+            MapperFrame {
+                x: i as u16 * 16,
+                y: 0,
+                width: 16,
+                height: 16,
+            },
+        );
+        frames.insert(
+            format!("pacman/{dir}_b.png"),
+            MapperFrame {
+                x: i as u16 * 16,
+                y: 16,
+                width: 16,
+                height: 16,
+            },
+        );
+    }
+
     frames.insert(
-        "pacman/up_a.png".to_string(),
-        MapperFrame {
-            x: 0,
-            y: 0,
-            width: 16,
-            height: 16,
-        },
-    );
-    frames.insert(
-        "pacman/up_b.png".to_string(),
-        MapperFrame {
-            x: 16,
-            y: 0,
-            width: 16,
-            height: 16,
-        },
-    );
-    frames.insert(
-        "pacman/down_a.png".to_string(),
-        MapperFrame {
-            x: 32,
-            y: 0,
-            width: 16,
-            height: 16,
-        },
-    );
-    frames.insert(
-        "pacman/down_b.png".to_string(),
-        MapperFrame {
-            x: 48,
-            y: 0,
-            width: 16,
-            height: 16,
-        },
-    );
-    frames.insert(
-        "pacman/left_a.png".to_string(),
+        "pacman/full.png".to_string(),
         MapperFrame {
             x: 64,
             y: 0,
@@ -71,71 +57,43 @@ fn create_test_atlas() -> SpriteAtlas {
             height: 16,
         },
     );
-    frames.insert(
-        "pacman/left_b.png".to_string(),
-        MapperFrame {
-            x: 80,
-            y: 0,
-            width: 16,
-            height: 16,
-        },
-    );
-    frames.insert(
-        "pacman/right_a.png".to_string(),
-        MapperFrame {
-            x: 96,
-            y: 0,
-            width: 16,
-            height: 16,
-        },
-    );
-    frames.insert(
-        "pacman/right_b.png".to_string(),
-        MapperFrame {
-            x: 112,
-            y: 0,
-            width: 16,
-            height: 16,
-        },
-    );
-    frames.insert(
-        "pacman/full.png".to_string(),
-        MapperFrame {
-            x: 128,
-            y: 0,
-            width: 16,
-            height: 16,
-        },
-    );
 
     let mapper = AtlasMapper { frames };
-    // Create a dummy texture (we won't actually render, just test the logic)
     let dummy_texture = unsafe { std::mem::zeroed() };
     SpriteAtlas::new(dummy_texture, mapper)
 }
 
 #[test]
-fn test_handle_key_valid_directions() {
+fn test_pacman_creation() {
+    let graph = create_test_graph();
+    let atlas = create_test_atlas();
+    let pacman = Pacman::new(&graph, 0, &atlas);
+
+    assert!(pacman.traverser.position.is_at_node());
+    assert_eq!(pacman.traverser.direction, Direction::Left);
+}
+
+#[test]
+fn test_pacman_key_handling() {
     let graph = create_test_graph();
     let atlas = create_test_atlas();
     let mut pacman = Pacman::new(&graph, 0, &atlas);
 
-    // Test that direction keys are handled correctly
-    pacman.handle_key(Keycode::Up);
-    assert!(pacman.traverser.next_direction.is_some() || pacman.traverser.direction == Direction::Up);
+    let test_cases = [
+        (Keycode::Up, Direction::Up),
+        (Keycode::Down, Direction::Down),
+        (Keycode::Left, Direction::Left),
+        (Keycode::Right, Direction::Right),
+    ];
 
-    pacman.handle_key(Keycode::Down);
-    assert!(pacman.traverser.next_direction.is_some() || pacman.traverser.direction == Direction::Down);
-
-    pacman.handle_key(Keycode::Left);
-    assert!(pacman.traverser.next_direction.is_some() || pacman.traverser.direction == Direction::Left);
-
-    pacman.handle_key(Keycode::Right);
-    assert!(pacman.traverser.next_direction.is_some() || pacman.traverser.direction == Direction::Right);
+    for (key, expected_direction) in test_cases {
+        pacman.handle_key(key);
+        assert!(pacman.traverser.next_direction.is_some() || pacman.traverser.direction == expected_direction);
+    }
 }
 
 #[test]
-fn test_handle_key_invalid_direction() {
+fn test_pacman_invalid_key() {
     let graph = create_test_graph();
     let atlas = create_test_atlas();
     let mut pacman = Pacman::new(&graph, 0, &atlas);
@@ -143,10 +101,7 @@ fn test_handle_key_invalid_direction() {
     let original_direction = pacman.traverser.direction;
     let original_next_direction = pacman.traverser.next_direction;
 
-    // Test invalid key
     pacman.handle_key(Keycode::Space);
-
-    // Should not change direction
     assert_eq!(pacman.traverser.direction, original_direction);
     assert_eq!(pacman.traverser.next_direction, original_next_direction);
 }

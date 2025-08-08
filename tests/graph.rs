@@ -1,5 +1,5 @@
 use pacman::entity::direction::Direction;
-use pacman::entity::graph::{Graph, Node, Position, Traverser};
+use pacman::entity::graph::{EdgePermissions, Graph, Node, Position, Traverser};
 
 fn create_test_graph() -> Graph {
     let mut graph = Graph::new();
@@ -20,6 +20,22 @@ fn create_test_graph() -> Graph {
 }
 
 #[test]
+fn test_graph_basic_operations() {
+    let mut graph = Graph::new();
+    let node1 = graph.add_node(Node {
+        position: glam::Vec2::new(0.0, 0.0),
+    });
+    let node2 = graph.add_node(Node {
+        position: glam::Vec2::new(16.0, 0.0),
+    });
+
+    assert_eq!(graph.node_count(), 2);
+    assert!(graph.get_node(node1).is_some());
+    assert!(graph.get_node(node2).is_some());
+    assert!(graph.get_node(999).is_none());
+}
+
+#[test]
 fn test_graph_connect() {
     let mut graph = Graph::new();
     let node1 = graph.add_node(Node {
@@ -29,10 +45,8 @@ fn test_graph_connect() {
         position: glam::Vec2::new(16.0, 0.0),
     });
 
-    let result = graph.connect(node1, node2, false, None, Direction::Right);
-    assert!(result.is_ok());
+    assert!(graph.connect(node1, node2, false, None, Direction::Right).is_ok());
 
-    // Check that edges were added in both directions
     let edge1 = graph.find_edge_in_direction(node1, Direction::Right);
     let edge2 = graph.find_edge_in_direction(node2, Direction::Left);
 
@@ -43,23 +57,18 @@ fn test_graph_connect() {
 }
 
 #[test]
-fn test_graph_connect_invalid_nodes() {
+fn test_graph_connect_errors() {
     let mut graph = Graph::new();
     let node1 = graph.add_node(Node {
         position: glam::Vec2::new(0.0, 0.0),
     });
 
-    // Try to connect to non-existent node
-    let result = graph.connect(node1, 999, false, None, Direction::Right);
-    assert!(result.is_err());
-
-    // Try to connect from non-existent node
-    let result = graph.connect(999, node1, false, None, Direction::Right);
-    assert!(result.is_err());
+    assert!(graph.connect(node1, 999, false, None, Direction::Right).is_err());
+    assert!(graph.connect(999, node1, false, None, Direction::Right).is_err());
 }
 
 #[test]
-fn test_graph_find_edge() {
+fn test_graph_edge_permissions() {
     let mut graph = Graph::new();
     let node1 = graph.add_node(Node {
         position: glam::Vec2::new(0.0, 0.0),
@@ -68,56 +77,29 @@ fn test_graph_find_edge() {
         position: glam::Vec2::new(16.0, 0.0),
     });
 
-    graph.connect(node1, node2, false, None, Direction::Right).unwrap();
+    graph
+        .add_edge(node1, node2, false, None, Direction::Right, EdgePermissions::GhostsOnly)
+        .unwrap();
 
-    let edge = graph.find_edge(node1, node2);
-    assert!(edge.is_some());
-    assert_eq!(edge.unwrap().target, node2);
-
-    // Test non-existent edge
-    assert!(graph.find_edge(node1, 999).is_none());
+    let edge = graph.find_edge_in_direction(node1, Direction::Right).unwrap();
+    assert_eq!(edge.permissions, EdgePermissions::GhostsOnly);
 }
 
 #[test]
-fn test_graph_find_edge_in_direction() {
-    let mut graph = Graph::new();
-    let node1 = graph.add_node(Node {
-        position: glam::Vec2::new(0.0, 0.0),
-    });
-    let node2 = graph.add_node(Node {
-        position: glam::Vec2::new(16.0, 0.0),
-    });
-
-    graph.connect(node1, node2, false, None, Direction::Right).unwrap();
-
-    let edge = graph.find_edge_in_direction(node1, Direction::Right);
-    assert!(edge.is_some());
-    assert_eq!(edge.unwrap().target, node2);
-
-    // Test non-existent direction
-    assert!(graph.find_edge_in_direction(node1, Direction::Up).is_none());
-}
-
-#[test]
-fn test_traverser_set_next_direction() {
+fn test_traverser_basic() {
     let graph = create_test_graph();
     let mut traverser = Traverser::new(&graph, 0, Direction::Left, &|_| true);
 
     traverser.set_next_direction(Direction::Up);
     assert!(traverser.next_direction.is_some());
     assert_eq!(traverser.next_direction.unwrap().0, Direction::Up);
-
-    // Setting same direction should not change anything
-    traverser.set_next_direction(Direction::Up);
-    assert_eq!(traverser.next_direction.unwrap().0, Direction::Up);
 }
 
 #[test]
-fn test_traverser_advance_at_node() {
+fn test_traverser_advance() {
     let graph = create_test_graph();
     let mut traverser = Traverser::new(&graph, 0, Direction::Right, &|_| true);
 
-    // Should start moving in the initial direction
     traverser.advance(&graph, 5.0, &|_| true);
 
     match traverser.position {
@@ -128,17 +110,7 @@ fn test_traverser_advance_at_node() {
         }
         _ => panic!("Expected to be between nodes"),
     }
-}
 
-#[test]
-fn test_traverser_advance_between_nodes() {
-    let graph = create_test_graph();
-    let mut traverser = Traverser::new(&graph, 0, Direction::Right, &|_| true);
-
-    // Move to between nodes
-    traverser.advance(&graph, 5.0, &|_| true);
-
-    // Advance further
     traverser.advance(&graph, 3.0, &|_| true);
 
     match traverser.position {
@@ -149,4 +121,29 @@ fn test_traverser_advance_between_nodes() {
         }
         _ => panic!("Expected to be between nodes"),
     }
+}
+
+#[test]
+fn test_traverser_with_permissions() {
+    let mut graph = Graph::new();
+    let node1 = graph.add_node(Node {
+        position: glam::Vec2::new(0.0, 0.0),
+    });
+    let node2 = graph.add_node(Node {
+        position: glam::Vec2::new(16.0, 0.0),
+    });
+
+    graph
+        .add_edge(node1, node2, false, None, Direction::Right, EdgePermissions::GhostsOnly)
+        .unwrap();
+
+    // Pacman can't traverse ghost-only edges
+    let mut traverser = Traverser::new(&graph, node1, Direction::Right, &|edge| {
+        matches!(edge.permissions, EdgePermissions::All)
+    });
+
+    traverser.advance(&graph, 5.0, &|edge| matches!(edge.permissions, EdgePermissions::All));
+
+    // Should still be at the node since it can't traverse
+    assert!(traverser.position.is_at_node());
 }
