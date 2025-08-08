@@ -32,7 +32,7 @@ function log(msg: string) {
  * @param release - Whether to build in release mode.
  * @param env - The environment variables to inject into build commands.
  */
-async function build(release: boolean, env: Record<string, string>) {
+async function build(release: boolean, env: Record<string, string> | null) {
   log(
     `Building for 'wasm32-unknown-emscripten' for ${
       release ? "release" : "debug"
@@ -40,11 +40,23 @@ async function build(release: boolean, env: Record<string, string>) {
   );
   await $`cargo build --target=wasm32-unknown-emscripten ${
     release ? "--release" : ""
-  }`.env(env);
+  }`.env(env ?? undefined);
 
-  log("Invoking @tailwindcss/cli");
-  // unfortunately, bunx doesn't seem to work with @tailwindcss/cli, so we have to use npx directly
-  await $`npx --yes @tailwindcss/cli --minify --input styles.css --output build.css --cwd assets/site`;
+  // Download the Tailwind CSS CLI for rendering the CSS
+  const tailwindExecutable = match(
+    await downloadTailwind(process.cwd(), {
+      version: "latest",
+      force: true,
+    })
+  )
+    .with({ path: P.select() }, (path) => path)
+    .with({ err: P.select() }, (err) => {
+      throw new Error(err);
+    })
+    .exhaustive();
+
+  log(`Invoking ${tailwindExecutable}...`);
+  await $`${tailwindExecutable} --minify --input styles.css --output build.css --cwd assets/site`;
 
   const buildType = release ? "release" : "debug";
   const siteFolder = resolve("assets/site");
@@ -111,6 +123,115 @@ async function build(release: boolean, env: Record<string, string>) {
 }
 
 /**
+ * Download the Tailwind CSS CLI to the specified directory.
+ * @param dir - The directory to download the Tailwind CSS CLI to.
+ * @returns The path to the downloaded Tailwind CSS CLI, or an error message if the download fails.
+ */
+async function downloadTailwind(
+  dir: string,
+  options?: Partial<{
+    version: string; // The version of Tailwind CSS to download. If not specified, the latest version will be downloaded.
+    force: boolean; // Whether to force the download even if the file already exists.
+  }>
+): Promise<{ path: string } | { err: string }> {
+  const asset = match(os)
+    .with({ type: "linux" }, () => "tailwindcss-linux-x64")
+    .with({ type: "macos" }, () => "tailwindcss-macos-arm64")
+    .with({ type: "windows" }, () => "tailwindcss-windows-x64.exe")
+    .exhaustive();
+
+  const version = options?.version ?? "latest";
+  const force = options?.force ?? false;
+
+  const url =
+    version === "latest" || version == null
+      ? `https://github.com/tailwindlabs/tailwindcss/releases/latest/download/${asset}`
+      : `https://github.com/tailwindlabs/tailwindcss/releases/download/${version}/${asset}`;
+
+  const path = join(dir, asset);
+  if (await fs.exists(path)) {
+    const displayPath = match(relative(process.cwd(), path))
+      // If the path is not a subpath of cwd, display the absolute path
+      .with(P.string.startsWith(".."), (_relative) => path)
+      // Otherwise, display the relative path
+      .otherwise((relative) => relative);
+
+    if (!force) {
+      log(`Tailwind CSS CLI already exists at ${displayPath}`);
+      return { path };
+    } else {
+      log(`Overwriting Tailwind CSS CLI at ${displayPath}`);
+    }
+  } else {
+    log(`Downloading Tailwind CSS CLI to ${path}`);
+  }
+
+  try {
+    // If the GITHUB_TOKEN environment variable is set, use it for Bearer authentication
+    const headers: Record<string, string> = {};
+    if (process.env.GITHUB_TOKEN) {
+      headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+    }
+
+    log(`Fetching ${url}...`);
+    const response = await fetch(url, { headers });
+
+    if (!response.ok) {
+      return {
+        err: `Failed to download Tailwind CSS: ${response.status} ${response.statusText} for '${url}'`,
+      };
+    } else if (!response.body) {
+      return { err: `No response body received for '${url}'` };
+    }
+
+    log(`Writing to ${path}...`);
+    await fs.mkdir(dir, { recursive: true });
+
+    const file = Bun.file(path);
+    const writer = file.writer();
+
+    const reader = response.body.getReader();
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        writer.write(value);
+      }
+    } finally {
+      reader.releaseLock();
+      await writer.end();
+    }
+
+    // Make the file executable on Unix-like systems
+    if (os.type !== "windows") {
+      await $`chmod +x ${path}`;
+    }
+
+    // Ensure file is not locked; sometimes the runtime is too fast and the file is executed before the lock is released
+    const timeout = Date.now() + 2500; // 2.5s timeout
+    do {
+      try {
+        if ((await fs.stat(path)).size > 0) break;
+      } catch {
+        // File might not be ready yet
+        log(`File ${path} is not ready yet, waiting...`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    } while (Date.now() < timeout);
+
+    // All done!
+    return { path };
+  } catch (error) {
+    return {
+      err: `Download failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
+}
+
+/**
  * Checks to see if the Emscripten SDK is activated for a Windows or *nix machine by looking for a .exe file and the equivalent file on Linux/macOS. Returns both results for handling.
  * @param emsdkDir - The directory containing the Emscripten SDK.
  * @returns A record of environment variables.
@@ -128,14 +249,73 @@ async function checkEmsdkType(
 
 /**
  * Activate the Emscripten SDK environment variables.
- * Technically, this doesn't actaully activate the environment variables for the current shell,
+ * Technically, this doesn't actually activate the environment variables for the current shell,
  * it just runs the environment sourcing script and returns the environment variables for future command invocations.
  * @param emsdkDir - The directory containing the Emscripten SDK.
  * @returns A record of environment variables.
  */
 async function activateEmsdk(
   emsdkDir: string
-): Promise<{ vars: Record<string, string> } | { err: string }> {
+): Promise<{ vars: Record<string, string> | null } | { err: string }> {
+  // If the EMSDK environment variable is set already & the path specified exists, return nothing
+  if (process.env.EMSDK && (await fs.exists(resolve(process.env.EMSDK)))) {
+    log(
+      "Emscripten SDK already activated in environment, using existing configuration"
+    );
+    return { vars: null };
+  }
+
+  // Check if the emsdk directory exists
+  if (!(await fs.exists(emsdkDir))) {
+    return {
+      err: `Emscripten SDK directory not found at ${emsdkDir}. Please install or clone 'emsdk' and try again.`,
+    };
+  }
+
+  // Check if the emsdk directory is activated/installed properly for the current OS
+  match({
+    os: os,
+    ...(await checkEmsdkType(emsdkDir)),
+  })
+    // If the Emscripten SDK is not activated/installed properly, exit with an error
+    .with(
+      {
+        nix: false,
+        windows: false,
+      },
+      () => {
+        return {
+          err: "Emscripten SDK does not appear to be activated/installed properly.",
+        };
+      }
+    )
+    // If the Emscripten SDK is activated for Windows, but is currently running on a *nix OS, exit with an error
+    .with(
+      {
+        nix: false,
+        windows: true,
+        os: { type: P.not("windows") },
+      },
+      () => {
+        return {
+          err: "Emscripten SDK appears to be activated for Windows, but is currently running on a *nix OS.",
+        };
+      }
+    )
+    // If the Emscripten SDK is activated for *nix, but is currently running on a Windows OS, exit with an error
+    .with(
+      {
+        nix: true,
+        windows: false,
+        os: { type: "windows" },
+      },
+      () => {
+        return {
+          err: "Emscripten SDK appears to be activated for *nix, but is currently running on a Windows OS.",
+        };
+      }
+    );
+
   // Determine the environment script to use based on the OS
   const envScript = match(os)
     .with({ type: "windows" }, () => join(emsdkDir, "emsdk_env.bat"))
@@ -188,81 +368,14 @@ async function main() {
   const release = process.env.RELEASE !== "0";
   const emsdkDir = resolve("./emsdk");
 
-  // Check if Emscripten is already activated in the environment
-  const emscriptenAlreadyActivated =
-    process.env.EMSCRIPTEN || process.env.EMSDK;
-
-  let vars: Record<string, string>;
-
-  if (emscriptenAlreadyActivated) {
-    log(
-      "Emscripten SDK already activated in environment, using existing configuration"
-    );
-    vars = process.env as Record<string, string>;
-  } else {
-    // Ensure the emsdk directory exists before attempting to activate or use it
-    if (!(await fs.exists(emsdkDir))) {
-      log(
-        `Emscripten SDK directory not found at ${emsdkDir}. Please install or clone 'emsdk' and try again.`
-      );
+  // Activate the Emscripten SDK (returns null if already activated)
+  const vars = match(await activateEmsdk(emsdkDir))
+    .with({ vars: P.select() }, (vars) => vars)
+    .with({ err: P.any }, ({ err }) => {
+      log("Error activating Emscripten SDK: " + err);
       process.exit(1);
-    }
-
-    vars = match(await activateEmsdk(emsdkDir)) // result handling
-      .with({ vars: P.select() }, (vars) => vars)
-      .with({ err: P.any }, ({ err }) => {
-        log("Error activating Emscripten SDK: " + err);
-        process.exit(1);
-      })
-      .exhaustive();
-  }
-
-  // Check if the Emscripten SDK is activated/installed properly for the current OS
-  match({
-    os: os,
-    ...(await checkEmsdkType(emsdkDir)),
-  })
-    // If the Emscripten SDK is not activated/installed properly, exit with an error
-    .with(
-      {
-        nix: false,
-        windows: false,
-      },
-      () => {
-        log(
-          "Emscripten SDK does not appear to be activated/installed properly."
-        );
-        process.exit(1);
-      }
-    )
-    // If the Emscripten SDK is activated for Windows, but is currently running on a *nix OS, exit with an error
-    .with(
-      {
-        nix: false,
-        windows: true,
-        os: { type: P.not("windows") },
-      },
-      () => {
-        log(
-          "Emscripten SDK appears to be activated for Windows, but is currently running on a *nix OS."
-        );
-        process.exit(1);
-      }
-    )
-    // If the Emscripten SDK is activated for *nix, but is currently running on a Windows OS, exit with an error
-    .with(
-      {
-        nix: true,
-        windows: false,
-        os: { type: "windows" },
-      },
-      () => {
-        log(
-          "Emscripten SDK appears to be activated for *nix, but is currently running on a Windows OS."
-        );
-        process.exit(1);
-      }
-    );
+    })
+    .exhaustive();
 
   // Build the application
   await build(release, vars);
