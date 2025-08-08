@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "TerminalVector";
+  src: url("TerminalVector.ttf");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Key badge styling */
+.code {
+  @apply px-3 py-1 rounded-md font-mono text-[0.9em] lowercase inline-block align-middle;
+  background: rgba(250, 204, 21, 0.08); /* yellow-400 at low opacity */
+  border: 1px solid rgba(250, 204, 21, 0.25);
+  color: #fde68a; /* lighter yellow for readability */
+  font-family: "TerminalVector", ui-monospace, Consolas, "Courier New",
+    monospace;
+}
+
+/* Title styling */
+.arcade-title {
+  font-family: "TerminalVector", ui-monospace, Consolas, "Courier New",
+    monospace;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 18px rgba(250, 204, 21, 0.15),
+    0 0 2px rgba(255, 255, 255, 0.25);
+}

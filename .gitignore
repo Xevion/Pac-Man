@@ -3,3 +3,4 @@ dist/
 emsdk/
 .idea
 rust-sdl2-emscripten/
+assets/site/build.css

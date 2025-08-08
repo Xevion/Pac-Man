@@ -43,7 +43,7 @@ async function build(release: boolean, env: Record<string, string>) {
   }`.env(env);
 
   log("Generating CSS");
-  await $`pnpx postcss-cli ./assets/site/styles.scss -o ./assets/site/build.css`;
+  await $`npx @tailwindcss/cli -i ./assets/site/styles.css -o ./assets/site/build.css`;
 
   const buildType = release ? "release" : "debug";
   const siteFolder = resolve("assets/site");
@@ -52,11 +52,13 @@ async function build(release: boolean, env: Record<string, string>) {
 
   // The files to copy into 'dist'
   const files = [
-    ...["index.html", "favicon.ico", "build.css"].map((file) => ({
-      src: join(siteFolder, file),
-      dest: join(dist, file),
-      optional: false,
-    })),
+    ...["index.html", "favicon.ico", "build.css", "TerminalVector.ttf"].map(
+      (file) => ({
+        src: join(siteFolder, file),
+        dest: join(dist, file),
+        optional: false,
+      })
+    ),
     ...["pacman.wasm", "pacman.js", "deps/pacman.data"].map((file) => ({
       src: join(outputFolder, file),
       dest: join(dist, file.split("/").pop() || file),

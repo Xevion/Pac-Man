@@ -2,12 +2,25 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pac-Man Arcade</title>
+    <title>Pac-Man in Rust</title>
     <link rel="stylesheet" href="build.css" />
     <style>
+      /* Minimal fallback to prevent white flash and canvas pop-in before CSS loads */
+      html,
+      body {
+        background: #000;
+        color: #facc15;
+        margin: 0;
+        text-align: center;
+      }
+      #canvas {
+        display: block;
+        margin: 1.5rem auto;
+        background: #000;
+      }
     </style>
   </head>
-  <body class="bg-black text-yellow-400 text-center">
+  <body class="bg-black text-yellow-400 text-center min-h-screen">
     <a
       href="https://github.com/Xevion/Pac-Man"
       class="absolute top-0 right-0"
@@ -17,7 +30,7 @@
         width="80"
         height="80"
         viewBox="0 0 250 250"
-        class="fill-yellow-400 text-black"
+        class="fill-yellow-400 text-white"
         aria-hidden="true"
       >
         <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
@@ -31,33 +44,54 @@
         ></path>
       </svg>
     </a>
-    <h1 class="text-4xl mt-10 scaled-text">Pac-Man Arcade</h1>
-    <p class="text-lg mt-5 scaled-text">
-      Welcome to the Pac-Man Arcade! Use the controls below to play.
-    </p>
-    <canvas
-      id="canvas"
-      class="block mx-auto mt-5"
-      width="800"
-      height="600"
-    ></canvas>
-    <div class="mt-10">
-      <span
-        class="inline-block mx-2 px-4 py-2 bg-yellow-400 text-black rounded scaled-text"
-        >&larr; &uarr; &rarr; &darr; Move</span
-      >
-      <span
-        class="inline-block mx-2 px-4 py-2 bg-yellow-400 text-black rounded scaled-text"
-        >Space Change Sprite</span
-      >
-      <span
-        class="inline-block mx-2 px-4 py-2 bg-yellow-400 text-black rounded scaled-text"
-        >Shift + &uarr;&darr; Change Volume</span
-      >
+
+    <div class="min-h-screen flex flex-col">
+      <header class="pt-10">
+        <h1 class="text-4xl arcade-title scaled-text">Pac-Man in Rust</h1>
+      </header>
+
+      <main class="flex-1 flex items-center justify-center px-4">
+        <div class="w-full max-w-5xl">
+          <canvas
+            id="canvas"
+            class="block mx-auto bg-black w-full max-w-[90vw] h-auto mt-5 rounded-xl shadow-[inset_0_0_0_2px_rgba(255,255,255,0.12),0_10px_30px_rgba(0,0,0,0.8)]"
+          ></canvas>
+
+          <div
+            class="mt-8 flex flex-wrap gap-3 justify-center items-center text-sm"
+          >
+            <span class="code">&larr; &uarr; &rarr; &darr;</span>
+            <span class="opacity-70">Move</span>
+
+            <span class="mx-2 opacity-30">|</span>
+
+            <span class="code">Space</span>
+            <span class="opacity-70">Toggle Debug</span>
+
+            <span class="mx-2 opacity-30">|</span>
+
+            <span class="code">P</span>
+            <span class="opacity-70">Pause / Unpause</span>
+
+            <span class="mx-2 opacity-30">|</span>
+
+            <span class="code">M</span>
+            <span class="opacity-70">Mute / Unmute</span>
+          </div>
+        </div>
+      </main>
     </div>
     <script type="text/javascript">
+      const canvas = document.getElementById("canvas");
       var Module = {
-        canvas: document.getElementById("canvas"),
+        canvas: canvas,
+        preRun: [
+          () => {
+            [...canvas.classList]
+              .filter((className) => className.includes("shadow-"))
+              .forEach((className) => canvas.classList.remove(className));
+          },
+        ],
       };
     </script>
     <script type="text/javascript" src="pacman.js"></script>
