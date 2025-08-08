@@ -187,20 +187,35 @@ async function main() {
 
   const release = process.env.RELEASE !== "0";
   const emsdkDir = resolve("./emsdk");
-  // Ensure the emsdk directory exists before attempting to activate or use it
-  if (!(await fs.exists(emsdkDir))) {
+
+  // Check if Emscripten is already activated in the environment
+  const emscriptenAlreadyActivated =
+    process.env.EMSCRIPTEN || process.env.EMSDK;
+
+  let vars: Record<string, string>;
+
+  if (emscriptenAlreadyActivated) {
     log(
-      `Emscripten SDK directory not found at ${emsdkDir}. Please install or clone 'emsdk' and try again.`
+      "Emscripten SDK already activated in environment, using existing configuration"
     );
-    process.exit(1);
-  }
-  const vars = match(await activateEmsdk(emsdkDir)) // result handling
-    .with({ vars: P.select() }, (vars) => vars)
-    .with({ err: P.any }, ({ err }) => {
-      log("Error activating Emscripten SDK: " + err);
+    vars = process.env as Record<string, string>;
+  } else {
+    // Ensure the emsdk directory exists before attempting to activate or use it
+    if (!(await fs.exists(emsdkDir))) {
+      log(
+        `Emscripten SDK directory not found at ${emsdkDir}. Please install or clone 'emsdk' and try again.`
+      );
       process.exit(1);
-    })
-    .exhaustive();
+    }
+
+    vars = match(await activateEmsdk(emsdkDir)) // result handling
+      .with({ vars: P.select() }, (vars) => vars)
+      .with({ err: P.any }, ({ err }) => {
+        log("Error activating Emscripten SDK: " + err);
+        process.exit(1);
+      })
+      .exhaustive();
+  }
 
   // Check if the Emscripten SDK is activated/installed properly for the current OS
   match({
