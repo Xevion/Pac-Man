@@ -104,11 +104,10 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v3
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: 8
-          run_install: true
+          bun-version: latest
 
       - name: Build with Emscripten
         shell: bash
@@ -121,7 +120,7 @@ jobs:
             echo "Build attempt $attempt of $MAX_RETRIES"
 
             # Capture output and check for specific error while preserving real-time output
-            if cargo build --target=wasm32-unknown-emscripten --release 2>&1 | tee /tmp/build_output.log; then
+            if bun run web.build.ts 2>&1 | tee /tmp/build_output.log; then
               echo "Build successful on attempt $attempt"
               break
             else
@@ -147,18 +146,6 @@ jobs:
               fi
             fi
           done
-
-      - name: Assemble
-        run: |
-          echo "Generating CSS"
-          pnpx postcss-cli ./assets/site/styles.scss -o ./assets/site/build.css
-
-          echo "Copying WASM files"
-
-          mkdir -p dist
-          cp assets/site/{build.css,favicon.ico,index.html} dist
-          output_folder="target/wasm32-unknown-emscripten/release"
-          cp $output_folder/pacman.{wasm,js} $output_folder/deps/pacman.data dist
 
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3

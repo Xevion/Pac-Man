@@ -42,8 +42,9 @@ async function build(release: boolean, env: Record<string, string>) {
     release ? "--release" : ""
   }`.env(env);
 
-  log("Generating CSS");
-  await $`npx @tailwindcss/cli -i ./assets/site/styles.css -o ./assets/site/build.css`;
+  log("Invoking @tailwindcss/cli");
+  // unfortunately, bunx doesn't seem to work with @tailwindcss/cli, so we have to use npx directly
+  await $`npx --yes @tailwindcss/cli --minify --input styles.css --output build.css --cwd assets/site`;
 
   const buildType = release ? "release" : "debug";
   const siteFolder = resolve("assets/site");
