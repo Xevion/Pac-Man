@@ -184,6 +184,13 @@ async function main() {
 
   const release = process.env.RELEASE !== "0";
   const emsdkDir = resolve("./emsdk");
+  // Ensure the emsdk directory exists before attempting to activate or use it
+  if (!(await fs.exists(emsdkDir))) {
+    log(
+      `Emscripten SDK directory not found at ${emsdkDir}. Please install or clone 'emsdk' and try again.`
+    );
+    process.exit(1);
+  }
   const vars = match(await activateEmsdk(emsdkDir)) // result handling
     .with({ vars: P.select() }, (vars) => vars)
     .with({ err: P.any }, ({ err }) => {
