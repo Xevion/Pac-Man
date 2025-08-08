@@ -1,7 +1,5 @@
-/target
-/dist
-.idea
-*.dll
-rust-sdl2-emscripten/
-assets/site/build.css
+target/
+dist/
 emsdk/
+.idea
+rust-sdl2-emscripten/
