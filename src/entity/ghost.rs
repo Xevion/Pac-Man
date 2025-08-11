@@ -5,6 +5,7 @@
 //! a traverser and display directional animated textures.
 
 use glam::Vec2;
+use pathfinding::prelude::dijkstra;
 use rand::prelude::*;
 use smallvec::SmallVec;
 
@@ -173,6 +174,40 @@ impl Ghost {
         };
 
         Vec2::new(pos.x + BOARD_PIXEL_OFFSET.x as f32, pos.y + BOARD_PIXEL_OFFSET.y as f32)
+    }
+
+    /// Calculates the shortest path from the ghost's current position to a target node using Dijkstra's algorithm.
+    ///
+    /// Returns a vector of NodeIds representing the path, or None if no path exists.
+    /// The path includes the current node and the target node.
+    pub fn calculate_path_to_target(&self, graph: &Graph, target: NodeId) -> Option<Vec<NodeId>> {
+        let start_node = self.traverser.position.from_node_id();
+
+        // Use Dijkstra's algorithm to find the shortest path
+        let result = dijkstra(
+            &start_node,
+            |&node_id| {
+                // Get all edges from the current node
+                graph.adjacency_list[node_id]
+                    .edges()
+                    .filter(|edge| can_ghost_traverse(*edge))
+                    .map(|edge| (edge.target, (edge.distance * 100.0) as u32))
+                    .collect::<Vec<_>>()
+            },
+            |&node_id| node_id == target,
+        );
+
+        result.map(|(path, _cost)| path)
+    }
+
+    /// Returns the ghost's color for debug rendering.
+    pub fn debug_color(&self) -> sdl2::pixels::Color {
+        match self.ghost_type {
+            GhostType::Blinky => sdl2::pixels::Color::RGB(255, 0, 0),    // Red
+            GhostType::Pinky => sdl2::pixels::Color::RGB(255, 182, 255), // Pink
+            GhostType::Inky => sdl2::pixels::Color::RGB(0, 255, 255),    // Cyan
+            GhostType::Clyde => sdl2::pixels::Color::RGB(255, 182, 85),  // Orange
+        }
     }
 
     /// Renders the ghost at its current position.

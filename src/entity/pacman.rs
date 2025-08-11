@@ -111,6 +111,17 @@ impl Pacman {
         }
     }
 
+    /// Returns the current node ID that Pac-Man is at or moving towards.
+    ///
+    /// If Pac-Man is at a node, returns that node ID.
+    /// If Pac-Man is between nodes, returns the node it's moving towards.
+    pub fn current_node_id(&self) -> NodeId {
+        match self.traverser.position {
+            Position::AtNode(node_id) => node_id,
+            Position::BetweenNodes { to, .. } => to,
+        }
+    }
+
     /// Renders Pac-Man to the canvas.
     ///
     /// Calculates screen position, determines if Pac-Man is stopped,

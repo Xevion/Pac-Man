@@ -173,9 +173,62 @@ impl Game {
         if self.debug_mode {
             self.map
                 .debug_render_with_cursor(canvas, &mut self.text_texture, &mut self.atlas, cursor_pos);
+            self.render_pathfinding_debug(canvas)?;
         }
         self.draw_hud(canvas)?;
         canvas.present();
+        Ok(())
+    }
+
+    /// Renders pathfinding debug lines from each ghost to Pac-Man.
+    ///
+    /// Each ghost's path is drawn in its respective color with a small offset
+    /// to prevent overlapping lines.
+    fn render_pathfinding_debug<T: RenderTarget>(&self, canvas: &mut Canvas<T>) -> Result<()> {
+        let pacman_node = self.pacman.current_node_id();
+
+        for (i, ghost) in self.ghosts.iter().enumerate() {
+            if let Some(path) = ghost.calculate_path_to_target(&self.map.graph, pacman_node) {
+                if path.len() < 2 {
+                    continue; // Skip if path is too short
+                }
+
+                // Set the ghost's color
+                canvas.set_draw_color(ghost.debug_color());
+
+                // Calculate offset based on ghost index to prevent overlapping lines
+                let offset = (i as f32) * 2.0 - 3.0; // Offset range: -3.0 to 3.0
+
+                // Calculate a consistent offset direction for the entire path
+                let first_node = self.map.graph.get_node(path[0]).unwrap();
+                let last_node = self.map.graph.get_node(path[path.len() - 1]).unwrap();
+                let first_pos = first_node.position + crate::constants::BOARD_PIXEL_OFFSET.as_vec2();
+                let last_pos = last_node.position + crate::constants::BOARD_PIXEL_OFFSET.as_vec2();
+
+                // Use the overall direction from start to end to determine the perpendicular offset
+                let overall_dir = (last_pos - first_pos).normalize();
+                let perp_dir = glam::Vec2::new(-overall_dir.y, overall_dir.x);
+
+                // Calculate offset positions for all nodes using the same perpendicular direction
+                let mut offset_positions = Vec::new();
+                for &node_id in &path {
+                    let node = self.map.graph.get_node(node_id).unwrap();
+                    let pos = node.position + crate::constants::BOARD_PIXEL_OFFSET.as_vec2();
+                    offset_positions.push(pos + perp_dir * offset);
+                }
+
+                // Draw lines between the offset positions
+                for window in offset_positions.windows(2) {
+                    canvas
+                        .draw_line(
+                            (window[0].x as i32, window[0].y as i32),
+                            (window[1].x as i32, window[1].y as i32),
+                        )
+                        .map_err(anyhow::Error::msg)?;
+                }
+            }
+        }
+
         Ok(())
     }
 
