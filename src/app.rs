@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
+use glam::Vec2;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
 use sdl2::render::{Canvas, ScaleMode, Texture, TextureCreator};
@@ -19,6 +20,7 @@ pub struct App<'a> {
     backbuffer: Texture<'a>,
     paused: bool,
     last_tick: Instant,
+    cursor_pos: Vec2,
 }
 
 impl App<'_> {
@@ -56,7 +58,7 @@ impl App<'_> {
 
         // Initial draw
         game.draw(&mut canvas, &mut backbuffer)?;
-        game.present_backbuffer(&mut canvas, &backbuffer)?;
+        game.present_backbuffer(&mut canvas, &backbuffer, glam::Vec2::ZERO)?;
 
         Ok(Self {
             game,
@@ -65,6 +67,7 @@ impl App<'_> {
             backbuffer,
             paused: false,
             last_tick: Instant::now(),
+            cursor_pos: Vec2::ZERO,
         })
     }
 
@@ -109,6 +112,10 @@ impl App<'_> {
                     Event::KeyDown { keycode, .. } => {
                         self.game.keyboard_event(keycode.unwrap());
                     }
+                    Event::MouseMotion { x, y, .. } => {
+                        // Convert window coordinates to logical coordinates
+                        self.cursor_pos = Vec2::new(x as f32, y as f32);
+                    }
                     _ => {}
                 }
             }
@@ -121,7 +128,10 @@ impl App<'_> {
                 if let Err(e) = self.game.draw(&mut self.canvas, &mut self.backbuffer) {
                     error!("Failed to draw game: {e}");
                 }
-                if let Err(e) = self.game.present_backbuffer(&mut self.canvas, &self.backbuffer) {
+                if let Err(e) = self
+                    .game
+                    .present_backbuffer(&mut self.canvas, &self.backbuffer, self.cursor_pos)
+                {
                     error!("Failed to present backbuffer: {e}");
                 }
             }

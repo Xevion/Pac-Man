@@ -108,10 +108,16 @@ impl Game {
         Ok(())
     }
 
-    pub fn present_backbuffer<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>, backbuffer: &Texture) -> Result<()> {
+    pub fn present_backbuffer<T: RenderTarget>(
+        &mut self,
+        canvas: &mut Canvas<T>,
+        backbuffer: &Texture,
+        cursor_pos: glam::Vec2,
+    ) -> Result<()> {
         canvas.copy(backbuffer, None, None).map_err(anyhow::Error::msg)?;
         if self.debug_mode {
-            self.map.debug_render_nodes(canvas);
+            self.map
+                .debug_render_with_cursor(canvas, &mut self.text_texture, &mut self.atlas, cursor_pos);
         }
         self.draw_hud(canvas)?;
         canvas.present();

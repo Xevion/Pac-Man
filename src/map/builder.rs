@@ -184,13 +184,18 @@ impl Map {
         MapRenderer::render_map(canvas, atlas, map_texture);
     }
 
-    /// Renders a debug visualization of the navigation graph.
+    /// Renders a debug visualization with cursor-based highlighting.
     ///
-    /// This function is intended for development and debugging purposes. It draws the
-    /// nodes and edges of the graph on top of the map, allowing for visual
-    /// inspection of the navigation paths.
-    pub fn debug_render_nodes<T: RenderTarget>(&self, canvas: &mut Canvas<T>) {
-        MapRenderer::debug_render_nodes(&self.graph, canvas);
+    /// This function provides interactive debugging by highlighting the nearest node
+    /// to the cursor, showing its ID, and highlighting its connections.
+    pub fn debug_render_with_cursor<T: RenderTarget>(
+        &self,
+        canvas: &mut Canvas<T>,
+        text_renderer: &mut crate::texture::text::TextTexture,
+        atlas: &mut SpriteAtlas,
+        cursor_pos: glam::Vec2,
+    ) {
+        MapRenderer::debug_render_with_cursor(&self.graph, canvas, text_renderer, atlas, cursor_pos);
     }
 
     /// Builds the house structure in the graph.
