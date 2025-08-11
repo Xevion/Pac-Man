@@ -3,6 +3,22 @@ import { existsSync, promises as fs } from "fs";
 import { platform } from "os";
 import { dirname, join, relative, resolve } from "path";
 import { match, P } from "ts-pattern";
+import { configure, getConsoleSink } from "@logtape/logtape";
+
+// Constants
+const TAILWIND_UPDATE_WINDOW_DAYS = 60; // 2 months
+
+await configure({
+  sinks: { console: getConsoleSink() },
+  loggers: [
+    { category: "web.build", lowestLevel: "debug", sinks: ["console"] },
+    {
+      category: ["logtape", "meta"],
+      lowestLevel: "warning",
+      sinks: ["console"],
+    },
+  ],
+});
 
 type Os =
   | { type: "linux"; wsl: boolean }
@@ -46,7 +62,7 @@ async function build(release: boolean, env: Record<string, string> | null) {
   const tailwindExecutable = match(
     await downloadTailwind(process.cwd(), {
       version: "latest",
-      force: true,
+      force: false,
     })
   )
     .with({ path: P.select() }, (path) => path)
@@ -148,31 +164,121 @@ async function downloadTailwind(
       ? `https://github.com/tailwindlabs/tailwindcss/releases/latest/download/${asset}`
       : `https://github.com/tailwindlabs/tailwindcss/releases/download/${version}/${asset}`;
 
+  // If the GITHUB_TOKEN environment variable is set, use it for Bearer authentication
+  const headers: Record<string, string> = {};
+  if (process.env.GITHUB_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
+
+  // Check if the file already exists
   const path = join(dir, asset);
-  if (await fs.exists(path)) {
+  const exists = await fs.exists(path);
+
+  // Check if we should download based on timestamps
+  let shouldDownload = force || !exists;
+
+  if (exists && !force) {
+    try {
+      const fileStats = await fs.stat(path);
+      const fileModifiedTime = fileStats.mtime;
+      const now = new Date();
+
+      // Check if file is older than the update window
+      const updateWindowAgo = new Date(
+        now.getTime() - TAILWIND_UPDATE_WINDOW_DAYS * 24 * 60 * 60 * 1000
+      );
+
+      if (fileModifiedTime < updateWindowAgo) {
+        log(
+          `File is older than ${TAILWIND_UPDATE_WINDOW_DAYS} days, checking for updates...`
+        );
+        shouldDownload = true;
+      } else {
+        log(
+          `File is recent (${fileModifiedTime.toISOString()}), checking if newer version available...`
+        );
+      }
+    } catch (error) {
+      log(`Error checking file timestamp: ${error}, will download anyway`);
+      shouldDownload = true;
+    }
+  }
+
+  // If we need to download, check the server's last-modified header
+  if (shouldDownload) {
+    const response = await fetch(url, {
+      headers,
+      method: "HEAD",
+      redirect: "follow",
+    });
+
+    if (response.ok) {
+      const lastModified = response.headers.get("last-modified");
+      if (lastModified) {
+        const serverTime = new Date(lastModified);
+        const now = new Date();
+
+        // If server timestamp is in the future, something is wrong - download anyway
+        if (serverTime > now) {
+          log(
+            `Server timestamp is in the future (${serverTime.toISOString()}), downloading anyway`
+          );
+          shouldDownload = true;
+        } else if (exists) {
+          // Compare with local file timestamp (both in UTC)
+          const fileStats = await fs.stat(path);
+          const fileModifiedTime = new Date(fileStats.mtime.getTime());
+
+          if (serverTime > fileModifiedTime) {
+            log(
+              `Server has newer version (${serverTime.toISOString()} vs local ${fileModifiedTime.toISOString()})`
+            );
+            shouldDownload = true;
+          } else {
+            log(`Local file is up to date (${fileModifiedTime.toISOString()})`);
+            shouldDownload = false;
+          }
+        }
+      } else {
+        log(`No last-modified header available, downloading to be safe`);
+        shouldDownload = true;
+      }
+    } else {
+      log(
+        `Failed to check server headers: ${response.status} ${response.statusText}`
+      );
+      shouldDownload = true;
+    }
+  }
+
+  if (exists && !shouldDownload) {
     const displayPath = match(relative(process.cwd(), path))
       // If the path is not a subpath of cwd, display the absolute path
       .with(P.string.startsWith(".."), (_relative) => path)
       // Otherwise, display the relative path
       .otherwise((relative) => relative);
 
-    if (!force) {
-      log(`Tailwind CSS CLI already exists at ${displayPath}`);
-      return { path };
-    } else {
+    log(`Tailwind CSS CLI already exists and is up to date at ${displayPath}`);
+    return { path };
+  }
+
+  if (exists) {
+    const displayPath = match(relative(process.cwd(), path))
+      // If the path is not a subpath of cwd, display the absolute path
+      .with(P.string.startsWith(".."), (_relative) => path)
+      // Otherwise, display the relative path
+      .otherwise((relative) => relative);
+
+    if (force) {
       log(`Overwriting Tailwind CSS CLI at ${displayPath}`);
+    } else {
+      log(`Downloading updated Tailwind CSS CLI to ${displayPath}`);
     }
   } else {
     log(`Downloading Tailwind CSS CLI to ${path}`);
   }
 
   try {
-    // If the GITHUB_TOKEN environment variable is set, use it for Bearer authentication
-    const headers: Record<string, string> = {};
-    if (process.env.GITHUB_TOKEN) {
-      headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-    }
-
     log(`Fetching ${url}...`);
     const response = await fetch(url, { headers });
 
@@ -184,6 +290,16 @@ async function downloadTailwind(
       return { err: `No response body received for '${url}'` };
     }
 
+    // Validate Content-Length if available
+    const contentLength = response.headers.get("content-length");
+    if (contentLength) {
+      const expectedSize = parseInt(contentLength, 10);
+      if (isNaN(expectedSize)) {
+        return { err: `Invalid Content-Length header: ${contentLength}` };
+      }
+      log(`Expected file size: ${expectedSize} bytes`);
+    }
+
     log(`Writing to ${path}...`);
     await fs.mkdir(dir, { recursive: true });
 
@@ -191,16 +307,39 @@ async function downloadTailwind(
     const writer = file.writer();
 
     const reader = response.body.getReader();
+    let downloadedBytes = 0;
 
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         writer.write(value);
+        downloadedBytes += value.length;
       }
     } finally {
       reader.releaseLock();
       await writer.end();
+    }
+
+    // Validate downloaded file size
+    if (contentLength) {
+      const expectedSize = parseInt(contentLength, 10);
+      const actualSize = downloadedBytes;
+
+      if (actualSize !== expectedSize) {
+        // Clean up the corrupted file
+        try {
+          await fs.unlink(path);
+        } catch (unlinkError) {
+          log(`Warning: Failed to clean up corrupted file: ${unlinkError}`);
+        }
+
+        return {
+          err: `File size mismatch: expected ${expectedSize} bytes, got ${actualSize} bytes. File may be corrupted.`,
+        };
+      }
+
+      log(`File size validation passed: ${actualSize} bytes`);
     }
 
     // Make the file executable on Unix-like systems
