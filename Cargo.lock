@@ -192,6 +192,7 @@ dependencies = [
  "sdl2",
  "serde",
  "serde_json",
+ "smallvec",
  "spin_sleep",
  "thiserror 1.0.69",
  "tracing",

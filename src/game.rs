@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use glam::UVec2;
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 use sdl2::{
     image::LoadTexture,
     keyboard::Keycode,
@@ -14,7 +15,10 @@ use crate::{
     asset::{get_asset_bytes, Asset},
     audio::Audio,
     constants::RAW_BOARD,
-    entity::pacman::Pacman,
+    entity::{
+        ghost::{Ghost, GhostType},
+        pacman::Pacman,
+    },
     map::Map,
     texture::{
         sprite::{self, AtlasMapper, AtlasTile, SpriteAtlas},
@@ -30,6 +34,7 @@ pub struct Game {
     pub score: u32,
     pub map: Map,
     pub pacman: Pacman,
+    pub ghosts: Vec<Ghost>,
     pub debug_mode: bool,
 
     // Rendering resources
@@ -73,10 +78,23 @@ impl Game {
         let audio = Audio::new();
         let pacman = Pacman::new(&map.graph, pacman_start_node, &atlas);
 
+        // Create ghosts at random positions
+        let mut ghosts = Vec::new();
+        let ghost_types = [GhostType::Blinky, GhostType::Pinky, GhostType::Inky, GhostType::Clyde];
+        let mut rng = SmallRng::from_os_rng();
+
+        for &ghost_type in &ghost_types {
+            // Find a random node for the ghost to start at
+            let random_node = rng.random_range(0..map.graph.node_count());
+            let ghost = Ghost::new(&map.graph, random_node, ghost_type, &atlas);
+            ghosts.push(ghost);
+        }
+
         Game {
             score: 0,
             map,
             pacman,
+            ghosts,
             debug_mode: false,
             map_texture,
             text_texture,
@@ -91,10 +109,41 @@ impl Game {
         if keycode == Keycode::M {
             self.audio.set_mute(!self.audio.is_muted());
         }
+
+        if keycode == Keycode::R {
+            self.reset_game_state();
+        }
+    }
+
+    /// Resets the game state, randomizing ghost positions and resetting Pac-Man
+    fn reset_game_state(&mut self) {
+        // Reset Pac-Man to starting position
+        let pacman_start_pos = self.map.find_starting_position(0).unwrap();
+        let pacman_start_node = *self
+            .map
+            .grid_to_node
+            .get(&glam::IVec2::new(pacman_start_pos.x as i32, pacman_start_pos.y as i32))
+            .expect("Pac-Man starting position not found in graph");
+
+        self.pacman = Pacman::new(&self.map.graph, pacman_start_node, &self.atlas);
+
+        // Randomize ghost positions
+        let ghost_types = [GhostType::Blinky, GhostType::Pinky, GhostType::Inky, GhostType::Clyde];
+        let mut rng = SmallRng::from_os_rng();
+
+        for (i, ghost) in self.ghosts.iter_mut().enumerate() {
+            let random_node = rng.random_range(0..self.map.graph.node_count());
+            *ghost = Ghost::new(&self.map.graph, random_node, ghost_types[i], &self.atlas);
+        }
     }
 
     pub fn tick(&mut self, dt: f32) {
         self.pacman.tick(dt, &self.map.graph);
+
+        // Update all ghosts
+        for ghost in &mut self.ghosts {
+            ghost.tick(dt, &self.map.graph);
+        }
     }
 
     pub fn draw<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>, backbuffer: &mut Texture) -> Result<()> {
@@ -102,6 +151,12 @@ impl Game {
             canvas.set_draw_color(Color::BLACK);
             canvas.clear();
             self.map.render(canvas, &mut self.atlas, &mut self.map_texture);
+
+            // Render all ghosts
+            for ghost in &self.ghosts {
+                ghost.render(canvas, &mut self.atlas, &self.map.graph);
+            }
+
             self.pacman.render(canvas, &mut self.atlas, &self.map.graph);
         })?;
 

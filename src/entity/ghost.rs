@@ -1,0 +1,216 @@
+//! Ghost entity implementation.
+//!
+//! This module contains the ghost character logic, including movement,
+//! animation, and rendering. Ghosts move through the game graph using
+//! a traverser and display directional animated textures.
+
+use glam::Vec2;
+use rand::prelude::*;
+use smallvec::SmallVec;
+use tracing::debug;
+
+use crate::constants::BOARD_PIXEL_OFFSET;
+use crate::entity::direction::Direction;
+use crate::entity::graph::{Edge, EdgePermissions, Graph, NodeId, Position, Traverser};
+use crate::helpers::centered_with_size;
+use crate::texture::animated::AnimatedTexture;
+use crate::texture::directional::DirectionalAnimatedTexture;
+use crate::texture::sprite::SpriteAtlas;
+use sdl2::render::{Canvas, RenderTarget};
+
+/// Determines if a ghost can traverse a given edge.
+///
+/// Ghosts can move through edges that allow all entities or ghost-only edges.
+fn can_ghost_traverse(edge: Edge) -> bool {
+    matches!(edge.permissions, EdgePermissions::All | EdgePermissions::GhostsOnly)
+}
+
+/// The four classic ghost types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GhostType {
+    Blinky,
+    Pinky,
+    Inky,
+    Clyde,
+}
+
+impl GhostType {
+    /// Returns the ghost type name for atlas lookups.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            GhostType::Blinky => "blinky",
+            GhostType::Pinky => "pinky",
+            GhostType::Inky => "inky",
+            GhostType::Clyde => "clyde",
+        }
+    }
+
+    /// Returns the base movement speed for this ghost type.
+    pub fn base_speed(self) -> f32 {
+        match self {
+            GhostType::Blinky => 1.0,
+            GhostType::Pinky => 0.95,
+            GhostType::Inky => 0.9,
+            GhostType::Clyde => 0.85,
+        }
+    }
+}
+
+/// A ghost entity that roams the game world.
+///
+/// Ghosts move through the game world using a graph-based navigation system
+/// and display directional animated sprites. They randomly choose directions
+/// at each intersection.
+pub struct Ghost {
+    /// Handles movement through the game graph
+    pub traverser: Traverser,
+    /// The type of ghost (affects appearance and speed)
+    pub ghost_type: GhostType,
+    /// Manages directional animated textures for different movement states
+    texture: DirectionalAnimatedTexture,
+    /// Current movement speed
+    speed: f32,
+}
+
+impl Ghost {
+    /// Creates a new ghost instance at the specified starting node.
+    ///
+    /// Sets up animated textures for all four directions with moving and stopped states.
+    /// The moving animation cycles through two sprite variants.
+    pub fn new(graph: &Graph, start_node: NodeId, ghost_type: GhostType, atlas: &SpriteAtlas) -> Self {
+        let mut textures = [None, None, None, None];
+        let mut stopped_textures = [None, None, None, None];
+
+        for direction in Direction::DIRECTIONS {
+            let moving_prefix = match direction {
+                Direction::Up => "up",
+                Direction::Down => "down",
+                Direction::Left => "left",
+                Direction::Right => "right",
+            };
+            let moving_tiles = vec![
+                SpriteAtlas::get_tile(atlas, &format!("ghost/{}/{}_{}.png", ghost_type.as_str(), moving_prefix, "a")).unwrap(),
+                SpriteAtlas::get_tile(atlas, &format!("ghost/{}/{}_{}.png", ghost_type.as_str(), moving_prefix, "b")).unwrap(),
+            ];
+
+            let stopped_tiles =
+                vec![
+                    SpriteAtlas::get_tile(atlas, &format!("ghost/{}/{}_{}.png", ghost_type.as_str(), moving_prefix, "a"))
+                        .unwrap(),
+                ];
+
+            textures[direction.as_usize()] = Some(AnimatedTexture::new(moving_tiles, 0.2).expect("Invalid frame duration"));
+            stopped_textures[direction.as_usize()] =
+                Some(AnimatedTexture::new(stopped_tiles, 0.1).expect("Invalid frame duration"));
+        }
+
+        Self {
+            traverser: Traverser::new(graph, start_node, Direction::Left, &can_ghost_traverse),
+            ghost_type,
+            texture: DirectionalAnimatedTexture::new(textures, stopped_textures),
+            speed: ghost_type.base_speed(),
+        }
+    }
+
+    /// Updates the ghost's position and animation state.
+    ///
+    /// Advances movement through the graph, updates texture animation,
+    /// and chooses random directions at intersections.
+    pub fn tick(&mut self, dt: f32, graph: &Graph) {
+        // Choose random direction when at a node
+        if self.traverser.position.is_at_node() {
+            self.choose_random_direction(graph);
+        }
+
+        self.traverser.advance(graph, dt * 60.0 * self.speed, &can_ghost_traverse);
+        self.texture.tick(dt);
+    }
+
+    /// Chooses a random available direction at the current intersection.
+    fn choose_random_direction(&mut self, graph: &Graph) {
+        let current_node = self.traverser.position.from_node_id();
+        let intersection = &graph.adjacency_list[current_node];
+
+        // Collect all available directions
+        let mut available_directions = SmallVec::<[_; 4]>::new();
+        for direction in Direction::DIRECTIONS {
+            if let Some(edge) = intersection.get(direction) {
+                if can_ghost_traverse(edge) {
+                    available_directions.push(direction);
+                }
+            }
+        }
+
+        debug!(
+            "Ghost {} at node {}: available directions: {:?}, current direction: {:?}",
+            self.ghost_type.as_str(),
+            current_node,
+            available_directions,
+            self.traverser.direction
+        );
+
+        // Choose a random direction (avoid reversing unless necessary)
+        if !available_directions.is_empty() {
+            let mut rng = SmallRng::from_os_rng();
+
+            // Filter out the opposite direction if possible, but allow it if we have limited options
+            let opposite = self.traverser.direction.opposite();
+            let filtered_directions: Vec<_> = available_directions
+                .iter()
+                .filter(|&&dir| dir != opposite || available_directions.len() <= 2)
+                .collect();
+
+            debug!(
+                "Ghost {}: filtered directions: {:?}, opposite: {:?}",
+                self.ghost_type.as_str(),
+                filtered_directions,
+                opposite
+            );
+
+            if let Some(&random_direction) = filtered_directions.choose(&mut rng) {
+                self.traverser.set_next_direction(*random_direction);
+                debug!("Ghost {} chose direction: {:?}", self.ghost_type.as_str(), random_direction);
+            }
+        }
+    }
+
+    /// Calculates the current pixel position in the game world.
+    ///
+    /// Converts the graph position to screen coordinates, accounting for
+    /// the board offset and centering the sprite.
+    fn get_pixel_pos(&self, graph: &Graph) -> Vec2 {
+        let pos = match self.traverser.position {
+            Position::AtNode(node_id) => graph.get_node(node_id).unwrap().position,
+            Position::BetweenNodes { from, to, traversed } => {
+                let from_pos = graph.get_node(from).unwrap().position;
+                let to_pos = graph.get_node(to).unwrap().position;
+                let edge = graph.find_edge(from, to).unwrap();
+                from_pos + (to_pos - from_pos) * (traversed / edge.distance)
+            }
+        };
+
+        Vec2::new(pos.x + BOARD_PIXEL_OFFSET.x as f32, pos.y + BOARD_PIXEL_OFFSET.y as f32)
+    }
+
+    /// Renders the ghost at its current position.
+    ///
+    /// Draws the appropriate directional sprite based on the ghost's
+    /// current movement state and direction.
+    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, graph: &Graph) {
+        let pixel_pos = self.get_pixel_pos(graph);
+        let dest = centered_with_size(
+            glam::IVec2::new(pixel_pos.x as i32, pixel_pos.y as i32),
+            glam::UVec2::new(16, 16),
+        );
+
+        if self.traverser.position.is_stopped() {
+            self.texture
+                .render_stopped(canvas, atlas, dest, self.traverser.direction)
+                .expect("Failed to render ghost");
+        } else {
+            self.texture
+                .render(canvas, atlas, dest, self.traverser.direction)
+                .expect("Failed to render ghost");
+        }
+    }
+}
