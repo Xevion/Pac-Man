@@ -3,7 +3,7 @@ import { existsSync, promises as fs } from "fs";
 import { platform } from "os";
 import { dirname, join, relative, resolve } from "path";
 import { match, P } from "ts-pattern";
-import { configure, getConsoleSink } from "@logtape/logtape";
+import { configure, getConsoleSink, getLogger } from "@logtape/logtape";
 
 // Constants
 const TAILWIND_UPDATE_WINDOW_DAYS = 60; // 2 months
@@ -11,7 +11,7 @@ const TAILWIND_UPDATE_WINDOW_DAYS = 60; // 2 months
 await configure({
   sinks: { console: getConsoleSink() },
   loggers: [
-    { category: "web.build", lowestLevel: "debug", sinks: ["console"] },
+    { category: "web", lowestLevel: "debug", sinks: ["console"] },
     {
       category: ["logtape", "meta"],
       lowestLevel: "warning",
@@ -19,6 +19,8 @@ await configure({
     },
   ],
 });
+
+const logger = getLogger("web");
 
 type Os =
   | { type: "linux"; wsl: boolean }
@@ -38,10 +40,6 @@ const os: Os = match(platform())
     throw new Error(`Unsupported platform: ${platform()}`);
   });
 
-function log(msg: string) {
-  console.log(`[web.build] ${msg}`);
-}
-
 /**
  * Build the application with Emscripten, generate the CSS, and copy the files into 'dist'.
  *
@@ -49,7 +47,7 @@ function log(msg: string) {
  * @param env - The environment variables to inject into build commands.
  */
 async function build(release: boolean, env: Record<string, string> | null) {
-  log(
+  logger.info(
     `Building for 'wasm32-unknown-emscripten' for ${
       release ? "release" : "debug"
     }`
@@ -71,7 +69,7 @@ async function build(release: boolean, env: Record<string, string> | null) {
     })
     .exhaustive();
 
-  log(`Invoking ${tailwindExecutable}...`);
+  logger.debug(`Invoking ${tailwindExecutable}...`);
   await $`${tailwindExecutable} --minify --input styles.css --output build.css --cwd assets/site`;
 
   const buildType = release ? "release" : "debug";
@@ -108,20 +106,20 @@ async function build(release: boolean, env: Record<string, string> | null) {
       .map(async (dir) => {
         // If the folder doesn't exist, create it
         if (!(await fs.exists(dir))) {
-          log(`Creating folder ${dir}`);
+          logger.debug(`Creating folder ${dir}`);
           await fs.mkdir(dir, { recursive: true });
         }
       })
   );
 
   // Copy the files to the dist folder
-  log("Copying files into dist");
+  logger.debug("Copying files into dist");
   await Promise.all(
     files.map(async ({ optional, src, dest }) => {
       match({ optional, exists: await fs.exists(src) })
         // If optional and doesn't exist, skip
         .with({ optional: true, exists: false }, () => {
-          log(
+          logger.debug(
             `Optional file ${os.type === "windows" ? "\\" : "/"}${relative(
               process.cwd(),
               src
@@ -189,17 +187,19 @@ async function downloadTailwind(
       );
 
       if (fileModifiedTime < updateWindowAgo) {
-        log(
+        logger.debug(
           `File is older than ${TAILWIND_UPDATE_WINDOW_DAYS} days, checking for updates...`
         );
         shouldDownload = true;
       } else {
-        log(
+        logger.debug(
           `File is recent (${fileModifiedTime.toISOString()}), checking if newer version available...`
         );
       }
     } catch (error) {
-      log(`Error checking file timestamp: ${error}, will download anyway`);
+      logger.debug(
+        `Error checking file timestamp: ${error}, will download anyway`
+      );
       shouldDownload = true;
     }
   }
@@ -220,7 +220,7 @@ async function downloadTailwind(
 
         // If server timestamp is in the future, something is wrong - download anyway
         if (serverTime > now) {
-          log(
+          logger.debug(
             `Server timestamp is in the future (${serverTime.toISOString()}), downloading anyway`
           );
           shouldDownload = true;
@@ -230,21 +230,25 @@ async function downloadTailwind(
           const fileModifiedTime = new Date(fileStats.mtime.getTime());
 
           if (serverTime > fileModifiedTime) {
-            log(
+            logger.debug(
               `Server has newer version (${serverTime.toISOString()} vs local ${fileModifiedTime.toISOString()})`
             );
             shouldDownload = true;
           } else {
-            log(`Local file is up to date (${fileModifiedTime.toISOString()})`);
+            logger.debug(
+              `Local file is up to date (${fileModifiedTime.toISOString()})`
+            );
             shouldDownload = false;
           }
         }
       } else {
-        log(`No last-modified header available, downloading to be safe`);
+        logger.debug(
+          `No last-modified header available, downloading to be safe`
+        );
         shouldDownload = true;
       }
     } else {
-      log(
+      logger.debug(
         `Failed to check server headers: ${response.status} ${response.statusText}`
       );
       shouldDownload = true;
@@ -258,7 +262,9 @@ async function downloadTailwind(
       // Otherwise, display the relative path
       .otherwise((relative) => relative);
 
-    log(`Tailwind CSS CLI already exists and is up to date at ${displayPath}`);
+    logger.debug(
+      `Tailwind CSS CLI already exists and is up to date at ${displayPath}`
+    );
     return { path };
   }
 
@@ -270,16 +276,16 @@ async function downloadTailwind(
       .otherwise((relative) => relative);
 
     if (force) {
-      log(`Overwriting Tailwind CSS CLI at ${displayPath}`);
+      logger.debug(`Overwriting Tailwind CSS CLI at ${displayPath}`);
     } else {
-      log(`Downloading updated Tailwind CSS CLI to ${displayPath}`);
+      logger.debug(`Downloading updated Tailwind CSS CLI to ${displayPath}`);
     }
   } else {
-    log(`Downloading Tailwind CSS CLI to ${path}`);
+    logger.debug(`Downloading Tailwind CSS CLI to ${path}`);
   }
 
   try {
-    log(`Fetching ${url}...`);
+    logger.debug(`Fetching ${url}...`);
     const response = await fetch(url, { headers });
 
     if (!response.ok) {
@@ -297,10 +303,10 @@ async function downloadTailwind(
       if (isNaN(expectedSize)) {
         return { err: `Invalid Content-Length header: ${contentLength}` };
       }
-      log(`Expected file size: ${expectedSize} bytes`);
+      logger.debug(`Expected file size: ${expectedSize} bytes`);
     }
 
-    log(`Writing to ${path}...`);
+    logger.debug(`Writing to ${path}...`);
     await fs.mkdir(dir, { recursive: true });
 
     const file = Bun.file(path);
@@ -331,7 +337,9 @@ async function downloadTailwind(
         try {
           await fs.unlink(path);
         } catch (unlinkError) {
-          log(`Warning: Failed to clean up corrupted file: ${unlinkError}`);
+          logger.debug(
+            `Warning: Failed to clean up corrupted file: ${unlinkError}`
+          );
         }
 
         return {
@@ -339,7 +347,7 @@ async function downloadTailwind(
         };
       }
 
-      log(`File size validation passed: ${actualSize} bytes`);
+      logger.debug(`File size validation passed: ${actualSize} bytes`);
     }
 
     // Make the file executable on Unix-like systems
@@ -354,7 +362,7 @@ async function downloadTailwind(
         if ((await fs.stat(path)).size > 0) break;
       } catch {
         // File might not be ready yet
-        log(`File ${path} is not ready yet, waiting...`);
+        logger.debug(`File ${path} is not ready yet, waiting...`);
       }
       await new Promise((resolve) => setTimeout(resolve, 10));
     } while (Date.now() < timeout);
@@ -398,7 +406,7 @@ async function activateEmsdk(
 ): Promise<{ vars: Record<string, string> | null } | { err: string }> {
   // If the EMSDK environment variable is set already & the path specified exists, return nothing
   if (process.env.EMSDK && (await fs.exists(resolve(process.env.EMSDK)))) {
-    log(
+    logger.debug(
       "Emscripten SDK already activated in environment, using existing configuration"
     );
     return { vars: null };
@@ -493,7 +501,7 @@ async function activateEmsdk(
 
 async function main() {
   // Print the OS detected
-  log(
+  logger.debug(
     "OS Detected: " +
       match(os)
         .with({ type: "windows" }, () => "Windows")
@@ -511,7 +519,7 @@ async function main() {
   const vars = match(await activateEmsdk(emsdkDir))
     .with({ vars: P.select() }, (vars) => vars)
     .with({ err: P.any }, ({ err }) => {
-      log("Error activating Emscripten SDK: " + err);
+      logger.debug("Error activating Emscripten SDK: " + err);
       process.exit(1);
     })
     .exhaustive();
@@ -524,6 +532,6 @@ async function main() {
  * Main entry point.
  */
 main().catch((err) => {
-  console.error("[web.build] Error:", err);
+  console.error({ msg: "fatal error", error: err });
   process.exit(1);
 });
