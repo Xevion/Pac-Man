@@ -87,7 +87,7 @@ impl MapRenderer {
 
             // Draw node ID text (small, offset to top right)
             text_renderer.set_scale(0.5); // Small text
-            let id_text = format!("#{}", nearest_id);
+            let id_text = format!("#{nearest_id}");
             let text_pos = glam::UVec2::new(
                 (nearest_pos.x + 4.0) as u32, // Offset to the right
                 (nearest_pos.y - 6.0) as u32, // Offset to the top
