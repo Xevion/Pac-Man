@@ -1,7 +1,7 @@
 //! This module contains the main game logic and state.
 
 use anyhow::Result;
-use glam::UVec2;
+use glam::{UVec2, Vec2};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use sdl2::{
     image::LoadTexture,
@@ -188,7 +188,7 @@ impl Game {
     fn render_pathfinding_debug<T: RenderTarget>(&self, canvas: &mut Canvas<T>) -> Result<()> {
         let pacman_node = self.pacman.current_node_id();
 
-        for (i, ghost) in self.ghosts.iter().enumerate() {
+        for ghost in self.ghosts.iter() {
             if let Some(path) = ghost.calculate_path_to_target(&self.map.graph, pacman_node) {
                 if path.len() < 2 {
                     continue; // Skip if path is too short
@@ -198,24 +198,26 @@ impl Game {
                 canvas.set_draw_color(ghost.debug_color());
 
                 // Calculate offset based on ghost index to prevent overlapping lines
-                let offset = (i as f32) * 2.0 - 3.0; // Offset range: -3.0 to 3.0
+                // let offset = (i as f32) * 2.0 - 3.0; // Offset range: -3.0 to 3.0
 
                 // Calculate a consistent offset direction for the entire path
-                let first_node = self.map.graph.get_node(path[0]).unwrap();
-                let last_node = self.map.graph.get_node(path[path.len() - 1]).unwrap();
-                let first_pos = first_node.position + crate::constants::BOARD_PIXEL_OFFSET.as_vec2();
-                let last_pos = last_node.position + crate::constants::BOARD_PIXEL_OFFSET.as_vec2();
+                // let first_node = self.map.graph.get_node(path[0]).unwrap();
+                // let last_node = self.map.graph.get_node(path[path.len() - 1]).unwrap();
 
                 // Use the overall direction from start to end to determine the perpendicular offset
-                let overall_dir = (last_pos - first_pos).normalize();
-                let perp_dir = glam::Vec2::new(-overall_dir.y, overall_dir.x);
+                let offset = match ghost.ghost_type {
+                    GhostType::Blinky => Vec2::new(0.25, 0.5),
+                    GhostType::Pinky => Vec2::new(-0.25, -0.25),
+                    GhostType::Inky => Vec2::new(0.5, -0.5),
+                    GhostType::Clyde => Vec2::new(-0.5, 0.25),
+                } * 5.0;
 
                 // Calculate offset positions for all nodes using the same perpendicular direction
                 let mut offset_positions = Vec::new();
                 for &node_id in &path {
                     let node = self.map.graph.get_node(node_id).unwrap();
                     let pos = node.position + crate::constants::BOARD_PIXEL_OFFSET.as_vec2();
-                    offset_positions.push(pos + perp_dir * offset);
+                    offset_positions.push(pos + offset);
                 }
 
                 // Draw lines between the offset positions
