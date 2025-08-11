@@ -56,6 +56,6 @@ on_change_strategy = "kill_then_restart"
 
 [keybindings]
 c = "job:clippy"
-shift-c = "job:check"
-ctrl-shift-c = "job:check-all"
-ctrl-c = "job:clippy-all"
+alt-c = "job:check"
+ctrl-alt-c = "job:check-all"
+shift-c = "job:clippy-all"
