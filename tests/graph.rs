@@ -1,5 +1,6 @@
 use pacman::entity::direction::Direction;
-use pacman::entity::graph::{EdgePermissions, Graph, Node, Position, Traverser};
+use pacman::entity::graph::{EdgePermissions, Graph, Node};
+use pacman::entity::traversal::{Position, Traverser};
 
 fn create_test_graph() -> Graph {
     let mut graph = Graph::new();

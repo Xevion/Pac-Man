@@ -331,7 +331,7 @@ impl Map {
                 .expect("Left tunnel entrance node not found");
 
             graph
-                .connect_node(
+                .add_connected(
                     left_tunnel_entrance_node_id,
                     Direction::Left,
                     Node {
@@ -350,7 +350,7 @@ impl Map {
                 .expect("Right tunnel entrance node not found");
 
             graph
-                .connect_node(
+                .add_connected(
                     right_tunnel_entrance_node_id,
                     Direction::Right,
                     Node {

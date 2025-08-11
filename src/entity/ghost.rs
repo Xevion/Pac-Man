@@ -11,7 +11,8 @@ use tracing::debug;
 
 use crate::constants::BOARD_PIXEL_OFFSET;
 use crate::entity::direction::Direction;
-use crate::entity::graph::{Edge, EdgePermissions, Graph, NodeId, Position, Traverser};
+use crate::entity::graph::{Edge, EdgePermissions, Graph, NodeId};
+use crate::entity::traversal::{Position, Traverser};
 use crate::helpers::centered_with_size;
 use crate::texture::animated::AnimatedTexture;
 use crate::texture::directional::DirectionalAnimatedTexture;
