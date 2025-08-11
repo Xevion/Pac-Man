@@ -18,6 +18,7 @@ use crate::{
     entity::{
         ghost::{Ghost, GhostType},
         pacman::Pacman,
+        r#trait::Entity,
     },
     map::Map,
     texture::{

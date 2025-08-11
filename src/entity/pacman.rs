@@ -4,18 +4,14 @@
 //! animation, and rendering. Pac-Man moves through the game graph using
 //! a traverser and displays directional animated textures.
 
-use glam::{UVec2, Vec2};
-
-use crate::constants::BOARD_PIXEL_OFFSET;
 use crate::entity::direction::Direction;
 use crate::entity::graph::{Edge, EdgePermissions, Graph, NodeId};
-use crate::entity::traversal::{Position, Traverser};
-use crate::helpers::centered_with_size;
+use crate::entity::r#trait::Entity;
+use crate::entity::traversal::Traverser;
 use crate::texture::animated::AnimatedTexture;
 use crate::texture::directional::DirectionalAnimatedTexture;
 use crate::texture::sprite::SpriteAtlas;
 use sdl2::keyboard::Keycode;
-use sdl2::render::{Canvas, RenderTarget};
 
 /// Determines if Pac-Man can traverse a given edge.
 ///
@@ -33,6 +29,37 @@ pub struct Pacman {
     pub traverser: Traverser,
     /// Manages directional animated textures for different movement states
     texture: DirectionalAnimatedTexture,
+}
+
+impl Entity for Pacman {
+    fn traverser(&self) -> &Traverser {
+        &self.traverser
+    }
+
+    fn traverser_mut(&mut self) -> &mut Traverser {
+        &mut self.traverser
+    }
+
+    fn texture(&self) -> &DirectionalAnimatedTexture {
+        &self.texture
+    }
+
+    fn texture_mut(&mut self) -> &mut DirectionalAnimatedTexture {
+        &mut self.texture
+    }
+
+    fn speed(&self) -> f32 {
+        1.125
+    }
+
+    fn can_traverse(&self, edge: Edge) -> bool {
+        can_pacman_traverse(edge)
+    }
+
+    fn tick(&mut self, dt: f32, graph: &Graph) {
+        self.traverser.advance(graph, dt * 60.0 * 1.125, &can_pacman_traverse);
+        self.texture.tick(dt);
+    }
 }
 
 impl Pacman {
@@ -70,15 +97,6 @@ impl Pacman {
         }
     }
 
-    /// Updates Pac-Man's position and animation state.
-    ///
-    /// Advances movement through the graph and updates texture animation.
-    /// Movement speed is scaled by 60 FPS and a 1.125 multiplier.
-    pub fn tick(&mut self, dt: f32, graph: &Graph) {
-        self.traverser.advance(graph, dt * 60.0 * 1.125, &can_pacman_traverse);
-        self.texture.tick(dt);
-    }
-
     /// Handles keyboard input to change Pac-Man's direction.
     ///
     /// Maps arrow keys to directions and queues the direction change
@@ -94,49 +112,6 @@ impl Pacman {
 
         if let Some(direction) = direction {
             self.traverser.set_next_direction(direction);
-        }
-    }
-
-    /// Calculates the current pixel position in the game world.
-    ///
-    /// Interpolates between nodes when moving between them.
-    fn get_pixel_pos(&self, graph: &Graph) -> Vec2 {
-        match self.traverser.position {
-            Position::AtNode(node_id) => graph.get_node(node_id).unwrap().position,
-            Position::BetweenNodes { from, to, traversed } => {
-                let from_pos = graph.get_node(from).unwrap().position;
-                let to_pos = graph.get_node(to).unwrap().position;
-                from_pos.lerp(to_pos, traversed / from_pos.distance(to_pos))
-            }
-        }
-    }
-
-    /// Returns the current node ID that Pac-Man is at or moving towards.
-    ///
-    /// If Pac-Man is at a node, returns that node ID.
-    /// If Pac-Man is between nodes, returns the node it's moving towards.
-    pub fn current_node_id(&self) -> NodeId {
-        match self.traverser.position {
-            Position::AtNode(node_id) => node_id,
-            Position::BetweenNodes { to, .. } => to,
-        }
-    }
-
-    /// Renders Pac-Man to the canvas.
-    ///
-    /// Calculates screen position, determines if Pac-Man is stopped,
-    /// and renders the appropriate directional texture.
-    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, graph: &Graph) {
-        let pixel_pos = self.get_pixel_pos(graph).round().as_ivec2() + BOARD_PIXEL_OFFSET.as_ivec2();
-        let dest = centered_with_size(pixel_pos, UVec2::new(16, 16));
-        let is_stopped = self.traverser.position.is_stopped();
-
-        if is_stopped {
-            self.texture
-                .render_stopped(canvas, atlas, dest, self.traverser.direction)
-                .unwrap();
-        } else {
-            self.texture.render(canvas, atlas, dest, self.traverser.direction).unwrap();
         }
     }
 }

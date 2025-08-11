@@ -4,20 +4,17 @@
 //! animation, and rendering. Ghosts move through the game graph using
 //! a traverser and display directional animated textures.
 
-use glam::Vec2;
 use pathfinding::prelude::dijkstra;
 use rand::prelude::*;
 use smallvec::SmallVec;
 
-use crate::constants::BOARD_PIXEL_OFFSET;
 use crate::entity::direction::Direction;
 use crate::entity::graph::{Edge, EdgePermissions, Graph, NodeId};
-use crate::entity::traversal::{Position, Traverser};
-use crate::helpers::centered_with_size;
+use crate::entity::r#trait::Entity;
+use crate::entity::traversal::Traverser;
 use crate::texture::animated::AnimatedTexture;
 use crate::texture::directional::DirectionalAnimatedTexture;
 use crate::texture::sprite::SpriteAtlas;
-use sdl2::render::{Canvas, RenderTarget};
 
 /// Determines if a ghost can traverse a given edge.
 ///
@@ -73,6 +70,42 @@ pub struct Ghost {
     speed: f32,
 }
 
+impl Entity for Ghost {
+    fn traverser(&self) -> &Traverser {
+        &self.traverser
+    }
+
+    fn traverser_mut(&mut self) -> &mut Traverser {
+        &mut self.traverser
+    }
+
+    fn texture(&self) -> &DirectionalAnimatedTexture {
+        &self.texture
+    }
+
+    fn texture_mut(&mut self) -> &mut DirectionalAnimatedTexture {
+        &mut self.texture
+    }
+
+    fn speed(&self) -> f32 {
+        self.speed
+    }
+
+    fn can_traverse(&self, edge: Edge) -> bool {
+        can_ghost_traverse(edge)
+    }
+
+    fn tick(&mut self, dt: f32, graph: &Graph) {
+        // Choose random direction when at a node
+        if self.traverser.position.is_at_node() {
+            self.choose_random_direction(graph);
+        }
+
+        self.traverser.advance(graph, dt * 60.0 * self.speed, &can_ghost_traverse);
+        self.texture.tick(dt);
+    }
+}
+
 impl Ghost {
     /// Creates a new ghost instance at the specified starting node.
     ///
@@ -113,20 +146,6 @@ impl Ghost {
         }
     }
 
-    /// Updates the ghost's position and animation state.
-    ///
-    /// Advances movement through the graph, updates texture animation,
-    /// and chooses random directions at intersections.
-    pub fn tick(&mut self, dt: f32, graph: &Graph) {
-        // Choose random direction when at a node
-        if self.traverser.position.is_at_node() {
-            self.choose_random_direction(graph);
-        }
-
-        self.traverser.advance(graph, dt * 60.0 * self.speed, &can_ghost_traverse);
-        self.texture.tick(dt);
-    }
-
     /// Chooses a random available direction at the current intersection.
     fn choose_random_direction(&mut self, graph: &Graph) {
         let current_node = self.traverser.position.from_node_id();
@@ -156,24 +175,6 @@ impl Ghost {
                 self.traverser.set_next_direction(*random_direction);
             }
         }
-    }
-
-    /// Calculates the current pixel position in the game world.
-    ///
-    /// Converts the graph position to screen coordinates, accounting for
-    /// the board offset and centering the sprite.
-    fn get_pixel_pos(&self, graph: &Graph) -> Vec2 {
-        let pos = match self.traverser.position {
-            Position::AtNode(node_id) => graph.get_node(node_id).unwrap().position,
-            Position::BetweenNodes { from, to, traversed } => {
-                let from_pos = graph.get_node(from).unwrap().position;
-                let to_pos = graph.get_node(to).unwrap().position;
-                let edge = graph.find_edge(from, to).unwrap();
-                from_pos + (to_pos - from_pos) * (traversed / edge.distance)
-            }
-        };
-
-        Vec2::new(pos.x + BOARD_PIXEL_OFFSET.x as f32, pos.y + BOARD_PIXEL_OFFSET.y as f32)
     }
 
     /// Calculates the shortest path from the ghost's current position to a target node using Dijkstra's algorithm.
@@ -207,28 +208,6 @@ impl Ghost {
             GhostType::Pinky => sdl2::pixels::Color::RGB(255, 182, 255), // Pink
             GhostType::Inky => sdl2::pixels::Color::RGB(0, 255, 255),    // Cyan
             GhostType::Clyde => sdl2::pixels::Color::RGB(255, 182, 85),  // Orange
-        }
-    }
-
-    /// Renders the ghost at its current position.
-    ///
-    /// Draws the appropriate directional sprite based on the ghost's
-    /// current movement state and direction.
-    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, graph: &Graph) {
-        let pixel_pos = self.get_pixel_pos(graph);
-        let dest = centered_with_size(
-            glam::IVec2::new(pixel_pos.x as i32, pixel_pos.y as i32),
-            glam::UVec2::new(16, 16),
-        );
-
-        if self.traverser.position.is_stopped() {
-            self.texture
-                .render_stopped(canvas, atlas, dest, self.traverser.direction)
-                .expect("Failed to render ghost");
-        } else {
-            self.texture
-                .render(canvas, atlas, dest, self.traverser.direction)
-                .expect("Failed to render ghost");
         }
     }
 }
