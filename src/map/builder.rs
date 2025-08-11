@@ -1,7 +1,7 @@
 //! Map construction and building functionality.
 
 use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE};
-use crate::entity::direction::{Direction, DIRECTIONS};
+use crate::entity::direction::Direction;
 use crate::entity::graph::{EdgePermissions, Graph, Node, NodeId};
 use crate::map::parser::MapTileParser;
 use crate::map::render::MapRenderer;
@@ -75,7 +75,7 @@ impl Map {
 
         // Iterate over the queue, adding nodes to the graph and connecting them to their neighbors
         while let Some(source_position) = queue.pop_front() {
-            for &dir in DIRECTIONS.iter() {
+            for dir in Direction::DIRECTIONS {
                 let new_position = source_position + dir.as_ivec2();
 
                 // Skip if the new position is out of bounds
@@ -121,7 +121,7 @@ impl Map {
 
         // While most nodes are already connected to their neighbors, some may not be, so we need to connect them
         for (grid_pos, &node_id) in &grid_to_node {
-            for dir in DIRECTIONS {
+            for dir in Direction::DIRECTIONS {
                 // If the node doesn't have an edge in this direction, look for a neighbor in that direction
                 if graph.adjacency_list[node_id].get(dir).is_none() {
                     let neighbor = grid_pos + dir.as_ivec2();

@@ -1,5 +1,6 @@
 use glam::IVec2;
 
+/// The four cardinal directions.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Direction {
     Up,
@@ -9,7 +10,12 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn opposite(&self) -> Direction {
+    /// The four cardinal directions.
+    /// This is just a convenience constant for iterating over the directions.
+    pub const DIRECTIONS: [Direction; 4] = [Direction::Up, Direction::Down, Direction::Left, Direction::Right];
+
+    /// Returns the opposite direction. Constant time.
+    pub const fn opposite(self) -> Direction {
         match self {
             Direction::Up => Direction::Down,
             Direction::Down => Direction::Up,
@@ -18,8 +24,20 @@ impl Direction {
         }
     }
 
-    pub fn as_ivec2(&self) -> IVec2 {
-        (*self).into()
+    /// Returns the direction as an IVec2.
+    pub fn as_ivec2(self) -> IVec2 {
+        self.into()
+    }
+
+    /// Returns the direction as a u8 (0-3). Constant time.
+    /// This is useful for indexing into arrays.
+    pub const fn as_u8(self) -> u8 {
+        match self {
+            Direction::Up => 0,
+            Direction::Down => 1,
+            Direction::Left => 2,
+            Direction::Right => 3,
+        }
     }
 }
 
