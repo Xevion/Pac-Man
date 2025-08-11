@@ -7,7 +7,6 @@
 use glam::Vec2;
 use rand::prelude::*;
 use smallvec::SmallVec;
-use tracing::debug;
 
 use crate::constants::BOARD_PIXEL_OFFSET;
 use crate::entity::direction::Direction;
@@ -141,15 +140,6 @@ impl Ghost {
                 }
             }
         }
-
-        debug!(
-            "Ghost {} at node {}: available directions: {:?}, current direction: {:?}",
-            self.ghost_type.as_str(),
-            current_node,
-            available_directions,
-            self.traverser.direction
-        );
-
         // Choose a random direction (avoid reversing unless necessary)
         if !available_directions.is_empty() {
             let mut rng = SmallRng::from_os_rng();
@@ -161,16 +151,8 @@ impl Ghost {
                 .filter(|&&dir| dir != opposite || available_directions.len() <= 2)
                 .collect();
 
-            debug!(
-                "Ghost {}: filtered directions: {:?}, opposite: {:?}",
-                self.ghost_type.as_str(),
-                filtered_directions,
-                opposite
-            );
-
             if let Some(&random_direction) = filtered_directions.choose(&mut rng) {
                 self.traverser.set_next_direction(*random_direction);
-                debug!("Ghost {} chose direction: {:?}", self.ghost_type.as_str(), random_direction);
             }
         }
     }
