@@ -14,7 +14,7 @@ use sdl2::{
 use crate::{
     asset::{get_asset_bytes, Asset},
     audio::Audio,
-    constants::RAW_BOARD,
+    constants::{CELL_SIZE, RAW_BOARD},
     entity::{
         ghost::{Ghost, GhostType},
         pacman::Pacman,
@@ -222,12 +222,17 @@ impl Game {
 
                 // Draw lines between the offset positions
                 for window in offset_positions.windows(2) {
-                    canvas
-                        .draw_line(
-                            (window[0].x as i32, window[0].y as i32),
-                            (window[1].x as i32, window[1].y as i32),
-                        )
-                        .map_err(anyhow::Error::msg)?;
+                    if let (Some(from), Some(to)) = (window.first(), window.get(1)) {
+                        // Skip if the distance is too far (used for preventing lines between tunnel portals)
+                        if from.distance_squared(*to) > (CELL_SIZE * 16).pow(2) as f32 {
+                            continue;
+                        }
+
+                        // Draw the line
+                        canvas
+                            .draw_line((from.x as i32, from.y as i32), (to.x as i32, to.y as i32))
+                            .map_err(anyhow::Error::msg)?;
+                    }
                 }
             }
         }
