@@ -21,10 +21,8 @@ impl DirectionalAnimatedTexture {
     }
 
     pub fn tick(&mut self, dt: f32) {
-        for texture in self.textures.iter_mut() {
-            if let Some(texture) = texture {
-                texture.tick(dt);
-            }
+        for texture in self.textures.iter_mut().flatten() {
+            texture.tick(dt);
         }
     }
 

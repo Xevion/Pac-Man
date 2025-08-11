@@ -40,7 +40,7 @@ impl Platform for EmscriptenPlatform {
         let mut buf = vec![0u8; len];
         rwops
             .read_exact(&mut buf)
-            .map_err(|e| AssetError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+            .map_err(|e| AssetError::Io(std::io::Error::other(e)))?;
 
         Ok(Cow::Owned(buf))
     }
@@ -56,6 +56,6 @@ extern "C" {
 unsafe fn get_canvas_size() -> (u32, u32) {
     let mut width = 0.0;
     let mut height = 0.0;
-    emscripten_get_element_css_size("canvas\0".as_ptr(), &mut width, &mut height);
+    emscripten_get_element_css_size(c"canvas".as_ptr().cast(), &mut width, &mut height);
     (width as u32, height as u32)
 }
