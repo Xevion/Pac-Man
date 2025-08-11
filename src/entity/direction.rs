@@ -29,9 +29,9 @@ impl Direction {
         self.into()
     }
 
-    /// Returns the direction as a u8 (0-3). Constant time.
+    /// Returns the direction as a usize (0-3). Constant time.
     /// This is useful for indexing into arrays.
-    pub const fn as_u8(self) -> u8 {
+    pub const fn as_usize(self) -> usize {
         match self {
             Direction::Up => 0,
             Direction::Down => 1,
@@ -51,5 +51,3 @@ impl From<Direction> for IVec2 {
         }
     }
 }
-
-pub const DIRECTIONS: [Direction; 4] = [Direction::Up, Direction::Down, Direction::Left, Direction::Right];

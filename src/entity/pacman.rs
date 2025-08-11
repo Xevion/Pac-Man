@@ -15,7 +15,6 @@ use crate::texture::directional::DirectionalAnimatedTexture;
 use crate::texture::sprite::SpriteAtlas;
 use sdl2::keyboard::Keycode;
 use sdl2::render::{Canvas, RenderTarget};
-use std::collections::HashMap;
 
 /// Determines if Pac-Man can traverse a given edge.
 ///
@@ -41,8 +40,8 @@ impl Pacman {
     /// Sets up animated textures for all four directions with moving and stopped states.
     /// The moving animation cycles through open mouth, closed mouth, and full sprites.
     pub fn new(graph: &Graph, start_node: NodeId, atlas: &SpriteAtlas) -> Self {
-        let mut textures = HashMap::new();
-        let mut stopped_textures = HashMap::new();
+        let mut textures = [None, None, None, None];
+        let mut stopped_textures = [None, None, None, None];
 
         for direction in Direction::DIRECTIONS {
             let moving_prefix = match direction {
@@ -59,14 +58,9 @@ impl Pacman {
 
             let stopped_tiles = vec![SpriteAtlas::get_tile(atlas, &format!("{moving_prefix}_b.png")).unwrap()];
 
-            textures.insert(
-                direction,
-                AnimatedTexture::new(moving_tiles, 0.08).expect("Invalid frame duration"),
-            );
-            stopped_textures.insert(
-                direction,
-                AnimatedTexture::new(stopped_tiles, 0.1).expect("Invalid frame duration"),
-            );
+            textures[direction.as_usize()] = Some(AnimatedTexture::new(moving_tiles, 0.08).expect("Invalid frame duration"));
+            stopped_textures[direction.as_usize()] =
+                Some(AnimatedTexture::new(stopped_tiles, 0.1).expect("Invalid frame duration"));
         }
 
         Self {

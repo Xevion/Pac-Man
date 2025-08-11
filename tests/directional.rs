@@ -4,7 +4,6 @@ use pacman::texture::animated::AnimatedTexture;
 use pacman::texture::directional::DirectionalAnimatedTexture;
 use pacman::texture::sprite::AtlasTile;
 use sdl2::pixels::Color;
-use std::collections::HashMap;
 
 fn mock_atlas_tile(id: u32) -> AtlasTile {
     AtlasTile {
@@ -20,10 +19,10 @@ fn mock_animated_texture(id: u32) -> AnimatedTexture {
 
 #[test]
 fn test_directional_texture_partial_directions() {
-    let mut textures = HashMap::new();
-    textures.insert(Direction::Up, mock_animated_texture(1));
+    let mut textures = [None, None, None, None];
+    textures[Direction::Up.as_usize()] = Some(mock_animated_texture(1));
 
-    let texture = DirectionalAnimatedTexture::new(textures, HashMap::new());
+    let texture = DirectionalAnimatedTexture::new(textures, [None, None, None, None]);
 
     assert_eq!(texture.texture_count(), 1);
     assert!(texture.has_direction(Direction::Up));
@@ -34,7 +33,7 @@ fn test_directional_texture_partial_directions() {
 
 #[test]
 fn test_directional_texture_all_directions() {
-    let mut textures = HashMap::new();
+    let mut textures = [None, None, None, None];
     let directions = [
         (Direction::Up, 1),
         (Direction::Down, 2),
@@ -43,10 +42,10 @@ fn test_directional_texture_all_directions() {
     ];
 
     for (direction, id) in directions {
-        textures.insert(direction, mock_animated_texture(id));
+        textures[direction.as_usize()] = Some(mock_animated_texture(id));
     }
 
-    let texture = DirectionalAnimatedTexture::new(textures, HashMap::new());
+    let texture = DirectionalAnimatedTexture::new(textures, [None, None, None, None]);
 
     assert_eq!(texture.texture_count(), 4);
     for direction in &[Direction::Up, Direction::Down, Direction::Left, Direction::Right] {

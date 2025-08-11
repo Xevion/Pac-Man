@@ -1,7 +1,6 @@
 use anyhow::Result;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, RenderTarget};
-use std::collections::HashMap;
 
 use crate::entity::direction::Direction;
 use crate::texture::animated::AnimatedTexture;
@@ -9,12 +8,12 @@ use crate::texture::sprite::SpriteAtlas;
 
 #[derive(Clone)]
 pub struct DirectionalAnimatedTexture {
-    textures: HashMap<Direction, AnimatedTexture>,
-    stopped_textures: HashMap<Direction, AnimatedTexture>,
+    textures: [Option<AnimatedTexture>; 4],
+    stopped_textures: [Option<AnimatedTexture>; 4],
 }
 
 impl DirectionalAnimatedTexture {
-    pub fn new(textures: HashMap<Direction, AnimatedTexture>, stopped_textures: HashMap<Direction, AnimatedTexture>) -> Self {
+    pub fn new(textures: [Option<AnimatedTexture>; 4], stopped_textures: [Option<AnimatedTexture>; 4]) -> Self {
         Self {
             textures,
             stopped_textures,
@@ -22,8 +21,10 @@ impl DirectionalAnimatedTexture {
     }
 
     pub fn tick(&mut self, dt: f32) {
-        for texture in self.textures.values_mut() {
-            texture.tick(dt);
+        for texture in self.textures.iter_mut() {
+            if let Some(texture) = texture {
+                texture.tick(dt);
+            }
         }
     }
 
@@ -34,7 +35,7 @@ impl DirectionalAnimatedTexture {
         dest: Rect,
         direction: Direction,
     ) -> Result<()> {
-        if let Some(texture) = self.textures.get(&direction) {
+        if let Some(texture) = &self.textures[direction.as_usize()] {
             texture.render(canvas, atlas, dest)
         } else {
             Ok(())
@@ -48,7 +49,7 @@ impl DirectionalAnimatedTexture {
         dest: Rect,
         direction: Direction,
     ) -> Result<()> {
-        if let Some(texture) = self.stopped_textures.get(&direction) {
+        if let Some(texture) = &self.stopped_textures[direction.as_usize()] {
             texture.render(canvas, atlas, dest)
         } else {
             Ok(())
@@ -58,24 +59,24 @@ impl DirectionalAnimatedTexture {
     /// Returns true if the texture has a direction.
     #[allow(dead_code)]
     pub fn has_direction(&self, direction: Direction) -> bool {
-        self.textures.contains_key(&direction)
+        self.textures[direction.as_usize()].is_some()
     }
 
     /// Returns true if the texture has a stopped direction.
     #[allow(dead_code)]
     pub fn has_stopped_direction(&self, direction: Direction) -> bool {
-        self.stopped_textures.contains_key(&direction)
+        self.stopped_textures[direction.as_usize()].is_some()
     }
 
     /// Returns the number of textures.
     #[allow(dead_code)]
     pub fn texture_count(&self) -> usize {
-        self.textures.len()
+        self.textures.iter().filter(|t| t.is_some()).count()
     }
 
     /// Returns the number of stopped textures.
     #[allow(dead_code)]
     pub fn stopped_texture_count(&self) -> usize {
-        self.stopped_textures.len()
+        self.stopped_textures.iter().filter(|t| t.is_some()).count()
     }
 }
