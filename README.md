@@ -2,14 +2,14 @@
 
 [![Tests Status][badge-test]][test] [![Build Status][badge-build]][build] [![Code Coverage][badge-coverage]][coverage] [![Online Demo][badge-online-demo]][demo] [![Last Commit][badge-last-commit]][commits]
 
-[badge-test]: https://github.com/Xevion/Pac-Man/actions/workflows/test.yaml/badge.svg
+[badge-test]: https://github.com/Xevion/Pac-Man/actions/workflows/tests.yaml/badge.svg
 [badge-build]: https://github.com/Xevion/Pac-Man/actions/workflows/build.yaml/badge.svg
 [badge-coverage]: https://coveralls.io/repos/github/Xevion/Pac-Man/badge.svg?branch=master
 [badge-demo]: https://img.shields.io/github/deployments/Xevion/Pac-Man/github-pages?label=GitHub%20Pages
 [badge-online-demo]: https://img.shields.io/badge/GitHub%20Pages-Demo-brightgreen
 [badge-last-commit]: https://img.shields.io/github/last-commit/Xevion/Pac-Man
 [build]: https://github.com/Xevion/Pac-Man/actions/workflows/build.yaml
-[test]: https://github.com/Xevion/Pac-Man/actions/workflows/test.yaml
+[test]: https://github.com/Xevion/Pac-Man/actions/workflows/tests.yaml
 [coverage]: https://coveralls.io/github/Xevion/Pac-Man?branch=master
 [demo]: https://xevion.github.io/Pac-Man/
 [commits]: https://github.com/Xevion/Pac-Man/commits/master

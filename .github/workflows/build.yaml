@@ -1,5 +1,4 @@
 name: Builds
-
 on: ["push", "pull_request"]
 
 permissions:

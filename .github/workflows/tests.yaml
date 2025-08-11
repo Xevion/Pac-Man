@@ -1,4 +1,4 @@
-name: Tests
+name: Tests & Checks
 
 on: ["push", "pull_request"]
 
@@ -8,7 +8,6 @@ env:
 
 jobs:
   test:
-    name: Test
     runs-on: ubuntu-latest
 
     steps:
@@ -52,3 +51,8 @@ jobs:
 
       - name: Check formatting
         run: cargo fmt -- --check
+
+      - uses: taiki-e/install-action@cargo-audit
+
+      - name: Run security audit
+        run: cargo audit

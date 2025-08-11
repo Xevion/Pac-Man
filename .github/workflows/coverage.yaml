@@ -1,4 +1,4 @@
-name: Coverage
+name: Code Coverage
 
 on: ["push", "pull_request"]
 
@@ -8,7 +8,6 @@ env:
 
 jobs:
   coverage:
-    name: Code Coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
