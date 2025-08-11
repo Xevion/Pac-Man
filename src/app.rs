@@ -10,19 +10,7 @@ use tracing::{error, event};
 
 use crate::constants::{CANVAS_SIZE, LOOP_TIME, SCALE};
 use crate::game::Game;
-
-#[cfg(target_os = "emscripten")]
-use crate::emscripten;
-
-#[cfg(not(target_os = "emscripten"))]
-fn sleep(value: Duration) {
-    spin_sleep::sleep(value);
-}
-
-#[cfg(target_os = "emscripten")]
-fn sleep(value: Duration) {
-    emscripten::emscripten::sleep(value.as_millis() as u32);
-}
+use crate::platform::get_platform;
 
 pub struct App<'a> {
     game: Game,
@@ -35,6 +23,9 @@ pub struct App<'a> {
 
 impl App<'_> {
     pub fn new() -> Result<Self> {
+        // Initialize platform-specific console
+        get_platform().init_console().map_err(|e| anyhow!(e))?;
+
         let sdl_context = sdl2::init().map_err(|e| anyhow!(e))?;
         let video_subsystem = sdl_context.video().map_err(|e| anyhow!(e))?;
         let audio_subsystem = sdl_context.audio().map_err(|e| anyhow!(e))?;
@@ -138,7 +129,7 @@ impl App<'_> {
             if start.elapsed() < LOOP_TIME {
                 let time = LOOP_TIME.saturating_sub(start.elapsed());
                 if time != Duration::ZERO {
-                    sleep(time);
+                    get_platform().sleep(time);
                 }
             } else {
                 event!(

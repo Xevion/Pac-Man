@@ -42,40 +42,12 @@ impl Asset {
     }
 }
 
-#[cfg(not(target_os = "emscripten"))]
 mod imp {
     use super::*;
-    macro_rules! asset_bytes_enum {
-        ( $asset:expr ) => {
-            match $asset {
-                Asset::Wav1 => Cow::Borrowed(include_bytes!("../assets/game/sound/waka/1.ogg")),
-                Asset::Wav2 => Cow::Borrowed(include_bytes!("../assets/game/sound/waka/2.ogg")),
-                Asset::Wav3 => Cow::Borrowed(include_bytes!("../assets/game/sound/waka/3.ogg")),
-                Asset::Wav4 => Cow::Borrowed(include_bytes!("../assets/game/sound/waka/4.ogg")),
-                Asset::Atlas => Cow::Borrowed(include_bytes!("../assets/game/atlas.png")),
-                Asset::AtlasJson => Cow::Borrowed(include_bytes!("../assets/game/atlas.json")),
-            }
-        };
-    }
-    pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
-        Ok(asset_bytes_enum!(asset))
-    }
-}
+    use crate::platform::get_platform;
 
-#[cfg(target_os = "emscripten")]
-mod imp {
-    use super::*;
-    use sdl2::rwops::RWops;
-    use std::io::Read;
     pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
-        let path = format!("assets/game/{}", asset.path());
-        let mut rwops = RWops::from_file(&path, "rb").map_err(|_| AssetError::NotFound(asset.path().to_string()))?;
-        let len = rwops.len().ok_or_else(|| AssetError::NotFound(asset.path().to_string()))?;
-        let mut buf = vec![0u8; len];
-        rwops
-            .read_exact(&mut buf)
-            .map_err(|e| AssetError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
-        Ok(Cow::Owned(buf))
+        get_platform().get_asset_bytes(asset)
     }
 }
 
