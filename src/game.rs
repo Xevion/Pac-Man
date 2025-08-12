@@ -18,6 +18,7 @@ use crate::{
     constants::{CELL_SIZE, RAW_BOARD},
     entity::{
         ghost::{Ghost, GhostType},
+        item::Item,
         pacman::Pacman,
         r#trait::Entity,
     },
@@ -37,6 +38,7 @@ pub struct Game {
     pub map: Map,
     pub pacman: Pacman,
     pub ghosts: Vec<Ghost>,
+    pub items: Vec<Item>,
     pub debug_mode: bool,
 
     // Rendering resources
@@ -87,6 +89,9 @@ impl Game {
         let audio = Audio::new();
         let pacman = Pacman::new(&map.graph, pacman_start_node, &atlas)?;
 
+        // Generate items (pellets and energizers)
+        let items = map.generate_items(&atlas)?;
+
         // Create ghosts at random positions
         let mut ghosts = Vec::new();
         let ghost_types = [GhostType::Blinky, GhostType::Pinky, GhostType::Inky, GhostType::Clyde];
@@ -109,6 +114,7 @@ impl Game {
             map,
             pacman,
             ghosts,
+            items,
             debug_mode: false,
             map_texture,
             text_texture,
@@ -146,6 +152,9 @@ impl Game {
 
         self.pacman = Pacman::new(&self.map.graph, pacman_start_node, &self.atlas)?;
 
+        // Reset items
+        self.items = self.map.generate_items(&self.atlas)?;
+
         // Randomize ghost positions
         let ghost_types = [GhostType::Blinky, GhostType::Pinky, GhostType::Inky, GhostType::Clyde];
         let mut rng = SmallRng::from_os_rng();
@@ -165,6 +174,26 @@ impl Game {
         for ghost in &mut self.ghosts {
             ghost.tick(dt, &self.map.graph);
         }
+
+        // Check for item collisions
+        self.check_item_collisions();
+    }
+
+    fn check_item_collisions(&mut self) {
+        let pacman_node = self.pacman.current_node_id();
+
+        for item in &mut self.items {
+            if !item.is_collected() && item.node_index == pacman_node {
+                item.collect();
+                self.score += item.get_score();
+
+                // Handle energizer effects
+                if matches!(item.item_type, crate::entity::item::ItemType::Energizer) {
+                    // TODO: Make ghosts frightened
+                    tracing::info!("Energizer collected! Ghosts should become frightened.");
+                }
+            }
+        }
     }
 
     pub fn draw<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>, backbuffer: &mut Texture) -> GameResult<()> {
@@ -173,6 +202,13 @@ impl Game {
                 canvas.set_draw_color(Color::BLACK);
                 canvas.clear();
                 self.map.render(canvas, &mut self.atlas, &mut self.map_texture);
+
+                // Render all items
+                for item in &self.items {
+                    if let Err(e) = item.render(canvas, &mut self.atlas, &self.map.graph) {
+                        tracing::error!("Failed to render item: {}", e);
+                    }
+                }
 
                 // Render all ghosts
                 for ghost in &self.ghosts {

@@ -1,11 +1,12 @@
 //! Map construction and building functionality.
 
-use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE};
+use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE, RAW_BOARD};
 use crate::entity::direction::Direction;
 use crate::entity::graph::{EdgePermissions, Graph, Node, NodeId};
+use crate::entity::item::{Item, ItemType};
 use crate::map::parser::MapTileParser;
 use crate::map::render::MapRenderer;
-use crate::texture::sprite::{AtlasTile, SpriteAtlas};
+use crate::texture::sprite::{AtlasTile, Sprite, SpriteAtlas};
 use glam::{IVec2, UVec2, Vec2};
 use sdl2::render::{Canvas, RenderTarget};
 use std::collections::{HashMap, VecDeque};
@@ -185,6 +186,44 @@ impl Map {
     /// position and scale.
     pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, map_texture: &mut AtlasTile) {
         MapRenderer::render_map(canvas, atlas, map_texture);
+    }
+
+    /// Generates Item entities for pellets and energizers from the parsed map.
+    pub fn generate_items(&self, atlas: &SpriteAtlas) -> GameResult<Vec<Item>> {
+        // Pre-load sprites to avoid repeated texture lookups
+        let pellet_sprite = SpriteAtlas::get_tile(atlas, "maze/pellet.png")
+            .ok_or_else(|| MapError::InvalidConfig("Pellet texture not found".to_string()))?;
+        let energizer_sprite = SpriteAtlas::get_tile(atlas, "maze/energizer.png")
+            .ok_or_else(|| MapError::InvalidConfig("Energizer texture not found".to_string()))?;
+
+        // Pre-allocate with estimated capacity (typical Pac-Man maps have ~240 pellets + 4 energizers)
+        let mut items = Vec::with_capacity(250);
+
+        // Parse the raw board once
+        let parsed_map = MapTileParser::parse_board(RAW_BOARD)?;
+        let map = parsed_map.tiles;
+
+        // Iterate through the map and collect items more efficiently
+        for (x, row) in map.iter().enumerate() {
+            for (y, tile) in row.iter().enumerate() {
+                match tile {
+                    MapTile::Pellet | MapTile::PowerPellet => {
+                        let grid_pos = IVec2::new(x as i32, y as i32);
+                        if let Some(&node_id) = self.grid_to_node.get(&grid_pos) {
+                            let (item_type, sprite) = match tile {
+                                MapTile::Pellet => (ItemType::Pellet, Sprite::new(pellet_sprite)),
+                                MapTile::PowerPellet => (ItemType::Energizer, Sprite::new(energizer_sprite)),
+                                _ => unreachable!(), // We already filtered for these types
+                            };
+                            items.push(Item::new(node_id, item_type, sprite));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        Ok(items)
     }
 
     /// Renders a debug visualization with cursor-based highlighting.

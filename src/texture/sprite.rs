@@ -6,6 +6,27 @@ use sdl2::render::{Canvas, RenderTarget, Texture};
 use serde::Deserialize;
 use std::collections::HashMap;
 
+/// A simple sprite for stationary items like pellets and energizers.
+#[derive(Clone, Debug)]
+pub struct Sprite {
+    pub atlas_tile: AtlasTile,
+}
+
+impl Sprite {
+    pub fn new(atlas_tile: AtlasTile) -> Self {
+        Self { atlas_tile }
+    }
+
+    pub fn render<C: RenderTarget>(&self, canvas: &mut Canvas<C>, atlas: &mut SpriteAtlas, position: glam::Vec2) -> Result<()> {
+        let dest = crate::helpers::centered_with_size(
+            glam::IVec2::new(position.x as i32, position.y as i32),
+            glam::UVec2::new(self.atlas_tile.size.x as u32, self.atlas_tile.size.y as u32),
+        );
+        let mut tile = self.atlas_tile;
+        tile.render(canvas, atlas, dest)
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct AtlasMapper {
     pub frames: HashMap<String, MapperFrame>,
