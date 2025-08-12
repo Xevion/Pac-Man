@@ -1,7 +1,7 @@
 use crate::{
     constants,
     entity::{collision::Collidable, graph::Graph},
-    error::EntityError,
+    error::{EntityError, GameResult},
     texture::sprite::{Sprite, SpriteAtlas},
 };
 use sdl2::render::{Canvas, RenderTarget};
@@ -95,16 +95,18 @@ impl Item {
         self.item_type.get_score()
     }
 
-    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, graph: &Graph) -> anyhow::Result<()> {
-        if !self.collected {
-            let node = graph
-                .get_node(self.node_index)
-                .ok_or(EntityError::NodeNotFound(self.node_index))?;
-            let position = node.position + constants::BOARD_PIXEL_OFFSET.as_vec2();
-            self.sprite.render(canvas, atlas, position)
-        } else {
-            Ok(())
+    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, graph: &Graph) -> GameResult<()> {
+        if self.collected {
+            return Ok(());
         }
+
+        let node = graph
+            .get_node(self.node_index)
+            .ok_or(EntityError::NodeNotFound(self.node_index))?;
+        let position = node.position + constants::BOARD_PIXEL_OFFSET.as_vec2();
+
+        self.sprite.render(canvas, atlas, position)?;
+        Ok(())
     }
 }
 

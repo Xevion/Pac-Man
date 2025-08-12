@@ -3,22 +3,22 @@
 //! This module defines all error types used throughout the application,
 //! providing a consistent error handling approach.
 
-use thiserror::Error;
+use std::io;
 
 /// Main error type for the Pac-Man game.
 ///
 /// This is the primary error type that should be used in public APIs.
 /// It can represent any error that can occur during game operation.
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum GameError {
     #[error("Asset error: {0}")]
-    Asset(#[from] crate::asset::AssetError),
+    Asset(#[from] AssetError),
 
     #[error("Platform error: {0}")]
-    Platform(#[from] crate::platform::PlatformError),
+    Platform(#[from] PlatformError),
 
     #[error("Map parsing error: {0}")]
-    MapParse(#[from] crate::map::parser::ParseError),
+    MapParse(#[from] ParseError),
 
     #[error("Map error: {0}")]
     Map(#[from] MapError),
@@ -36,26 +36,49 @@ pub enum GameError {
     Sdl(String),
 
     #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(#[from] io::Error),
 
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
     #[error("Invalid state: {0}")]
     InvalidState(String),
+}
 
-    #[error("Resource not found: {0}")]
+#[derive(thiserror::Error, Debug)]
+pub enum AssetError {
+    #[error("IO error: {0}")]
+    Io(#[from] io::Error),
+    #[error("Asset not found: {0}")]
     NotFound(String),
+}
 
-    #[error("Configuration error: {0}")]
-    Config(String),
+/// Platform-specific errors.
+#[derive(thiserror::Error, Debug)]
+#[allow(dead_code)]
+pub enum PlatformError {
+    #[error("Console initialization failed: {0}")]
+    ConsoleInit(String),
+    #[error("Platform-specific error: {0}")]
+    Other(String),
+}
+
+/// Error type for map parsing operations.
+#[derive(thiserror::Error, Debug)]
+pub enum ParseError {
+    #[error("Unknown character in board: {0}")]
+    UnknownCharacter(char),
+    #[error("House door must have exactly 2 positions, found {0}")]
+    InvalidHouseDoorCount(usize),
+    #[error("Map parsing failed: {0}")]
+    ParseFailed(String),
 }
 
 /// Errors related to texture operations.
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum TextureError {
     #[error("Animated texture error: {0}")]
-    Animated(#[from] crate::texture::animated::AnimatedTextureError),
+    Animated(#[from] AnimatedTextureError),
 
     #[error("Failed to load texture: {0}")]
     LoadFailed(String),
@@ -70,8 +93,14 @@ pub enum TextureError {
     RenderFailed(String),
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum AnimatedTextureError {
+    #[error("Frame duration must be positive, got {0}")]
+    InvalidFrameDuration(f32),
+}
+
 /// Errors related to entity operations.
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum EntityError {
     #[error("Node not found in graph: {0}")]
     NodeNotFound(usize),
@@ -87,11 +116,11 @@ pub enum EntityError {
 }
 
 /// Errors related to game state operations.
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum GameStateError {}
 
 /// Errors related to map operations.
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum MapError {
     #[error("Node not found: {0}")]
     NodeNotFound(usize),

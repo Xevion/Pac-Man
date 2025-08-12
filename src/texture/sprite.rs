@@ -6,6 +6,8 @@ use sdl2::render::{Canvas, RenderTarget, Texture};
 use serde::Deserialize;
 use std::collections::HashMap;
 
+use crate::error::TextureError;
+
 /// A simple sprite for stationary items like pellets and energizers.
 #[derive(Clone, Debug)]
 pub struct Sprite {
@@ -17,13 +19,19 @@ impl Sprite {
         Self { atlas_tile }
     }
 
-    pub fn render<C: RenderTarget>(&self, canvas: &mut Canvas<C>, atlas: &mut SpriteAtlas, position: glam::Vec2) -> Result<()> {
+    pub fn render<C: RenderTarget>(
+        &self,
+        canvas: &mut Canvas<C>,
+        atlas: &mut SpriteAtlas,
+        position: glam::Vec2,
+    ) -> Result<(), TextureError> {
         let dest = crate::helpers::centered_with_size(
             glam::IVec2::new(position.x as i32, position.y as i32),
             glam::UVec2::new(self.atlas_tile.size.x as u32, self.atlas_tile.size.y as u32),
         );
         let mut tile = self.atlas_tile;
-        tile.render(canvas, atlas, dest)
+        tile.render(canvas, atlas, dest)?;
+        Ok(())
     }
 }
 
@@ -48,9 +56,15 @@ pub struct AtlasTile {
 }
 
 impl AtlasTile {
-    pub fn render<C: RenderTarget>(&mut self, canvas: &mut Canvas<C>, atlas: &mut SpriteAtlas, dest: Rect) -> Result<()> {
+    pub fn render<C: RenderTarget>(
+        &mut self,
+        canvas: &mut Canvas<C>,
+        atlas: &mut SpriteAtlas,
+        dest: Rect,
+    ) -> Result<(), TextureError> {
         let color = self.color.unwrap_or(atlas.default_color.unwrap_or(Color::WHITE));
-        self.render_with_color(canvas, atlas, dest, color)
+        self.render_with_color(canvas, atlas, dest, color)?;
+        Ok(())
     }
 
     pub fn render_with_color<C: RenderTarget>(
@@ -59,7 +73,7 @@ impl AtlasTile {
         atlas: &mut SpriteAtlas,
         dest: Rect,
         color: Color,
-    ) -> Result<()> {
+    ) -> Result<(), TextureError> {
         let src = Rect::new(self.pos.x as i32, self.pos.y as i32, self.size.x as u32, self.size.y as u32);
 
         if atlas.last_modulation != Some(color) {
@@ -67,7 +81,7 @@ impl AtlasTile {
             atlas.last_modulation = Some(color);
         }
 
-        canvas.copy(&atlas.texture, src, dest).map_err(anyhow::Error::msg)?;
+        canvas.copy(&atlas.texture, src, dest).map_err(TextureError::RenderFailed)?;
         Ok(())
     }
 

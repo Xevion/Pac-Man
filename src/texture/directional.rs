@@ -1,8 +1,8 @@
-use anyhow::Result;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, RenderTarget};
 
 use crate::entity::direction::Direction;
+use crate::error::GameResult;
 use crate::texture::animated::AnimatedTexture;
 use crate::texture::sprite::SpriteAtlas;
 
@@ -32,7 +32,7 @@ impl DirectionalAnimatedTexture {
         atlas: &mut SpriteAtlas,
         dest: Rect,
         direction: Direction,
-    ) -> Result<()> {
+    ) -> GameResult<()> {
         if let Some(texture) = &self.textures[direction.as_usize()] {
             texture.render(canvas, atlas, dest)
         } else {
@@ -46,7 +46,7 @@ impl DirectionalAnimatedTexture {
         atlas: &mut SpriteAtlas,
         dest: Rect,
         direction: Direction,
-    ) -> Result<()> {
+    ) -> GameResult<()> {
         if let Some(texture) = &self.stopped_textures[direction.as_usize()] {
             texture.render(canvas, atlas, dest)
         } else {

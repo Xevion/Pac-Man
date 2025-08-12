@@ -164,10 +164,8 @@ impl Ghost {
                         })?,
                 ];
 
-            textures[direction.as_usize()] =
-                Some(AnimatedTexture::new(moving_tiles, 0.2).map_err(|e| GameError::Texture(TextureError::Animated(e)))?);
-            stopped_textures[direction.as_usize()] =
-                Some(AnimatedTexture::new(stopped_tiles, 0.1).map_err(|e| GameError::Texture(TextureError::Animated(e)))?);
+            textures[direction.as_usize()] = Some(AnimatedTexture::new(moving_tiles, 0.2)?);
+            stopped_textures[direction.as_usize()] = Some(AnimatedTexture::new(stopped_tiles, 0.1)?);
         }
 
         Ok(Self {

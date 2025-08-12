@@ -1,5 +1,5 @@
 use glam::Vec2;
-use pacman::constants::{BOARD_CELL_SIZE, CELL_SIZE, RAW_BOARD};
+use pacman::constants::{CELL_SIZE, RAW_BOARD};
 use pacman::map::Map;
 use sdl2::render::Texture;
 
@@ -19,19 +19,6 @@ fn test_map_creation() {
         }
     }
     assert!(has_connections);
-}
-
-#[test]
-fn test_map_starting_positions() {
-    let map = Map::new(RAW_BOARD).unwrap();
-
-    let pacman_pos = map.find_starting_position(0);
-    assert!(pacman_pos.is_some());
-    assert!(pacman_pos.unwrap().x < BOARD_CELL_SIZE.x);
-    assert!(pacman_pos.unwrap().y < BOARD_CELL_SIZE.y);
-
-    let nonexistent_pos = map.find_starting_position(99);
-    assert_eq!(nonexistent_pos, None);
 }
 
 #[test]

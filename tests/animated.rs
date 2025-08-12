@@ -1,5 +1,6 @@
 use glam::U16Vec2;
-use pacman::texture::animated::{AnimatedTexture, AnimatedTextureError};
+use pacman::error::{AnimatedTextureError, GameError, TextureError};
+use pacman::texture::animated::AnimatedTexture;
 use pacman::texture::sprite::AtlasTile;
 use sdl2::pixels::Color;
 
@@ -17,12 +18,12 @@ fn test_animated_texture_creation_errors() {
 
     assert!(matches!(
         AnimatedTexture::new(tiles.clone(), 0.0).unwrap_err(),
-        AnimatedTextureError::InvalidFrameDuration(0.0)
+        GameError::Texture(TextureError::Animated(AnimatedTextureError::InvalidFrameDuration(0.0)))
     ));
 
     assert!(matches!(
         AnimatedTexture::new(tiles, -0.1).unwrap_err(),
-        AnimatedTextureError::InvalidFrameDuration(-0.1)
+        GameError::Texture(TextureError::Animated(AnimatedTextureError::InvalidFrameDuration(-0.1)))
     ));
 }
 

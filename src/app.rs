@@ -30,9 +30,9 @@ impl App {
         let sdl_context: &'static Sdl = Box::leak(Box::new(sdl2::init().map_err(|e| GameError::Sdl(e.to_string()))?));
         let video_subsystem: &'static VideoSubsystem =
             Box::leak(Box::new(sdl_context.video().map_err(|e| GameError::Sdl(e.to_string()))?));
-        let audio_subsystem: &'static AudioSubsystem =
+        let _audio_subsystem: &'static AudioSubsystem =
             Box::leak(Box::new(sdl_context.audio().map_err(|e| GameError::Sdl(e.to_string()))?));
-        let ttf_context: &'static Sdl2TtfContext =
+        let _ttf_context: &'static Sdl2TtfContext =
             Box::leak(Box::new(sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?));
         let event_pump: &'static mut EventPump =
             Box::leak(Box::new(sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?));
@@ -58,7 +58,7 @@ impl App {
 
         let texture_creator: &'static TextureCreator<WindowContext> = Box::leak(Box::new(canvas.texture_creator()));
 
-        let mut game = Game::new(texture_creator, ttf_context, audio_subsystem)?;
+        let mut game = Game::new(texture_creator)?;
         // game.audio.set_mute(cfg!(debug_assertions));
 
         let mut backbuffer = texture_creator
@@ -119,7 +119,7 @@ impl App {
                         keycode: Some(Keycode::Space),
                         ..
                     } => {
-                        self.game.debug_mode = !self.game.debug_mode;
+                        self.game.toggle_debug_mode();
                     }
                     Event::KeyDown { keycode: Some(key), .. } => {
                         self.game.keyboard_event(key);

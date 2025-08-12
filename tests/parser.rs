@@ -1,5 +1,6 @@
 use pacman::constants::{BOARD_CELL_SIZE, RAW_BOARD};
-use pacman::map::parser::{MapTileParser, ParseError};
+use pacman::error::ParseError;
+use pacman::map::parser::MapTileParser;
 
 #[test]
 fn test_parse_character() {

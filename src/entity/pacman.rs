@@ -98,10 +98,8 @@ impl Pacman {
             let stopped_tiles = vec![SpriteAtlas::get_tile(atlas, &format!("{moving_prefix}_b.png"))
                 .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound(format!("{moving_prefix}_b.png"))))?];
 
-            textures[direction.as_usize()] =
-                Some(AnimatedTexture::new(moving_tiles, 0.08).map_err(|e| GameError::Texture(TextureError::Animated(e)))?);
-            stopped_textures[direction.as_usize()] =
-                Some(AnimatedTexture::new(stopped_tiles, 0.1).map_err(|e| GameError::Texture(TextureError::Animated(e)))?);
+            textures[direction.as_usize()] = Some(AnimatedTexture::new(moving_tiles, 0.08)?);
+            stopped_textures[direction.as_usize()] = Some(AnimatedTexture::new(stopped_tiles, 0.1)?);
         }
 
         Ok(Self {

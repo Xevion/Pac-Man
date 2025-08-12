@@ -1,15 +1,8 @@
-use anyhow::Result;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, RenderTarget};
-use thiserror::Error;
 
+use crate::error::{AnimatedTextureError, GameError, GameResult, TextureError};
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
-
-#[derive(Error, Debug)]
-pub enum AnimatedTextureError {
-    #[error("Frame duration must be positive, got {0}")]
-    InvalidFrameDuration(f32),
-}
 
 #[derive(Debug, Clone)]
 pub struct AnimatedTexture {
@@ -20,9 +13,11 @@ pub struct AnimatedTexture {
 }
 
 impl AnimatedTexture {
-    pub fn new(tiles: Vec<AtlasTile>, frame_duration: f32) -> Result<Self, AnimatedTextureError> {
+    pub fn new(tiles: Vec<AtlasTile>, frame_duration: f32) -> GameResult<Self> {
         if frame_duration <= 0.0 {
-            return Err(AnimatedTextureError::InvalidFrameDuration(frame_duration));
+            return Err(GameError::Texture(TextureError::Animated(
+                AnimatedTextureError::InvalidFrameDuration(frame_duration),
+            )));
         }
 
         Ok(Self {
@@ -45,9 +40,10 @@ impl AnimatedTexture {
         &self.tiles[self.current_frame]
     }
 
-    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, dest: Rect) -> Result<()> {
+    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, dest: Rect) -> GameResult<()> {
         let mut tile = *self.current_tile();
-        tile.render(canvas, atlas, dest)
+        tile.render(canvas, atlas, dest)?;
+        Ok(())
     }
 
     /// Returns the current frame index.

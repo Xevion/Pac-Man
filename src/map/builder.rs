@@ -7,7 +7,7 @@ use crate::entity::item::{Item, ItemType};
 use crate::map::parser::MapTileParser;
 use crate::map::render::MapRenderer;
 use crate::texture::sprite::{AtlasTile, Sprite, SpriteAtlas};
-use glam::{IVec2, UVec2, Vec2};
+use glam::{IVec2, Vec2};
 use sdl2::render::{Canvas, RenderTarget};
 use std::collections::{HashMap, VecDeque};
 use tracing::debug;
@@ -15,7 +15,6 @@ use tracing::debug;
 use crate::error::{GameResult, MapError};
 
 /// The starting positions of the entities in the game.
-#[allow(dead_code)]
 pub struct NodePositions {
     pub pacman: NodeId,
     pub blinky: NodeId,
@@ -26,18 +25,12 @@ pub struct NodePositions {
 
 /// The main map structure containing the game board and navigation graph.
 pub struct Map {
-    /// The current state of the map.
-    #[allow(dead_code)]
-    current: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
     /// The node map for entity movement.
     pub graph: Graph,
     /// A mapping from grid positions to node IDs.
     pub grid_to_node: HashMap<IVec2, NodeId>,
     /// A mapping of the starting positions of the entities.
-    #[allow(dead_code)]
     pub start_positions: NodePositions,
-    /// Pac-Man's starting position.
-    pacman_start: Option<IVec2>,
 }
 
 impl Map {
@@ -56,7 +49,6 @@ impl Map {
         let map = parsed_map.tiles;
         let house_door = parsed_map.house_door;
         let tunnel_ends = parsed_map.tunnel_ends;
-        let pacman_start = parsed_map.pacman_start;
 
         let mut graph = Graph::new();
         let mut grid_to_node = HashMap::new();
@@ -64,8 +56,9 @@ impl Map {
         let cell_offset = Vec2::splat(CELL_SIZE as f32 / 2.0);
 
         // Find a starting point for the graph generation, preferably Pac-Man's position.
-        let start_pos =
-            pacman_start.ok_or_else(|| MapError::InvalidConfig("Pac-Man's starting position not found".to_string()))?;
+        let start_pos = parsed_map
+            .pacman_start
+            .ok_or_else(|| MapError::InvalidConfig("Pac-Man's starting position not found".to_string()))?;
 
         // Add the starting position to the graph/queue
         let mut queue = VecDeque::new();
@@ -155,29 +148,10 @@ impl Map {
         Self::build_tunnels(&mut graph, &grid_to_node, &tunnel_ends)?;
 
         Ok(Map {
-            current: map,
             graph,
             grid_to_node,
             start_positions,
-            pacman_start,
         })
-    }
-
-    /// Finds the starting position for a given entity ID.
-    ///
-    /// # Arguments
-    ///
-    /// * `entity_id` - The entity ID (0 for Pac-Man, 1-4 for ghosts)
-    ///
-    /// # Returns
-    ///
-    /// The starting position as a grid coordinate (`UVec2`), or `None` if not found.
-    pub fn find_starting_position(&self, entity_id: u8) -> Option<UVec2> {
-        // For now, only Pac-Man (entity_id 0) is supported
-        if entity_id == 0 {
-            return self.pacman_start.map(|pos| UVec2::new(pos.x as u32, pos.y as u32));
-        }
-        None
     }
 
     /// Renders the map to the given canvas.

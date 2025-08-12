@@ -1,19 +1,8 @@
 //! Map parsing functionality for converting raw board layouts into structured data.
 
 use crate::constants::{MapTile, BOARD_CELL_SIZE};
+use crate::error::ParseError;
 use glam::IVec2;
-use thiserror::Error;
-
-/// Error type for map parsing operations.
-#[derive(Debug, Error)]
-pub enum ParseError {
-    #[error("Unknown character in board: {0}")]
-    UnknownCharacter(char),
-    #[error("House door must have exactly 2 positions, found {0}")]
-    InvalidHouseDoorCount(usize),
-    #[error("Map parsing failed: {0}")]
-    ParseFailed(String),
-}
 
 /// Represents the parsed data from a raw board layout.
 #[derive(Debug)]

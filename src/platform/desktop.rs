@@ -3,8 +3,9 @@
 use std::borrow::Cow;
 use std::time::Duration;
 
-use crate::asset::{Asset, AssetError};
-use crate::platform::{Platform, PlatformError};
+use crate::asset::Asset;
+use crate::error::{AssetError, PlatformError};
+use crate::platform::Platform;
 
 /// Desktop platform implementation.
 pub struct DesktopPlatform;

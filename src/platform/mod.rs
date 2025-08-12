@@ -1,9 +1,9 @@
 //! Platform abstraction layer for cross-platform functionality.
 
+use crate::asset::Asset;
+use crate::error::{AssetError, PlatformError};
 use std::borrow::Cow;
 use std::time::Duration;
-
-use crate::asset::{Asset, AssetError};
 
 pub mod desktop;
 pub mod emscripten;
@@ -28,16 +28,6 @@ pub trait Platform {
 
     /// Load asset bytes using platform-appropriate method.
     fn get_asset_bytes(&self, asset: Asset) -> Result<Cow<'static, [u8]>, AssetError>;
-}
-
-/// Platform-specific errors.
-#[derive(Debug, thiserror::Error)]
-#[allow(dead_code)]
-pub enum PlatformError {
-    #[error("Console initialization failed: {0}")]
-    ConsoleInit(String),
-    #[error("Platform-specific error: {0}")]
-    Other(String),
 }
 
 /// Get the current platform implementation.

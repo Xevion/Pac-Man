@@ -3,18 +3,6 @@
 //! On desktop, assets are embedded using include_bytes!; on Emscripten, assets are loaded from the filesystem.
 
 use std::borrow::Cow;
-use std::io;
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum AssetError {
-    #[error("IO error: {0}")]
-    Io(#[from] io::Error),
-    #[error("Asset not found: {0}")]
-    NotFound(String),
-    #[error("Invalid asset format: {0}")]
-    InvalidFormat(String),
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Asset {
@@ -44,6 +32,7 @@ impl Asset {
 
 mod imp {
     use super::*;
+    use crate::error::AssetError;
     use crate::platform::get_platform;
 
     pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
