@@ -25,7 +25,7 @@ use crate::{
     },
     map::Map,
     texture::{
-        sprite::{self, AtlasMapper, AtlasTile, SpriteAtlas},
+        sprite::{AtlasMapper, AtlasTile, SpriteAtlas},
         text::TextTexture,
     },
 };
@@ -59,7 +59,7 @@ pub struct Game {
 
 impl Game {
     pub fn new(
-        texture_creator: &TextureCreator<WindowContext>,
+        texture_creator: &'static TextureCreator<WindowContext>,
         _ttf_context: &sdl2::ttf::Sdl2TtfContext,
         _audio_subsystem: &sdl2::AudioSubsystem,
     ) -> GameResult<Game> {
@@ -74,19 +74,16 @@ impl Game {
             .ok_or_else(|| GameError::NotFound("Pac-Man starting position not found in graph".to_string()))?;
 
         let atlas_bytes = get_asset_bytes(Asset::Atlas)?;
-        let atlas_texture = unsafe {
-            let texture = texture_creator.load_texture_bytes(&atlas_bytes).map_err(|e| {
-                if e.to_string().contains("format") || e.to_string().contains("unsupported") {
-                    GameError::Texture(TextureError::InvalidFormat(format!("Unsupported texture format: {e}")))
-                } else {
-                    GameError::Texture(TextureError::LoadFailed(e.to_string()))
-                }
-            })?;
-            sprite::texture_to_static(texture)
-        };
+        let atlas_texture = Box::leak(Box::new(texture_creator.load_texture_bytes(&atlas_bytes).map_err(|e| {
+            if e.to_string().contains("format") || e.to_string().contains("unsupported") {
+                GameError::Texture(TextureError::InvalidFormat(format!("Unsupported texture format: {e}")))
+            } else {
+                GameError::Texture(TextureError::LoadFailed(e.to_string()))
+            }
+        })?));
         let atlas_json = get_asset_bytes(Asset::AtlasJson)?;
         let atlas_mapper: AtlasMapper = serde_json::from_slice(&atlas_json)?;
-        let atlas = SpriteAtlas::new(atlas_texture, atlas_mapper);
+        let atlas = SpriteAtlas::new(unsafe { std::mem::transmute_copy(atlas_texture) }, atlas_mapper);
 
         let mut map_texture = SpriteAtlas::get_tile(&atlas, "maze/full.png")
             .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("maze/full.png".to_string())))?;
@@ -255,6 +252,7 @@ impl Game {
                     if !item.is_collected() {
                         item.collect();
                         self.score += item.get_score();
+                        self.audio.eat();
 
                         // Handle energizer effects
                         if matches!(item.item_type, crate::entity::item::ItemType::Energizer) {

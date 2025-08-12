@@ -25,7 +25,7 @@ fn test_fruit_kind_increasing_score() {
         .collect::<Vec<_>>();
     kinds.sort_unstable_by_key(|(index, _)| *index);
 
-    assert_eq!(kinds.len(), FruitKind::COUNT as usize);
+    assert_eq!(kinds.len(), FruitKind::COUNT);
 
     // Check that the score increases as expected
     for window in kinds.windows(2) {
