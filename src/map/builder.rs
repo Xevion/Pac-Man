@@ -117,7 +117,7 @@ impl Map {
                     // Connect the new node to the source node
                     graph
                         .connect(*source_node_id, new_node_id, false, None, dir)
-                        .map_err(|e| MapError::InvalidConfig(format!("Failed to add edge: {}", e)))?;
+                        .map_err(|e| MapError::InvalidConfig(format!("Failed to add edge: {e}")))?;
                 }
             }
         }
@@ -132,7 +132,7 @@ impl Map {
                     if let Some(&neighbor_id) = grid_to_node.get(&neighbor) {
                         graph
                             .connect(node_id, neighbor_id, false, None, dir)
-                            .map_err(|e| MapError::InvalidConfig(format!("Failed to add edge: {}", e)))?;
+                            .map_err(|e| MapError::InvalidConfig(format!("Failed to add edge: {e}")))?;
                     }
                 }
             }
@@ -241,10 +241,10 @@ impl Map {
             // Connect the house door to the left and right nodes
             graph
                 .connect(node_id, *left_node, true, None, Direction::Left)
-                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house door to left node: {}", e)))?;
+                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house door to left node: {e}")))?;
             graph
                 .connect(node_id, *right_node, true, None, Direction::Right)
-                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house door to right node: {}", e)))?;
+                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house door to right node: {e}")))?;
 
             (node_id, node_position)
         };
@@ -263,10 +263,10 @@ impl Map {
             // Connect the center node to the top and bottom nodes
             graph
                 .connect(center_node_id, top_node_id, false, None, Direction::Up)
-                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house line to top node: {}", e)))?;
+                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house line to top node: {e}")))?;
             graph
                 .connect(center_node_id, bottom_node_id, false, None, Direction::Down)
-                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house line to bottom node: {}", e)))?;
+                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house line to bottom node: {e}")))?;
 
             Ok((center_node_id, top_node_id))
         };
@@ -289,7 +289,7 @@ impl Map {
                 Direction::Down,
                 EdgePermissions::GhostsOnly,
             )
-            .map_err(|e| MapError::InvalidConfig(format!("Failed to create ghost-only entrance to house: {}", e)))?;
+            .map_err(|e| MapError::InvalidConfig(format!("Failed to create ghost-only entrance to house: {e}")))?;
 
         graph
             .add_edge(
@@ -300,7 +300,7 @@ impl Map {
                 Direction::Up,
                 EdgePermissions::GhostsOnly,
             )
-            .map_err(|e| MapError::InvalidConfig(format!("Failed to create ghost-only exit from house: {}", e)))?;
+            .map_err(|e| MapError::InvalidConfig(format!("Failed to create ghost-only exit from house: {e}")))?;
 
         // Create the left line
         let (left_center_node_id, _) = create_house_line(
@@ -319,11 +319,11 @@ impl Map {
         // Connect the center line to the left and right lines
         graph
             .connect(center_center_node_id, left_center_node_id, false, None, Direction::Left)
-            .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house entrance to left top line: {}", e)))?;
+            .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house entrance to left top line: {e}")))?;
 
         graph
             .connect(center_center_node_id, right_center_node_id, false, None, Direction::Right)
-            .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house entrance to right top line: {}", e)))?;
+            .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house entrance to right top line: {e}")))?;
 
         debug!("House entrance node id: {house_entrance_node_id}");
 

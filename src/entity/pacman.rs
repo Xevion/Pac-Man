@@ -12,6 +12,7 @@ use crate::texture::animated::AnimatedTexture;
 use crate::texture::directional::DirectionalAnimatedTexture;
 use crate::texture::sprite::SpriteAtlas;
 use sdl2::keyboard::Keycode;
+use tracing::error;
 
 use crate::error::{GameError, GameResult, TextureError};
 
@@ -60,7 +61,7 @@ impl Entity for Pacman {
 
     fn tick(&mut self, dt: f32, graph: &Graph) {
         if let Err(e) = self.traverser.advance(graph, dt * 60.0 * 1.125, &can_pacman_traverse) {
-            eprintln!("Pac-Man movement error: {}", e);
+            error!("Pac-Man movement error: {}", e);
         }
         self.texture.tick(dt);
     }

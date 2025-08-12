@@ -7,6 +7,7 @@
 use pathfinding::prelude::dijkstra;
 use rand::prelude::*;
 use smallvec::SmallVec;
+use tracing::error;
 
 use crate::entity::direction::Direction;
 use crate::entity::graph::{Edge, EdgePermissions, Graph, NodeId};
@@ -104,7 +105,7 @@ impl Entity for Ghost {
         }
 
         if let Err(e) = self.traverser.advance(graph, dt * 60.0 * self.speed, &can_ghost_traverse) {
-            eprintln!("Ghost movement error: {}", e);
+            error!("Ghost movement error: {}", e);
         }
         self.texture.tick(dt);
     }

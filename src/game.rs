@@ -68,7 +68,7 @@ impl Game {
         let atlas_texture = unsafe {
             let texture = texture_creator.load_texture_bytes(&atlas_bytes).map_err(|e| {
                 if e.to_string().contains("format") || e.to_string().contains("unsupported") {
-                    GameError::Texture(TextureError::InvalidFormat(format!("Unsupported texture format: {}", e)))
+                    GameError::Texture(TextureError::InvalidFormat(format!("Unsupported texture format: {e}")))
                 } else {
                     GameError::Texture(TextureError::LoadFailed(e.to_string()))
                 }
@@ -94,6 +94,7 @@ impl Game {
 
         if map.graph.node_count() == 0 {
             return Err(GameError::Config("Game map has no nodes - invalid configuration".to_string()));
+            // TODO: This is a bug, we should handle this better
         }
 
         for &ghost_type in &ghost_types {
