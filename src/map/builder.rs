@@ -1,15 +1,18 @@
 //! Map construction and building functionality.
 
-use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE};
+use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE, RAW_BOARD};
 use crate::entity::direction::Direction;
 use crate::entity::graph::{EdgePermissions, Graph, Node, NodeId};
+use crate::entity::item::{Item, ItemType};
 use crate::map::parser::MapTileParser;
 use crate::map::render::MapRenderer;
-use crate::texture::sprite::{AtlasTile, SpriteAtlas};
+use crate::texture::sprite::{AtlasTile, Sprite, SpriteAtlas};
 use glam::{IVec2, UVec2, Vec2};
 use sdl2::render::{Canvas, RenderTarget};
 use std::collections::{HashMap, VecDeque};
 use tracing::debug;
+
+use crate::error::{GameResult, MapError};
 
 /// The starting positions of the entities in the game.
 #[allow(dead_code)]
@@ -47,8 +50,8 @@ impl Map {
     ///
     /// This function will panic if the board layout contains unknown characters or if
     /// the house door is not defined by exactly two '=' characters.
-    pub fn new(raw_board: [&str; BOARD_CELL_SIZE.y as usize]) -> Map {
-        let parsed_map = MapTileParser::parse_board(raw_board).expect("Failed to parse board layout");
+    pub fn new(raw_board: [&str; BOARD_CELL_SIZE.y as usize]) -> GameResult<Map> {
+        let parsed_map = MapTileParser::parse_board(raw_board)?;
 
         let map = parsed_map.tiles;
         let house_door = parsed_map.house_door;
@@ -61,7 +64,8 @@ impl Map {
         let cell_offset = Vec2::splat(CELL_SIZE as f32 / 2.0);
 
         // Find a starting point for the graph generation, preferably Pac-Man's position.
-        let start_pos = pacman_start.expect("Pac-Man's starting position not found");
+        let start_pos =
+            pacman_start.ok_or_else(|| MapError::InvalidConfig("Pac-Man's starting position not found".to_string()))?;
 
         // Add the starting position to the graph/queue
         let mut queue = VecDeque::new();
@@ -114,7 +118,7 @@ impl Map {
                     // Connect the new node to the source node
                     graph
                         .connect(*source_node_id, new_node_id, false, None, dir)
-                        .expect("Failed to add edge");
+                        .map_err(|e| MapError::InvalidConfig(format!("Failed to add edge: {e}")))?;
                 }
             }
         }
@@ -129,7 +133,7 @@ impl Map {
                     if let Some(&neighbor_id) = grid_to_node.get(&neighbor) {
                         graph
                             .connect(node_id, neighbor_id, false, None, dir)
-                            .expect("Failed to add edge");
+                            .map_err(|e| MapError::InvalidConfig(format!("Failed to add edge: {e}")))?;
                     }
                 }
             }
@@ -137,7 +141,7 @@ impl Map {
 
         // Build house structure
         let (house_entrance_node_id, left_center_node_id, center_center_node_id, right_center_node_id) =
-            Self::build_house(&mut graph, &grid_to_node, &house_door);
+            Self::build_house(&mut graph, &grid_to_node, &house_door)?;
 
         let start_positions = NodePositions {
             pacman: grid_to_node[&start_pos],
@@ -148,15 +152,15 @@ impl Map {
         };
 
         // Build tunnel connections
-        Self::build_tunnels(&mut graph, &grid_to_node, &tunnel_ends);
+        Self::build_tunnels(&mut graph, &grid_to_node, &tunnel_ends)?;
 
-        Map {
+        Ok(Map {
             current: map,
             graph,
             grid_to_node,
             start_positions,
             pacman_start,
-        }
+        })
     }
 
     /// Finds the starting position for a given entity ID.
@@ -184,6 +188,44 @@ impl Map {
         MapRenderer::render_map(canvas, atlas, map_texture);
     }
 
+    /// Generates Item entities for pellets and energizers from the parsed map.
+    pub fn generate_items(&self, atlas: &SpriteAtlas) -> GameResult<Vec<Item>> {
+        // Pre-load sprites to avoid repeated texture lookups
+        let pellet_sprite = SpriteAtlas::get_tile(atlas, "maze/pellet.png")
+            .ok_or_else(|| MapError::InvalidConfig("Pellet texture not found".to_string()))?;
+        let energizer_sprite = SpriteAtlas::get_tile(atlas, "maze/energizer.png")
+            .ok_or_else(|| MapError::InvalidConfig("Energizer texture not found".to_string()))?;
+
+        // Pre-allocate with estimated capacity (typical Pac-Man maps have ~240 pellets + 4 energizers)
+        let mut items = Vec::with_capacity(250);
+
+        // Parse the raw board once
+        let parsed_map = MapTileParser::parse_board(RAW_BOARD)?;
+        let map = parsed_map.tiles;
+
+        // Iterate through the map and collect items more efficiently
+        for (x, row) in map.iter().enumerate() {
+            for (y, tile) in row.iter().enumerate() {
+                match tile {
+                    MapTile::Pellet | MapTile::PowerPellet => {
+                        let grid_pos = IVec2::new(x as i32, y as i32);
+                        if let Some(&node_id) = self.grid_to_node.get(&grid_pos) {
+                            let (item_type, sprite) = match tile {
+                                MapTile::Pellet => (ItemType::Pellet, Sprite::new(pellet_sprite)),
+                                MapTile::PowerPellet => (ItemType::Energizer, Sprite::new(energizer_sprite)),
+                                _ => unreachable!(), // We already filtered for these types
+                            };
+                            items.push(Item::new(node_id, item_type, sprite));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        Ok(items)
+    }
+
     /// Renders a debug visualization with cursor-based highlighting.
     ///
     /// This function provides interactive debugging by highlighting the nearest node
@@ -194,8 +236,8 @@ impl Map {
         text_renderer: &mut crate::texture::text::TextTexture,
         atlas: &mut SpriteAtlas,
         cursor_pos: glam::Vec2,
-    ) {
-        MapRenderer::debug_render_with_cursor(&self.graph, canvas, text_renderer, atlas, cursor_pos);
+    ) -> GameResult<()> {
+        MapRenderer::debug_render_with_cursor(&self.graph, canvas, text_renderer, atlas, cursor_pos)
     }
 
     /// Builds the house structure in the graph.
@@ -203,21 +245,32 @@ impl Map {
         graph: &mut Graph,
         grid_to_node: &HashMap<IVec2, NodeId>,
         house_door: &[Option<IVec2>; 2],
-    ) -> (usize, usize, usize, usize) {
+    ) -> GameResult<(usize, usize, usize, usize)> {
         // Calculate the position of the house entrance node
         let (house_entrance_node_id, house_entrance_node_position) = {
             // Translate the grid positions to the actual node ids
             let left_node = grid_to_node
-                .get(&(house_door[0].expect("First house door position not acquired") + Direction::Left.as_ivec2()))
-                .expect("Left house door node  not found");
+                .get(
+                    &(house_door[0]
+                        .ok_or_else(|| MapError::InvalidConfig("First house door position not acquired".to_string()))?
+                        + Direction::Left.as_ivec2()),
+                )
+                .ok_or_else(|| MapError::InvalidConfig("Left house door node not found".to_string()))?;
             let right_node = grid_to_node
-                .get(&(house_door[1].expect("Second house door position not acquired") + Direction::Right.as_ivec2()))
-                .expect("Right house door node  not found");
+                .get(
+                    &(house_door[1]
+                        .ok_or_else(|| MapError::InvalidConfig("Second house door position not acquired".to_string()))?
+                        + Direction::Right.as_ivec2()),
+                )
+                .ok_or_else(|| MapError::InvalidConfig("Right house door node not found".to_string()))?;
 
             // Calculate the position of the house node
             let (node_id, node_position) = {
-                let left_pos = graph.get_node(*left_node).unwrap().position;
-                let right_pos = graph.get_node(*right_node).unwrap().position;
+                let left_pos = graph.get_node(*left_node).ok_or(MapError::NodeNotFound(*left_node))?.position;
+                let right_pos = graph
+                    .get_node(*right_node)
+                    .ok_or(MapError::NodeNotFound(*right_node))?
+                    .position;
                 let house_node = graph.add_node(Node {
                     position: left_pos.lerp(right_pos, 0.5),
                 });
@@ -227,16 +280,16 @@ impl Map {
             // Connect the house door to the left and right nodes
             graph
                 .connect(node_id, *left_node, true, None, Direction::Left)
-                .expect("Failed to connect house door to left node");
+                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house door to left node: {e}")))?;
             graph
                 .connect(node_id, *right_node, true, None, Direction::Right)
-                .expect("Failed to connect house door to right node");
+                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house door to right node: {e}")))?;
 
             (node_id, node_position)
         };
 
         // A helper function to help create the various 'lines' of nodes within the house
-        let create_house_line = |graph: &mut Graph, center_pos: Vec2| -> (NodeId, NodeId) {
+        let create_house_line = |graph: &mut Graph, center_pos: Vec2| -> GameResult<(NodeId, NodeId)> {
             // Place the nodes at, above, and below the center position
             let center_node_id = graph.add_node(Node { position: center_pos });
             let top_node_id = graph.add_node(Node {
@@ -249,12 +302,12 @@ impl Map {
             // Connect the center node to the top and bottom nodes
             graph
                 .connect(center_node_id, top_node_id, false, None, Direction::Up)
-                .expect("Failed to connect house line to left node");
+                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house line to top node: {e}")))?;
             graph
                 .connect(center_node_id, bottom_node_id, false, None, Direction::Down)
-                .expect("Failed to connect house line to right node");
+                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house line to bottom node: {e}")))?;
 
-            (center_node_id, top_node_id)
+            Ok((center_node_id, top_node_id))
         };
 
         // Calculate the position of the center line's center node
@@ -262,7 +315,7 @@ impl Map {
             house_entrance_node_position + (Direction::Down.as_ivec2() * (3 * CELL_SIZE as i32)).as_vec2();
 
         // Create the center line
-        let (center_center_node_id, center_top_node_id) = create_house_line(graph, center_line_center_position);
+        let (center_center_node_id, center_top_node_id) = create_house_line(graph, center_line_center_position)?;
 
         // Create a ghost-only, two-way connection for the house door.
         // This prevents Pac-Man from entering or exiting through the door.
@@ -275,7 +328,7 @@ impl Map {
                 Direction::Down,
                 EdgePermissions::GhostsOnly,
             )
-            .expect("Failed to create ghost-only entrance to house");
+            .map_err(|e| MapError::InvalidConfig(format!("Failed to create ghost-only entrance to house: {e}")))?;
 
         graph
             .add_edge(
@@ -286,49 +339,54 @@ impl Map {
                 Direction::Up,
                 EdgePermissions::GhostsOnly,
             )
-            .expect("Failed to create ghost-only exit from house");
+            .map_err(|e| MapError::InvalidConfig(format!("Failed to create ghost-only exit from house: {e}")))?;
 
         // Create the left line
         let (left_center_node_id, _) = create_house_line(
             graph,
             center_line_center_position + (Direction::Left.as_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
-        );
+        )?;
 
         // Create the right line
         let (right_center_node_id, _) = create_house_line(
             graph,
             center_line_center_position + (Direction::Right.as_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
-        );
+        )?;
 
         debug!("Left center node id: {left_center_node_id}");
 
         // Connect the center line to the left and right lines
         graph
             .connect(center_center_node_id, left_center_node_id, false, None, Direction::Left)
-            .expect("Failed to connect house entrance to left top line");
+            .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house entrance to left top line: {e}")))?;
 
         graph
             .connect(center_center_node_id, right_center_node_id, false, None, Direction::Right)
-            .expect("Failed to connect house entrance to right top line");
+            .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house entrance to right top line: {e}")))?;
 
         debug!("House entrance node id: {house_entrance_node_id}");
 
-        (
+        Ok((
             house_entrance_node_id,
             left_center_node_id,
             center_center_node_id,
             right_center_node_id,
-        )
+        ))
     }
 
     /// Builds the tunnel connections in the graph.
-    fn build_tunnels(graph: &mut Graph, grid_to_node: &HashMap<IVec2, NodeId>, tunnel_ends: &[Option<IVec2>; 2]) {
+    fn build_tunnels(
+        graph: &mut Graph,
+        grid_to_node: &HashMap<IVec2, NodeId>,
+        tunnel_ends: &[Option<IVec2>; 2],
+    ) -> GameResult<()> {
         // Create the hidden tunnel nodes
         let left_tunnel_hidden_node_id = {
-            let left_tunnel_entrance_node_id = grid_to_node[&tunnel_ends[0].expect("Left tunnel end not found")];
+            let left_tunnel_entrance_node_id =
+                grid_to_node[&tunnel_ends[0].ok_or_else(|| MapError::InvalidConfig("Left tunnel end not found".to_string()))?];
             let left_tunnel_entrance_node = graph
                 .get_node(left_tunnel_entrance_node_id)
-                .expect("Left tunnel entrance node not found");
+                .ok_or_else(|| MapError::InvalidConfig("Left tunnel entrance node not found".to_string()))?;
 
             graph
                 .add_connected(
@@ -339,15 +397,21 @@ impl Map {
                             + (Direction::Left.as_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
                     },
                 )
-                .expect("Failed to connect left tunnel entrance to left tunnel hidden node")
+                .map_err(|e| {
+                    MapError::InvalidConfig(format!(
+                        "Failed to connect left tunnel entrance to left tunnel hidden node: {}",
+                        e
+                    ))
+                })?
         };
 
         // Create the right tunnel nodes
         let right_tunnel_hidden_node_id = {
-            let right_tunnel_entrance_node_id = grid_to_node[&tunnel_ends[1].expect("Right tunnel end not found")];
+            let right_tunnel_entrance_node_id =
+                grid_to_node[&tunnel_ends[1].ok_or_else(|| MapError::InvalidConfig("Right tunnel end not found".to_string()))?];
             let right_tunnel_entrance_node = graph
                 .get_node(right_tunnel_entrance_node_id)
-                .expect("Right tunnel entrance node not found");
+                .ok_or_else(|| MapError::InvalidConfig("Right tunnel entrance node not found".to_string()))?;
 
             graph
                 .add_connected(
@@ -358,7 +422,12 @@ impl Map {
                             + (Direction::Right.as_ivec2() * (CELL_SIZE as i32 * 2)).as_vec2(),
                     },
                 )
-                .expect("Failed to connect right tunnel entrance to right tunnel hidden node")
+                .map_err(|e| {
+                    MapError::InvalidConfig(format!(
+                        "Failed to connect right tunnel entrance to right tunnel hidden node: {}",
+                        e
+                    ))
+                })?
         };
 
         // Connect the left tunnel hidden node to the right tunnel hidden node
@@ -370,6 +439,13 @@ impl Map {
                 Some(0.0),
                 Direction::Left,
             )
-            .expect("Failed to connect left tunnel hidden node to right tunnel hidden node");
+            .map_err(|e| {
+                MapError::InvalidConfig(format!(
+                    "Failed to connect left tunnel hidden node to right tunnel hidden node: {}",
+                    e
+                ))
+            })?;
+
+        Ok(())
     }
 }

@@ -1,3 +1,7 @@
+use tracing::error;
+
+use crate::error::GameResult;
+
 use super::direction::Direction;
 use super::graph::{Edge, Graph, NodeId};
 
@@ -82,7 +86,9 @@ impl Traverser {
         };
 
         // This will kickstart the traverser into motion
-        traverser.advance(graph, 0.0, can_traverse);
+        if let Err(e) = traverser.advance(graph, 0.0, can_traverse) {
+            error!("Traverser initialization error: {}", e);
+        }
 
         traverser
     }
@@ -108,7 +114,9 @@ impl Traverser {
     /// - If it reaches a node, it attempts to transition to a new edge based on
     ///   the buffered direction or by continuing straight.
     /// - If no valid move is possible, it stops at the node.
-    pub fn advance<F>(&mut self, graph: &Graph, distance: f32, can_traverse: &F)
+    ///
+    /// Returns an error if the movement is invalid (e.g., trying to move in an impossible direction).
+    pub fn advance<F>(&mut self, graph: &Graph, distance: f32, can_traverse: &F) -> GameResult<()>
     where
         F: Fn(Edge) -> bool,
     {
@@ -134,7 +142,18 @@ impl Traverser {
                                 traversed: distance.max(0.0),
                             };
                             self.direction = next_direction;
+                        } else {
+                            return Err(crate::error::GameError::Entity(crate::error::EntityError::InvalidMovement(
+                                format!(
+                                    "Cannot traverse edge from {} to {} in direction {:?}",
+                                    node_id, edge.target, next_direction
+                                ),
+                            )));
                         }
+                    } else {
+                        return Err(crate::error::GameError::Entity(crate::error::EntityError::InvalidMovement(
+                            format!("No edge found in direction {:?} from node {}", next_direction, node_id),
+                        )));
                     }
 
                     self.next_direction = None; // Consume the buffered direction regardless of whether we started moving with it
@@ -143,12 +162,15 @@ impl Traverser {
             Position::BetweenNodes { from, to, traversed } => {
                 // There is no point in any of the next logic if we don't travel at all
                 if distance <= 0.0 {
-                    return;
+                    return Ok(());
                 }
 
-                let edge = graph
-                    .find_edge(from, to)
-                    .expect("Inconsistent state: Traverser is on a non-existent edge.");
+                let edge = graph.find_edge(from, to).ok_or_else(|| {
+                    crate::error::GameError::Entity(crate::error::EntityError::InvalidMovement(format!(
+                        "Inconsistent state: Traverser is on a non-existent edge from {} to {}.",
+                        from, to
+                    )))
+                })?;
 
                 let new_traversed = traversed + distance;
 
@@ -201,5 +223,7 @@ impl Traverser {
                 }
             }
         }
+
+        Ok(())
     }
 }

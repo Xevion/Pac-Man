@@ -52,3 +52,26 @@ fn test_directional_texture_all_directions() {
         assert!(texture.has_direction(*direction));
     }
 }
+
+#[test]
+fn test_directional_texture_stopped() {
+    let mut stopped_textures = [None, None, None, None];
+    stopped_textures[Direction::Up.as_usize()] = Some(mock_animated_texture(1));
+
+    let texture = DirectionalAnimatedTexture::new([None, None, None, None], stopped_textures);
+
+    assert_eq!(texture.stopped_texture_count(), 1);
+    assert!(texture.has_stopped_direction(Direction::Up));
+    assert!(!texture.has_stopped_direction(Direction::Down));
+}
+
+#[test]
+fn test_directional_texture_tick() {
+    let mut textures = [None, None, None, None];
+    textures[Direction::Up.as_usize()] = Some(mock_animated_texture(1));
+    let mut texture = DirectionalAnimatedTexture::new(textures, [None, None, None, None]);
+
+    // This is a bit of a placeholder, since we can't inspect the inner state easily.
+    // We're just ensuring the tick method runs without panicking.
+    texture.tick(0.1);
+}

@@ -5,6 +5,7 @@ pub mod asset;
 pub mod audio;
 pub mod constants;
 pub mod entity;
+pub mod error;
 pub mod game;
 pub mod helpers;
 pub mod map;

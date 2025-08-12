@@ -1,47 +1,11 @@
 use glam::Vec2;
-use pacman::constants::{BOARD_CELL_SIZE, CELL_SIZE};
+use pacman::constants::{BOARD_CELL_SIZE, CELL_SIZE, RAW_BOARD};
 use pacman::map::Map;
-
-fn create_minimal_test_board() -> [&'static str; BOARD_CELL_SIZE.y as usize] {
-    let mut board = [""; BOARD_CELL_SIZE.y as usize];
-    board[0] = "############################";
-    board[1] = "#............##............#";
-    board[2] = "#.####.#####.##.#####.####.#";
-    board[3] = "#o####.#####.##.#####.####o#";
-    board[4] = "#.####.#####.##.#####.####.#";
-    board[5] = "#..........................#";
-    board[6] = "#.####.##.########.##.####.#";
-    board[7] = "#.####.##.########.##.####.#";
-    board[8] = "#......##....##....##......#";
-    board[9] = "######.##### ## #####.######";
-    board[10] = "     #.##### ## #####.#     ";
-    board[11] = "     #.##    ==    ##.#     ";
-    board[12] = "     #.## ######## ##.#     ";
-    board[13] = "######.## ######## ##.######";
-    board[14] = "T     .   ########   .     T";
-    board[15] = "######.## ######## ##.######";
-    board[16] = "     #.## ######## ##.#     ";
-    board[17] = "     #.##          ##.#     ";
-    board[18] = "     #.## ######## ##.#     ";
-    board[19] = "######.## ######## ##.######";
-    board[20] = "#............##............#";
-    board[21] = "#.####.#####.##.#####.####.#";
-    board[22] = "#.####.#####.##.#####.####.#";
-    board[23] = "#o..##.......X .......##..o#";
-    board[24] = "###.##.##.########.##.##.###";
-    board[25] = "###.##.##.########.##.##.###";
-    board[26] = "#......##....##....##......#";
-    board[27] = "#.##########.##.##########.#";
-    board[28] = "#.##########.##.##########.#";
-    board[29] = "#..........................#";
-    board[30] = "############################";
-    board
-}
+use sdl2::render::Texture;
 
 #[test]
 fn test_map_creation() {
-    let board = create_minimal_test_board();
-    let map = Map::new(board);
+    let map = Map::new(RAW_BOARD).unwrap();
 
     assert!(map.graph.node_count() > 0);
     assert!(!map.grid_to_node.is_empty());
@@ -59,8 +23,7 @@ fn test_map_creation() {
 
 #[test]
 fn test_map_starting_positions() {
-    let board = create_minimal_test_board();
-    let map = Map::new(board);
+    let map = Map::new(RAW_BOARD).unwrap();
 
     let pacman_pos = map.find_starting_position(0);
     assert!(pacman_pos.is_some());
@@ -73,8 +36,7 @@ fn test_map_starting_positions() {
 
 #[test]
 fn test_map_node_positions() {
-    let board = create_minimal_test_board();
-    let map = Map::new(board);
+    let map = Map::new(RAW_BOARD).unwrap();
 
     for (grid_pos, &node_id) in &map.grid_to_node {
         let node = map.graph.get_node(node_id).unwrap();
@@ -83,4 +45,62 @@ fn test_map_node_positions() {
 
         assert_eq!(node.position, expected_pos);
     }
+}
+
+#[test]
+fn test_generate_items() {
+    use pacman::texture::sprite::{AtlasMapper, MapperFrame, SpriteAtlas};
+    use std::collections::HashMap;
+
+    let map = Map::new(RAW_BOARD).unwrap();
+
+    // Create a minimal atlas for testing
+    let mut frames = HashMap::new();
+    frames.insert(
+        "maze/pellet.png".to_string(),
+        MapperFrame {
+            x: 0,
+            y: 0,
+            width: 8,
+            height: 8,
+        },
+    );
+    frames.insert(
+        "maze/energizer.png".to_string(),
+        MapperFrame {
+            x: 8,
+            y: 0,
+            width: 8,
+            height: 8,
+        },
+    );
+
+    let mapper = AtlasMapper { frames };
+    let texture = unsafe { std::mem::transmute::<usize, Texture<'static>>(0usize) };
+    let atlas = SpriteAtlas::new(texture, mapper);
+
+    let items = map.generate_items(&atlas).unwrap();
+
+    // Verify we have items
+    assert!(!items.is_empty());
+
+    // Count different types
+    let pellet_count = items
+        .iter()
+        .filter(|item| matches!(item.item_type, pacman::entity::item::ItemType::Pellet))
+        .count();
+    let energizer_count = items
+        .iter()
+        .filter(|item| matches!(item.item_type, pacman::entity::item::ItemType::Energizer))
+        .count();
+
+    // Should have both types
+    assert_eq!(pellet_count, 240);
+    assert_eq!(energizer_count, 4);
+
+    // All items should be uncollected initially
+    assert!(items.iter().all(|item| !item.is_collected()));
+
+    // All items should have valid node indices
+    assert!(items.iter().all(|item| item.node_index < map.graph.node_count()));
 }

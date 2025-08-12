@@ -101,7 +101,7 @@ fn test_traverser_advance() {
     let graph = create_test_graph();
     let mut traverser = Traverser::new(&graph, 0, Direction::Right, &|_| true);
 
-    traverser.advance(&graph, 5.0, &|_| true);
+    traverser.advance(&graph, 5.0, &|_| true).unwrap();
 
     match traverser.position {
         Position::BetweenNodes { from, to, traversed } => {
@@ -112,7 +112,7 @@ fn test_traverser_advance() {
         _ => panic!("Expected to be between nodes"),
     }
 
-    traverser.advance(&graph, 3.0, &|_| true);
+    traverser.advance(&graph, 3.0, &|_| true).unwrap();
 
     match traverser.position {
         Position::BetweenNodes { from, to, traversed } => {
@@ -143,7 +143,9 @@ fn test_traverser_with_permissions() {
         matches!(edge.permissions, EdgePermissions::All)
     });
 
-    traverser.advance(&graph, 5.0, &|edge| matches!(edge.permissions, EdgePermissions::All));
+    traverser
+        .advance(&graph, 5.0, &|edge| matches!(edge.permissions, EdgePermissions::All))
+        .unwrap();
 
     // Should still be at the node since it can't traverse
     assert!(traverser.position.is_at_node());

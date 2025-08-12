@@ -11,6 +11,8 @@ pub enum ParseError {
     UnknownCharacter(char),
     #[error("House door must have exactly 2 positions, found {0}")]
     InvalidHouseDoorCount(usize),
+    #[error("Map parsing failed: {0}")]
+    ParseFailed(String),
 }
 
 /// Represents the parsed data from a raw board layout.
@@ -67,6 +69,25 @@ impl MapTileParser {
     /// Returns an error if the board contains unknown characters or if the house door
     /// is not properly defined by exactly two '=' characters.
     pub fn parse_board(raw_board: [&str; BOARD_CELL_SIZE.y as usize]) -> Result<ParsedMap, ParseError> {
+        // Validate board dimensions
+        if raw_board.len() != BOARD_CELL_SIZE.y as usize {
+            return Err(ParseError::ParseFailed(format!(
+                "Invalid board height: expected {}, got {}",
+                BOARD_CELL_SIZE.y,
+                raw_board.len()
+            )));
+        }
+
+        for (i, line) in raw_board.iter().enumerate() {
+            if line.len() != BOARD_CELL_SIZE.x as usize {
+                return Err(ParseError::ParseFailed(format!(
+                    "Invalid board width at line {}: expected {}, got {}",
+                    i,
+                    BOARD_CELL_SIZE.x,
+                    line.len()
+                )));
+            }
+        }
         let mut tiles = [[MapTile::Empty; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize];
         let mut house_door = [None; 2];
         let mut tunnel_ends = [None; 2];

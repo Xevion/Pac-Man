@@ -16,16 +16,16 @@ fn test_blinking_texture() {
     let tile = mock_atlas_tile(1);
     let mut texture = BlinkingTexture::new(tile, 0.5);
 
-    assert_eq!(texture.is_on(), true);
+    assert!(texture.is_on());
 
     texture.tick(0.5);
-    assert_eq!(texture.is_on(), false);
+    assert!(!texture.is_on());
 
     texture.tick(0.5);
-    assert_eq!(texture.is_on(), true);
+    assert!(texture.is_on());
 
     texture.tick(0.5);
-    assert_eq!(texture.is_on(), false);
+    assert!(!texture.is_on());
 }
 
 #[test]
@@ -34,7 +34,7 @@ fn test_blinking_texture_partial_duration() {
     let mut texture = BlinkingTexture::new(tile, 0.5);
 
     texture.tick(0.625);
-    assert_eq!(texture.is_on(), false);
+    assert!(!texture.is_on());
     assert_eq!(texture.time_bank(), 0.125);
 }
 
@@ -44,6 +44,6 @@ fn test_blinking_texture_negative_time() {
     let mut texture = BlinkingTexture::new(tile, 0.5);
 
     texture.tick(-0.1);
-    assert_eq!(texture.is_on(), true);
+    assert!(texture.is_on());
     assert_eq!(texture.time_bank(), -0.1);
 }

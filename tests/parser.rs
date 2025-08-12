@@ -37,10 +37,10 @@ fn test_parse_board() {
 
 #[test]
 fn test_parse_board_invalid_character() {
-    let mut invalid_board = RAW_BOARD.clone();
-    invalid_board[0] = "###########################Z";
+    let mut invalid_board = RAW_BOARD.map(|s| s.to_string());
+    invalid_board[0] = "###########################Z".to_string();
 
-    let result = MapTileParser::parse_board(invalid_board);
+    let result = MapTileParser::parse_board(invalid_board.each_ref().map(|s| s.as_str()));
     assert!(result.is_err());
     assert!(matches!(result.unwrap_err(), ParseError::UnknownCharacter('Z')));
 }

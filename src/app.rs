@@ -1,6 +1,5 @@
 use std::time::{Duration, Instant};
 
-use anyhow::{anyhow, Result};
 use glam::Vec2;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
@@ -8,6 +7,8 @@ use sdl2::render::{Canvas, ScaleMode, Texture, TextureCreator};
 use sdl2::video::{Window, WindowContext};
 use sdl2::EventPump;
 use tracing::{error, event};
+
+use crate::error::{GameError, GameResult};
 
 use crate::constants::{CANVAS_SIZE, LOOP_TIME, SCALE};
 use crate::game::Game;
@@ -24,14 +25,14 @@ pub struct App<'a> {
 }
 
 impl App<'_> {
-    pub fn new() -> Result<Self> {
+    pub fn new() -> GameResult<Self> {
         // Initialize platform-specific console
-        get_platform().init_console().map_err(|e| anyhow!(e))?;
+        get_platform().init_console()?;
 
-        let sdl_context = sdl2::init().map_err(|e| anyhow!(e))?;
-        let video_subsystem = sdl_context.video().map_err(|e| anyhow!(e))?;
-        let audio_subsystem = sdl_context.audio().map_err(|e| anyhow!(e))?;
-        let ttf_context = sdl2::ttf::init().map_err(|e| anyhow!(e.to_string()))?;
+        let sdl_context = sdl2::init().map_err(|e| GameError::Sdl(e.to_string()))?;
+        let video_subsystem = sdl_context.video().map_err(|e| GameError::Sdl(e.to_string()))?;
+        let audio_subsystem = sdl_context.audio().map_err(|e| GameError::Sdl(e.to_string()))?;
+        let ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
 
         let window = video_subsystem
             .window(
@@ -41,24 +42,31 @@ impl App<'_> {
             )
             .resizable()
             .position_centered()
-            .build()?;
+            .build()
+            .map_err(|e| GameError::Sdl(e.to_string()))?;
 
-        let mut canvas = window.into_canvas().build()?;
-        canvas.set_logical_size(CANVAS_SIZE.x, CANVAS_SIZE.y)?;
+        let mut canvas = window.into_canvas().build().map_err(|e| GameError::Sdl(e.to_string()))?;
+        canvas
+            .set_logical_size(CANVAS_SIZE.x, CANVAS_SIZE.y)
+            .map_err(|e| GameError::Sdl(e.to_string()))?;
 
         let texture_creator_static: &'static TextureCreator<WindowContext> = Box::leak(Box::new(canvas.texture_creator()));
 
-        let mut game = Game::new(texture_creator_static, &ttf_context, &audio_subsystem);
+        let mut game = Game::new(texture_creator_static, &ttf_context, &audio_subsystem)?;
         game.audio.set_mute(cfg!(debug_assertions));
 
-        let mut backbuffer = texture_creator_static.create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)?;
+        let mut backbuffer = texture_creator_static
+            .create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)
+            .map_err(|e| GameError::Sdl(e.to_string()))?;
         backbuffer.set_scale_mode(ScaleMode::Nearest);
 
-        let event_pump = sdl_context.event_pump().map_err(|e| anyhow!(e))?;
+        let event_pump = sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
 
         // Initial draw
-        game.draw(&mut canvas, &mut backbuffer)?;
-        game.present_backbuffer(&mut canvas, &backbuffer, glam::Vec2::ZERO)?;
+        game.draw(&mut canvas, &mut backbuffer)
+            .map_err(|e| GameError::Sdl(e.to_string()))?;
+        game.present_backbuffer(&mut canvas, &backbuffer, glam::Vec2::ZERO)
+            .map_err(|e| GameError::Sdl(e.to_string()))?;
 
         Ok(Self {
             game,
@@ -109,8 +117,8 @@ impl App<'_> {
                     } => {
                         self.game.debug_mode = !self.game.debug_mode;
                     }
-                    Event::KeyDown { keycode, .. } => {
-                        self.game.keyboard_event(keycode.unwrap());
+                    Event::KeyDown { keycode: Some(key), .. } => {
+                        self.game.keyboard_event(key);
                     }
                     Event::MouseMotion { x, y, .. } => {
                         // Convert window coordinates to logical coordinates
@@ -126,13 +134,13 @@ impl App<'_> {
             if !self.paused {
                 self.game.tick(dt);
                 if let Err(e) = self.game.draw(&mut self.canvas, &mut self.backbuffer) {
-                    error!("Failed to draw game: {e}");
+                    error!("Failed to draw game: {}", e);
                 }
                 if let Err(e) = self
                     .game
                     .present_backbuffer(&mut self.canvas, &self.backbuffer, self.cursor_pos)
                 {
-                    error!("Failed to present backbuffer: {e}");
+                    error!("Failed to present backbuffer: {}", e);
                 }
             }
 
