@@ -84,6 +84,9 @@ jobs:
     permissions:
       pages: write
       id-token: write
+    # concurrency group is used to prevent multiple page deployments from being attempted at the same time
+    concurrency:
+      group: ${{ github.workflow }}-wasm
 
     steps:
       - name: Checkout
