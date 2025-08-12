@@ -1,6 +1,6 @@
 use crate::{
     constants,
-    entity::graph::Graph,
+    entity::{collision::Collidable, graph::Graph},
     error::EntityError,
     texture::sprite::{Sprite, SpriteAtlas},
 };
@@ -91,5 +91,11 @@ impl Item {
         } else {
             Ok(())
         }
+    }
+}
+
+impl Collidable for Item {
+    fn position(&self) -> crate::entity::traversal::Position {
+        crate::entity::traversal::Position::AtNode(self.node_index)
     }
 }

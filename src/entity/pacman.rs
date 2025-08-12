@@ -4,10 +4,13 @@
 //! animation, and rendering. Pac-Man moves through the game graph using
 //! a traverser and displays directional animated textures.
 
-use crate::entity::direction::Direction;
-use crate::entity::graph::{Edge, EdgePermissions, Graph, NodeId};
-use crate::entity::r#trait::Entity;
-use crate::entity::traversal::Traverser;
+use crate::entity::{
+    collision::Collidable,
+    direction::Direction,
+    graph::{Edge, EdgePermissions, Graph, NodeId},
+    r#trait::Entity,
+    traversal::Traverser,
+};
 use crate::texture::animated::AnimatedTexture;
 use crate::texture::directional::DirectionalAnimatedTexture;
 use crate::texture::sprite::SpriteAtlas;
@@ -123,5 +126,11 @@ impl Pacman {
         if let Some(direction) = direction {
             self.traverser.set_next_direction(direction);
         }
+    }
+}
+
+impl Collidable for Pacman {
+    fn position(&self) -> crate::entity::traversal::Position {
+        self.traverser.position
     }
 }

@@ -9,10 +9,13 @@ use rand::prelude::*;
 use smallvec::SmallVec;
 use tracing::error;
 
-use crate::entity::direction::Direction;
-use crate::entity::graph::{Edge, EdgePermissions, Graph, NodeId};
-use crate::entity::r#trait::Entity;
-use crate::entity::traversal::Traverser;
+use crate::entity::{
+    collision::Collidable,
+    direction::Direction,
+    graph::{Edge, EdgePermissions, Graph, NodeId},
+    r#trait::Entity,
+    traversal::Traverser,
+};
 use crate::texture::animated::AnimatedTexture;
 use crate::texture::directional::DirectionalAnimatedTexture;
 use crate::texture::sprite::SpriteAtlas;
@@ -243,5 +246,11 @@ impl Ghost {
             GhostType::Inky => sdl2::pixels::Color::RGB(0, 255, 255),    // Cyan
             GhostType::Clyde => sdl2::pixels::Color::RGB(255, 182, 85),  // Orange
         }
+    }
+}
+
+impl Collidable for Ghost {
+    fn position(&self) -> crate::entity::traversal::Position {
+        self.traverser.position
     }
 }

@@ -17,6 +17,7 @@ use crate::{
     audio::Audio,
     constants::{CELL_SIZE, RAW_BOARD},
     entity::{
+        collision::{Collidable, CollisionSystem, EntityId},
         ghost::{Ghost, GhostType},
         item::Item,
         pacman::Pacman,
@@ -40,6 +41,12 @@ pub struct Game {
     pub ghosts: Vec<Ghost>,
     pub items: Vec<Item>,
     pub debug_mode: bool,
+
+    // Collision system
+    collision_system: CollisionSystem,
+    pacman_id: EntityId,
+    ghost_ids: Vec<EntityId>,
+    item_ids: Vec<EntityId>,
 
     // Rendering resources
     atlas: SpriteAtlas,
@@ -109,6 +116,26 @@ impl Game {
             ghosts.push(ghost);
         }
 
+        // Initialize collision system
+        let mut collision_system = CollisionSystem::default();
+
+        // Register Pac-Man
+        let pacman_id = collision_system.register_entity(pacman.position());
+
+        // Register items
+        let mut item_ids = Vec::new();
+        for item in &items {
+            let item_id = collision_system.register_entity(item.position());
+            item_ids.push(item_id);
+        }
+
+        // Register ghosts
+        let mut ghost_ids = Vec::new();
+        for ghost in &ghosts {
+            let ghost_id = collision_system.register_entity(ghost.position());
+            ghost_ids.push(ghost_id);
+        }
+
         Ok(Game {
             score: 0,
             map,
@@ -116,6 +143,10 @@ impl Game {
             ghosts,
             items,
             debug_mode: false,
+            collision_system,
+            pacman_id,
+            ghost_ids,
+            item_ids,
             map_texture,
             text_texture,
             audio,
@@ -164,6 +195,26 @@ impl Game {
             *ghost = Ghost::new(&self.map.graph, random_node, ghost_types[i], &self.atlas)?;
         }
 
+        // Reset collision system
+        self.collision_system = CollisionSystem::default();
+
+        // Re-register Pac-Man
+        self.pacman_id = self.collision_system.register_entity(self.pacman.position());
+
+        // Re-register items
+        self.item_ids.clear();
+        for item in &self.items {
+            let item_id = self.collision_system.register_entity(item.position());
+            self.item_ids.push(item_id);
+        }
+
+        // Re-register ghosts
+        self.ghost_ids.clear();
+        for ghost in &self.ghosts {
+            let ghost_id = self.collision_system.register_entity(ghost.position());
+            self.ghost_ids.push(ghost_id);
+        }
+
         Ok(())
     }
 
@@ -175,25 +226,59 @@ impl Game {
             ghost.tick(dt, &self.map.graph);
         }
 
-        // Check for item collisions
-        self.check_item_collisions();
+        // Update collision system positions
+        self.update_collision_positions();
+
+        // Check for collisions
+        self.check_collisions();
     }
 
-    fn check_item_collisions(&mut self) {
-        let pacman_node = self.pacman.current_node_id();
+    fn update_collision_positions(&mut self) {
+        // Update Pac-Man's position
+        self.collision_system.update_position(self.pacman_id, self.pacman.position());
 
-        for item in &mut self.items {
-            if !item.is_collected() && item.node_index == pacman_node {
-                item.collect();
-                self.score += item.get_score();
+        // Update ghost positions
+        for (ghost, &ghost_id) in self.ghosts.iter().zip(&self.ghost_ids) {
+            self.collision_system.update_position(ghost_id, ghost.position());
+        }
+    }
 
-                // Handle energizer effects
-                if matches!(item.item_type, crate::entity::item::ItemType::Energizer) {
-                    // TODO: Make ghosts frightened
-                    tracing::info!("Energizer collected! Ghosts should become frightened.");
+    fn check_collisions(&mut self) {
+        // Check Pac-Man vs Items
+        let potential_collisions = self.collision_system.potential_collisions(&self.pacman.position());
+
+        for entity_id in potential_collisions {
+            if entity_id != self.pacman_id {
+                // Check if this is an item collision
+                if let Some(item_index) = self.find_item_by_id(entity_id) {
+                    let item = &mut self.items[item_index];
+                    if !item.is_collected() {
+                        item.collect();
+                        self.score += item.get_score();
+
+                        // Handle energizer effects
+                        if matches!(item.item_type, crate::entity::item::ItemType::Energizer) {
+                            // TODO: Make ghosts frightened
+                            tracing::info!("Energizer collected! Ghosts should become frightened.");
+                        }
+                    }
+                }
+
+                // Check if this is a ghost collision
+                if let Some(_ghost_index) = self.find_ghost_by_id(entity_id) {
+                    // TODO: Handle Pac-Man being eaten by ghost
+                    tracing::info!("Pac-Man collided with ghost!");
                 }
             }
         }
+    }
+
+    fn find_item_by_id(&self, entity_id: EntityId) -> Option<usize> {
+        self.item_ids.iter().position(|&id| id == entity_id)
+    }
+
+    fn find_ghost_by_id(&self, entity_id: EntityId) -> Option<usize> {
+        self.ghost_ids.iter().position(|&id| id == entity_id)
     }
 
     pub fn draw<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>, backbuffer: &mut Texture) -> GameResult<()> {
