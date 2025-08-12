@@ -36,7 +36,7 @@ analyzer = "nextest"
 
 [jobs.coverage]
 command = [
-    "cargo", "llvm-cov",  "--profile", "coverage", "--color", "always", "--no-fail-fast", "nextest", "--no-capture", "--summary-only", "--"
+    "just", "coverage"
 ]
 need_stdout = true
 ignored_lines = [
@@ -49,8 +49,14 @@ ignored_lines = [
     "[─]+",
     "test.+ok",
     "PASS|START",
-    "Starting \\d+ test"
+    "Starting \\d+ test",
+    "\\s*#",
+    "\\s*Finished.+in \\d+",
+    "\\s*Summary\\s+\\[",
+    "\\s*Blocking",
+    "Finished report saved to"
 ]
+on_change_strategy = "wait_then_restart"
 
 [jobs.doc]
 command = ["cargo", "doc", "--no-deps"]
