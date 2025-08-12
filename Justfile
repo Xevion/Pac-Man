@@ -3,14 +3,16 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
 coverage_exclude_pattern := "app.rs|audio.rs"
 
+# Display report (for humans)
+report-coverage: coverage
+    cargo llvm-cov report \
+    --ignore-filename-regex "{{ coverage_exclude_pattern }}"
+
+# Run & generate report (for CI)
 coverage:
-    # Run & generate report
     cargo llvm-cov \
+    --lcov \
     --ignore-filename-regex "{{ coverage_exclude_pattern }}" \
     --output-path lcov.info \
     --profile coverage \
     --no-fail-fast nextest
-
-    # Display report
-    cargo llvm-cov report \
-    --ignore-filename-regex "{{ coverage_exclude_pattern }}"

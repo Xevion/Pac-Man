@@ -42,10 +42,11 @@ jobs:
 
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
+      - uses: taiki-e/install-action@just
 
       - name: Generate coverage report
         run: |
-          cargo llvm-cov --no-fail-fast --lcov --output-path lcov.info nextest
+          just coverage
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
