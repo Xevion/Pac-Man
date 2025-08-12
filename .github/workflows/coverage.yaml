@@ -43,7 +43,6 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
 
-      # Note: We manually link zlib. This should be synchronized with the flags set for Linux in .cargo/config.toml.
       - name: Generate coverage report
         run: |
           cargo llvm-cov --no-fail-fast --lcov --output-path lcov.info nextest

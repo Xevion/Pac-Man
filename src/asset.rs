@@ -3,8 +3,9 @@
 //! On desktop, assets are embedded using include_bytes!; on Emscripten, assets are loaded from the filesystem.
 
 use std::borrow::Cow;
+use strum_macros::EnumIter;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum Asset {
     Wav1,
     Wav2,
