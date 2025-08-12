@@ -16,6 +16,8 @@ use crate::texture::animated::AnimatedTexture;
 use crate::texture::directional::DirectionalAnimatedTexture;
 use crate::texture::sprite::SpriteAtlas;
 
+use crate::error::{EntityError, GameError, GameResult, TextureError};
+
 /// Determines if a ghost can traverse a given edge.
 ///
 /// Ghosts can move through edges that allow all entities or ghost-only edges.
@@ -101,7 +103,9 @@ impl Entity for Ghost {
             self.choose_random_direction(graph);
         }
 
-        self.traverser.advance(graph, dt * 60.0 * self.speed, &can_ghost_traverse);
+        if let Err(e) = self.traverser.advance(graph, dt * 60.0 * self.speed, &can_ghost_traverse) {
+            eprintln!("Ghost movement error: {}", e);
+        }
         self.texture.tick(dt);
     }
 }
@@ -111,7 +115,7 @@ impl Ghost {
     ///
     /// Sets up animated textures for all four directions with moving and stopped states.
     /// The moving animation cycles through two sprite variants.
-    pub fn new(graph: &Graph, start_node: NodeId, ghost_type: GhostType, atlas: &SpriteAtlas) -> Self {
+    pub fn new(graph: &Graph, start_node: NodeId, ghost_type: GhostType, atlas: &SpriteAtlas) -> GameResult<Self> {
         let mut textures = [None, None, None, None];
         let mut stopped_textures = [None, None, None, None];
 
@@ -123,27 +127,51 @@ impl Ghost {
                 Direction::Right => "right",
             };
             let moving_tiles = vec![
-                SpriteAtlas::get_tile(atlas, &format!("ghost/{}/{}_{}.png", ghost_type.as_str(), moving_prefix, "a")).unwrap(),
-                SpriteAtlas::get_tile(atlas, &format!("ghost/{}/{}_{}.png", ghost_type.as_str(), moving_prefix, "b")).unwrap(),
+                SpriteAtlas::get_tile(atlas, &format!("ghost/{}/{}_{}.png", ghost_type.as_str(), moving_prefix, "a"))
+                    .ok_or_else(|| {
+                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                            "ghost/{}/{}_{}.png",
+                            ghost_type.as_str(),
+                            moving_prefix,
+                            "a"
+                        )))
+                    })?,
+                SpriteAtlas::get_tile(atlas, &format!("ghost/{}/{}_{}.png", ghost_type.as_str(), moving_prefix, "b"))
+                    .ok_or_else(|| {
+                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                            "ghost/{}/{}_{}.png",
+                            ghost_type.as_str(),
+                            moving_prefix,
+                            "b"
+                        )))
+                    })?,
             ];
 
             let stopped_tiles =
                 vec![
                     SpriteAtlas::get_tile(atlas, &format!("ghost/{}/{}_{}.png", ghost_type.as_str(), moving_prefix, "a"))
-                        .unwrap(),
+                        .ok_or_else(|| {
+                            GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                                "ghost/{}/{}_{}.png",
+                                ghost_type.as_str(),
+                                moving_prefix,
+                                "a"
+                            )))
+                        })?,
                 ];
 
-            textures[direction.as_usize()] = Some(AnimatedTexture::new(moving_tiles, 0.2).expect("Invalid frame duration"));
+            textures[direction.as_usize()] =
+                Some(AnimatedTexture::new(moving_tiles, 0.2).map_err(|e| GameError::Texture(TextureError::Animated(e)))?);
             stopped_textures[direction.as_usize()] =
-                Some(AnimatedTexture::new(stopped_tiles, 0.1).expect("Invalid frame duration"));
+                Some(AnimatedTexture::new(stopped_tiles, 0.1).map_err(|e| GameError::Texture(TextureError::Animated(e)))?);
         }
 
-        Self {
+        Ok(Self {
             traverser: Traverser::new(graph, start_node, Direction::Left, &can_ghost_traverse),
             ghost_type,
             texture: DirectionalAnimatedTexture::new(textures, stopped_textures),
             speed: ghost_type.base_speed(),
-        }
+        })
     }
 
     /// Chooses a random available direction at the current intersection.
@@ -179,9 +207,9 @@ impl Ghost {
 
     /// Calculates the shortest path from the ghost's current position to a target node using Dijkstra's algorithm.
     ///
-    /// Returns a vector of NodeIds representing the path, or None if no path exists.
+    /// Returns a vector of NodeIds representing the path, or an error if pathfinding fails.
     /// The path includes the current node and the target node.
-    pub fn calculate_path_to_target(&self, graph: &Graph, target: NodeId) -> Option<Vec<NodeId>> {
+    pub fn calculate_path_to_target(&self, graph: &Graph, target: NodeId) -> GameResult<Vec<NodeId>> {
         let start_node = self.traverser.position.from_node_id();
 
         // Use Dijkstra's algorithm to find the shortest path
@@ -198,7 +226,12 @@ impl Ghost {
             |&node_id| node_id == target,
         );
 
-        result.map(|(path, _cost)| path)
+        result.map(|(path, _cost)| path).ok_or_else(|| {
+            GameError::Entity(EntityError::PathfindingFailed(format!(
+                "No path found from node {} to target {}",
+                start_node, target
+            )))
+        })
     }
 
     /// Returns the ghost's color for debug rendering.

@@ -41,7 +41,7 @@ fn test_ghost_creation() {
     let graph = Graph::new();
     let atlas = create_test_atlas();
 
-    let ghost = Ghost::new(&graph, 0, GhostType::Blinky, &atlas);
+    let ghost = Ghost::new(&graph, 0, GhostType::Blinky, &atlas).unwrap();
 
     assert_eq!(ghost.ghost_type, GhostType::Blinky);
     assert_eq!(ghost.traverser.position.from_node_id(), 0);

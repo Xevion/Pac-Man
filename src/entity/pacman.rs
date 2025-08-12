@@ -13,6 +13,8 @@ use crate::texture::directional::DirectionalAnimatedTexture;
 use crate::texture::sprite::SpriteAtlas;
 use sdl2::keyboard::Keycode;
 
+use crate::error::{GameError, GameResult, TextureError};
+
 /// Determines if Pac-Man can traverse a given edge.
 ///
 /// Pac-Man can only move through edges that allow all entities.
@@ -57,7 +59,9 @@ impl Entity for Pacman {
     }
 
     fn tick(&mut self, dt: f32, graph: &Graph) {
-        self.traverser.advance(graph, dt * 60.0 * 1.125, &can_pacman_traverse);
+        if let Err(e) = self.traverser.advance(graph, dt * 60.0 * 1.125, &can_pacman_traverse) {
+            eprintln!("Pac-Man movement error: {}", e);
+        }
         self.texture.tick(dt);
     }
 }
@@ -67,7 +71,7 @@ impl Pacman {
     ///
     /// Sets up animated textures for all four directions with moving and stopped states.
     /// The moving animation cycles through open mouth, closed mouth, and full sprites.
-    pub fn new(graph: &Graph, start_node: NodeId, atlas: &SpriteAtlas) -> Self {
+    pub fn new(graph: &Graph, start_node: NodeId, atlas: &SpriteAtlas) -> GameResult<Self> {
         let mut textures = [None, None, None, None];
         let mut stopped_textures = [None, None, None, None];
 
@@ -79,22 +83,27 @@ impl Pacman {
                 Direction::Right => "pacman/right",
             };
             let moving_tiles = vec![
-                SpriteAtlas::get_tile(atlas, &format!("{moving_prefix}_a.png")).unwrap(),
-                SpriteAtlas::get_tile(atlas, &format!("{moving_prefix}_b.png")).unwrap(),
-                SpriteAtlas::get_tile(atlas, "pacman/full.png").unwrap(),
+                SpriteAtlas::get_tile(atlas, &format!("{moving_prefix}_a.png"))
+                    .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound(format!("{moving_prefix}_a.png"))))?,
+                SpriteAtlas::get_tile(atlas, &format!("{moving_prefix}_b.png"))
+                    .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound(format!("{moving_prefix}_b.png"))))?,
+                SpriteAtlas::get_tile(atlas, "pacman/full.png")
+                    .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
             ];
 
-            let stopped_tiles = vec![SpriteAtlas::get_tile(atlas, &format!("{moving_prefix}_b.png")).unwrap()];
+            let stopped_tiles = vec![SpriteAtlas::get_tile(atlas, &format!("{moving_prefix}_b.png"))
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound(format!("{moving_prefix}_b.png"))))?];
 
-            textures[direction.as_usize()] = Some(AnimatedTexture::new(moving_tiles, 0.08).expect("Invalid frame duration"));
+            textures[direction.as_usize()] =
+                Some(AnimatedTexture::new(moving_tiles, 0.08).map_err(|e| GameError::Texture(TextureError::Animated(e)))?);
             stopped_textures[direction.as_usize()] =
-                Some(AnimatedTexture::new(stopped_tiles, 0.1).expect("Invalid frame duration"));
+                Some(AnimatedTexture::new(stopped_tiles, 0.1).map_err(|e| GameError::Texture(TextureError::Animated(e)))?);
         }
 
-        Self {
+        Ok(Self {
             traverser: Traverser::new(graph, start_node, Direction::Left, &can_pacman_traverse),
             texture: DirectionalAnimatedTexture::new(textures, stopped_textures),
-        }
+        })
     }
 
     /// Handles keyboard input to change Pac-Man's direction.

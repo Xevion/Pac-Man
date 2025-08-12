@@ -11,6 +11,7 @@ mod audio;
 mod constants;
 
 mod entity;
+mod error;
 mod game;
 mod helpers;
 mod map;

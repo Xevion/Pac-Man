@@ -1,6 +1,5 @@
 //! This module contains the main game logic and state.
 
-use anyhow::Result;
 use glam::{UVec2, Vec2};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use sdl2::{
@@ -10,6 +9,8 @@ use sdl2::{
     render::{Canvas, RenderTarget, Texture, TextureCreator},
     video::WindowContext,
 };
+
+use crate::error::{EntityError, GameError, GameResult, TextureError};
 
 use crate::{
     asset::{get_asset_bytes, Asset},
@@ -52,46 +53,57 @@ impl Game {
         texture_creator: &TextureCreator<WindowContext>,
         _ttf_context: &sdl2::ttf::Sdl2TtfContext,
         _audio_subsystem: &sdl2::AudioSubsystem,
-    ) -> Game {
-        let map = Map::new(RAW_BOARD);
+    ) -> GameResult<Game> {
+        let map = Map::new(RAW_BOARD)?;
 
-        let pacman_start_pos = map.find_starting_position(0).unwrap();
+        let pacman_start_pos = map
+            .find_starting_position(0)
+            .ok_or_else(|| GameError::NotFound("Pac-Man starting position".to_string()))?;
         let pacman_start_node = *map
             .grid_to_node
             .get(&glam::IVec2::new(pacman_start_pos.x as i32, pacman_start_pos.y as i32))
-            .expect("Pac-Man starting position not found in graph");
+            .ok_or_else(|| GameError::NotFound("Pac-Man starting position not found in graph".to_string()))?;
 
-        let atlas_bytes = get_asset_bytes(Asset::Atlas).expect("Failed to load asset");
+        let atlas_bytes = get_asset_bytes(Asset::Atlas)?;
         let atlas_texture = unsafe {
-            let texture = texture_creator
-                .load_texture_bytes(&atlas_bytes)
-                .expect("Could not load atlas texture from asset API");
+            let texture = texture_creator.load_texture_bytes(&atlas_bytes).map_err(|e| {
+                if e.to_string().contains("format") || e.to_string().contains("unsupported") {
+                    GameError::Texture(TextureError::InvalidFormat(format!("Unsupported texture format: {}", e)))
+                } else {
+                    GameError::Texture(TextureError::LoadFailed(e.to_string()))
+                }
+            })?;
             sprite::texture_to_static(texture)
         };
-        let atlas_json = get_asset_bytes(Asset::AtlasJson).expect("Failed to load asset");
-        let atlas_mapper: AtlasMapper = serde_json::from_slice(&atlas_json).expect("Could not parse atlas JSON");
+        let atlas_json = get_asset_bytes(Asset::AtlasJson)?;
+        let atlas_mapper: AtlasMapper = serde_json::from_slice(&atlas_json)?;
         let atlas = SpriteAtlas::new(atlas_texture, atlas_mapper);
 
-        let mut map_texture = SpriteAtlas::get_tile(&atlas, "maze/full.png").expect("Failed to load map tile");
+        let mut map_texture = SpriteAtlas::get_tile(&atlas, "maze/full.png")
+            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("maze/full.png".to_string())))?;
         map_texture.color = Some(Color::RGB(0x20, 0x20, 0xf9));
 
         let text_texture = TextTexture::new(1.0);
         let audio = Audio::new();
-        let pacman = Pacman::new(&map.graph, pacman_start_node, &atlas);
+        let pacman = Pacman::new(&map.graph, pacman_start_node, &atlas)?;
 
         // Create ghosts at random positions
         let mut ghosts = Vec::new();
         let ghost_types = [GhostType::Blinky, GhostType::Pinky, GhostType::Inky, GhostType::Clyde];
         let mut rng = SmallRng::from_os_rng();
 
+        if map.graph.node_count() == 0 {
+            return Err(GameError::Config("Game map has no nodes - invalid configuration".to_string()));
+        }
+
         for &ghost_type in &ghost_types {
             // Find a random node for the ghost to start at
             let random_node = rng.random_range(0..map.graph.node_count());
-            let ghost = Ghost::new(&map.graph, random_node, ghost_type, &atlas);
+            let ghost = Ghost::new(&map.graph, random_node, ghost_type, &atlas)?;
             ghosts.push(ghost);
         }
 
-        Game {
+        Ok(Game {
             score: 0,
             map,
             pacman,
@@ -101,7 +113,7 @@ impl Game {
             text_texture,
             audio,
             atlas,
-        }
+        })
     }
 
     pub fn keyboard_event(&mut self, keycode: Keycode) {
@@ -112,21 +124,26 @@ impl Game {
         }
 
         if keycode == Keycode::R {
-            self.reset_game_state();
+            if let Err(e) = self.reset_game_state() {
+                tracing::error!("Failed to reset game state: {}", e);
+            }
         }
     }
 
     /// Resets the game state, randomizing ghost positions and resetting Pac-Man
-    fn reset_game_state(&mut self) {
+    fn reset_game_state(&mut self) -> GameResult<()> {
         // Reset Pac-Man to starting position
-        let pacman_start_pos = self.map.find_starting_position(0).unwrap();
+        let pacman_start_pos = self
+            .map
+            .find_starting_position(0)
+            .ok_or_else(|| GameError::NotFound("Pac-Man starting position".to_string()))?;
         let pacman_start_node = *self
             .map
             .grid_to_node
             .get(&glam::IVec2::new(pacman_start_pos.x as i32, pacman_start_pos.y as i32))
-            .expect("Pac-Man starting position not found in graph");
+            .ok_or_else(|| GameError::NotFound("Pac-Man starting position not found in graph".to_string()))?;
 
-        self.pacman = Pacman::new(&self.map.graph, pacman_start_node, &self.atlas);
+        self.pacman = Pacman::new(&self.map.graph, pacman_start_node, &self.atlas)?;
 
         // Randomize ghost positions
         let ghost_types = [GhostType::Blinky, GhostType::Pinky, GhostType::Inky, GhostType::Clyde];
@@ -134,8 +151,10 @@ impl Game {
 
         for (i, ghost) in self.ghosts.iter_mut().enumerate() {
             let random_node = rng.random_range(0..self.map.graph.node_count());
-            *ghost = Ghost::new(&self.map.graph, random_node, ghost_types[i], &self.atlas);
+            *ghost = Ghost::new(&self.map.graph, random_node, ghost_types[i], &self.atlas)?;
         }
+
+        Ok(())
     }
 
     pub fn tick(&mut self, dt: f32) {
@@ -147,19 +166,25 @@ impl Game {
         }
     }
 
-    pub fn draw<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>, backbuffer: &mut Texture) -> Result<()> {
-        canvas.with_texture_canvas(backbuffer, |canvas| {
-            canvas.set_draw_color(Color::BLACK);
-            canvas.clear();
-            self.map.render(canvas, &mut self.atlas, &mut self.map_texture);
+    pub fn draw<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>, backbuffer: &mut Texture) -> GameResult<()> {
+        canvas
+            .with_texture_canvas(backbuffer, |canvas| {
+                canvas.set_draw_color(Color::BLACK);
+                canvas.clear();
+                self.map.render(canvas, &mut self.atlas, &mut self.map_texture);
 
-            // Render all ghosts
-            for ghost in &self.ghosts {
-                ghost.render(canvas, &mut self.atlas, &self.map.graph);
-            }
+                // Render all ghosts
+                for ghost in &self.ghosts {
+                    if let Err(e) = ghost.render(canvas, &mut self.atlas, &self.map.graph) {
+                        tracing::error!("Failed to render ghost: {}", e);
+                    }
+                }
 
-            self.pacman.render(canvas, &mut self.atlas, &self.map.graph);
-        })?;
+                if let Err(e) = self.pacman.render(canvas, &mut self.atlas, &self.map.graph) {
+                    tracing::error!("Failed to render pacman: {}", e);
+                }
+            })
+            .map_err(|e| GameError::Sdl(e.to_string()))?;
 
         Ok(())
     }
@@ -169,11 +194,17 @@ impl Game {
         canvas: &mut Canvas<T>,
         backbuffer: &Texture,
         cursor_pos: glam::Vec2,
-    ) -> Result<()> {
-        canvas.copy(backbuffer, None, None).map_err(anyhow::Error::msg)?;
+    ) -> GameResult<()> {
+        canvas
+            .copy(backbuffer, None, None)
+            .map_err(|e| GameError::Sdl(e.to_string()))?;
         if self.debug_mode {
-            self.map
-                .debug_render_with_cursor(canvas, &mut self.text_texture, &mut self.atlas, cursor_pos);
+            if let Err(e) = self
+                .map
+                .debug_render_with_cursor(canvas, &mut self.text_texture, &mut self.atlas, cursor_pos)
+            {
+                tracing::error!("Failed to render debug cursor: {}", e);
+            }
             self.render_pathfinding_debug(canvas)?;
         }
         self.draw_hud(canvas)?;
@@ -185,11 +216,11 @@ impl Game {
     ///
     /// Each ghost's path is drawn in its respective color with a small offset
     /// to prevent overlapping lines.
-    fn render_pathfinding_debug<T: RenderTarget>(&self, canvas: &mut Canvas<T>) -> Result<()> {
+    fn render_pathfinding_debug<T: RenderTarget>(&self, canvas: &mut Canvas<T>) -> GameResult<()> {
         let pacman_node = self.pacman.current_node_id();
 
         for ghost in self.ghosts.iter() {
-            if let Some(path) = ghost.calculate_path_to_target(&self.map.graph, pacman_node) {
+            if let Ok(path) = ghost.calculate_path_to_target(&self.map.graph, pacman_node) {
                 if path.len() < 2 {
                     continue; // Skip if path is too short
                 }
@@ -215,7 +246,11 @@ impl Game {
                 // Calculate offset positions for all nodes using the same perpendicular direction
                 let mut offset_positions = Vec::new();
                 for &node_id in &path {
-                    let node = self.map.graph.get_node(node_id).unwrap();
+                    let node = self
+                        .map
+                        .graph
+                        .get_node(node_id)
+                        .ok_or(GameError::Entity(EntityError::NodeNotFound(node_id)))?;
                     let pos = node.position + crate::constants::BOARD_PIXEL_OFFSET.as_vec2();
                     offset_positions.push(pos + offset);
                 }
@@ -231,7 +266,7 @@ impl Game {
                         // Draw the line
                         canvas
                             .draw_line((from.x as i32, from.y as i32), (to.x as i32, to.y as i32))
-                            .map_err(anyhow::Error::msg)?;
+                            .map_err(|e| GameError::Sdl(e.to_string()))?;
                     }
                 }
             }
@@ -240,7 +275,7 @@ impl Game {
         Ok(())
     }
 
-    fn draw_hud<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>) -> Result<()> {
+    fn draw_hud<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>) -> GameResult<()> {
         let lives = 3;
         let score_text = format!("{:02}", self.score);
         let x_offset = 4;
@@ -248,18 +283,22 @@ impl Game {
         let lives_offset = 3;
         let score_offset = 7 - (score_text.len() as i32);
         self.text_texture.set_scale(1.0);
-        let _ = self.text_texture.render(
+        if let Err(e) = self.text_texture.render(
             canvas,
             &mut self.atlas,
             &format!("{lives}UP   HIGH SCORE   "),
             UVec2::new(8 * lives_offset as u32 + x_offset, y_offset),
-        );
-        let _ = self.text_texture.render(
+        ) {
+            tracing::error!("Failed to render HUD text: {}", e);
+        }
+        if let Err(e) = self.text_texture.render(
             canvas,
             &mut self.atlas,
             &score_text,
             UVec2::new(8 * score_offset as u32 + x_offset, 8 + y_offset),
-        );
+        ) {
+            tracing::error!("Failed to render score text: {}", e);
+        }
 
         // Display FPS information in top-left corner
         // let fps_text = format!("FPS: {:.1} (1s) / {:.1} (10s)", self.fps_1s, self.fps_10s);

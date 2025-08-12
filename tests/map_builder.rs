@@ -41,7 +41,7 @@ fn create_minimal_test_board() -> [&'static str; BOARD_CELL_SIZE.y as usize] {
 #[test]
 fn test_map_creation() {
     let board = create_minimal_test_board();
-    let map = Map::new(board);
+    let map = Map::new(board).unwrap();
 
     assert!(map.graph.node_count() > 0);
     assert!(!map.grid_to_node.is_empty());
@@ -60,7 +60,7 @@ fn test_map_creation() {
 #[test]
 fn test_map_starting_positions() {
     let board = create_minimal_test_board();
-    let map = Map::new(board);
+    let map = Map::new(board).unwrap();
 
     let pacman_pos = map.find_starting_position(0);
     assert!(pacman_pos.is_some());
@@ -74,7 +74,7 @@ fn test_map_starting_positions() {
 #[test]
 fn test_map_node_positions() {
     let board = create_minimal_test_board();
-    let map = Map::new(board);
+    let map = Map::new(board).unwrap();
 
     for (grid_pos, &node_id) in &map.grid_to_node {
         let node = map.graph.get_node(node_id).unwrap();

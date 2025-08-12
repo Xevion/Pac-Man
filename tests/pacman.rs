@@ -67,7 +67,7 @@ fn create_test_atlas() -> SpriteAtlas {
 fn test_pacman_creation() {
     let graph = create_test_graph();
     let atlas = create_test_atlas();
-    let pacman = Pacman::new(&graph, 0, &atlas);
+    let pacman = Pacman::new(&graph, 0, &atlas).unwrap();
 
     assert!(pacman.traverser.position.is_at_node());
     assert_eq!(pacman.traverser.direction, Direction::Left);
@@ -77,7 +77,7 @@ fn test_pacman_creation() {
 fn test_pacman_key_handling() {
     let graph = create_test_graph();
     let atlas = create_test_atlas();
-    let mut pacman = Pacman::new(&graph, 0, &atlas);
+    let mut pacman = Pacman::new(&graph, 0, &atlas).unwrap();
 
     let test_cases = [
         (Keycode::Up, Direction::Up),
@@ -96,7 +96,7 @@ fn test_pacman_key_handling() {
 fn test_pacman_invalid_key() {
     let graph = create_test_graph();
     let atlas = create_test_atlas();
-    let mut pacman = Pacman::new(&graph, 0, &atlas);
+    let mut pacman = Pacman::new(&graph, 0, &atlas).unwrap();
 
     let original_direction = pacman.traverser.direction;
     let original_next_direction = pacman.traverser.next_direction;
