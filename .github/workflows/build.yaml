@@ -64,15 +64,16 @@ jobs:
         run: cargo build --release
 
       - name: Acquire Package Version
-        shell: bash
+        id: get_version
+        shell: bash # required to prevent Windows runners from failing
         run: |
-          PACKAGE_VERSION=$(cargo metadata --format-version 1 --no-deps | jq '.packages[0].version' -r)
-          echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> $GITHUB_ENV
+          set -euo pipefail # exit on error
+          echo "version=$(cargo metadata --format-version 1 --no-deps | jq '.packages[0].version' -r)" >> $GITHUB_OUTPUT
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: "pacman-${{ env.PACKAGE_VERSION }}-${{ matrix.target }}"
+          name: "pacman-${{ steps.get_version.outputs.version }}-${{ matrix.target }}"
           path: ./target/release/${{ matrix.artifact_name }}
           retention-days: 7
           if-no-files-found: error
@@ -98,7 +99,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           target: wasm32-unknown-emscripten
-          toolchain: 1.86.0 # we are unfortunately pinned to 1.86.0 for some reason, bulk-memory-opt related issues
+          toolchain: 1.86.0
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2

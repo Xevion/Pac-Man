@@ -72,6 +72,8 @@ I wanted to hit a log of goals and features, making it a 'perfect' project that 
 
 Since this project is still in progress, I'm only going to cover non-obvious build details. By reading the code, build scripts, and copying the online build workflows, you should be able to replicate the build process.
 
+- We use rustc 1.86.0 for the build, due to bulk-memory-opt related issues on wasm32-unknown-emscripten.
+  - Technically, we could probably use stable or even nightly on desktop targets, but using different versions for different targets is a pain, mainly because of clippy warnings changing between versions.
 - Install `cargo-vcpkg` with `cargo install cargo-vcpkg`, then run `cargo vcpkg build` to build the requisite dependencies via vcpkg.
 - For the WASM build, you need to have the Emscripten SDK cloned; you can do so with `git clone https://github.com/emscripten-core/emsdk.git`
   - The first time you clone, you'll need to install the appropriate SDK version with `./emsdk install 3.1.43` and then activate it with `./emsdk activate 3.1.43`. On Windows, use `./emsdk/emsdk.ps1` instead.
