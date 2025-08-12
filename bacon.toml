@@ -34,6 +34,24 @@ command = [
 need_stdout = true
 analyzer = "nextest"
 
+[jobs.coverage]
+command = [
+    "cargo", "llvm-cov",  "--profile", "coverage", "--color", "always", "--no-fail-fast", "nextest", "--no-capture", "--summary-only", "--"
+]
+need_stdout = true
+ignored_lines = [
+    "info:",
+    "\\s+Compiling",
+    "test result: ok",
+    "^\\s*$",
+    "running \\d+ test",
+    "Nextest run ID",
+    "[─]+",
+    "test.+ok",
+    "PASS|START",
+    "Starting \\d+ test"
+]
+
 [jobs.doc]
 command = ["cargo", "doc", "--no-deps"]
 need_stdout = false
@@ -59,3 +77,4 @@ c = "job:clippy"
 alt-c = "job:check"
 ctrl-alt-c = "job:check-all"
 shift-c = "job:clippy-all"
+f = "job:coverage"
