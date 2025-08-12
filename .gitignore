@@ -5,3 +5,4 @@ emsdk/
 rust-sdl2-emscripten/
 assets/site/build.css
 tailwindcss-*
+lcov.info
