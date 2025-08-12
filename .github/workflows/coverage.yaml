@@ -48,9 +48,33 @@ jobs:
         run: |
           just coverage
 
+      - name: Download Coveralls CLI
+        run: |
+          # use GitHub Releases URL instead of coveralls.io because they can't maintain their own files; it 404s
+          curl -L https://github.com/coverallsapp/coverage-reporter/releases/download/v0.6.15/coveralls-linux-x86_64.tar.gz | tar -xz -C /usr/local/bin
+
       - name: Upload coverage to Coveralls
-        uses: coverallsapp/github-action@v2
-        with:
-          files: ./lcov.info
-          format: lcov
-          allow-empty: false
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        run: |
+          if [ ! -f "lcov.info" ]; then
+            echo "Error: lcov.info file not found. Coverage generation may have failed."
+            exit 1
+          fi
+
+          for i in {1..10}; do
+            echo "Attempt $i: Uploading coverage to Coveralls..."
+            if coveralls -n report lcov.info; then
+              echo "Successfully uploaded coverage report."
+              exit 0
+            fi
+
+            if [ $i -lt 10 ]; then
+              delay=$((2**i))
+              echo "Attempt $i failed. Retrying in $delay seconds..."
+              sleep $delay
+            fi
+          done
+
+          echo "Failed to upload coverage report after 10 attempts."
+          exit 1
