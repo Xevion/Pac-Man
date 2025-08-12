@@ -5,6 +5,7 @@ use crate::{
     texture::sprite::{Sprite, SpriteAtlas},
 };
 use sdl2::render::{Canvas, RenderTarget};
+use strum_macros::{EnumCount, EnumIter};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ItemType {
@@ -26,7 +27,7 @@ impl ItemType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, EnumCount)]
 #[allow(dead_code)]
 pub enum FruitKind {
     Apple,
@@ -39,6 +40,19 @@ pub enum FruitKind {
 }
 
 impl FruitKind {
+    #[allow(dead_code)]
+    pub fn index(self) -> u8 {
+        match self {
+            FruitKind::Apple => 0,
+            FruitKind::Strawberry => 1,
+            FruitKind::Orange => 2,
+            FruitKind::Melon => 3,
+            FruitKind::Bell => 4,
+            FruitKind::Key => 5,
+            FruitKind::Galaxian => 6,
+        }
+    }
+
     pub fn get_score(self) -> u32 {
         match self {
             FruitKind::Apple => 100,
