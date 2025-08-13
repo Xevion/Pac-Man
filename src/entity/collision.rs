@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
-use crate::entity::traversal::Position;
+use crate::entity::{graph::NodeId, traversal::Position};
 
 /// Trait for entities that can participate in collision detection.
 pub trait Collidable {
@@ -19,7 +19,7 @@ pub trait Collidable {
 #[derive(Default)]
 pub struct CollisionSystem {
     /// Maps node IDs to lists of entity IDs that are at that node
-    node_entities: HashMap<usize, Vec<EntityId>>,
+    node_entities: HashMap<NodeId, Vec<EntityId>>,
     /// Maps entity IDs to their current positions
     entity_positions: HashMap<EntityId, Position>,
     /// Next available entity ID
@@ -62,7 +62,7 @@ impl CollisionSystem {
     }
 
     /// Gets all entity IDs at a specific node
-    pub fn entities_at_node(&self, node: usize) -> &[EntityId] {
+    pub fn entities_at_node(&self, node: NodeId) -> &[EntityId] {
         self.node_entities.get(&node).map(|v| v.as_slice()).unwrap_or(&[])
     }
 
@@ -115,7 +115,7 @@ fn positions_overlap(a: &Position, b: &Position) -> bool {
 }
 
 /// Gets all nodes that an entity is currently at or between.
-fn get_nodes(pos: &Position) -> SmallVec<[usize; 2]> {
+fn get_nodes(pos: &Position) -> SmallVec<[NodeId; 2]> {
     let mut nodes = SmallVec::new();
     match pos {
         Position::AtNode(node) => nodes.push(*node),
