@@ -87,6 +87,71 @@ fn test_graph_edge_permissions() {
 }
 
 #[test]
+fn should_add_connected_node() {
+    let mut graph = Graph::new();
+    let node1 = graph.add_node(Node {
+        position: glam::Vec2::new(0.0, 0.0),
+    });
+
+    let node2 = graph
+        .add_connected(
+            node1,
+            Direction::Right,
+            Node {
+                position: glam::Vec2::new(16.0, 0.0),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(graph.node_count(), 2);
+    let edge = graph.find_edge(node1, node2);
+    assert!(edge.is_some());
+    assert_eq!(edge.unwrap().direction, Direction::Right);
+}
+
+#[test]
+fn should_error_on_negative_edge_distance() {
+    let mut graph = Graph::new();
+    let node1 = graph.add_node(Node {
+        position: glam::Vec2::new(0.0, 0.0),
+    });
+    let node2 = graph.add_node(Node {
+        position: glam::Vec2::new(16.0, 0.0),
+    });
+
+    let result = graph.add_edge(node1, node2, false, Some(-1.0), Direction::Right, EdgePermissions::All);
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_error_on_duplicate_edge_without_replace() {
+    let mut graph = create_test_graph();
+    let result = graph.add_edge(0, 1, false, None, Direction::Right, EdgePermissions::All);
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_allow_replacing_an_edge() {
+    let mut graph = create_test_graph();
+    let result = graph.add_edge(0, 1, true, Some(42.0), Direction::Right, EdgePermissions::All);
+    assert!(result.is_ok());
+
+    let edge = graph.find_edge(0, 1).unwrap();
+    assert_eq!(edge.distance, 42.0);
+}
+
+#[test]
+fn should_find_edge_between_nodes() {
+    let graph = create_test_graph();
+    let edge = graph.find_edge(0, 1);
+    assert!(edge.is_some());
+    assert_eq!(edge.unwrap().target, 1);
+
+    let non_existent_edge = graph.find_edge(0, 99);
+    assert!(non_existent_edge.is_none());
+}
+
+#[test]
 fn test_traverser_basic() {
     let graph = create_test_graph();
     let mut traverser = Traverser::new(&graph, 0, Direction::Left, &|_| true);

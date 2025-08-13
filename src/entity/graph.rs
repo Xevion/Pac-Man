@@ -192,14 +192,15 @@ impl Graph {
 
         // Check if the edge already exists in this direction or to the same target
         if let Some(err) = adjacency_list.edges().find_map(|e| {
-            // If we're not replacing the edge, we don't want to replace an edge that already exists in this direction
-            if !replace && e.direction == direction {
-                Some(Err("Edge already exists in this direction."))
-            } else if e.target == to {
-                Some(Err("Edge already exists."))
-            } else {
-                None
+            if !replace {
+                // If we're not replacing the edge, we don't want to replace an edge that already exists in this direction
+                if e.direction == direction {
+                    return Some(Err("Edge already exists in this direction."));
+                } else if e.target == to {
+                    return Some(Err("Edge already exists."));
+                }
             }
+            None
         }) {
             return err;
         }
