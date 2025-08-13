@@ -1,8 +1,17 @@
+# IDE, Other files
+.vscode
+.idea
+rust-sdl2-emscripten/
+
+# Build files
 target/
 dist/
 emsdk/
-.idea
-rust-sdl2-emscripten/
-assets/site/build.css
+
+# Site build f iles
 tailwindcss-*
+assets/site/build.css
+
+# Coverage reports
 lcov.info
+coverage.html
