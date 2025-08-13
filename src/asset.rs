@@ -12,8 +12,6 @@ pub enum Asset {
     Wav3,
     Wav4,
     Atlas,
-    AtlasJson,
-    // Add more as needed
 }
 
 impl Asset {
@@ -26,7 +24,6 @@ impl Asset {
             Wav3 => "sound/waka/3.ogg",
             Wav4 => "sound/waka/4.ogg",
             Atlas => "atlas.png",
-            AtlasJson => "atlas.json",
         }
     }
 }
@@ -36,6 +33,7 @@ mod imp {
     use crate::error::AssetError;
     use crate::platform::get_platform;
 
+    /// Returns the raw bytes of the given asset.
     pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
         get_platform().get_asset_bytes(asset)
     }

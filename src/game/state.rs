@@ -20,6 +20,8 @@ use crate::{
     },
 };
 
+include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
+
 /// The `GameState` struct holds all the essential data for the game.
 ///
 /// This includes the score, map, entities (Pac-Man, ghosts, items),
@@ -68,8 +70,10 @@ impl GameState {
                 GameError::Texture(TextureError::LoadFailed(e.to_string()))
             }
         })?;
-        let atlas_json = get_asset_bytes(Asset::AtlasJson)?;
-        let atlas_mapper: AtlasMapper = serde_json::from_slice(&atlas_json)?;
+
+        let atlas_mapper = AtlasMapper {
+            frames: ATLAS_FRAMES.into_iter().map(|(k, v)| (k.to_string(), *v)).collect(),
+        };
         let atlas = SpriteAtlas::new(atlas_texture, atlas_mapper);
 
         let mut map_tiles = Vec::with_capacity(35);

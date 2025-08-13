@@ -2,7 +2,8 @@
 
 use pacman::{
     asset::{get_asset_bytes, Asset},
-    texture::sprite::SpriteAtlas,
+    game::state::ATLAS_FRAMES,
+    texture::sprite::{AtlasMapper, SpriteAtlas},
 };
 use sdl2::{
     image::LoadTexture,
@@ -28,12 +29,13 @@ pub fn setup_sdl() -> Result<(Canvas<Window>, TextureCreator<WindowContext>, Sdl
 pub fn create_atlas(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) -> SpriteAtlas {
     let texture_creator = canvas.texture_creator();
     let atlas_bytes = get_asset_bytes(Asset::Atlas).unwrap();
-    let atlas_json = get_asset_bytes(Asset::AtlasJson).unwrap();
 
     let texture = texture_creator.load_texture_bytes(&atlas_bytes).unwrap();
     let texture: Texture<'static> = unsafe { std::mem::transmute(texture) };
 
-    let mapper: pacman::texture::sprite::AtlasMapper = serde_json::from_slice(&atlas_json).unwrap();
+    let atlas_mapper = AtlasMapper {
+        frames: ATLAS_FRAMES.into_iter().map(|(k, v)| (k.to_string(), *v)).collect(),
+    };
 
-    SpriteAtlas::new(texture, mapper)
+    SpriteAtlas::new(texture, atlas_mapper)
 }

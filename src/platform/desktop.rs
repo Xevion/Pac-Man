@@ -72,7 +72,6 @@ impl Platform for DesktopPlatform {
             Asset::Wav3 => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/waka/3.ogg"))),
             Asset::Wav4 => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/waka/4.ogg"))),
             Asset::Atlas => Ok(Cow::Borrowed(include_bytes!("../../assets/game/atlas.png"))),
-            Asset::AtlasJson => Ok(Cow::Borrowed(include_bytes!("../../assets/game/atlas.json"))),
         }
     }
 }
