@@ -1,7 +1,7 @@
 set shell := ["bash", "-c"]
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
-coverage_exclude_pattern := "app.rs|audio.rs"
+coverage_exclude_pattern := "app.rs|audio.rs|error.rs"
 
 # Display report (for humans)
 report-coverage: coverage
