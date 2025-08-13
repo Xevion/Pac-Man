@@ -1,5 +1,7 @@
 //! Map rendering functionality.
 
+use crate::constants::{BOARD_CELL_OFFSET, CELL_SIZE};
+use crate::map::layout::TILE_MAP;
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 use crate::texture::text::TextTexture;
 use glam::Vec2;
@@ -17,15 +19,22 @@ impl MapRenderer {
     ///
     /// This function draws the static map texture to the screen at the correct
     /// position and scale.
-    pub fn render_map<T: RenderTarget>(canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, map_texture: &mut AtlasTile) {
-        let dest = Rect::new(
-            crate::constants::BOARD_PIXEL_OFFSET.x as i32,
-            crate::constants::BOARD_PIXEL_OFFSET.y as i32,
-            crate::constants::BOARD_PIXEL_SIZE.x,
-            crate::constants::BOARD_PIXEL_SIZE.y,
-        );
-        if let Err(e) = map_texture.render(canvas, atlas, dest) {
-            tracing::error!("Failed to render map: {}", e);
+    pub fn render_map<T: RenderTarget>(canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, map_tiles: &mut [AtlasTile]) {
+        for (y, row) in TILE_MAP.iter().enumerate() {
+            for (x, &tile_index) in row.iter().enumerate() {
+                let mut tile = map_tiles[tile_index];
+                tile.color = Some(Color::RGB(0x20, 0x20, 0xf9));
+                let dest = Rect::new(
+                    (BOARD_CELL_OFFSET.x as usize * CELL_SIZE as usize + x * CELL_SIZE as usize) as i32,
+                    (BOARD_CELL_OFFSET.y as usize * CELL_SIZE as usize + y * CELL_SIZE as usize) as i32,
+                    CELL_SIZE,
+                    CELL_SIZE,
+                );
+
+                if let Err(e) = tile.render(canvas, atlas, dest) {
+                    tracing::error!("Failed to render map tile: {}", e);
+                }
+            }
         }
     }
 

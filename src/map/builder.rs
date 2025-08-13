@@ -158,8 +158,8 @@ impl Map {
     ///
     /// This function draws the static map texture to the screen at the correct
     /// position and scale.
-    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, map_texture: &mut AtlasTile) {
-        MapRenderer::render_map(canvas, atlas, map_texture);
+    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, map_tiles: &mut [AtlasTile]) {
+        MapRenderer::render_map(canvas, atlas, map_tiles);
     }
 
     /// Generates Item entities for pellets and energizers from the parsed map.

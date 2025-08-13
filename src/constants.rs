@@ -18,8 +18,6 @@ pub const SCALE: f32 = 2.6;
 pub const BOARD_CELL_OFFSET: UVec2 = UVec2::new(0, 3);
 /// The offset of the game board from the top-left corner of the window, in pixels.
 pub const BOARD_PIXEL_OFFSET: UVec2 = UVec2::new(BOARD_CELL_OFFSET.x * CELL_SIZE, BOARD_CELL_OFFSET.y * CELL_SIZE);
-/// The size of the game board, in pixels.
-pub const BOARD_PIXEL_SIZE: UVec2 = UVec2::new(BOARD_CELL_SIZE.x * CELL_SIZE, BOARD_CELL_SIZE.y * CELL_SIZE);
 /// The size of the canvas, in pixels.
 pub const CANVAS_SIZE: UVec2 = UVec2::new(
     (BOARD_CELL_SIZE.x + BOARD_CELL_OFFSET.x) * CELL_SIZE,

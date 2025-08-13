@@ -174,7 +174,7 @@ impl Game {
                 canvas.clear();
                 self.state
                     .map
-                    .render(canvas, &mut self.state.atlas, &mut self.state.map_texture);
+                    .render(canvas, &mut self.state.atlas, &mut self.state.map_tiles);
 
                 // Render all items
                 for item in &self.state.items {

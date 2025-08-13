@@ -1,4 +1,4 @@
-use sdl2::{image::LoadTexture, pixels::Color, render::TextureCreator, video::WindowContext};
+use sdl2::{image::LoadTexture, render::TextureCreator, video::WindowContext};
 use smallvec::SmallVec;
 
 use crate::{
@@ -6,12 +6,13 @@ use crate::{
     audio::Audio,
     constants::RAW_BOARD,
     entity::{
-        collision::{Collidable, CollisionSystem, EntityId},
+        collision::{Collidable, CollisionSystem},
         ghost::{Ghost, GhostType},
         item::Item,
         pacman::Pacman,
     },
     error::{GameError, GameResult, TextureError},
+    game::EntityId,
     map::Map,
     texture::{
         sprite::{AtlasMapper, AtlasTile, SpriteAtlas},
@@ -28,20 +29,20 @@ use crate::{
 pub struct GameState {
     pub score: u32,
     pub map: Map,
+    pub map_tiles: Vec<AtlasTile>,
     pub pacman: Pacman,
+    pub pacman_id: EntityId,
     pub ghosts: SmallVec<[Ghost; 4]>,
+    pub ghost_ids: SmallVec<[EntityId; 4]>,
     pub items: Vec<Item>,
+    pub item_ids: Vec<EntityId>,
     pub debug_mode: bool,
 
     // Collision system
     pub(crate) collision_system: CollisionSystem,
-    pub(crate) pacman_id: EntityId,
-    pub(crate) ghost_ids: SmallVec<[EntityId; 4]>,
-    pub(crate) item_ids: Vec<EntityId>,
 
     // Rendering resources
     pub(crate) atlas: SpriteAtlas,
-    pub(crate) map_texture: AtlasTile,
     pub(crate) text_texture: TextTexture,
 
     // Audio
@@ -71,9 +72,13 @@ impl GameState {
         let atlas_mapper: AtlasMapper = serde_json::from_slice(&atlas_json)?;
         let atlas = SpriteAtlas::new(atlas_texture, atlas_mapper);
 
-        let mut map_texture = SpriteAtlas::get_tile(&atlas, "maze/full.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("maze/full.png".to_string())))?;
-        map_texture.color = Some(Color::RGB(0x20, 0x20, 0xf9));
+        let mut map_tiles = Vec::with_capacity(35);
+        for i in 0..35 {
+            let tile_name = format!("maze/tiles/{}.png", i);
+            let tile = SpriteAtlas::get_tile(&atlas, &tile_name)
+                .ok_or(GameError::Texture(TextureError::AtlasTileNotFound(tile_name)))?;
+            map_tiles.push(tile);
+        }
 
         let text_texture = TextTexture::new(1.0);
         let audio = Audio::new();
@@ -89,11 +94,10 @@ impl GameState {
         let pacman_id = collision_system.register_entity(pacman.position());
 
         // Register items
-        let mut item_ids = Vec::new();
-        for item in &items {
-            let item_id = collision_system.register_entity(item.position());
-            item_ids.push(item_id);
-        }
+        let item_ids = items
+            .iter()
+            .map(|item| collision_system.register_entity(item.position()))
+            .collect();
 
         // Create and register ghosts
         let ghosts = [GhostType::Blinky, GhostType::Pinky, GhostType::Inky, GhostType::Clyde]
@@ -110,26 +114,27 @@ impl GameState {
             .map(|(ghost_type, start_node)| Ghost::new(&map.graph, *start_node, *ghost_type, &atlas))
             .collect::<GameResult<SmallVec<[_; 4]>>>()?;
 
+        // Register ghosts
         let ghost_ids = ghosts
             .iter()
             .map(|ghost| collision_system.register_entity(ghost.position()))
-            .collect::<SmallVec<[_; 4]>>();
+            .collect();
 
         Ok(Self {
-            score: 0,
             map,
+            atlas,
+            map_tiles,
             pacman,
-            ghosts,
-            items,
-            debug_mode: false,
-            collision_system,
             pacman_id,
+            ghosts,
             ghost_ids,
+            items,
             item_ids,
-            map_texture,
             text_texture,
             audio,
-            atlas,
+            score: 0,
+            debug_mode: false,
+            collision_system,
         })
     }
 }
