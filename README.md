@@ -1,6 +1,6 @@
 # Pac-Man
 
-[![Tests Status][badge-test]][test] [![Build Status][badge-build]][build] [![Code Coverage][badge-coverage]][coverage] [![Online Demo][badge-online-demo]][demo] [![Last Commit][badge-last-commit]][commits]
+[![Tests Status][badge-test]][test] [![Build Status][badge-build]][build] [![If you're seeing this, Coveralls.io is broken again and it's not my fault.][badge-coverage]][coverage] [![Online Demo][badge-online-demo]][demo] [![Last Commit][badge-last-commit]][commits]
 
 [badge-test]: https://github.com/Xevion/Pac-Man/actions/workflows/tests.yaml/badge.svg
 [badge-build]: https://github.com/Xevion/Pac-Man/actions/workflows/build.yaml/badge.svg
