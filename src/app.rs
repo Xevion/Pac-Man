@@ -51,7 +51,13 @@ impl App {
             .build()
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
-        let mut canvas = window.into_canvas().build().map_err(|e| GameError::Sdl(e.to_string()))?;
+        let mut canvas = window
+            .into_canvas()
+            .accelerated()
+            .present_vsync()
+            .build()
+            .map_err(|e| GameError::Sdl(e.to_string()))?;
+
         canvas
             .set_logical_size(CANVAS_SIZE.x, CANVAS_SIZE.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
