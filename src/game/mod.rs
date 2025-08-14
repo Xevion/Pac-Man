@@ -135,7 +135,7 @@ impl Game {
             velocity: Velocity {
                 direction: Direction::Up,
                 next_direction: None,
-                speed: Some(1.0),
+                speed: 1.125,
             },
             sprite: Renderable {
                 sprite: SpriteAtlas::get_tile(&atlas, "pacman/full.png")

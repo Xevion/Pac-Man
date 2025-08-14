@@ -11,18 +11,21 @@ use sdl2::video::Window;
 /// Updates the directional animated texture of an entity.
 pub fn directional_render_system(
     dt: Res<DeltaTime>,
-    mut renderables: Query<(&Velocity, &mut DirectionalAnimated, &mut Renderable)>,
+    mut renderables: Query<(&Velocity, &mut DirectionalAnimated, &mut Renderable, &Position)>,
     mut errors: EventWriter<GameError>,
 ) {
-    for (velocity, mut texture, mut renderable) in renderables.iter_mut() {
-        let texture = if velocity.speed.is_none() {
+    for (velocity, mut texture, mut renderable, position) in renderables.iter_mut() {
+        let stopped = matches!(position, Position::AtNode(_));
+        let texture = if stopped {
             texture.stopped_textures[velocity.direction.as_usize()].as_mut()
         } else {
             texture.textures[velocity.direction.as_usize()].as_mut()
         };
 
         if let Some(texture) = texture {
-            texture.tick(dt.0);
+            if !stopped {
+                texture.tick(dt.0);
+            }
             renderable.sprite = *texture.current_tile();
         } else {
             errors.write(TextureError::RenderFailed(format!("Entity has no texture")).into());

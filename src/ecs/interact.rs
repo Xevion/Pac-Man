@@ -1,9 +1,10 @@
 use bevy_ecs::{
     event::{EventReader, EventWriter},
-    query::With,
     system::{Query, Res, ResMut},
 };
+use tracing::debug;
 
+use crate::entity::graph::EdgePermissions;
 use crate::{
     ecs::{DeltaTime, GlobalState, PlayerControlled, Position, Velocity},
     error::{EntityError, GameError},
@@ -15,11 +16,11 @@ use crate::{
 pub fn movement_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,
-    mut entities: Query<(&PlayerControlled, &mut Velocity, &mut Position)>,
+    mut entities: Query<(&mut PlayerControlled, &mut Velocity, &mut Position)>,
     mut errors: EventWriter<GameError>,
 ) {
-    for (player, mut velocity, mut position) in entities.iter_mut() {
-        let distance = velocity.speed.unwrap_or(0.0) * delta_time.0;
+    for (mut player, mut velocity, mut position) in entities.iter_mut() {
+        let distance = velocity.speed * 60.0 * delta_time.0;
 
         // Decrement the remaining frames for the next direction
         if let Some((direction, remaining)) = velocity.next_direction {
@@ -35,22 +36,16 @@ pub fn movement_system(
                 // We're not moving, but a buffered direction is available.
                 if let Some((next_direction, _)) = velocity.next_direction {
                     if let Some(edge) = map.graph.find_edge_in_direction(node_id, next_direction) {
-                        // if edge.permissions.can_traverse(edge) {
-                        //     // Start moving in that direction
-                        *position = Position::BetweenNodes {
-                            from: node_id,
-                            to: edge.target,
-                            traversed: distance,
-                        };
-                        velocity.direction = next_direction;
-                        // } else {
-                        //     return Err(crate::error::GameError::Entity(crate::error::EntityError::InvalidMovement(
-                        //         format!(
-                        //             "Cannot traverse edge from {} to {} in direction {:?}",
-                        //             node_id, edge.target, next_direction
-                        //         ),
-                        //     )));
-                        // }
+                        if can_traverse(&mut player, edge) {
+                            // Start moving in that direction
+                            *position = Position::BetweenNodes {
+                                from: node_id,
+                                to: edge.target,
+                                traversed: distance,
+                            };
+                            velocity.direction = next_direction;
+                            velocity.next_direction = None;
+                        }
                     } else {
                         errors.write(
                             EntityError::InvalidMovement(format!(
@@ -60,8 +55,6 @@ pub fn movement_system(
                             .into(),
                         );
                     }
-
-                    velocity.next_direction = None; // Consume the buffered direction regardless of whether we started moving with it
                 }
             }
             Position::BetweenNodes { from, to, traversed } => {
@@ -101,33 +94,33 @@ pub fn movement_system(
                     // If we buffered a direction, try to find an edge in that direction
                     if let Some((next_dir, _)) = velocity.next_direction {
                         if let Some(edge) = map.graph.find_edge_in_direction(to, next_dir) {
-                            // if edge.permissions.can_traverse(edge) {
-                            //     *position = Position::BetweenNodes {
-                            //         from: to,
-                            //         to: edge.target,
-                            //         traversed: overflow,
-                            //     };
+                            if can_traverse(&mut player, edge) {
+                                *position = Position::BetweenNodes {
+                                    from: to,
+                                    to: edge.target,
+                                    traversed: overflow,
+                                };
 
-                            velocity.direction = next_dir; // Remember our new direction
-                            velocity.next_direction = None; // Consume the buffered direction
-                            moved = true;
-                            // }
+                                velocity.direction = next_dir; // Remember our new direction
+                                velocity.next_direction = None; // Consume the buffered direction
+                                moved = true;
+                            }
                         }
                     }
 
                     // If we didn't move, try to continue in the current direction
                     if !moved {
                         if let Some(edge) = map.graph.find_edge_in_direction(to, velocity.direction) {
-                            // if edge.permissions.can_traverse(edge) {
-                            *position = Position::BetweenNodes {
-                                from: to,
-                                to: edge.target,
-                                traversed: overflow,
-                            };
-                            // } else {
-                            //     *position = Position::AtNode(to);
-                            //     velocity.next_direction = None;
-                            // }
+                            if can_traverse(&mut player, edge) {
+                                *position = Position::BetweenNodes {
+                                    from: to,
+                                    to: edge.target,
+                                    traversed: overflow,
+                                };
+                            } else {
+                                *position = Position::AtNode(to);
+                                velocity.next_direction = None;
+                            }
                         } else {
                             *position = Position::AtNode(to);
                             velocity.next_direction = None;
@@ -137,6 +130,10 @@ pub fn movement_system(
             }
         }
     }
+}
+
+fn can_traverse(_player: &mut PlayerControlled, edge: crate::entity::graph::Edge) -> bool {
+    matches!(edge.permissions, EdgePermissions::All)
 }
 
 // Handles
@@ -160,7 +157,7 @@ pub fn interact_system(
         match event {
             GameEvent::Command(command) => match command {
                 GameCommand::MovePlayer(direction) => {
-                    velocity.direction = *direction;
+                    velocity.next_direction = Some((*direction, 90));
                 }
                 GameCommand::Exit => {
                     state.exit = true;

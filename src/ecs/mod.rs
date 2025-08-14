@@ -126,7 +126,7 @@ impl Position {
 pub struct Velocity {
     pub direction: Direction,
     pub next_direction: Option<(Direction, u8)>,
-    pub speed: Option<f32>,
+    pub speed: f32,
 }
 
 #[derive(Bundle)]
