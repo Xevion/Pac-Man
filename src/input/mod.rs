@@ -6,6 +6,7 @@ use crate::{entity::direction::Direction, input::commands::GameCommand};
 
 pub mod commands;
 
+#[derive(Debug, Clone, Default)]
 pub struct InputSystem {
     key_bindings: HashMap<Keycode, GameCommand>,
 }

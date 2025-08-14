@@ -11,7 +11,7 @@ use crate::platform::Platform;
 pub struct EmscriptenPlatform;
 
 impl Platform for EmscriptenPlatform {
-    fn sleep(&self, duration: Duration) {
+    fn sleep(&self, duration: Duration, _focused: bool) {
         unsafe {
             emscripten_sleep(duration.as_millis() as u32);
         }

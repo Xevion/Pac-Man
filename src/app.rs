@@ -6,7 +6,7 @@ use sdl2::render::{Canvas, ScaleMode, Texture, TextureCreator};
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::{Window, WindowContext};
 use sdl2::{AudioSubsystem, EventPump, Sdl, VideoSubsystem};
-use tracing::{error, event};
+use tracing::{debug, error, info, warn};
 
 use crate::error::{GameError, GameResult};
 
@@ -23,6 +23,7 @@ pub struct App {
     event_pump: &'static mut EventPump,
     backbuffer: Texture<'static>,
     paused: bool,
+    focused: bool,
     last_tick: Instant,
     cursor_pos: Vec2,
 }
@@ -87,6 +88,7 @@ impl App {
             event_pump,
             backbuffer,
             paused: false,
+            focused: true,
             last_tick: Instant::now(),
             cursor_pos: Vec2::ZERO,
         })
@@ -99,18 +101,19 @@ impl App {
             for event in self.event_pump.poll_iter() {
                 match event {
                     Event::Window { win_event, .. } => match win_event {
-                        WindowEvent::Hidden => {
-                            event!(tracing::Level::DEBUG, "Window hidden");
+                        WindowEvent::FocusGained => {
+                            self.focused = true;
                         }
-                        WindowEvent::Shown => {
-                            event!(tracing::Level::DEBUG, "Window shown");
+                        WindowEvent::FocusLost => {
+                            debug!("Window focus lost");
+                            self.focused = false;
                         }
                         _ => {}
                     },
                     // It doesn't really make sense to have this available in the browser
                     #[cfg(not(target_os = "emscripten"))]
                     Event::Quit { .. } => {
-                        event!(tracing::Level::INFO, "Exit requested. Exiting...");
+                        info!("Exit requested. Exiting...");
                         return false;
                     }
                     Event::MouseMotion { x, y, .. } => {
@@ -124,12 +127,12 @@ impl App {
                 for command in commands {
                     match command {
                         GameCommand::Exit => {
-                            event!(tracing::Level::INFO, "Exit requested. Exiting...");
+                            info!("Exit requested. Exiting...");
                             return false;
                         }
                         GameCommand::TogglePause => {
                             self.paused = !self.paused;
-                            event!(tracing::Level::INFO, "{}", if self.paused { "Paused" } else { "Unpaused" });
+                            info!("{}", if self.paused { "Paused" } else { "Unpaused" });
                         }
                         _ => self.game.post_event(command.into()),
                     }
@@ -155,14 +158,10 @@ impl App {
             if start.elapsed() < LOOP_TIME {
                 let time = LOOP_TIME.saturating_sub(start.elapsed());
                 if time != Duration::ZERO {
-                    get_platform().sleep(time);
+                    get_platform().sleep(time, self.focused);
                 }
             } else {
-                event!(
-                    tracing::Level::WARN,
-                    "Game loop behind schedule by: {:?}",
-                    start.elapsed() - LOOP_TIME
-                );
+                warn!("Game loop behind schedule by: {:?}", start.elapsed() - LOOP_TIME);
             }
 
             true

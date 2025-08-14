@@ -11,8 +11,12 @@ use crate::platform::Platform;
 pub struct DesktopPlatform;
 
 impl Platform for DesktopPlatform {
-    fn sleep(&self, duration: Duration) {
-        spin_sleep::sleep(duration);
+    fn sleep(&self, duration: Duration, focused: bool) {
+        if focused {
+            spin_sleep::sleep(duration);
+        } else {
+            std::thread::sleep(duration);
+        }
     }
 
     fn get_time(&self) -> f64 {

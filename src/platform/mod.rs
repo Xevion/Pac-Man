@@ -11,7 +11,7 @@ pub mod emscripten;
 /// Platform abstraction trait that defines cross-platform functionality.
 pub trait Platform {
     /// Sleep for the specified duration using platform-appropriate method.
-    fn sleep(&self, duration: Duration);
+    fn sleep(&self, duration: Duration, focused: bool);
 
     /// Get the current time in seconds since some reference point.
     /// This is available for future use in timing and performance monitoring.
