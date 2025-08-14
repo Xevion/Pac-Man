@@ -60,16 +60,17 @@ impl Game {
                     tracing::error!("Failed to reset game state: {}", e);
                 }
             }
-            GameCommand::Exit | GameCommand::TogglePause => {
-                // These are handled in app.rs
+            GameCommand::TogglePause => {
+                self.state.paused = !self.state.paused;
             }
+            GameCommand::Exit => {}
         }
     }
 
     fn process_events(&mut self) {
         while let Some(event) = self.state.event_queue.pop_front() {
             match event {
-                GameEvent::InputCommand(command) => self.handle_command(command),
+                GameEvent::Command(command) => self.handle_command(command),
             }
         }
     }
@@ -114,8 +115,18 @@ impl Game {
         Ok(())
     }
 
-    pub fn tick(&mut self, dt: f32) {
+    /// Ticks the game state.
+    ///
+    /// Returns true if the game should exit.
+    pub fn tick(&mut self, dt: f32) -> bool {
+        // Process any events that have been posted (such as unpausing)
         self.process_events();
+
+        // If the game is paused, we don't need to do anything beyond returning
+        if self.state.paused {
+            return false;
+        }
+
         self.state.pacman.tick(dt, &self.state.map.graph);
 
         // Update all ghosts
@@ -128,6 +139,8 @@ impl Game {
 
         // Check for collisions
         self.check_collisions();
+
+        false
     }
 
     /// Toggles the debug mode on and off.

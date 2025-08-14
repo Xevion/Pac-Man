@@ -35,6 +35,8 @@ include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 /// we can cleanly separate it from the game's logic, making it easier to manage
 /// and reason about.
 pub struct GameState {
+    pub paused: bool,
+
     pub score: u32,
     pub map: Map,
     pub pacman: Pacman,
@@ -128,6 +130,7 @@ impl GameState {
             .collect();
 
         Ok(Self {
+            paused: false,
             map,
             atlas,
             pacman,

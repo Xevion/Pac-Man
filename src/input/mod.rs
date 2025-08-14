@@ -36,13 +36,12 @@ impl InputSystem {
         Self { key_bindings }
     }
 
-    pub fn handle_event(&self, event: &Event) -> Vec<GameCommand> {
-        let mut commands = Vec::new();
-        if let Event::KeyDown { keycode: Some(key), .. } = event {
-            if let Some(command) = self.key_bindings.get(key) {
-                commands.push(*command);
-            }
+    /// Handles an event and returns a command if one is bound to the event.
+    pub fn handle_event(&self, event: &Event) -> Option<GameCommand> {
+        match event {
+            Event::Quit { .. } => Some(GameCommand::Exit),
+            Event::KeyDown { keycode: Some(key), .. } => self.key_bindings.get(key).copied(),
+            _ => None,
         }
-        commands
     }
 }
