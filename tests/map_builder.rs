@@ -1,6 +1,6 @@
 use glam::Vec2;
 use pacman::constants::{CELL_SIZE, RAW_BOARD};
-use pacman::map::Map;
+use pacman::map::builder::Map;
 use sdl2::render::Texture;
 
 #[test]

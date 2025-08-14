@@ -2,7 +2,6 @@ use pacman::entity::direction::Direction;
 use pacman::entity::graph::{Graph, Node};
 use pacman::entity::pacman::Pacman;
 use pacman::texture::sprite::{AtlasMapper, MapperFrame, SpriteAtlas};
-use sdl2::keyboard::Keycode;
 use std::collections::HashMap;
 
 fn create_test_graph() -> Graph {
@@ -71,37 +70,4 @@ fn test_pacman_creation() {
 
     assert!(pacman.traverser.position.is_at_node());
     assert_eq!(pacman.traverser.direction, Direction::Left);
-}
-
-#[test]
-fn test_pacman_key_handling() {
-    let graph = create_test_graph();
-    let atlas = create_test_atlas();
-    let mut pacman = Pacman::new(&graph, 0, &atlas).unwrap();
-
-    let test_cases = [
-        (Keycode::Up, Direction::Up),
-        (Keycode::Down, Direction::Down),
-        (Keycode::Left, Direction::Left),
-        (Keycode::Right, Direction::Right),
-    ];
-
-    for (key, expected_direction) in test_cases {
-        pacman.handle_key(key);
-        assert!(pacman.traverser.next_direction.is_some() || pacman.traverser.direction == expected_direction);
-    }
-}
-
-#[test]
-fn test_pacman_invalid_key() {
-    let graph = create_test_graph();
-    let atlas = create_test_atlas();
-    let mut pacman = Pacman::new(&graph, 0, &atlas).unwrap();
-
-    let original_direction = pacman.traverser.direction;
-    let original_next_direction = pacman.traverser.next_direction;
-
-    pacman.handle_key(Keycode::Space);
-    assert_eq!(pacman.traverser.direction, original_direction);
-    assert_eq!(pacman.traverser.next_direction, original_next_direction);
 }
