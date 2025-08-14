@@ -1,14 +1,35 @@
-use crate::ecs::{render, Position, Renderable};
-use crate::entity::graph::Graph;
+use crate::ecs::{DeltaTime, DirectionalAnimated, Position, Renderable, Velocity};
 use crate::error::{EntityError, GameError, TextureError};
 use crate::map::builder::Map;
-use crate::texture::sprite::{Sprite, SpriteAtlas};
+use crate::texture::sprite::SpriteAtlas;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
-use bevy_ecs::query::With;
 use bevy_ecs::system::{NonSendMut, Query, Res};
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
+
+/// Updates the directional animated texture of an entity.
+pub fn directional_render_system(
+    dt: Res<DeltaTime>,
+    mut renderables: Query<(&Velocity, &mut DirectionalAnimated, &mut Renderable)>,
+    mut errors: EventWriter<GameError>,
+) {
+    for (velocity, mut texture, mut renderable) in renderables.iter_mut() {
+        let texture = if velocity.speed.is_none() {
+            texture.stopped_textures[velocity.direction.as_usize()].as_mut()
+        } else {
+            texture.textures[velocity.direction.as_usize()].as_mut()
+        };
+
+        if let Some(texture) = texture {
+            texture.tick(dt.0);
+            renderable.sprite = *texture.current_tile();
+        } else {
+            errors.write(TextureError::RenderFailed(format!("Entity has no texture")).into());
+            continue;
+        }
+    }
+}
 
 pub struct MapTextureResource(pub Texture<'static>);
 pub struct BackbufferResource(pub Texture<'static>);
@@ -19,7 +40,7 @@ pub fn render_system(
     mut backbuffer: NonSendMut<BackbufferResource>,
     mut atlas: NonSendMut<SpriteAtlas>,
     map: Res<Map>,
-    renderables: Query<(Entity, &Renderable, &Position)>,
+    mut renderables: Query<(Entity, &mut Renderable, &Position)>,
     mut errors: EventWriter<GameError>,
 ) {
     // Clear the main canvas first
@@ -40,13 +61,18 @@ pub fn render_system(
                 .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
 
             // Render all entities to the backbuffer
-            for (_, renderable, position) in renderables.iter() {
+            for (_, mut renderable, position) in renderables.iter_mut() {
                 let pos = position.get_pixel_pos(&map.graph);
                 match pos {
                     Ok(pos) => {
+                        let dest = crate::helpers::centered_with_size(
+                            glam::IVec2::new(pos.x as i32, pos.y as i32),
+                            glam::UVec2::new(renderable.sprite.size.x as u32, renderable.sprite.size.y as u32),
+                        );
+
                         renderable
                             .sprite
-                            .render(backbuffer_canvas, &mut atlas, pos)
+                            .render(backbuffer_canvas, &mut atlas, dest)
                             .err()
                             .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
                     }

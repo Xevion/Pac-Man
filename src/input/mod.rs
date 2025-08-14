@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy_ecs::{
+    event::EventWriter,
     resource::Resource,
     system::{Commands, NonSendMut, Res},
 };
@@ -41,17 +42,17 @@ impl Default for Bindings {
     }
 }
 
-pub fn handle_input(bindings: Res<Bindings>, mut commands: Commands, mut pump: NonSendMut<&'static mut EventPump>) {
+pub fn handle_input(bindings: Res<Bindings>, mut writer: EventWriter<GameEvent>, mut pump: NonSendMut<&'static mut EventPump>) {
     for event in pump.poll_iter() {
         match event {
             Event::Quit { .. } => {
-                commands.trigger(GameEvent::Command(GameCommand::Exit));
+                writer.write(GameEvent::Command(GameCommand::Exit));
             }
             Event::KeyDown { keycode: Some(key), .. } => {
                 let command = bindings.key_bindings.get(&key).copied();
                 if let Some(command) = command {
                     tracing::info!("triggering command: {:?}", command);
-                    commands.trigger(GameEvent::Command(command));
+                    writer.write(GameEvent::Command(command));
                 }
             }
             _ => {}

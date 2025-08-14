@@ -3,8 +3,9 @@
 include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 
 use crate::constants::CANVAS_SIZE;
-use crate::ecs::render::{render_system, BackbufferResource, MapTextureResource};
-use crate::ecs::{DeltaTime, GlobalState, PlayerBundle, PlayerControlled, Position, Renderable, Velocity};
+use crate::ecs::interact::interact_system;
+use crate::ecs::render::{directional_render_system, render_system, BackbufferResource, MapTextureResource};
+use crate::ecs::{DeltaTime, DirectionalAnimated, GlobalState, PlayerBundle, PlayerControlled, Position, Renderable, Velocity};
 use crate::entity::direction::Direction;
 use crate::entity::{graph, traversal};
 use crate::error::{GameError, GameResult, TextureError};
@@ -101,18 +102,6 @@ impl Game {
 
         let map = Map::new(constants::RAW_BOARD)?;
         let pacman_start_node = map.start_positions.pacman;
-        let player = PlayerBundle {
-            player: PlayerControlled,
-            position: Position::AtNode(pacman_start_node),
-            velocity: Velocity::default(),
-            sprite: Renderable {
-                sprite: Sprite::new(
-                    SpriteAtlas::get_tile(&atlas, "pacman/full.png")
-                        .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
-                ),
-                layer: 0,
-            },
-        };
 
         let mut textures = [None, None, None, None];
         let mut stopped_textures = [None, None, None, None];
@@ -140,6 +129,21 @@ impl Game {
             stopped_textures[direction.as_usize()] = Some(AnimatedTexture::new(stopped_tiles, 0.1)?);
         }
 
+        let player = PlayerBundle {
+            player: PlayerControlled,
+            position: Position::AtNode(pacman_start_node),
+            velocity: Velocity::default(),
+            sprite: Renderable {
+                sprite: SpriteAtlas::get_tile(&atlas, "pacman/full.png")
+                    .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
+                layer: 0,
+            },
+            directional_animated: DirectionalAnimated {
+                textures,
+                stopped_textures,
+            },
+        };
+
         world.insert_non_send_resource(atlas);
         world.insert_non_send_resource(event_pump);
         world.insert_non_send_resource(canvas);
@@ -160,7 +164,7 @@ impl Game {
             },
         });
 
-        schedule.add_systems((handle_input, render_system).chain());
+        schedule.add_systems((handle_input, interact_system, directional_render_system, render_system).chain());
 
         // Spawn player
         world.spawn(player);

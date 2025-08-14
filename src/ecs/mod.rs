@@ -9,7 +9,11 @@ use glam::Vec2;
 use crate::{
     entity::{direction::Direction, graph::Graph, traversal},
     error::{EntityError, GameResult},
-    texture::{directional::DirectionalAnimatedTexture, sprite::Sprite},
+    texture::{
+        animated::AnimatedTexture,
+        directional::DirectionalAnimatedTexture,
+        sprite::{AtlasTile, Sprite},
+    },
 };
 
 /// A tag component for entities that are controlled by the player.
@@ -17,10 +21,19 @@ use crate::{
 pub struct PlayerControlled;
 
 /// A component for entities that have a sprite, with a layer for ordering.
+///
+/// This is intended to be modified by other entities allowing animation.
 #[derive(Component)]
 pub struct Renderable {
-    pub sprite: Sprite,
+    pub sprite: AtlasTile,
     pub layer: u8,
+}
+
+/// A component for entities that have a directional animated texture.
+#[derive(Component)]
+pub struct DirectionalAnimated {
+    pub textures: [Option<AnimatedTexture>; 4],
+    pub stopped_textures: [Option<AnimatedTexture>; 4],
 }
 
 /// A unique identifier for a node, represented by its index in the graph's storage.
@@ -112,7 +125,7 @@ impl Position {
 #[derive(Default, Component)]
 pub struct Velocity {
     pub direction: Direction,
-    pub speed: f32,
+    pub speed: Option<f32>,
 }
 
 #[derive(Bundle)]
@@ -121,6 +134,7 @@ pub struct PlayerBundle {
     pub position: Position,
     pub velocity: Velocity,
     pub sprite: Renderable,
+    pub directional_animated: DirectionalAnimated,
 }
 
 #[derive(Resource)]
@@ -131,4 +145,5 @@ pub struct GlobalState {
 #[derive(Resource)]
 pub struct DeltaTime(pub f32);
 
+pub mod interact;
 pub mod render;
