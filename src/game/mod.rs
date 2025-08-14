@@ -3,7 +3,7 @@
 include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 
 use crate::constants::CANVAS_SIZE;
-use crate::ecs::interact::interact_system;
+use crate::ecs::interact::{interact_system, movement_system};
 use crate::ecs::render::{directional_render_system, render_system, BackbufferResource, MapTextureResource};
 use crate::ecs::{DeltaTime, DirectionalAnimated, GlobalState, PlayerBundle, PlayerControlled, Position, Renderable, Velocity};
 use crate::entity::direction::Direction;
@@ -132,7 +132,11 @@ impl Game {
         let player = PlayerBundle {
             player: PlayerControlled,
             position: Position::AtNode(pacman_start_node),
-            velocity: Velocity::default(),
+            velocity: Velocity {
+                direction: Direction::Up,
+                next_direction: None,
+                speed: Some(1.0),
+            },
             sprite: Renderable {
                 sprite: SpriteAtlas::get_tile(&atlas, "pacman/full.png")
                     .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
@@ -164,7 +168,16 @@ impl Game {
             },
         });
 
-        schedule.add_systems((handle_input, interact_system, directional_render_system, render_system).chain());
+        schedule.add_systems(
+            (
+                handle_input,
+                interact_system,
+                movement_system,
+                directional_render_system,
+                render_system,
+            )
+                .chain(),
+        );
 
         // Spawn player
         world.spawn(player);

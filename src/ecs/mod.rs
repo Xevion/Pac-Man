@@ -125,6 +125,7 @@ impl Position {
 #[derive(Default, Component)]
 pub struct Velocity {
     pub direction: Direction,
+    pub next_direction: Option<(Direction, u8)>,
     pub speed: Option<f32>,
 }
 
