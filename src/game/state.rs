@@ -1,4 +1,8 @@
-use sdl2::{image::LoadTexture, render::TextureCreator, video::WindowContext};
+use sdl2::{
+    image::LoadTexture,
+    render::{Texture, TextureCreator},
+    video::WindowContext,
+};
 use smallvec::SmallVec;
 
 use crate::{
@@ -15,7 +19,7 @@ use crate::{
     game::EntityId,
     map::Map,
     texture::{
-        sprite::{AtlasMapper, AtlasTile, SpriteAtlas},
+        sprite::{AtlasMapper, SpriteAtlas},
         text::TextTexture,
     },
 };
@@ -31,7 +35,6 @@ include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 pub struct GameState {
     pub score: u32,
     pub map: Map,
-    pub map_tiles: Vec<AtlasTile>,
     pub pacman: Pacman,
     pub pacman_id: EntityId,
     pub ghosts: SmallVec<[Ghost; 4]>,
@@ -49,6 +52,11 @@ pub struct GameState {
 
     // Audio
     pub audio: Audio,
+
+    // Map texture pre-rendering
+    pub(crate) map_texture: Option<Texture<'static>>,
+    pub(crate) map_rendered: bool,
+    pub(crate) texture_creator: &'static TextureCreator<WindowContext>,
 }
 
 impl GameState {
@@ -60,7 +68,7 @@ impl GameState {
     pub fn new(texture_creator: &'static TextureCreator<WindowContext>) -> GameResult<Self> {
         let map = Map::new(RAW_BOARD)?;
 
-        let pacman_start_node = map.start_positions.pacman;
+        let start_node = map.start_positions.pacman;
 
         let atlas_bytes = get_asset_bytes(Asset::Atlas)?;
         let atlas_texture = texture_creator.load_texture_bytes(&atlas_bytes).map_err(|e| {
@@ -76,17 +84,9 @@ impl GameState {
         };
         let atlas = SpriteAtlas::new(atlas_texture, atlas_mapper);
 
-        let mut map_tiles = Vec::with_capacity(35);
-        for i in 0..35 {
-            let tile_name = format!("maze/tiles/{}.png", i);
-            let tile = SpriteAtlas::get_tile(&atlas, &tile_name)
-                .ok_or(GameError::Texture(TextureError::AtlasTileNotFound(tile_name)))?;
-            map_tiles.push(tile);
-        }
-
         let text_texture = TextTexture::new(1.0);
         let audio = Audio::new();
-        let pacman = Pacman::new(&map.graph, pacman_start_node, &atlas)?;
+        let pacman = Pacman::new(&map.graph, start_node, &atlas)?;
 
         // Generate items (pellets and energizers)
         let items = map.generate_items(&atlas)?;
@@ -127,7 +127,6 @@ impl GameState {
         Ok(Self {
             map,
             atlas,
-            map_tiles,
             pacman,
             pacman_id,
             ghosts,
@@ -139,6 +138,9 @@ impl GameState {
             score: 0,
             debug_mode: false,
             collision_system,
+            map_texture: None,
+            map_rendered: false,
+            texture_creator,
         })
     }
 }

@@ -9,14 +9,17 @@ use sdl2::{
     video::WindowContext,
 };
 
+use crate::entity::r#trait::Entity;
 use crate::error::{EntityError, GameError, GameResult};
 
 use crate::entity::{
     collision::{Collidable, CollisionSystem, EntityId},
     ghost::{Ghost, GhostType},
     pacman::Pacman,
-    r#trait::Entity,
 };
+
+use crate::map::render::MapRenderer;
+use crate::{constants, texture::sprite::SpriteAtlas};
 
 pub mod state;
 use state::GameState;
@@ -168,13 +171,36 @@ impl Game {
     }
 
     pub fn draw<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>, backbuffer: &mut Texture) -> GameResult<()> {
+        // Only render the map texture once and cache it
+        if !self.state.map_rendered {
+            let mut map_texture = self
+                .state
+                .texture_creator
+                .create_texture_target(None, constants::CANVAS_SIZE.x, constants::CANVAS_SIZE.y)
+                .map_err(|e| GameError::Sdl(e.to_string()))?;
+
+            canvas
+                .with_texture_canvas(&mut map_texture, |map_canvas| {
+                    let mut map_tiles = Vec::with_capacity(35);
+                    for i in 0..35 {
+                        let tile_name = format!("maze/tiles/{}.png", i);
+                        let tile = SpriteAtlas::get_tile(&self.state.atlas, &tile_name).unwrap();
+                        map_tiles.push(tile);
+                    }
+                    MapRenderer::render_map(map_canvas, &mut self.state.atlas, &mut map_tiles);
+                })
+                .map_err(|e| GameError::Sdl(e.to_string()))?;
+            self.state.map_texture = Some(map_texture);
+            self.state.map_rendered = true;
+        }
+
         canvas
             .with_texture_canvas(backbuffer, |canvas| {
                 canvas.set_draw_color(Color::BLACK);
                 canvas.clear();
-                self.state
-                    .map
-                    .render(canvas, &mut self.state.atlas, &mut self.state.map_tiles);
+                if let Some(ref map_texture) = self.state.map_texture {
+                    canvas.copy(map_texture, None, None).unwrap();
+                }
 
                 // Render all items
                 for item in &self.state.items {

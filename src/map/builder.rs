@@ -6,7 +6,7 @@ use crate::entity::graph::{EdgePermissions, Graph, Node, NodeId};
 use crate::entity::item::{Item, ItemType};
 use crate::map::parser::MapTileParser;
 use crate::map::render::MapRenderer;
-use crate::texture::sprite::{AtlasTile, Sprite, SpriteAtlas};
+use crate::texture::sprite::{Sprite, SpriteAtlas};
 use glam::{IVec2, Vec2};
 use sdl2::render::{Canvas, RenderTarget};
 use std::collections::{HashMap, VecDeque};
@@ -152,14 +152,6 @@ impl Map {
             grid_to_node,
             start_positions,
         })
-    }
-
-    /// Renders the map to the given canvas.
-    ///
-    /// This function draws the static map texture to the screen at the correct
-    /// position and scale.
-    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, map_tiles: &mut [AtlasTile]) {
-        MapRenderer::render_map(canvas, atlas, map_tiles);
     }
 
     /// Generates Item entities for pellets and energizers from the parsed map.
