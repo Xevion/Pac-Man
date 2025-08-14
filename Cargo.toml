@@ -24,6 +24,7 @@ smallvec = "1.15.1"
 strum = "0.27.2"
 strum_macros = "0.27.2"
 phf = { version = "0.11", features = ["macros"] }
+bevy_ecs = "0.16.1"
 
 [profile.release]
 lto = true

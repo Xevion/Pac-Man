@@ -10,6 +10,7 @@ mod asset;
 mod audio;
 mod constants;
 
+mod ecs;
 mod entity;
 mod error;
 mod game;

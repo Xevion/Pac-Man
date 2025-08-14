@@ -1,18 +1,22 @@
 use std::collections::HashMap;
 
-use sdl2::{event::Event, keyboard::Keycode};
+use bevy_ecs::{
+    resource::Resource,
+    system::{Commands, NonSendMut, Res},
+};
+use sdl2::{event::Event, keyboard::Keycode, EventPump};
 
-use crate::{entity::direction::Direction, input::commands::GameCommand};
+use crate::{entity::direction::Direction, game::events::GameEvent, input::commands::GameCommand};
 
 pub mod commands;
 
-#[derive(Debug, Clone, Default)]
-pub struct InputSystem {
+#[derive(Debug, Clone, Resource)]
+pub struct Bindings {
     key_bindings: HashMap<Keycode, GameCommand>,
 }
 
-impl InputSystem {
-    pub fn new() -> Self {
+impl Default for Bindings {
+    fn default() -> Self {
         let mut key_bindings = HashMap::new();
 
         // Player movement
@@ -35,13 +39,22 @@ impl InputSystem {
 
         Self { key_bindings }
     }
+}
 
-    /// Handles an event and returns a command if one is bound to the event.
-    pub fn handle_event(&self, event: &Event) -> Option<GameCommand> {
+pub fn handle_input(bindings: Res<Bindings>, mut commands: Commands, mut pump: NonSendMut<&'static mut EventPump>) {
+    for event in pump.poll_iter() {
         match event {
-            Event::Quit { .. } => Some(GameCommand::Exit),
-            Event::KeyDown { keycode: Some(key), .. } => self.key_bindings.get(key).copied(),
-            _ => None,
+            Event::Quit { .. } => {
+                commands.trigger(GameEvent::Command(GameCommand::Exit));
+            }
+            Event::KeyDown { keycode: Some(key), .. } => {
+                let command = bindings.key_bindings.get(&key).copied();
+                if let Some(command) = command {
+                    tracing::info!("triggering command: {:?}", command);
+                    commands.trigger(GameEvent::Command(command));
+                }
+            }
+            _ => {}
         }
     }
 }

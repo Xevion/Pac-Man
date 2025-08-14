@@ -1,9 +1,8 @@
 use glam::Vec2;
 
-use super::direction::Direction;
+use crate::ecs::NodeId;
 
-/// A unique identifier for a node, represented by its index in the graph's storage.
-pub type NodeId = usize;
+use super::direction::Direction;
 
 /// Defines who can traverse a given edge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

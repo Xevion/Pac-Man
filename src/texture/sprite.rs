@@ -1,4 +1,5 @@
 use anyhow::Result;
+use bevy_ecs::resource::Resource;
 use glam::U16Vec2;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;

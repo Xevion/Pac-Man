@@ -1,28 +1,20 @@
 use std::time::{Duration, Instant};
 
 use glam::Vec2;
-use sdl2::event::{Event, WindowEvent};
 use sdl2::render::{Canvas, ScaleMode, Texture, TextureCreator};
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::{Window, WindowContext};
 use sdl2::{AudioSubsystem, EventPump, Sdl, VideoSubsystem};
-use tracing::{error, info, warn};
+use tracing::{error, warn};
 
 use crate::error::{GameError, GameResult};
 
 use crate::constants::{CANVAS_SIZE, LOOP_TIME, SCALE};
 use crate::game::Game;
-use crate::input::commands::GameCommand;
-use crate::input::InputSystem;
 use crate::platform::get_platform;
 
 pub struct App {
-    game: Game,
-    input_system: InputSystem,
-    canvas: Canvas<Window>,
-    backbuffer: Texture<'static>,
-    event_pump: &'static mut EventPump,
-
+    pub game: Game,
     last_tick: Instant,
     focused: bool,
     cursor_pos: Vec2,
@@ -54,39 +46,32 @@ impl App {
             .build()
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
-        let mut canvas = window
-            .into_canvas()
-            .accelerated()
-            .present_vsync()
-            .build()
-            .map_err(|e| GameError::Sdl(e.to_string()))?;
+        let mut canvas = Box::leak(Box::new(
+            window
+                .into_canvas()
+                .accelerated()
+                .present_vsync()
+                .build()
+                .map_err(|e| GameError::Sdl(e.to_string()))?,
+        ));
 
         canvas
             .set_logical_size(CANVAS_SIZE.x, CANVAS_SIZE.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
-        let texture_creator: &'static TextureCreator<WindowContext> = Box::leak(Box::new(canvas.texture_creator()));
+        let texture_creator: &'static mut TextureCreator<WindowContext> = Box::leak(Box::new(canvas.texture_creator()));
 
-        let mut game = Game::new(texture_creator)?;
+        let game = Game::new(canvas, texture_creator, event_pump)?;
         // game.audio.set_mute(cfg!(debug_assertions));
 
-        let mut backbuffer = texture_creator
-            .create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)
-            .map_err(|e| GameError::Sdl(e.to_string()))?;
-        backbuffer.set_scale_mode(ScaleMode::Nearest);
-
         // Initial draw
-        game.draw(&mut canvas, &mut backbuffer)
-            .map_err(|e| GameError::Sdl(e.to_string()))?;
-        game.present_backbuffer(&mut canvas, &backbuffer, glam::Vec2::ZERO)
-            .map_err(|e| GameError::Sdl(e.to_string()))?;
+        // game.draw(&mut canvas, &mut backbuffer)
+        //     .map_err(|e| GameError::Sdl(e.to_string()))?;
+        // game.present_backbuffer(&mut canvas, &backbuffer, glam::Vec2::ZERO)
+        //     .map_err(|e| GameError::Sdl(e.to_string()))?;
 
         Ok(App {
             game,
-            input_system: InputSystem::new(),
-            canvas,
-            event_pump,
-            backbuffer,
             focused: true,
             last_tick: Instant::now(),
             cursor_pos: Vec2::ZERO,
@@ -97,34 +82,30 @@ impl App {
         {
             let start = Instant::now();
 
-            for event in self.event_pump.poll_iter() {
-                match event {
-                    Event::Window { win_event, .. } => match win_event {
-                        WindowEvent::FocusGained => {
-                            self.focused = true;
-                        }
-                        WindowEvent::FocusLost => {
-                            self.focused = false;
-                        }
-                        _ => {}
-                    },
-                    Event::MouseMotion { x, y, .. } => {
-                        // Convert window coordinates to logical coordinates
-                        self.cursor_pos = Vec2::new(x as f32, y as f32);
-                    }
-                    _ => {}
-                }
-
-                if let Some(command) = self.input_system.handle_event(&event) {
-                    match command {
-                        GameCommand::Exit => {
-                            info!("Exit requested. Exiting...");
-                            return false;
-                        }
-                        _ => self.game.post_event(command.into()),
-                    }
-                }
-            }
+            // for event in self
+            //     .game
+            //     .world
+            //     .get_non_send_resource_mut::<&'static mut EventPump>()
+            //     .unwrap()
+            //     .poll_iter()
+            // {
+            //     match event {
+            //         Event::Window { win_event, .. } => match win_event {
+            //             WindowEvent::FocusGained => {
+            //                 self.focused = true;
+            //             }
+            //             WindowEvent::FocusLost => {
+            //                 self.focused = false;
+            //             }
+            //             _ => {}
+            //         },
+            //         Event::MouseMotion { x, y, .. } => {
+            //             // Convert window coordinates to logical coordinates
+            //             self.cursor_pos = Vec2::new(x as f32, y as f32);
+            //         }
+            //         _ => {}
+            //     }
+            // }
 
             let dt = self.last_tick.elapsed().as_secs_f32();
             self.last_tick = Instant::now();
@@ -135,15 +116,9 @@ impl App {
                 return false;
             }
 
-            if let Err(e) = self.game.draw(&mut self.canvas, &mut self.backbuffer) {
-                error!("Failed to draw game: {}", e);
-            }
-            if let Err(e) = self
-                .game
-                .present_backbuffer(&mut self.canvas, &self.backbuffer, self.cursor_pos)
-            {
-                error!("Failed to present backbuffer: {}", e);
-            }
+            // if let Err(e) = self.game.draw(&mut self.canvas, &mut self.backbuffer) {
+            //     error!("Failed to draw game: {}", e);
+            // }
 
             if start.elapsed() < LOOP_TIME {
                 let time = LOOP_TIME.saturating_sub(start.elapsed());

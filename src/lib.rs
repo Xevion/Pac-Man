@@ -4,6 +4,7 @@ pub mod app;
 pub mod asset;
 pub mod audio;
 pub mod constants;
+pub mod ecs;
 pub mod entity;
 pub mod error;
 pub mod game;

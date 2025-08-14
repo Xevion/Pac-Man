@@ -5,11 +5,13 @@
 
 use std::io;
 
+use bevy_ecs::event::Event;
+
 /// Main error type for the Pac-Man game.
 ///
 /// This is the primary error type that should be used in public APIs.
 /// It can represent any error that can occur during game operation.
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Event)]
 pub enum GameError {
     #[error("Asset error: {0}")]
     Asset(#[from] AssetError),
