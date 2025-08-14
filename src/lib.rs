@@ -8,6 +8,7 @@ pub mod entity;
 pub mod error;
 pub mod game;
 pub mod helpers;
+pub mod input;
 pub mod map;
 pub mod platform;
 pub mod texture;

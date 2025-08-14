@@ -2,7 +2,6 @@ use std::time::{Duration, Instant};
 
 use glam::Vec2;
 use sdl2::event::{Event, WindowEvent};
-use sdl2::keyboard::Keycode;
 use sdl2::render::{Canvas, ScaleMode, Texture, TextureCreator};
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::{Window, WindowContext};
@@ -13,10 +12,13 @@ use crate::error::{GameError, GameResult};
 
 use crate::constants::{CANVAS_SIZE, LOOP_TIME, SCALE};
 use crate::game::Game;
+use crate::input::commands::GameCommand;
+use crate::input::InputSystem;
 use crate::platform::get_platform;
 
 pub struct App {
     game: Game,
+    input_system: InputSystem,
     canvas: Canvas<Window>,
     event_pump: &'static mut EventPump,
     backbuffer: Texture<'static>,
@@ -78,8 +80,9 @@ impl App {
         game.present_backbuffer(&mut canvas, &backbuffer, glam::Vec2::ZERO)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
-        Ok(Self {
+        Ok(App {
             game,
+            input_system: InputSystem::new(),
             canvas,
             event_pump,
             backbuffer,
@@ -106,35 +109,30 @@ impl App {
                     },
                     // It doesn't really make sense to have this available in the browser
                     #[cfg(not(target_os = "emscripten"))]
-                    Event::Quit { .. }
-                    | Event::KeyDown {
-                        keycode: Some(Keycode::Escape) | Some(Keycode::Q),
-                        ..
-                    } => {
+                    Event::Quit { .. } => {
                         event!(tracing::Level::INFO, "Exit requested. Exiting...");
                         return false;
-                    }
-                    Event::KeyDown {
-                        keycode: Some(Keycode::P),
-                        ..
-                    } => {
-                        self.paused = !self.paused;
-                        event!(tracing::Level::INFO, "{}", if self.paused { "Paused" } else { "Unpaused" });
-                    }
-                    Event::KeyDown {
-                        keycode: Some(Keycode::Space),
-                        ..
-                    } => {
-                        self.game.toggle_debug_mode();
-                    }
-                    Event::KeyDown { keycode: Some(key), .. } => {
-                        self.game.keyboard_event(key);
                     }
                     Event::MouseMotion { x, y, .. } => {
                         // Convert window coordinates to logical coordinates
                         self.cursor_pos = Vec2::new(x as f32, y as f32);
                     }
                     _ => {}
+                }
+
+                let commands = self.input_system.handle_event(&event);
+                for command in commands {
+                    match command {
+                        GameCommand::Exit => {
+                            event!(tracing::Level::INFO, "Exit requested. Exiting...");
+                            return false;
+                        }
+                        GameCommand::TogglePause => {
+                            self.paused = !self.paused;
+                            event!(tracing::Level::INFO, "{}", if self.paused { "Paused" } else { "Unpaused" });
+                        }
+                        _ => self.game.post_event(command.into()),
+                    }
                 }
             }
 

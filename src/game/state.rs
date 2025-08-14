@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use sdl2::{
     image::LoadTexture,
     render::{Texture, TextureCreator},
@@ -10,14 +12,14 @@ use crate::{
     audio::Audio,
     constants::RAW_BOARD,
     entity::{
-        collision::{Collidable, CollisionSystem},
+        collision::{Collidable, CollisionSystem, EntityId},
         ghost::{Ghost, GhostType},
         item::Item,
         pacman::Pacman,
     },
     error::{GameError, GameResult, TextureError},
-    game::EntityId,
-    map::Map,
+    game::events::GameEvent,
+    map::builder::Map,
     texture::{
         sprite::{AtlasMapper, SpriteAtlas},
         text::TextTexture,
@@ -42,6 +44,7 @@ pub struct GameState {
     pub items: Vec<Item>,
     pub item_ids: Vec<EntityId>,
     pub debug_mode: bool,
+    pub event_queue: VecDeque<GameEvent>,
 
     // Collision system
     pub(crate) collision_system: CollisionSystem,
@@ -141,6 +144,7 @@ impl GameState {
             map_texture: None,
             map_rendered: false,
             texture_creator,
+            event_queue: VecDeque::new(),
         })
     }
 }

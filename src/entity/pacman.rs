@@ -14,7 +14,6 @@ use crate::entity::{
 use crate::texture::animated::AnimatedTexture;
 use crate::texture::directional::DirectionalAnimatedTexture;
 use crate::texture::sprite::SpriteAtlas;
-use sdl2::keyboard::Keycode;
 use tracing::error;
 
 use crate::error::{GameError, GameResult, TextureError};
@@ -106,24 +105,6 @@ impl Pacman {
             traverser: Traverser::new(graph, start_node, Direction::Left, &can_pacman_traverse),
             texture: DirectionalAnimatedTexture::new(textures, stopped_textures),
         })
-    }
-
-    /// Handles keyboard input to change Pac-Man's direction.
-    ///
-    /// Maps arrow keys to directions and queues the direction change
-    /// for the next valid intersection.
-    pub fn handle_key(&mut self, keycode: Keycode) {
-        let direction = match keycode {
-            Keycode::Up => Some(Direction::Up),
-            Keycode::Down => Some(Direction::Down),
-            Keycode::Left => Some(Direction::Left),
-            Keycode::Right => Some(Direction::Right),
-            _ => None,
-        };
-
-        if let Some(direction) = direction {
-            self.traverser.set_next_direction(direction);
-        }
     }
 }
 

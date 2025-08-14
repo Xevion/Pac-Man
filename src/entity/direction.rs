@@ -1,7 +1,8 @@
 use glam::IVec2;
 
 /// The four cardinal directions.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
 pub enum Direction {
     Up,
     Down,

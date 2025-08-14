@@ -1,16 +1,12 @@
 //! This module contains the main game logic and state.
 
-use glam::{UVec2, Vec2};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
-use sdl2::{
-    keyboard::Keycode,
-    pixels::Color,
-    render::{Canvas, RenderTarget, Texture, TextureCreator},
-    video::WindowContext,
-};
+use sdl2::pixels::Color;
+use sdl2::render::{Canvas, Texture, TextureCreator};
+use sdl2::video::WindowContext;
 
 use crate::entity::r#trait::Entity;
-use crate::error::{EntityError, GameError, GameResult};
+use crate::error::GameResult;
 
 use crate::entity::{
     collision::{Collidable, CollisionSystem, EntityId},
@@ -21,15 +17,18 @@ use crate::entity::{
 use crate::map::render::MapRenderer;
 use crate::{constants, texture::sprite::SpriteAtlas};
 
+use self::events::GameEvent;
+use self::state::GameState;
+
+pub mod events;
 pub mod state;
-use state::GameState;
 
 /// The `Game` struct is the main entry point for the game.
 ///
 /// It contains the game's state and logic, and is responsible for
 /// handling user input, updating the game state, and rendering the game.
 pub struct Game {
-    state: GameState,
+    state: state::GameState,
 }
 
 impl Game {
@@ -39,16 +38,38 @@ impl Game {
         Ok(Game { state })
     }
 
-    pub fn keyboard_event(&mut self, keycode: Keycode) {
-        self.state.pacman.handle_key(keycode);
+    pub fn post_event(&mut self, event: GameEvent) {
+        self.state.event_queue.push_back(event);
+    }
 
-        if keycode == Keycode::M {
-            self.state.audio.set_mute(!self.state.audio.is_muted());
+    fn handle_command(&mut self, command: crate::input::commands::GameCommand) {
+        use crate::input::commands::GameCommand;
+        match command {
+            GameCommand::MovePlayer(direction) => {
+                self.state.pacman.set_next_direction(direction);
+            }
+            GameCommand::ToggleDebug => {
+                self.toggle_debug_mode();
+            }
+            GameCommand::MuteAudio => {
+                let is_muted = self.state.audio.is_muted();
+                self.state.audio.set_mute(!is_muted);
+            }
+            GameCommand::ResetLevel => {
+                if let Err(e) = self.reset_game_state() {
+                    tracing::error!("Failed to reset game state: {}", e);
+                }
+            }
+            GameCommand::Exit | GameCommand::TogglePause => {
+                // These are handled in app.rs
+            }
         }
+    }
 
-        if keycode == Keycode::R {
-            if let Err(e) = self.reset_game_state() {
-                tracing::error!("Failed to reset game state: {}", e);
+    fn process_events(&mut self) {
+        while let Some(event) = self.state.event_queue.pop_front() {
+            match event {
+                GameEvent::InputCommand(command) => self.handle_command(command),
             }
         }
     }
@@ -94,6 +115,7 @@ impl Game {
     }
 
     pub fn tick(&mut self, dt: f32) {
+        self.process_events();
         self.state.pacman.tick(dt, &self.state.map.graph);
 
         // Update all ghosts
@@ -170,14 +192,14 @@ impl Game {
         self.state.ghost_ids.iter().position(|&id| id == entity_id)
     }
 
-    pub fn draw<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>, backbuffer: &mut Texture) -> GameResult<()> {
+    pub fn draw<T: sdl2::render::RenderTarget>(&mut self, canvas: &mut Canvas<T>, backbuffer: &mut Texture) -> GameResult<()> {
         // Only render the map texture once and cache it
         if !self.state.map_rendered {
             let mut map_texture = self
                 .state
                 .texture_creator
                 .create_texture_target(None, constants::CANVAS_SIZE.x, constants::CANVAS_SIZE.y)
-                .map_err(|e| GameError::Sdl(e.to_string()))?;
+                .map_err(|e| crate::error::GameError::Sdl(e.to_string()))?;
 
             canvas
                 .with_texture_canvas(&mut map_texture, |map_canvas| {
@@ -189,7 +211,7 @@ impl Game {
                     }
                     MapRenderer::render_map(map_canvas, &mut self.state.atlas, &mut map_tiles);
                 })
-                .map_err(|e| GameError::Sdl(e.to_string()))?;
+                .map_err(|e| crate::error::GameError::Sdl(e.to_string()))?;
             self.state.map_texture = Some(map_texture);
             self.state.map_rendered = true;
         }
@@ -220,12 +242,12 @@ impl Game {
                     tracing::error!("Failed to render pacman: {}", e);
                 }
             })
-            .map_err(|e| GameError::Sdl(e.to_string()))?;
+            .map_err(|e| crate::error::GameError::Sdl(e.to_string()))?;
 
         Ok(())
     }
 
-    pub fn present_backbuffer<T: RenderTarget>(
+    pub fn present_backbuffer<T: sdl2::render::RenderTarget>(
         &mut self,
         canvas: &mut Canvas<T>,
         backbuffer: &Texture,
@@ -233,7 +255,7 @@ impl Game {
     ) -> GameResult<()> {
         canvas
             .copy(backbuffer, None, None)
-            .map_err(|e| GameError::Sdl(e.to_string()))?;
+            .map_err(|e| crate::error::GameError::Sdl(e.to_string()))?;
         if self.state.debug_mode {
             if let Err(e) =
                 self.state
@@ -253,7 +275,7 @@ impl Game {
     ///
     /// Each ghost's path is drawn in its respective color with a small offset
     /// to prevent overlapping lines.
-    fn render_pathfinding_debug<T: RenderTarget>(&self, canvas: &mut Canvas<T>) -> GameResult<()> {
+    fn render_pathfinding_debug<T: sdl2::render::RenderTarget>(&self, canvas: &mut Canvas<T>) -> GameResult<()> {
         let pacman_node = self.state.pacman.current_node_id();
 
         for ghost in self.state.ghosts.iter() {
@@ -274,10 +296,10 @@ impl Game {
 
                 // Use the overall direction from start to end to determine the perpendicular offset
                 let offset = match ghost.ghost_type {
-                    GhostType::Blinky => Vec2::new(0.25, 0.5),
-                    GhostType::Pinky => Vec2::new(-0.25, -0.25),
-                    GhostType::Inky => Vec2::new(0.5, -0.5),
-                    GhostType::Clyde => Vec2::new(-0.5, 0.25),
+                    GhostType::Blinky => glam::Vec2::new(0.25, 0.5),
+                    GhostType::Pinky => glam::Vec2::new(-0.25, -0.25),
+                    GhostType::Inky => glam::Vec2::new(0.5, -0.5),
+                    GhostType::Clyde => glam::Vec2::new(-0.5, 0.25),
                 } * 5.0;
 
                 // Calculate offset positions for all nodes using the same perpendicular direction
@@ -288,7 +310,7 @@ impl Game {
                         .map
                         .graph
                         .get_node(node_id)
-                        .ok_or(GameError::Entity(EntityError::NodeNotFound(node_id)))?;
+                        .ok_or(crate::error::EntityError::NodeNotFound(node_id))?;
                     let pos = node.position + crate::constants::BOARD_PIXEL_OFFSET.as_vec2();
                     offset_positions.push(pos + offset);
                 }
@@ -304,7 +326,7 @@ impl Game {
                         // Draw the line
                         canvas
                             .draw_line((from.x as i32, from.y as i32), (to.x as i32, to.y as i32))
-                            .map_err(|e| GameError::Sdl(e.to_string()))?;
+                            .map_err(|e| crate::error::GameError::Sdl(e.to_string()))?;
                     }
                 }
             }
@@ -313,7 +335,7 @@ impl Game {
         Ok(())
     }
 
-    fn draw_hud<T: RenderTarget>(&mut self, canvas: &mut Canvas<T>) -> GameResult<()> {
+    fn draw_hud<T: sdl2::render::RenderTarget>(&mut self, canvas: &mut Canvas<T>) -> GameResult<()> {
         let lives = 3;
         let score_text = format!("{:02}", self.state.score);
         let x_offset = 4;
@@ -325,7 +347,7 @@ impl Game {
             canvas,
             &mut self.state.atlas,
             &format!("{lives}UP   HIGH SCORE   "),
-            UVec2::new(8 * lives_offset as u32 + x_offset, y_offset),
+            glam::UVec2::new(8 * lives_offset as u32 + x_offset, y_offset),
         ) {
             tracing::error!("Failed to render HUD text: {}", e);
         }
@@ -333,7 +355,7 @@ impl Game {
             canvas,
             &mut self.state.atlas,
             &score_text,
-            UVec2::new(8 * score_offset as u32 + x_offset, 8 + y_offset),
+            glam::UVec2::new(8 * score_offset as u32 + x_offset, 8 + y_offset),
         ) {
             tracing::error!("Failed to render score text: {}", e);
         }

@@ -14,6 +14,7 @@ mod entity;
 mod error;
 mod game;
 mod helpers;
+mod input;
 mod map;
 mod platform;
 mod texture;
