@@ -51,7 +51,6 @@ impl App {
             window
                 .into_canvas()
                 .accelerated()
-                .present_vsync()
                 .build()
                 .map_err(|e| GameError::Sdl(e.to_string()))?,
         ));
