@@ -6,7 +6,8 @@ use bevy_ecs::system::{Query, Res};
 use crate::error::GameError;
 use crate::events::GameEvent;
 use crate::map::builder::Map;
-use crate::systems::components::{Collider, ItemCollider, PacmanCollider, Position};
+use crate::systems::components::{Collider, ItemCollider, PacmanCollider};
+use crate::systems::movement::Position;
 
 pub fn collision_system(
     map: Res<Map>,

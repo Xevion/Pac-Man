@@ -4,7 +4,7 @@ use crate::entity::direction::Direction;
 use crate::entity::graph::{Graph, Node, TraversalFlags};
 use crate::map::parser::MapTileParser;
 use crate::map::render::MapRenderer;
-use crate::systems::components::NodeId;
+use crate::systems::movement::NodeId;
 use crate::texture::sprite::SpriteAtlas;
 use bevy_ecs::resource::Resource;
 use glam::{IVec2, Vec2};

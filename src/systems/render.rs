@@ -1,6 +1,7 @@
 use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
-use crate::systems::components::{DeltaTime, DirectionalAnimated, Movable, MovementState, Position, Renderable};
+use crate::systems::components::{DeltaTime, DirectionalAnimated, Renderable};
+use crate::systems::movement::{Movable, MovementState, Position};
 use crate::texture::sprite::SpriteAtlas;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;

@@ -8,12 +8,13 @@ use crate::error::{GameError, GameResult, TextureError};
 use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::systems::blinking::Blinking;
+use crate::systems::movement::{Movable, MovementState, Position};
 use crate::systems::{
     blinking::blinking_system,
     collision::collision_system,
     components::{
-        Collider, CollisionLayer, DeltaTime, DirectionalAnimated, EntityType, GlobalState, ItemBundle, ItemCollider, Movable,
-        MovementState, PacmanCollider, PlayerBundle, PlayerControlled, Position, Renderable, Score, ScoreResource,
+        Collider, CollisionLayer, DeltaTime, DirectionalAnimated, EntityType, GlobalState, ItemBundle, ItemCollider,
+        PacmanCollider, PlayerBundle, PlayerControlled, Renderable, Score, ScoreResource,
     },
     control::player_system,
     input::input_system,

@@ -8,7 +8,8 @@ use bevy_ecs::{
 use crate::{
     error::GameError,
     events::{GameCommand, GameEvent},
-    systems::components::{GlobalState, Movable, PlayerControlled},
+    systems::components::{GlobalState, PlayerControlled},
+    systems::movement::Movable,
 };
 
 // Handles player input and control
