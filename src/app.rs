@@ -5,7 +5,8 @@ use sdl2::render::TextureCreator;
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::WindowContext;
 use sdl2::{AudioSubsystem, EventPump, Sdl, VideoSubsystem};
-use tracing::{field, info, warn};
+use thousands::Separable;
+use tracing::info;
 
 use crate::error::{GameError, GameResult};
 
@@ -16,6 +17,7 @@ use crate::systems::profiling::SystemTimings;
 
 pub struct App {
     pub game: Game,
+    last_timings: Instant,
     last_tick: Instant,
     focused: bool,
     _cursor_pos: Vec2,
@@ -68,6 +70,7 @@ impl App {
             game,
             focused: true,
             last_tick: Instant::now(),
+            last_timings: Instant::now() - Duration::from_secs_f32(0.5),
             _cursor_pos: Vec2::ZERO,
         })
     }
@@ -110,15 +113,26 @@ impl App {
                 return false;
             }
 
-            // Show timings if the loop took more than 25% of the loop time
-            let show_timings = start.elapsed() > (LOOP_TIME / 4);
-            if show_timings || true {
+            if self.last_timings.elapsed() > Duration::from_secs(1) {
+                // Show timing statistics over the last 90 frames
                 if let Some(timings) = self.game.world.get_resource::<SystemTimings>() {
-                    let mut timings = timings.timings.lock();
-                    let total = timings.values().sum::<Duration>();
-                    info!("Total: {:?}, Timings: {:?}", total, field::debug(&timings));
-                    timings.clear();
+                    let stats = timings.get_stats();
+                    let (total_avg, total_std) = timings.get_total_stats();
+
+                    let mut individual_timings = String::new();
+                    for (name, (avg, std_dev)) in stats.iter() {
+                        individual_timings.push_str(&format!("{}={:?} ± {:?} ", name, avg, std_dev));
+                    }
+
+                    let effective_fps = match 1.0 / total_avg.as_secs_f64() {
+                        f if f > 100.0 => (f as u32).separate_with_commas(),
+                        f if f < 10.0 => format!("{:.1} FPS", f),
+                        f => format!("{:.0} FPS", f),
+                    };
+
+                    info!("({effective_fps}) {total_avg:?} ± {total_std:?} ({individual_timings})");
                 }
+                self.last_timings = Instant::now();
             }
 
             // Sleep if we still have time left

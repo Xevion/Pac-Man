@@ -529,6 +529,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
 
 [[package]]
+name = "micromap"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18c087666f377f857b49564f8791b481260c67825d6b337e1e38ddf54a985a88"
+
+[[package]]
 name = "nonmax"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -575,6 +581,7 @@ dependencies = [
  "glam 0.30.5",
  "lazy_static",
  "libc",
+ "micromap",
  "once_cell",
  "parking_lot",
  "pathfinding",
@@ -588,6 +595,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "thiserror",
+ "thousands",
  "tracing",
  "tracing-error",
  "tracing-subscriber",
@@ -991,6 +999,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "thousands"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bf63baf9f5039dadc247375c29eb13706706cfde997d0330d05aa63a77d8820"
 
 [[package]]
 name = "thread_local"

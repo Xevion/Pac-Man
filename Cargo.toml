@@ -27,6 +27,8 @@ phf = { version = "0.12.1", features = ["macros"] }
 bevy_ecs = "0.16.1"
 bitflags = "2.9.1"
 parking_lot = "0.12.3"
+micromap = "0.1.0"
+thousands = "0.2.0"
 
 [profile.release]
 lto = true
