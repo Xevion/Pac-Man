@@ -1,6 +1,6 @@
 use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
-use crate::systems::components::{DeltaTime, DirectionalAnimated, Position, Renderable, Velocity};
+use crate::systems::components::{DeltaTime, DirectionalAnimated, Movable, MovementState, Position, Renderable};
 use crate::texture::sprite::SpriteAtlas;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
@@ -13,15 +13,17 @@ use sdl2::video::Window;
 /// This runs before the render system so it can update the sprite based on the current direction of travel, as well as whether the entity is moving.
 pub fn directional_render_system(
     dt: Res<DeltaTime>,
-    mut renderables: Query<(&Velocity, &mut DirectionalAnimated, &mut Renderable, &Position)>,
+    mut renderables: Query<(&MovementState, &Movable, &mut DirectionalAnimated, &mut Renderable)>,
     mut errors: EventWriter<GameError>,
 ) {
-    for (velocity, mut texture, mut renderable, position) in renderables.iter_mut() {
-        let stopped = matches!(position, Position::AtNode(_));
+    for (movement_state, movable, mut texture, mut renderable) in renderables.iter_mut() {
+        let stopped = matches!(movement_state, MovementState::Stopped);
+        let current_direction = movable.current_direction;
+
         let texture = if stopped {
-            texture.stopped_textures[velocity.direction.as_usize()].as_mut()
+            texture.stopped_textures[current_direction.as_usize()].as_mut()
         } else {
-            texture.textures[velocity.direction.as_usize()].as_mut()
+            texture.textures[current_direction.as_usize()].as_mut()
         };
 
         if let Some(texture) = texture {

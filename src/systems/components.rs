@@ -3,7 +3,10 @@ use bitflags::bitflags;
 use glam::Vec2;
 
 use crate::{
-    entity::{direction::Direction, graph::Graph},
+    entity::{
+        direction::Direction,
+        graph::{Graph, TraversalFlags},
+    },
     error::{EntityError, GameResult},
     texture::{animated::AnimatedTexture, sprite::AtlasTile},
 };
@@ -20,6 +23,17 @@ pub enum EntityType {
     Pellet,
     PowerPellet,
     Wall,
+}
+
+impl EntityType {
+    /// Returns the traversal flags for this entity type.
+    pub fn traversal_flags(&self) -> TraversalFlags {
+        match self {
+            EntityType::Player => TraversalFlags::PACMAN,
+            EntityType::Ghost => TraversalFlags::GHOST,
+            _ => TraversalFlags::empty(), // Static entities don't traverse
+        }
+    }
 }
 
 /// A component for entities that have a sprite, with a layer for ordering.
@@ -42,21 +56,36 @@ pub struct DirectionalAnimated {
 /// A unique identifier for a node, represented by its index in the graph's storage.
 pub type NodeId = usize;
 
-/// Represents the current position of an entity traversing the graph.
-///
-/// This enum allows for precise tracking of whether an entity is exactly at a node
-/// or moving along an edge between two nodes.
+/// Progress along an edge between two nodes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct EdgeProgress {
+    pub target_node: NodeId,
+    /// Progress from 0.0 (at source node) to 1.0 (at target node)
+    pub progress: f32,
+}
+
+/// Pure spatial position component - works for both static and dynamic entities.
 #[derive(Component, Debug, Copy, Clone, PartialEq)]
-pub enum Position {
-    /// The traverser is located exactly at a node.
-    AtNode(NodeId),
-    /// The traverser is on an edge between two nodes.
-    BetweenNodes {
-        from: NodeId,
-        to: NodeId,
-        /// The floating-point distance traversed along the edge from the `from` node.
-        traversed: f32,
-    },
+pub struct Position {
+    /// The current/primary node this entity is at or traveling from
+    pub node: NodeId,
+    /// If Some, entity is traveling between nodes. If None, entity is stationary at node.
+    pub edge_progress: Option<EdgeProgress>,
+}
+
+/// Explicit movement state - only for entities that can move.
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub enum MovementState {
+    Stopped,
+    Moving { direction: Direction },
+}
+
+/// Movement capability and parameters - only for entities that can move.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Movable {
+    pub speed: f32,
+    pub current_direction: Direction,
+    pub requested_direction: Option<Direction>,
 }
 
 impl Position {
@@ -69,18 +98,26 @@ impl Position {
     ///
     /// Returns an `EntityError` if the node or edge is not found.
     pub fn get_pixel_pos(&self, graph: &Graph) -> GameResult<Vec2> {
-        let pos = match self {
-            Position::AtNode(node_id) => {
-                let node = graph.get_node(*node_id).ok_or(EntityError::NodeNotFound(*node_id))?;
+        let pos = match &self.edge_progress {
+            None => {
+                // Entity is stationary at a node
+                let node = graph.get_node(self.node).ok_or(EntityError::NodeNotFound(self.node))?;
                 node.position
             }
-            Position::BetweenNodes { from, to, traversed } => {
-                let from_node = graph.get_node(*from).ok_or(EntityError::NodeNotFound(*from))?;
-                let to_node = graph.get_node(*to).ok_or(EntityError::NodeNotFound(*to))?;
-                let edge = graph
-                    .find_edge(*from, *to)
-                    .ok_or(EntityError::EdgeNotFound { from: *from, to: *to })?;
-                from_node.position + (to_node.position - from_node.position) * (traversed / edge.distance)
+            Some(edge_progress) => {
+                // Entity is traveling between nodes
+                let from_node = graph.get_node(self.node).ok_or(EntityError::NodeNotFound(self.node))?;
+                let to_node = graph
+                    .get_node(edge_progress.target_node)
+                    .ok_or(EntityError::NodeNotFound(edge_progress.target_node))?;
+
+                // For zero-distance edges (tunnels), progress >= 1.0 means we're at the target
+                if edge_progress.progress >= 1.0 {
+                    to_node.position
+                } else {
+                    // Interpolate position based on progress
+                    from_node.position + (to_node.position - from_node.position) * edge_progress.progress
+                }
             }
         };
 
@@ -93,47 +130,34 @@ impl Position {
 
 impl Default for Position {
     fn default() -> Self {
-        Position::AtNode(0)
+        Position {
+            node: 0,
+            edge_progress: None,
+        }
     }
 }
 
 #[allow(dead_code)]
 impl Position {
-    /// Returns `true` if the position is exactly at a node.
+    /// Returns `true` if the position is exactly at a node (not traveling).
     pub fn is_at_node(&self) -> bool {
-        matches!(self, Position::AtNode(_))
+        self.edge_progress.is_none()
     }
 
-    /// Returns the `NodeId` of the current or most recently departed node.
-    #[allow(clippy::wrong_self_convention)]
-    pub fn from_node_id(&self) -> NodeId {
-        match self {
-            Position::AtNode(id) => *id,
-            Position::BetweenNodes { from, .. } => *from,
-        }
+    /// Returns the `NodeId` of the current node (source of travel if moving).
+    pub fn current_node(&self) -> NodeId {
+        self.node
     }
 
-    /// Returns the `NodeId` of the destination node, if currently on an edge.
-    #[allow(clippy::wrong_self_convention)]
-    pub fn to_node_id(&self) -> Option<NodeId> {
-        match self {
-            Position::AtNode(_) => None,
-            Position::BetweenNodes { to, .. } => Some(*to),
-        }
+    /// Returns the `NodeId` of the destination node, if currently traveling.
+    pub fn target_node(&self) -> Option<NodeId> {
+        self.edge_progress.as_ref().map(|ep| ep.target_node)
     }
 
-    /// Returns `true` if the traverser is stopped at a node.
-    pub fn is_stopped(&self) -> bool {
-        matches!(self, Position::AtNode(_))
+    /// Returns `true` if the entity is traveling between nodes.
+    pub fn is_moving(&self) -> bool {
+        self.edge_progress.is_some()
     }
-}
-
-/// A component for entities that have a velocity, with a direction and speed.
-#[derive(Default, Component)]
-pub struct Velocity {
-    pub direction: Direction,
-    pub next_direction: Option<(Direction, u8)>,
-    pub speed: f32,
 }
 
 bitflags! {
@@ -168,7 +192,8 @@ pub struct Score(pub u32);
 pub struct PlayerBundle {
     pub player: PlayerControlled,
     pub position: Position,
-    pub velocity: Velocity,
+    pub movement_state: MovementState,
+    pub movable: Movable,
     pub sprite: Renderable,
     pub directional_animated: DirectionalAnimated,
     pub entity_type: EntityType,

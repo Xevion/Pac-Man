@@ -4,14 +4,18 @@ use crate::systems::components::NodeId;
 
 use super::direction::Direction;
 
-/// Defines who can traverse a given edge.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum EdgePermissions {
-    /// Anyone can use this edge.
-    #[default]
-    All,
-    /// Only ghosts can use this edge.
-    GhostsOnly,
+use bitflags::bitflags;
+
+bitflags! {
+    /// Defines who can traverse a given edge using flags for fast checking.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+    pub struct TraversalFlags: u8 {
+        const PACMAN = 1 << 0;
+        const GHOST = 1 << 1;
+
+        /// Convenience flag for edges that all entities can use
+        const ALL = Self::PACMAN.bits() | Self::GHOST.bits();
+    }
 }
 
 /// Represents a directed edge from one node to another with a given weight (e.g., distance).
@@ -24,7 +28,7 @@ pub struct Edge {
     /// The cardinal direction of this edge.
     pub direction: Direction,
     /// Defines who is allowed to traverse this edge.
-    pub permissions: EdgePermissions,
+    pub traversal_flags: TraversalFlags,
 }
 
 /// Represents a node in the graph, defined by its position.
@@ -132,8 +136,8 @@ impl Graph {
             return Err("To node does not exist.");
         }
 
-        let edge_a = self.add_edge(from, to, replace, distance, direction, EdgePermissions::default());
-        let edge_b = self.add_edge(to, from, replace, distance, direction.opposite(), EdgePermissions::default());
+        let edge_a = self.add_edge(from, to, replace, distance, direction, TraversalFlags::ALL);
+        let edge_b = self.add_edge(to, from, replace, distance, direction.opposite(), TraversalFlags::ALL);
 
         if edge_a.is_err() && edge_b.is_err() {
             return Err("Failed to connect nodes in both directions.");
@@ -161,7 +165,7 @@ impl Graph {
         replace: bool,
         distance: Option<f32>,
         direction: Direction,
-        permissions: EdgePermissions,
+        traversal_flags: TraversalFlags,
     ) -> Result<(), &'static str> {
         let edge = Edge {
             target: to,
@@ -180,7 +184,7 @@ impl Graph {
                 }
             },
             direction,
-            permissions,
+            traversal_flags,
         };
 
         if from >= self.adjacency_list.len() {

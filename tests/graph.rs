@@ -1,5 +1,5 @@
 use pacman::entity::direction::Direction;
-use pacman::entity::graph::{EdgePermissions, Graph, Node};
+use pacman::entity::graph::{Graph, Node, TraversalFlags};
 
 fn create_test_graph() -> Graph {
     let mut graph = Graph::new();
@@ -78,11 +78,11 @@ fn test_graph_edge_permissions() {
     });
 
     graph
-        .add_edge(node1, node2, false, None, Direction::Right, EdgePermissions::GhostsOnly)
+        .add_edge(node1, node2, false, None, Direction::Right, TraversalFlags::GHOST)
         .unwrap();
 
     let edge = graph.find_edge_in_direction(node1, Direction::Right).unwrap();
-    assert_eq!(edge.permissions, EdgePermissions::GhostsOnly);
+    assert_eq!(edge.traversal_flags, TraversalFlags::GHOST);
 }
 
 #[test]
@@ -118,21 +118,21 @@ fn should_error_on_negative_edge_distance() {
         position: glam::Vec2::new(16.0, 0.0),
     });
 
-    let result = graph.add_edge(node1, node2, false, Some(-1.0), Direction::Right, EdgePermissions::All);
+    let result = graph.add_edge(node1, node2, false, Some(-1.0), Direction::Right, TraversalFlags::ALL);
     assert!(result.is_err());
 }
 
 #[test]
 fn should_error_on_duplicate_edge_without_replace() {
     let mut graph = create_test_graph();
-    let result = graph.add_edge(0, 1, false, None, Direction::Right, EdgePermissions::All);
+    let result = graph.add_edge(0, 1, false, None, Direction::Right, TraversalFlags::ALL);
     assert!(result.is_err());
 }
 
 #[test]
 fn should_allow_replacing_an_edge() {
     let mut graph = create_test_graph();
-    let result = graph.add_edge(0, 1, true, Some(42.0), Direction::Right, EdgePermissions::All);
+    let result = graph.add_edge(0, 1, true, Some(42.0), Direction::Right, TraversalFlags::ALL);
     assert!(result.is_ok());
 
     let edge = graph.find_edge(0, 1).unwrap();

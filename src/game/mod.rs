@@ -12,8 +12,8 @@ use crate::systems::{
     blinking::blinking_system,
     collision::collision_system,
     components::{
-        Collider, CollisionLayer, DeltaTime, DirectionalAnimated, EntityType, GlobalState, ItemBundle, ItemCollider,
-        PacmanCollider, PlayerBundle, PlayerControlled, Position, Renderable, Score, ScoreResource, Velocity,
+        Collider, CollisionLayer, DeltaTime, DirectionalAnimated, EntityType, GlobalState, ItemBundle, ItemCollider, Movable,
+        MovementState, PacmanCollider, PlayerBundle, PlayerControlled, Position, Renderable, Score, ScoreResource,
     },
     control::player_system,
     input::input_system,
@@ -133,11 +133,15 @@ impl Game {
 
         let player = PlayerBundle {
             player: PlayerControlled,
-            position: Position::AtNode(pacman_start_node),
-            velocity: Velocity {
-                direction: Direction::Left,
-                next_direction: Some((Direction::Left, 90)),
+            position: Position {
+                node: pacman_start_node,
+                edge_progress: None,
+            },
+            movement_state: MovementState::Stopped,
+            movable: Movable {
                 speed: 1.15,
+                current_direction: Direction::Left,
+                requested_direction: Some(Direction::Left), // Start moving left immediately
             },
             sprite: Renderable {
                 sprite: SpriteAtlas::get_tile(&atlas, "pacman/full.png")
@@ -170,14 +174,14 @@ impl Game {
         world.insert_resource(DeltaTime(0f32));
 
         world.add_observer(
-            |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, mut score: ResMut<ScoreResource>| match *event {
+            |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| match *event {
                 GameEvent::Command(command) => match command {
                     GameCommand::Exit => {
                         state.exit = true;
                     }
                     _ => {}
                 },
-                GameEvent::Collision(a, b) => {}
+                GameEvent::Collision(_a, _b) => {}
             },
         );
 
@@ -218,7 +222,10 @@ impl Game {
             };
 
             let mut item = world.spawn(ItemBundle {
-                position: Position::AtNode(node_id),
+                position: Position {
+                    node: node_id,
+                    edge_progress: None,
+                },
                 sprite: Renderable {
                     sprite,
                     layer: 1,

@@ -1,131 +1,160 @@
-use crate::entity::graph::{Edge, EdgePermissions};
+use crate::entity::graph::Edge;
 use crate::error::{EntityError, GameError};
 use crate::map::builder::Map;
-use crate::systems::components::{DeltaTime, EntityType, Position, Velocity};
+use crate::systems::components::{DeltaTime, EdgeProgress, EntityType, Movable, MovementState, Position};
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::{Query, Res};
 
 fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
-    match entity_type {
-        EntityType::Player => matches!(edge.permissions, EdgePermissions::All),
-        EntityType::Ghost => matches!(edge.permissions, EdgePermissions::All | EdgePermissions::GhostsOnly),
-        _ => matches!(edge.permissions, EdgePermissions::All),
-    }
+    let entity_flags = entity_type.traversal_flags();
+    edge.traversal_flags.contains(entity_flags)
 }
 
 pub fn movement_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,
-    mut entities: Query<(&mut Velocity, &mut Position, &EntityType)>,
+    mut entities: Query<(&mut MovementState, &mut Movable, &mut Position, &EntityType)>,
     mut errors: EventWriter<GameError>,
 ) {
-    for (mut velocity, mut position, entity_type) in entities.iter_mut() {
-        let distance = velocity.speed * 60.0 * delta_time.0;
+    for (mut movement_state, mut movable, mut position, entity_type) in entities.iter_mut() {
+        let distance = movable.speed * 60.0 * delta_time.0;
 
-        // Decrement the remaining frames for the next direction
-        if let Some((direction, remaining)) = velocity.next_direction {
-            if remaining > 0 {
-                velocity.next_direction = Some((direction, remaining - 1));
-            } else {
-                velocity.next_direction = None;
-            }
-        }
-
-        match *position {
-            Position::AtNode(node_id) => {
-                // We're not moving, but a buffered direction is available.
-                if let Some((next_direction, _)) = velocity.next_direction {
-                    if let Some(edge) = map.graph.find_edge_in_direction(node_id, next_direction) {
+        match *movement_state {
+            MovementState::Stopped => {
+                // Check if we have a requested direction to start moving
+                if let Some(requested_direction) = movable.requested_direction {
+                    if let Some(edge) = map.graph.find_edge_in_direction(position.node, requested_direction) {
                         if can_traverse(*entity_type, edge) {
-                            // Start moving in that direction
-                            *position = Position::BetweenNodes {
-                                from: node_id,
-                                to: edge.target,
-                                traversed: distance,
+                            // Start moving in the requested direction
+                            let progress = if edge.distance > 0.0 {
+                                distance / edge.distance
+                            } else {
+                                // Zero-distance edge (tunnels) - immediately teleport
+                                tracing::debug!("Entity entering tunnel from node {} to node {}", position.node, edge.target);
+                                1.0
                             };
-                            velocity.direction = next_direction;
-                            velocity.next_direction = None;
+
+                            position.edge_progress = Some(EdgeProgress {
+                                target_node: edge.target,
+                                progress,
+                            });
+                            movable.current_direction = requested_direction;
+                            movable.requested_direction = None;
+                            *movement_state = MovementState::Moving {
+                                direction: requested_direction,
+                            };
                         }
                     } else {
                         errors.write(
                             EntityError::InvalidMovement(format!(
                                 "No edge found in direction {:?} from node {}",
-                                next_direction, node_id
+                                requested_direction, position.node
                             ))
                             .into(),
                         );
                     }
                 }
             }
-            Position::BetweenNodes { from, to, traversed } => {
-                // There is no point in any of the next logic if we don't travel at all
-                if distance <= 0.0 {
-                    return;
-                }
+            MovementState::Moving { direction } => {
+                // Continue moving or handle node transitions
+                let current_node = position.node;
+                if let Some(edge_progress) = &mut position.edge_progress {
+                    // Extract target node before mutable operations
+                    let target_node = edge_progress.target_node;
 
-                let edge = map
-                    .graph
-                    .find_edge(from, to)
-                    .ok_or_else(|| {
+                    // Get the current edge for distance calculation
+                    let edge = map.graph.find_edge(current_node, target_node);
+
+                    if let Some(edge) = edge {
+                        // Update progress along the edge
+                        if edge.distance > 0.0 {
+                            edge_progress.progress += distance / edge.distance;
+                        } else {
+                            // Zero-distance edge (tunnels) - immediately complete
+                            edge_progress.progress = 1.0;
+                        }
+
+                        if edge_progress.progress >= 1.0 {
+                            // Reached the target node
+                            let overflow = if edge.distance > 0.0 {
+                                (edge_progress.progress - 1.0) * edge.distance
+                            } else {
+                                // Zero-distance edge - use remaining distance for overflow
+                                distance
+                            };
+                            position.node = target_node;
+                            position.edge_progress = None;
+
+                            let mut continued_moving = false;
+
+                            // Try to use requested direction first
+                            if let Some(requested_direction) = movable.requested_direction {
+                                if let Some(next_edge) = map.graph.find_edge_in_direction(position.node, requested_direction) {
+                                    if can_traverse(*entity_type, next_edge) {
+                                        let next_progress = if next_edge.distance > 0.0 {
+                                            overflow / next_edge.distance
+                                        } else {
+                                            // Zero-distance edge - immediately complete
+                                            1.0
+                                        };
+
+                                        position.edge_progress = Some(EdgeProgress {
+                                            target_node: next_edge.target,
+                                            progress: next_progress,
+                                        });
+                                        movable.current_direction = requested_direction;
+                                        movable.requested_direction = None;
+                                        *movement_state = MovementState::Moving {
+                                            direction: requested_direction,
+                                        };
+                                        continued_moving = true;
+                                    }
+                                }
+                            }
+
+                            // If no requested direction or it failed, try to continue in current direction
+                            if !continued_moving {
+                                if let Some(next_edge) = map.graph.find_edge_in_direction(position.node, direction) {
+                                    if can_traverse(*entity_type, next_edge) {
+                                        let next_progress = if next_edge.distance > 0.0 {
+                                            overflow / next_edge.distance
+                                        } else {
+                                            // Zero-distance edge - immediately complete
+                                            1.0
+                                        };
+
+                                        position.edge_progress = Some(EdgeProgress {
+                                            target_node: next_edge.target,
+                                            progress: next_progress,
+                                        });
+                                        // Keep current direction and movement state
+                                        continued_moving = true;
+                                    }
+                                }
+                            }
+
+                            // If we couldn't continue moving, stop
+                            if !continued_moving {
+                                *movement_state = MovementState::Stopped;
+                                movable.requested_direction = None;
+                            }
+                        }
+                    } else {
+                        // Edge not found - this is an inconsistent state
                         errors.write(
                             EntityError::InvalidMovement(format!(
-                                "Inconsistent state: Traverser is on a non-existent edge from {} to {}.",
-                                from, to
+                                "Inconsistent state: Moving on non-existent edge from {} to {}",
+                                current_node, target_node
                             ))
                             .into(),
                         );
-                        return;
-                    })
-                    .unwrap();
-
-                let new_traversed = traversed + distance;
-
-                if new_traversed < edge.distance {
-                    // Still on the same edge, just update the distance.
-                    *position = Position::BetweenNodes {
-                        from,
-                        to,
-                        traversed: new_traversed,
-                    };
+                        *movement_state = MovementState::Stopped;
+                        position.edge_progress = None;
+                    }
                 } else {
-                    let overflow = new_traversed - edge.distance;
-                    let mut moved = false;
-
-                    // If we buffered a direction, try to find an edge in that direction
-                    if let Some((next_dir, _)) = velocity.next_direction {
-                        if let Some(edge) = map.graph.find_edge_in_direction(to, next_dir) {
-                            if can_traverse(*entity_type, edge) {
-                                *position = Position::BetweenNodes {
-                                    from: to,
-                                    to: edge.target,
-                                    traversed: overflow,
-                                };
-
-                                velocity.direction = next_dir; // Remember our new direction
-                                velocity.next_direction = None; // Consume the buffered direction
-                                moved = true;
-                            }
-                        }
-                    }
-
-                    // If we didn't move, try to continue in the current direction
-                    if !moved {
-                        if let Some(edge) = map.graph.find_edge_in_direction(to, velocity.direction) {
-                            if can_traverse(*entity_type, edge) {
-                                *position = Position::BetweenNodes {
-                                    from: to,
-                                    to: edge.target,
-                                    traversed: overflow,
-                                };
-                            } else {
-                                *position = Position::AtNode(to);
-                                velocity.next_direction = None;
-                            }
-                        } else {
-                            *position = Position::AtNode(to);
-                            velocity.next_direction = None;
-                        }
-                    }
+                    // Movement state says moving but no edge progress - this shouldn't happen
+                    errors.write(EntityError::InvalidMovement("Entity in Moving state but no edge progress".to_string()).into());
+                    *movement_state = MovementState::Stopped;
                 }
             }
         }
