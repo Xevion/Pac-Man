@@ -10,6 +10,7 @@ pub mod control;
 pub mod debug;
 pub mod formatting;
 pub mod input;
+pub mod item;
 pub mod movement;
 pub mod profiling;
 pub mod render;
