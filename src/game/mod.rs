@@ -135,9 +135,9 @@ impl Game {
             player: PlayerControlled,
             position: Position::AtNode(pacman_start_node),
             velocity: Velocity {
-                direction: Direction::Up,
-                next_direction: None,
-                speed: 1.125,
+                direction: Direction::Left,
+                next_direction: Some((Direction::Left, 90)),
+                speed: 1.15,
             },
             sprite: Renderable {
                 sprite: SpriteAtlas::get_tile(&atlas, "pacman/full.png")
