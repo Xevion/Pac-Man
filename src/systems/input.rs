@@ -7,9 +7,17 @@ use bevy_ecs::{
 };
 use sdl2::{event::Event, keyboard::Keycode, EventPump};
 
-use crate::{entity::direction::Direction, game::events::GameEvent, input::commands::GameCommand};
+use crate::{entity::direction::Direction, events::GameEvent};
 
-pub mod commands;
+#[derive(Debug, Clone, Copy)]
+pub enum GameCommand {
+    MovePlayer(Direction),
+    Exit,
+    TogglePause,
+    ToggleDebug,
+    MuteAudio,
+    ResetLevel,
+}
 
 #[derive(Debug, Clone, Resource)]
 pub struct Bindings {
@@ -42,7 +50,7 @@ impl Default for Bindings {
     }
 }
 
-pub fn handle_input(bindings: Res<Bindings>, mut writer: EventWriter<GameEvent>, mut pump: NonSendMut<&'static mut EventPump>) {
+pub fn input_system(bindings: Res<Bindings>, mut writer: EventWriter<GameEvent>, mut pump: NonSendMut<&'static mut EventPump>) {
     for event in pump.poll_iter() {
         match event {
             Event::Quit { .. } => {

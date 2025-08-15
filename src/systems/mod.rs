@@ -4,6 +4,7 @@
 //! and resources.
 
 pub mod components;
-pub mod interact;
+pub mod control;
+pub mod input;
 pub mod movement;
 pub mod render;

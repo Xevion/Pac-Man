@@ -5,12 +5,12 @@ include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 use crate::constants::CANVAS_SIZE;
 use crate::entity::direction::Direction;
 use crate::error::{GameError, GameResult, TextureError};
-use crate::input::commands::GameCommand;
+use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::systems::components::{
     DeltaTime, DirectionalAnimated, GlobalState, PlayerBundle, PlayerControlled, Position, Renderable, Velocity,
 };
-use crate::systems::interact::interact_system;
+use crate::systems::control::player_system;
 use crate::systems::movement::movement_system;
 use crate::systems::render::{directional_render_system, render_system, BackbufferResource, MapTextureResource};
 use crate::texture::animated::AnimatedTexture;
@@ -25,16 +25,13 @@ use sdl2::video::{Window, WindowContext};
 use sdl2::EventPump;
 
 use crate::asset::{get_asset_bytes, Asset};
-use crate::input::{handle_input, Bindings};
 use crate::map::render::MapRenderer;
+use crate::systems::input::{input_system, Bindings, GameCommand};
 use crate::{
     constants,
     texture::sprite::{AtlasMapper, SpriteAtlas},
 };
 
-use self::events::GameEvent;
-
-pub mod events;
 pub mod state;
 
 /// The `Game` struct is the main entry point for the game.
@@ -170,8 +167,8 @@ impl Game {
 
         schedule.add_systems(
             (
-                handle_input,
-                interact_system,
+                input_system,
+                player_system,
                 movement_system,
                 directional_render_system,
                 render_system,

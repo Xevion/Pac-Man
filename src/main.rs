@@ -12,9 +12,9 @@ mod constants;
 
 mod entity;
 mod error;
+mod events;
 mod game;
 mod helpers;
-mod input;
 mod map;
 mod platform;
 mod systems;

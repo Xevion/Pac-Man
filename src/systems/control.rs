@@ -5,13 +5,15 @@ use bevy_ecs::{
 
 use crate::{
     error::GameError,
-    game::events::GameEvent,
-    input::commands::GameCommand,
-    systems::components::{GlobalState, PlayerControlled, Velocity},
+    events::GameEvent,
+    systems::{
+        components::{GlobalState, PlayerControlled, Velocity},
+        input::GameCommand,
+    },
 };
 
 // Handles
-pub fn interact_system(
+pub fn player_system(
     mut events: EventReader<GameEvent>,
     mut state: ResMut<GlobalState>,
     mut players: Query<(&PlayerControlled, &mut Velocity)>,

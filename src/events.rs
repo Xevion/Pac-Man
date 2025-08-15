@@ -1,6 +1,6 @@
 use bevy_ecs::event::Event;
 
-use crate::input::commands::GameCommand;
+use crate::systems::input::GameCommand;
 
 #[derive(Debug, Clone, Copy, Event)]
 pub enum GameEvent {
