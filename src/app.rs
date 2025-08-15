@@ -5,13 +5,14 @@ use sdl2::render::TextureCreator;
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::WindowContext;
 use sdl2::{AudioSubsystem, EventPump, Sdl, VideoSubsystem};
-use tracing::warn;
+use tracing::{field, info, warn};
 
 use crate::error::{GameError, GameResult};
 
 use crate::constants::{CANVAS_SIZE, LOOP_TIME, SCALE};
 use crate::game::Game;
 use crate::platform::get_platform;
+use crate::systems::profiling::SystemTimings;
 
 pub struct App {
     pub game: Game,
@@ -64,12 +65,6 @@ impl App {
         let game = Game::new(canvas, texture_creator, event_pump)?;
         // game.audio.set_mute(cfg!(debug_assertions));
 
-        // Initial draw
-        // game.draw(&mut canvas, &mut backbuffer)
-        //     .map_err(|e| GameError::Sdl(e.to_string()))?;
-        // game.present_backbuffer(&mut canvas, &backbuffer, glam::Vec2::ZERO)
-        //     .map_err(|e| GameError::Sdl(e.to_string()))?;
-
         Ok(App {
             game,
             focused: true,
@@ -116,17 +111,23 @@ impl App {
                 return false;
             }
 
-            // if let Err(e) = self.game.draw(&mut self.canvas, &mut self.backbuffer) {
-            //     error!("Failed to draw game: {}", e);
-            // }
+            // Show timings if the loop took more than 25% of the loop time
+            let show_timings = start.elapsed() > (LOOP_TIME / 4);
+            if show_timings || true {
+                if let Some(timings) = self.game.world.get_resource::<SystemTimings>() {
+                    let mut timings = timings.timings.lock();
+                    let total = timings.values().sum::<Duration>();
+                    info!("Total: {:?}, Timings: {:?}", total, field::debug(&timings));
+                    timings.clear();
+                }
+            }
 
+            // Sleep if we still have time left
             if start.elapsed() < LOOP_TIME {
                 let time = LOOP_TIME.saturating_sub(start.elapsed());
                 if time != Duration::ZERO {
                     get_platform().sleep(time, self.focused);
                 }
-            } else {
-                warn!("Game loop behind schedule by: {:?}", start.elapsed() - LOOP_TIME);
             }
 
             true

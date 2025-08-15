@@ -19,6 +19,7 @@ use crate::systems::{
     control::player_system,
     input::input_system,
     movement::movement_system,
+    profiling::{profile, SystemTimings},
     render::{directional_render_system, render_system, BackbufferResource, MapTextureResource},
 };
 use crate::texture::animated::AnimatedTexture;
@@ -171,6 +172,7 @@ impl Game {
         world.insert_resource(map);
         world.insert_resource(GlobalState { exit: false });
         world.insert_resource(ScoreResource(0));
+        world.insert_resource(SystemTimings::default());
         world.insert_resource(Bindings::default());
         world.insert_resource(DeltaTime(0f32));
 
@@ -188,13 +190,13 @@ impl Game {
 
         schedule.add_systems(
             (
-                input_system,
-                player_system,
-                movement_system,
-                collision_system,
-                blinking_system,
-                directional_render_system,
-                render_system,
+                profile("input", input_system),
+                profile("player", player_system),
+                profile("movement", movement_system),
+                profile("collision", collision_system),
+                profile("blinking", blinking_system),
+                profile("directional_render", directional_render_system),
+                profile("render", render_system),
             )
                 .chain(),
         );

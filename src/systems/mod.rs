@@ -9,4 +9,5 @@ pub mod components;
 pub mod control;
 pub mod input;
 pub mod movement;
+pub mod profiling;
 pub mod render;

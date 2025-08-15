@@ -576,6 +576,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "once_cell",
+ "parking_lot",
  "pathfinding",
  "phf",
  "rand",
