@@ -14,13 +14,13 @@ use crate::systems::{
     collision::collision_system,
     components::{
         Collider, CollisionLayer, DeltaTime, DirectionalAnimated, EntityType, GlobalState, ItemBundle, ItemCollider,
-        PacmanCollider, PlayerBundle, PlayerControlled, Renderable, Score, ScoreResource,
+        PacmanCollider, PlayerBundle, PlayerControlled, RenderDirty, Renderable, Score, ScoreResource,
     },
     control::player_system,
     input::input_system,
     movement::movement_system,
     profiling::{profile, SystemTimings},
-    render::{directional_render_system, render_system, BackbufferResource, MapTextureResource},
+    render::{directional_render_system, dirty_render_system, render_system, BackbufferResource, MapTextureResource},
 };
 use crate::texture::animated::AnimatedTexture;
 use bevy_ecs::schedule::IntoScheduleConfigs;
@@ -175,6 +175,7 @@ impl Game {
         world.insert_resource(SystemTimings::default());
         world.insert_resource(Bindings::default());
         world.insert_resource(DeltaTime(0f32));
+        world.insert_resource(RenderDirty::default());
 
         world.add_observer(
             |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| match *event {
@@ -199,7 +200,7 @@ impl Game {
             )
                 .chain(),
         );
-        schedule.add_systems(profile("render", render_system));
+        schedule.add_systems((profile("dirty_render", dirty_render_system), profile("render", render_system)).chain());
 
         // Spawn player
         world.spawn(player);

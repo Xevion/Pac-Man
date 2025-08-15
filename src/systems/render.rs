@@ -1,14 +1,24 @@
 use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
-use crate::systems::components::{DeltaTime, DirectionalAnimated, Renderable};
+use crate::systems::components::{DeltaTime, DirectionalAnimated, RenderDirty, Renderable};
 use crate::systems::movement::{Movable, MovementState, Position};
 use crate::texture::sprite::SpriteAtlas;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::prelude::{Changed, Or, RemovedComponents};
-use bevy_ecs::system::{NonSendMut, Query, Res};
+use bevy_ecs::system::{NonSendMut, Query, Res, ResMut};
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
+
+pub fn dirty_render_system(
+    mut dirty: ResMut<RenderDirty>,
+    changed_renderables: Query<(), Or<(Changed<Renderable>, Changed<Position>)>>,
+    removed_renderables: RemovedComponents<Renderable>,
+) {
+    if !changed_renderables.is_empty() || !removed_renderables.is_empty() {
+        dirty.0 = true;
+    }
+}
 
 /// Updates the directional animated texture of an entity.
 ///
@@ -55,12 +65,11 @@ pub fn render_system(
     mut backbuffer: NonSendMut<BackbufferResource>,
     mut atlas: NonSendMut<SpriteAtlas>,
     map: Res<Map>,
+    mut dirty: ResMut<RenderDirty>,
     renderables: Query<(Entity, &Renderable, &Position)>,
-    changed_renderables: Query<(), Or<(Changed<Renderable>, Changed<Position>)>>,
-    removed_renderables: RemovedComponents<Renderable>,
     mut errors: EventWriter<GameError>,
 ) {
-    if changed_renderables.is_empty() && removed_renderables.is_empty() {
+    if !dirty.0 {
         return;
     }
     // Clear the main canvas first
@@ -111,4 +120,6 @@ pub fn render_system(
         .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
 
     canvas.present();
+
+    dirty.0 = false;
 }

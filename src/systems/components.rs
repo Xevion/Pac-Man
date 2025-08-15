@@ -109,3 +109,6 @@ pub struct ScoreResource(pub u32);
 
 #[derive(Resource)]
 pub struct DeltaTime(pub f32);
+
+#[derive(Resource, Default)]
+pub struct RenderDirty(pub bool);
