@@ -6,6 +6,9 @@ use parking_lot::{Mutex, RwLock};
 use std::time::Duration;
 use thousands::Separable;
 
+/// The maximum number of systems that can be profiled. Must not be exceeded, or it will panic.
+const MAX_SYSTEMS: usize = 11;
+/// The number of durations to keep in the circular buffer.
 const TIMING_WINDOW_SIZE: usize = 30;
 
 #[derive(Resource, Default, Debug)]
@@ -17,7 +20,7 @@ pub struct SystemTimings {
     ///
     /// Also, we use a micromap::Map as the number of systems is generally quite small.
     /// Just make sure to set the capacity appropriately, or it will panic.
-    pub timings: RwLock<Map<&'static str, Mutex<CircularBuffer<TIMING_WINDOW_SIZE, Duration>>, 10>>,
+    pub timings: RwLock<Map<&'static str, Mutex<CircularBuffer<TIMING_WINDOW_SIZE, Duration>>, MAX_SYSTEMS>>,
 }
 
 impl SystemTimings {
@@ -43,7 +46,7 @@ impl SystemTimings {
         });
     }
 
-    pub fn get_stats(&self) -> Map<&'static str, (Duration, Duration), 10> {
+    pub fn get_stats(&self) -> Map<&'static str, (Duration, Duration), MAX_SYSTEMS> {
         let timings = self.timings.read();
         let mut stats = Map::new();
 
