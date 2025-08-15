@@ -30,8 +30,8 @@ pub fn player_system(
 
     // Handle events
     for event in events.read() {
-        match event {
-            GameEvent::Command(command) => match command {
+        if let GameEvent::Command(command) = event {
+            match command {
                 GameCommand::MovePlayer(direction) => {
                     movable.requested_direction = Some(*direction);
                 }
@@ -39,9 +39,6 @@ pub fn player_system(
                     state.exit = true;
                 }
                 _ => {}
-            },
-            GameEvent::Collision(a, b) => {
-                tracing::info!("Collision between {:?} and {:?}", a, b);
             }
         }
     }
