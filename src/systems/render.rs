@@ -9,6 +9,8 @@ use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 
 /// Updates the directional animated texture of an entity.
+///
+/// This runs before the render system so it can update the sprite based on the current direction of travel, as well as whether the entity is moving.
 pub fn directional_render_system(
     dt: Res<DeltaTime>,
     mut renderables: Query<(&Velocity, &mut DirectionalAnimated, &mut Renderable, &Position)>,
@@ -34,7 +36,10 @@ pub fn directional_render_system(
     }
 }
 
+/// A non-send resource for the map texture. This just wraps the texture with a type so it can be differentiated when exposed as a resource.
 pub struct MapTextureResource(pub Texture<'static>);
+
+/// A non-send resource for the backbuffer texture. This just wraps the texture with a type so it can be differentiated when exposed as a resource.
 pub struct BackbufferResource(pub Texture<'static>);
 
 pub fn render_system(
@@ -43,7 +48,7 @@ pub fn render_system(
     mut backbuffer: NonSendMut<BackbufferResource>,
     mut atlas: NonSendMut<SpriteAtlas>,
     map: Res<Map>,
-    mut renderables: Query<(Entity, &mut Renderable, &Position)>,
+    renderables: Query<(Entity, &mut Renderable, &Position)>,
     mut errors: EventWriter<GameError>,
 ) {
     // Clear the main canvas first
@@ -64,7 +69,11 @@ pub fn render_system(
                 .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
 
             // Render all entities to the backbuffer
-            for (_, mut renderable, position) in renderables.iter_mut() {
+            for (_, mut renderable, position) in renderables
+            // .iter_mut()
+            // .sort_by_key::<&mut Renderable, _, _>(|(renderable, renderable, renderable)| renderable.layer)
+            // .collect()
+            {
                 let pos = position.get_pixel_pos(&map.graph);
                 match pos {
                     Ok(pos) => {

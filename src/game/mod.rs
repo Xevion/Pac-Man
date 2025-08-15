@@ -8,7 +8,7 @@ use crate::error::{GameError, GameResult, TextureError};
 use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::systems::components::{
-    DeltaTime, DirectionalAnimated, GlobalState, PlayerBundle, PlayerControlled, Position, Renderable, Velocity,
+    DeltaTime, DirectionalAnimated, EntityType, GlobalState, PlayerBundle, PlayerControlled, Position, Renderable, Velocity,
 };
 use crate::systems::control::player_system;
 use crate::systems::movement::movement_system;
@@ -143,6 +143,7 @@ impl Game {
                 textures,
                 stopped_textures,
             },
+            entity_type: EntityType::Player,
         };
 
         world.insert_non_send_resource(atlas);

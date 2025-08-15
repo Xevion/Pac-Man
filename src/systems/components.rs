@@ -11,6 +11,16 @@ use crate::{
 #[derive(Default, Component)]
 pub struct PlayerControlled;
 
+/// A tag component denoting the type of entity.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EntityType {
+    Player,
+    Ghost,
+    Pellet,
+    PowerPellet,
+    Wall,
+}
+
 /// A component for entities that have a sprite, with a layer for ordering.
 ///
 /// This is intended to be modified by other entities allowing animation.
@@ -127,6 +137,7 @@ pub struct PlayerBundle {
     pub velocity: Velocity,
     pub sprite: Renderable,
     pub directional_animated: DirectionalAnimated,
+    pub entity_type: EntityType,
 }
 
 #[derive(Resource)]

@@ -1,21 +1,25 @@
-use crate::entity::graph::EdgePermissions;
+use crate::entity::graph::{Edge, EdgePermissions, Graph};
 use crate::error::{EntityError, GameError};
 use crate::map::builder::Map;
-use crate::systems::components::{DeltaTime, PlayerControlled, Position, Velocity};
+use crate::systems::components::{DeltaTime, EntityType, Position, Velocity};
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::{Query, Res};
 
-fn can_traverse(_player: &mut PlayerControlled, edge: crate::entity::graph::Edge) -> bool {
-    matches!(edge.permissions, EdgePermissions::All)
+fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
+    match entity_type {
+        EntityType::Player => matches!(edge.permissions, EdgePermissions::All),
+        EntityType::Ghost => matches!(edge.permissions, EdgePermissions::All | EdgePermissions::GhostsOnly),
+        _ => matches!(edge.permissions, EdgePermissions::All),
+    }
 }
 
 pub fn movement_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,
-    mut entities: Query<(&mut PlayerControlled, &mut Velocity, &mut Position)>,
+    mut entities: Query<(&mut Velocity, &mut Position, &EntityType)>,
     mut errors: EventWriter<GameError>,
 ) {
-    for (mut player, mut velocity, mut position) in entities.iter_mut() {
+    for (mut velocity, mut position, entity_type) in entities.iter_mut() {
         let distance = velocity.speed * 60.0 * delta_time.0;
 
         // Decrement the remaining frames for the next direction
@@ -32,7 +36,7 @@ pub fn movement_system(
                 // We're not moving, but a buffered direction is available.
                 if let Some((next_direction, _)) = velocity.next_direction {
                     if let Some(edge) = map.graph.find_edge_in_direction(node_id, next_direction) {
-                        if can_traverse(&mut player, edge) {
+                        if can_traverse(*entity_type, edge) {
                             // Start moving in that direction
                             *position = Position::BetweenNodes {
                                 from: node_id,
@@ -90,7 +94,7 @@ pub fn movement_system(
                     // If we buffered a direction, try to find an edge in that direction
                     if let Some((next_dir, _)) = velocity.next_direction {
                         if let Some(edge) = map.graph.find_edge_in_direction(to, next_dir) {
-                            if can_traverse(&mut player, edge) {
+                            if can_traverse(*entity_type, edge) {
                                 *position = Position::BetweenNodes {
                                     from: to,
                                     to: edge.target,
@@ -107,7 +111,7 @@ pub fn movement_system(
                     // If we didn't move, try to continue in the current direction
                     if !moved {
                         if let Some(edge) = map.graph.find_edge_in_direction(to, velocity.direction) {
-                            if can_traverse(&mut player, edge) {
+                            if can_traverse(*entity_type, edge) {
                                 *position = Position::BetweenNodes {
                                     from: to,
                                     to: edge.target,
