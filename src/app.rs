@@ -1,11 +1,11 @@
 use std::time::{Duration, Instant};
 
 use glam::Vec2;
-use sdl2::render::{Canvas, ScaleMode, Texture, TextureCreator};
+use sdl2::render::TextureCreator;
 use sdl2::ttf::Sdl2TtfContext;
-use sdl2::video::{Window, WindowContext};
+use sdl2::video::WindowContext;
 use sdl2::{AudioSubsystem, EventPump, Sdl, VideoSubsystem};
-use tracing::{error, warn};
+use tracing::warn;
 
 use crate::error::{GameError, GameResult};
 

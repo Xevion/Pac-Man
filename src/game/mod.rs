@@ -3,24 +3,24 @@
 include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 
 use crate::constants::CANVAS_SIZE;
-use crate::ecs::interact::{interact_system, movement_system};
+use crate::ecs::components::{
+    DeltaTime, DirectionalAnimated, GlobalState, PlayerBundle, PlayerControlled, Position, Renderable, Velocity,
+};
+use crate::ecs::interact::interact_system;
+use crate::ecs::movement::movement_system;
 use crate::ecs::render::{directional_render_system, render_system, BackbufferResource, MapTextureResource};
-use crate::ecs::{DeltaTime, DirectionalAnimated, GlobalState, PlayerBundle, PlayerControlled, Position, Renderable, Velocity};
 use crate::entity::direction::Direction;
-use crate::entity::{graph, traversal};
 use crate::error::{GameError, GameResult, TextureError};
 use crate::input::commands::GameCommand;
 use crate::map::builder::Map;
 use crate::texture::animated::AnimatedTexture;
-use crate::texture::directional::DirectionalAnimatedTexture;
-use crate::texture::sprite::Sprite;
 use bevy_ecs::event::EventRegistry;
 use bevy_ecs::observer::Trigger;
 use bevy_ecs::schedule::IntoScheduleConfigs;
-use bevy_ecs::system::{Commands, ResMut};
+use bevy_ecs::system::ResMut;
 use bevy_ecs::{schedule::Schedule, world::World};
 use sdl2::image::LoadTexture;
-use sdl2::render::{Canvas, ScaleMode, Texture, TextureCreator};
+use sdl2::render::{Canvas, ScaleMode, TextureCreator};
 use sdl2::video::{Window, WindowContext};
 use sdl2::EventPump;
 
@@ -29,7 +29,7 @@ use crate::input::{handle_input, Bindings};
 use crate::map::render::MapRenderer;
 use crate::{
     constants,
-    texture::sprite::{AtlasMapper, AtlasTile, SpriteAtlas},
+    texture::sprite::{AtlasMapper, SpriteAtlas},
 };
 
 use self::events::GameEvent;

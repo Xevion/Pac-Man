@@ -1,5 +1,5 @@
-use crate::ecs::{DeltaTime, DirectionalAnimated, Position, Renderable, Velocity};
-use crate::error::{EntityError, GameError, TextureError};
+use crate::ecs::components::{DeltaTime, DirectionalAnimated, Position, Renderable, Velocity};
+use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
 use crate::texture::sprite::SpriteAtlas;
 use bevy_ecs::entity::Entity;

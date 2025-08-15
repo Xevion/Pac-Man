@@ -1,6 +1,4 @@
-use tracing::error;
-
-use crate::ecs::{NodeId, Position};
+use crate::ecs::components::Position;
 use crate::error::GameResult;
 
 use super::direction::Direction;

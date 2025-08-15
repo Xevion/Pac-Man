@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy_ecs::{
     event::EventWriter,
     resource::Resource,
-    system::{Commands, NonSendMut, Res},
+    system::{NonSendMut, Res},
 };
 use sdl2::{event::Event, keyboard::Keycode, EventPump};
 
