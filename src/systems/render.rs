@@ -5,6 +5,7 @@ use crate::systems::movement::{Movable, MovementState, Position};
 use crate::texture::sprite::SpriteAtlas;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
+use bevy_ecs::prelude::{Changed, Or, RemovedComponents};
 use bevy_ecs::system::{NonSendMut, Query, Res};
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
@@ -31,7 +32,10 @@ pub fn directional_render_system(
             if !stopped {
                 texture.tick(dt.0);
             }
-            renderable.sprite = *texture.current_tile();
+            let new_tile = *texture.current_tile();
+            if renderable.sprite != new_tile {
+                renderable.sprite = new_tile;
+            }
         } else {
             errors.write(TextureError::RenderFailed(format!("Entity has no texture")).into());
             continue;
@@ -51,9 +55,14 @@ pub fn render_system(
     mut backbuffer: NonSendMut<BackbufferResource>,
     mut atlas: NonSendMut<SpriteAtlas>,
     map: Res<Map>,
-    renderables: Query<(Entity, &mut Renderable, &Position)>,
+    renderables: Query<(Entity, &Renderable, &Position)>,
+    changed_renderables: Query<(), Or<(Changed<Renderable>, Changed<Position>)>>,
+    removed_renderables: RemovedComponents<Renderable>,
     mut errors: EventWriter<GameError>,
 ) {
+    if changed_renderables.is_empty() && removed_renderables.is_empty() {
+        return;
+    }
     // Clear the main canvas first
     canvas.set_draw_color(sdl2::pixels::Color::BLACK);
     canvas.clear();
@@ -66,17 +75,12 @@ pub fn render_system(
             backbuffer_canvas.clear();
 
             // Copy the pre-rendered map texture to the backbuffer
-            backbuffer_canvas
-                .copy(&map_texture.0, None, None)
-                .err()
-                .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
+            if let Err(e) = backbuffer_canvas.copy(&map_texture.0, None, None) {
+                errors.write(TextureError::RenderFailed(e.to_string()).into());
+            }
 
             // Render all entities to the backbuffer
-            for (_, mut renderable, position) in renderables
-            // .iter_mut()
-            // .sort_by_key::<&mut Renderable, _, _>(|(renderable, renderable, renderable)| renderable.layer)
-            // .collect()
-            {
+            for (_, renderable, position) in renderables.iter() {
                 let pos = position.get_pixel_pos(&map.graph);
                 match pos {
                     Ok(pos) => {

@@ -103,9 +103,9 @@ impl TextTexture {
         &self.char_map
     }
 
-    pub fn get_tile(&mut self, c: char, atlas: &mut SpriteAtlas) -> Result<Option<&mut AtlasTile>> {
+    pub fn get_tile(&mut self, c: char, atlas: &mut SpriteAtlas) -> Result<Option<&AtlasTile>> {
         if self.char_map.contains_key(&c) {
-            return Ok(self.char_map.get_mut(&c));
+            return Ok(self.char_map.get(&c));
         }
 
         if let Some(tile_name) = char_to_tile_name(c) {
@@ -113,7 +113,7 @@ impl TextTexture {
                 .get_tile(&tile_name)
                 .ok_or(GameError::Texture(TextureError::AtlasTileNotFound(tile_name)))?;
             self.char_map.insert(c, tile);
-            Ok(self.char_map.get_mut(&c))
+            Ok(self.char_map.get(&c))
         } else {
             Ok(None)
         }

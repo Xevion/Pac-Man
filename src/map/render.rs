@@ -19,7 +19,7 @@ impl MapRenderer {
     ///
     /// This function draws the static map texture to the screen at the correct
     /// position and scale.
-    pub fn render_map<T: RenderTarget>(canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, map_tiles: &mut [AtlasTile]) {
+    pub fn render_map<T: RenderTarget>(canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, map_tiles: &[AtlasTile]) {
         for (y, row) in TILE_MAP.iter().enumerate() {
             for (x, &tile_index) in row.iter().enumerate() {
                 let mut tile = map_tiles[tile_index];

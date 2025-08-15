@@ -21,7 +21,7 @@ pub struct MapperFrame {
     pub height: u16,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct AtlasTile {
     pub pos: U16Vec2,
     pub size: U16Vec2,
@@ -30,7 +30,7 @@ pub struct AtlasTile {
 
 impl AtlasTile {
     pub fn render<C: RenderTarget>(
-        &mut self,
+        &self,
         canvas: &mut Canvas<C>,
         atlas: &mut SpriteAtlas,
         dest: Rect,
@@ -41,7 +41,7 @@ impl AtlasTile {
     }
 
     pub fn render_with_color<C: RenderTarget>(
-        &mut self,
+        &self,
         canvas: &mut Canvas<C>,
         atlas: &mut SpriteAtlas,
         dest: Rect,

@@ -100,7 +100,7 @@ impl Game {
         // Render map to texture
         canvas
             .with_texture_canvas(&mut map_texture, |map_canvas| {
-                MapRenderer::render_map(map_canvas, &mut atlas, &mut map_tiles);
+                MapRenderer::render_map(map_canvas, &mut atlas, &map_tiles);
             })
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
@@ -196,10 +196,10 @@ impl Game {
                 profile("collision", collision_system),
                 profile("blinking", blinking_system),
                 profile("directional_render", directional_render_system),
-                profile("render", render_system),
             )
                 .chain(),
         );
+        schedule.add_systems(profile("render", render_system));
 
         // Spawn player
         world.spawn(player);
