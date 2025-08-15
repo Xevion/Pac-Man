@@ -1,5 +1,6 @@
 use bevy_ecs::{
     event::{EventReader, EventWriter},
+    query::With,
     system::{Query, ResMut},
 };
 
@@ -16,14 +17,14 @@ use crate::{
 pub fn player_system(
     mut events: EventReader<GameEvent>,
     mut state: ResMut<GlobalState>,
-    mut players: Query<(&PlayerControlled, &mut Velocity)>,
+    mut players: Query<&mut Velocity, With<PlayerControlled>>,
     mut errors: EventWriter<GameError>,
 ) {
     // Get the player's velocity (handling to ensure there is only one player)
     let mut velocity = match players.single_mut() {
-        Ok((_, velocity)) => velocity,
+        Ok(velocity) => velocity,
         Err(e) => {
-            errors.write(GameError::InvalidState(format!("Player not found: {}", e)).into());
+            errors.write(GameError::InvalidState(format!("No/multiple entities queried for player system: {}", e)).into());
             return;
         }
     };
