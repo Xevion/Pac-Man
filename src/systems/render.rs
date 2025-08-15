@@ -90,6 +90,10 @@ pub fn render_system(
 
             // Render all entities to the backbuffer
             for (_, renderable, position) in renderables.iter() {
+                if !renderable.visible {
+                    continue;
+                }
+
                 let pos = position.get_pixel_pos(&map.graph);
                 match pos {
                     Ok(pos) => {

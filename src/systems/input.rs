@@ -48,7 +48,6 @@ pub fn input_system(bindings: Res<Bindings>, mut writer: EventWriter<GameEvent>,
             Event::KeyDown { keycode: Some(key), .. } => {
                 let command = bindings.key_bindings.get(&key).copied();
                 if let Some(command) = command {
-                    tracing::info!("triggering command: {:?}", command);
                     writer.write(GameEvent::Command(command));
                 }
             }
