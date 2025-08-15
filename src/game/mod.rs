@@ -172,7 +172,7 @@ impl Game {
             },
             entity_type: EntityType::Player,
             collider: Collider {
-                size: constants::CELL_SIZE as f32 * 1.1,
+                size: constants::CELL_SIZE as f32 * 1.375,
                 layer: CollisionLayer::PACMAN,
             },
             pacman_collider: PacmanCollider,
@@ -249,12 +249,12 @@ impl Game {
 
         for (node_id, tile) in nodes {
             let (item_type, score, sprite, size) = match tile {
-                crate::constants::MapTile::Pellet => (EntityType::Pellet, 10, pellet_sprite, constants::CELL_SIZE as f32 * 0.2),
+                crate::constants::MapTile::Pellet => (EntityType::Pellet, 10, pellet_sprite, constants::CELL_SIZE as f32 * 0.4),
                 crate::constants::MapTile::PowerPellet => (
                     EntityType::PowerPellet,
                     50,
                     energizer_sprite,
-                    constants::CELL_SIZE as f32 * 0.9,
+                    constants::CELL_SIZE as f32 * 0.95,
                 ),
                 _ => continue,
             };
