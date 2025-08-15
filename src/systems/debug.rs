@@ -80,8 +80,36 @@ fn render_timing_display(
 
     // Split text by newlines and render each line separately
     let lines: Vec<&str> = timing_text.lines().collect();
+    if lines.is_empty() {
+        return;
+    }
     let line_height = 14; // Approximate line height for 12pt font
     let padding = 10;
+
+    // Calculate background dimensions
+    let max_width = lines
+        .iter()
+        .filter(|&&l| !l.is_empty()) // Don't consider empty lines for width
+        .map(|line| font.size_of(line).unwrap().0)
+        .max()
+        .unwrap_or(0);
+
+    // Only draw background if there is text to display
+    if max_width > 0 {
+        let total_height = (lines.len() as u32) * line_height as u32;
+        let bg_padding = 5;
+
+        // Draw background
+        let bg_rect = Rect::new(
+            padding - bg_padding,
+            padding - bg_padding,
+            max_width + (bg_padding * 2) as u32,
+            total_height + bg_padding as u32,
+        );
+        canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
+        canvas.set_draw_color(Color::RGBA(40, 40, 40, 180));
+        canvas.fill_rect(bg_rect).unwrap();
+    }
 
     for (i, line) in lines.iter().enumerate() {
         if line.is_empty() {
