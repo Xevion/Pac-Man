@@ -1,8 +1,8 @@
 use bevy_ecs::prelude::Resource;
 use bevy_ecs::system::{IntoSystem, System};
+use circular_buffer::CircularBuffer;
 use micromap::Map;
-use parking_lot::Mutex;
-use std::collections::VecDeque;
+use parking_lot::{Mutex, RwLock};
 use std::time::Duration;
 use thousands::Separable;
 
@@ -10,30 +10,49 @@ const TIMING_WINDOW_SIZE: usize = 30;
 
 #[derive(Resource, Default, Debug)]
 pub struct SystemTimings {
-    pub timings: Mutex<Map<&'static str, VecDeque<Duration>, 15>>,
+    /// Map of system names to a queue of durations, using a circular buffer.
+    ///
+    /// Uses a RwLock to allow multiple readers for the HashMap, and a Mutex on the circular buffer for exclusive access.
+    /// This is probably overkill, but it's fun to play with.
+    ///
+    /// Also, we use a micromap::Map as the number of systems is generally quite small.
+    /// Just make sure to set the capacity appropriately, or it will panic.
+    pub timings: RwLock<Map<&'static str, Mutex<CircularBuffer<TIMING_WINDOW_SIZE, Duration>>, 10>>,
 }
 
 impl SystemTimings {
     pub fn add_timing(&self, name: &'static str, duration: Duration) {
-        let mut timings = self.timings.lock();
-        let queue = timings.entry(name).or_insert_with(VecDeque::new);
+        // acquire a upgradable read lock
+        let mut timings = self.timings.upgradable_read();
 
-        queue.push_back(duration);
-        if queue.len() > TIMING_WINDOW_SIZE {
-            queue.pop_front();
+        // happy path, the name is already in the map (no need to mutate the hashmap)
+        if timings.contains_key(name) {
+            let queue = timings
+                .get(name)
+                .expect("System name not found in map after contains_key check");
+            let mut queue = queue.lock();
+
+            queue.push_back(duration);
+            return;
         }
+
+        // otherwise, acquire a write lock and insert a new queue
+        timings.with_upgraded(|timings| {
+            let queue = timings.entry(name).or_insert_with(|| Mutex::new(CircularBuffer::new()));
+            queue.lock().push_back(duration);
+        });
     }
 
     pub fn get_stats(&self) -> Map<&'static str, (Duration, Duration), 10> {
-        let timings = self.timings.lock();
+        let timings = self.timings.read();
         let mut stats = Map::new();
 
         for (name, queue) in timings.iter() {
-            if queue.is_empty() {
+            if queue.lock().is_empty() {
                 continue;
             }
 
-            let durations: Vec<f64> = queue.iter().map(|d| d.as_secs_f64() * 1000.0).collect();
+            let durations: Vec<f64> = queue.lock().iter().map(|d| d.as_secs_f64() * 1000.0).collect();
             let count = durations.len() as f64;
 
             let sum: f64 = durations.iter().sum();
@@ -55,11 +74,11 @@ impl SystemTimings {
     }
 
     pub fn get_total_stats(&self) -> (Duration, Duration) {
-        let timings = self.timings.lock();
+        let timings = self.timings.read();
         let mut all_durations = Vec::new();
 
         for queue in timings.values() {
-            all_durations.extend(queue.iter().map(|d| d.as_secs_f64() * 1000.0));
+            all_durations.extend(queue.lock().iter().map(|d| d.as_secs_f64() * 1000.0));
         }
 
         if all_durations.is_empty() {

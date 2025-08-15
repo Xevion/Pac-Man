@@ -95,10 +95,6 @@ pub fn format_timing_display(timing_data: Vec<(String, Duration, Duration)>) -> 
         std_unit,
     } in entries.iter()
     {
-        // Add exactly 4 spaces of padding before each number
-        let avg_padding = " ".repeat(4);
-        let std_padding = " ".repeat(4);
-
         output_lines.push(format!(
             "{name:max_name_width$} : {avg_int:max_avg_int_width$}.{avg_decimal:<max_avg_decimal_width$}{avg_unit} ± {std_int:max_std_int_width$}.{std_decimal:<max_std_decimal_width$}{std_unit}"
         ));
