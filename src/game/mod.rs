@@ -7,28 +7,33 @@ use crate::entity::direction::Direction;
 use crate::error::{GameError, GameResult, TextureError};
 use crate::events::GameEvent;
 use crate::map::builder::Map;
-use crate::systems::components::{
-    DeltaTime, DirectionalAnimated, EntityType, GlobalState, PlayerBundle, PlayerControlled, Position, Renderable, Velocity,
+use crate::systems::blinking::Blinking;
+use crate::systems::{
+    blinking::blinking_system,
+    collision::collision_system,
+    components::{
+        Collider, CollisionLayer, DeltaTime, DirectionalAnimated, EntityType, GlobalState, ItemBundle, ItemCollider,
+        PacmanCollider, PlayerBundle, PlayerControlled, Position, Renderable, Score, ScoreResource, Velocity,
+    },
+    control::player_system,
+    input::input_system,
+    movement::movement_system,
+    render::{directional_render_system, render_system, BackbufferResource, MapTextureResource},
 };
-use crate::systems::control::player_system;
-use crate::systems::movement::movement_system;
-use crate::systems::render::{directional_render_system, render_system, BackbufferResource, MapTextureResource};
 use crate::texture::animated::AnimatedTexture;
-use bevy_ecs::event::EventRegistry;
-use bevy_ecs::observer::Trigger;
 use bevy_ecs::schedule::IntoScheduleConfigs;
-use bevy_ecs::system::ResMut;
-use bevy_ecs::{schedule::Schedule, world::World};
+use bevy_ecs::{event::EventRegistry, observer::Trigger, schedule::Schedule, system::ResMut, world::World};
 use sdl2::image::LoadTexture;
 use sdl2::render::{Canvas, ScaleMode, TextureCreator};
 use sdl2::video::{Window, WindowContext};
 use sdl2::EventPump;
 
-use crate::asset::{get_asset_bytes, Asset};
-use crate::map::render::MapRenderer;
-use crate::systems::input::{input_system, Bindings, GameCommand};
 use crate::{
+    asset::{get_asset_bytes, Asset},
     constants,
+    events::GameCommand,
+    map::render::MapRenderer,
+    systems::input::Bindings,
     texture::sprite::{AtlasMapper, SpriteAtlas},
 };
 
@@ -138,12 +143,18 @@ impl Game {
                 sprite: SpriteAtlas::get_tile(&atlas, "pacman/full.png")
                     .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
                 layer: 0,
+                visible: true,
             },
             directional_animated: DirectionalAnimated {
                 textures,
                 stopped_textures,
             },
             entity_type: EntityType::Player,
+            collider: Collider {
+                size: constants::CELL_SIZE as f32 * 1.25,
+                layer: CollisionLayer::PACMAN,
+            },
+            pacman_collider: PacmanCollider,
         };
 
         world.insert_non_send_resource(atlas);
@@ -154,23 +165,29 @@ impl Game {
 
         world.insert_resource(map);
         world.insert_resource(GlobalState { exit: false });
+        world.insert_resource(ScoreResource(0));
         world.insert_resource(Bindings::default());
         world.insert_resource(DeltaTime(0f32));
 
-        world.add_observer(|event: Trigger<GameEvent>, mut state: ResMut<GlobalState>| match *event {
-            GameEvent::Command(command) => match command {
-                GameCommand::Exit => {
-                    state.exit = true;
-                }
-                _ => {}
+        world.add_observer(
+            |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, mut score: ResMut<ScoreResource>| match *event {
+                GameEvent::Command(command) => match command {
+                    GameCommand::Exit => {
+                        state.exit = true;
+                    }
+                    _ => {}
+                },
+                GameEvent::Collision(a, b) => {}
             },
-        });
+        );
 
         schedule.add_systems(
             (
                 input_system,
                 player_system,
                 movement_system,
+                collision_system,
+                blinking_system,
                 directional_render_system,
                 render_system,
             )
@@ -179,6 +196,50 @@ impl Game {
 
         // Spawn player
         world.spawn(player);
+
+        // Spawn items
+        let pellet_sprite = SpriteAtlas::get_tile(world.non_send_resource::<SpriteAtlas>(), "maze/pellet.png")
+            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("maze/pellet.png".to_string())))?;
+        let energizer_sprite = SpriteAtlas::get_tile(world.non_send_resource::<SpriteAtlas>(), "maze/energizer.png")
+            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("maze/energizer.png".to_string())))?;
+
+        let nodes: Vec<_> = world.resource::<Map>().iter_nodes().map(|(id, tile)| (*id, *tile)).collect();
+
+        for (node_id, tile) in nodes {
+            let (item_type, score, sprite, size) = match tile {
+                crate::constants::MapTile::Pellet => (EntityType::Pellet, 10, pellet_sprite, constants::CELL_SIZE as f32 * 0.2),
+                crate::constants::MapTile::PowerPellet => (
+                    EntityType::PowerPellet,
+                    50,
+                    energizer_sprite,
+                    constants::CELL_SIZE as f32 * 0.9,
+                ),
+                _ => continue,
+            };
+
+            let mut item = world.spawn(ItemBundle {
+                position: Position::AtNode(node_id),
+                sprite: Renderable {
+                    sprite,
+                    layer: 1,
+                    visible: true,
+                },
+                entity_type: item_type,
+                score: Score(score),
+                collider: Collider {
+                    size,
+                    layer: CollisionLayer::ITEM,
+                },
+                item_collider: ItemCollider,
+            });
+
+            if item_type == EntityType::PowerPellet {
+                item.insert(Blinking {
+                    timer: 0.0,
+                    interval: 0.2,
+                });
+            }
+        }
 
         Ok(Game { world, schedule })
     }
@@ -213,7 +274,6 @@ impl Game {
     //         match event {
     //             GameEvent::Command(command) => self.handle_command(command),
     //         }
-    //     }
     // }
 
     // /// Resets the game state, randomizing ghost positions and resetting Pac-Man

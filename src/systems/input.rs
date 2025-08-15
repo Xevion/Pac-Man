@@ -1,23 +1,12 @@
 use std::collections::HashMap;
 
-use bevy_ecs::{
-    event::EventWriter,
-    resource::Resource,
-    system::{NonSendMut, Res},
-};
+use bevy_ecs::{event::EventWriter, prelude::Res, resource::Resource, system::NonSendMut};
 use sdl2::{event::Event, keyboard::Keycode, EventPump};
 
-use crate::{entity::direction::Direction, events::GameEvent};
-
-#[derive(Debug, Clone, Copy)]
-pub enum GameCommand {
-    MovePlayer(Direction),
-    Exit,
-    TogglePause,
-    ToggleDebug,
-    MuteAudio,
-    ResetLevel,
-}
+use crate::{
+    entity::direction::Direction,
+    events::{GameCommand, GameEvent},
+};
 
 #[derive(Debug, Clone, Resource)]
 pub struct Bindings {

@@ -33,6 +33,8 @@ pub struct Map {
     pub grid_to_node: HashMap<IVec2, NodeId>,
     /// A mapping of the starting positions of the entities.
     pub start_positions: NodePositions,
+    /// The raw tile data for the map.
+    tiles: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
 }
 
 impl Map {
@@ -153,6 +155,14 @@ impl Map {
             graph,
             grid_to_node,
             start_positions,
+            tiles: map,
+        })
+    }
+
+    pub fn iter_nodes(&self) -> impl Iterator<Item = (&NodeId, &MapTile)> {
+        self.grid_to_node.iter().map(move |(pos, node_id)| {
+            let tile = &self.tiles[pos.x as usize][pos.y as usize];
+            (node_id, tile)
         })
     }
 

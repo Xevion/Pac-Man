@@ -3,6 +3,8 @@
 //! This module contains all the ECS-related logic, including components, systems,
 //! and resources.
 
+pub mod blinking;
+pub mod collision;
 pub mod components;
 pub mod control;
 pub mod input;

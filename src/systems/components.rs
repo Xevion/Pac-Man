@@ -1,4 +1,5 @@
 use bevy_ecs::{bundle::Bundle, component::Component, resource::Resource};
+use bitflags::bitflags;
 use glam::Vec2;
 
 use crate::{
@@ -28,6 +29,7 @@ pub enum EntityType {
 pub struct Renderable {
     pub sprite: AtlasTile,
     pub layer: u8,
+    pub visible: bool,
 }
 
 /// A component for entities that have a directional animated texture.
@@ -62,6 +64,10 @@ impl Position {
     ///
     /// Converts the graph position to screen coordinates, accounting for
     /// the board offset and centering the sprite.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `EntityError` if the node or edge is not found.
     pub fn get_pixel_pos(&self, graph: &Graph) -> GameResult<Vec2> {
         let pos = match self {
             Position::AtNode(node_id) => {
@@ -130,6 +136,34 @@ pub struct Velocity {
     pub speed: f32,
 }
 
+bitflags! {
+    #[derive(Component, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct CollisionLayer: u8 {
+        const PACMAN = 1 << 0;
+        const GHOST = 1 << 1;
+        const ITEM = 1 << 2;
+    }
+}
+
+#[derive(Component)]
+pub struct Collider {
+    pub size: f32,
+    pub layer: CollisionLayer,
+}
+
+/// Marker components for collision filtering optimization
+#[derive(Component)]
+pub struct PacmanCollider;
+
+#[derive(Component)]
+pub struct GhostCollider;
+
+#[derive(Component)]
+pub struct ItemCollider;
+
+#[derive(Component)]
+pub struct Score(pub u32);
+
 #[derive(Bundle)]
 pub struct PlayerBundle {
     pub player: PlayerControlled,
@@ -138,12 +172,27 @@ pub struct PlayerBundle {
     pub sprite: Renderable,
     pub directional_animated: DirectionalAnimated,
     pub entity_type: EntityType,
+    pub collider: Collider,
+    pub pacman_collider: PacmanCollider,
+}
+
+#[derive(Bundle)]
+pub struct ItemBundle {
+    pub position: Position,
+    pub sprite: Renderable,
+    pub entity_type: EntityType,
+    pub score: Score,
+    pub collider: Collider,
+    pub item_collider: ItemCollider,
 }
 
 #[derive(Resource)]
 pub struct GlobalState {
     pub exit: bool,
 }
+
+#[derive(Resource)]
+pub struct ScoreResource(pub u32);
 
 #[derive(Resource)]
 pub struct DeltaTime(pub f32);

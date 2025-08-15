@@ -1,4 +1,4 @@
-use crate::entity::graph::{Edge, EdgePermissions, Graph};
+use crate::entity::graph::{Edge, EdgePermissions};
 use crate::error::{EntityError, GameError};
 use crate::map::builder::Map;
 use crate::systems::components::{DeltaTime, EntityType, Position, Velocity};

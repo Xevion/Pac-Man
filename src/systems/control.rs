@@ -1,16 +1,14 @@
 use bevy_ecs::{
     event::{EventReader, EventWriter},
+    prelude::ResMut,
     query::With,
-    system::{Query, ResMut},
+    system::Query,
 };
 
 use crate::{
     error::GameError,
-    events::GameEvent,
-    systems::{
-        components::{GlobalState, PlayerControlled, Velocity},
-        input::GameCommand,
-    },
+    events::{GameCommand, GameEvent},
+    systems::components::{GlobalState, PlayerControlled, Velocity},
 };
 
 // Handles
@@ -41,6 +39,9 @@ pub fn player_system(
                 }
                 _ => {}
             },
+            GameEvent::Collision(a, b) => {
+                tracing::info!("Collision between {:?} and {:?}", a, b);
+            }
         }
     }
 }
