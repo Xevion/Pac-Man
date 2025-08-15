@@ -4,8 +4,9 @@ use micromap::Map;
 use parking_lot::Mutex;
 use std::collections::VecDeque;
 use std::time::Duration;
+use thousands::Separable;
 
-const TIMING_WINDOW_SIZE: usize = 90; // 1.5 seconds at 60 FPS
+const TIMING_WINDOW_SIZE: usize = 30;
 
 #[derive(Resource, Default, Debug)]
 pub struct SystemTimings {
@@ -76,6 +77,34 @@ impl SystemTimings {
             Duration::from_secs_f64(mean / 1000.0),
             Duration::from_secs_f64(std_dev / 1000.0),
         )
+    }
+
+    pub fn format_timing_display(&self) -> String {
+        let stats = self.get_stats();
+        let (total_avg, total_std) = self.get_total_stats();
+
+        let effective_fps = match 1.0 / total_avg.as_secs_f64() {
+            f if f > 100.0 => (f as u32).separate_with_commas(),
+            f if f < 10.0 => format!("{:.1} FPS", f),
+            f => format!("{:.0} FPS", f),
+        };
+
+        // Collect timing data for formatting
+        let mut timing_data = Vec::new();
+
+        // Add total stats
+        timing_data.push((effective_fps, total_avg, total_std));
+
+        // Add top 5 most expensive systems
+        let mut sorted_stats: Vec<_> = stats.iter().collect();
+        sorted_stats.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+
+        for (name, (avg, std_dev)) in sorted_stats.iter().take(5) {
+            timing_data.push((name.to_string(), *avg, *std_dev));
+        }
+
+        // Use the formatting module to format the data
+        crate::systems::formatting::format_timing_display(timing_data)
     }
 }
 

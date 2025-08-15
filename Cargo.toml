@@ -29,6 +29,8 @@ bitflags = "2.9.1"
 parking_lot = "0.12.3"
 micromap = "0.1.0"
 thousands = "0.2.0"
+pretty_assertions = "1.4.1"
+num-width = "0.1.0"
 
 [profile.release]
 lto = true

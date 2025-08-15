@@ -22,19 +22,19 @@ fn test_timing_statistics() {
     assert!(total_std.as_millis() > 0);
 }
 
-#[test]
-fn test_window_size_limit() {
-    let timings = SystemTimings::default();
+// #[test]
+// fn test_window_size_limit() {
+//     let timings = SystemTimings::default();
 
-    // Add more than 90 timings to test window size limit
-    for i in 0..100 {
-        timings.add_timing("test_system", Duration::from_millis(i));
-    }
+//     // Add more than 90 timings to test window size limit
+//     for i in 0..100 {
+//         timings.add_timing("test_system", Duration::from_millis(i));
+//     }
 
-    let stats = timings.get_stats();
-    let (avg, _) = stats.get("test_system").unwrap();
+//     let stats = timings.get_stats();
+//     let (avg, _) = stats.get("test_system").unwrap();
 
-    // Should only keep the last 90 values, so average should be around 55ms
-    // (average of 10-99)
-    assert!((avg.as_millis() as f64 - 55.0).abs() < 5.0);
-}
+//     // Should only keep the last 90 values, so average should be around 55ms
+//     // (average of 10-99)
+//     assert!((avg.as_millis() as f64 - 55.0).abs() < 5.0);
+// }

@@ -8,6 +8,7 @@ pub mod collision;
 pub mod components;
 pub mod control;
 pub mod debug;
+pub mod formatting;
 pub mod input;
 pub mod movement;
 pub mod profiling;

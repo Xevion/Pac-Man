@@ -3,12 +3,13 @@ use crate::constants::BOARD_PIXEL_OFFSET;
 use crate::map::builder::Map;
 use crate::systems::components::Collider;
 use crate::systems::movement::Position;
+use crate::systems::profiling::SystemTimings;
 use crate::systems::render::BackbufferResource;
 use bevy_ecs::prelude::*;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
-use sdl2::render::{Canvas, Texture};
-use sdl2::video::Window;
+use sdl2::render::{Canvas, Texture, TextureCreator};
+use sdl2::video::{Window, WindowContext};
 
 #[derive(Resource, Default, Debug, Copy, Clone, PartialEq)]
 pub enum DebugState {
@@ -62,11 +63,48 @@ fn transform_size(size: f32, output_size: (u32, u32), logical_size: (u32, u32)) 
     (size * scale) as u32
 }
 
+/// Renders timing information in the top-left corner of the screen
+fn render_timing_display(
+    canvas: &mut Canvas<Window>,
+    texture_creator: &mut TextureCreator<WindowContext>,
+    timings: &SystemTimings,
+) {
+    // Get TTF context
+    let ttf_context = sdl2::ttf::init().unwrap();
+
+    // Load font
+    let font = ttf_context.load_font("assets/site/TerminalVector.ttf", 12).unwrap();
+
+    // Format timing information using the formatting module
+    let timing_text = timings.format_timing_display();
+
+    // Split text by newlines and render each line separately
+    let lines: Vec<&str> = timing_text.lines().collect();
+    let line_height = 14; // Approximate line height for 12pt font
+    let padding = 10;
+
+    for (i, line) in lines.iter().enumerate() {
+        if line.is_empty() {
+            continue;
+        }
+
+        // Render each line
+        let surface = font.render(line).blended(Color::RGBA(255, 255, 255, 200)).unwrap();
+        let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
+
+        // Position each line below the previous one
+        let y_pos = padding + (i * line_height) as i32;
+        let dest = Rect::new(padding, y_pos, texture.query().width, texture.query().height);
+        canvas.copy(&texture, None, dest).unwrap();
+    }
+}
+
 pub fn debug_render_system(
     mut canvas: NonSendMut<&mut Canvas<Window>>,
     backbuffer: NonSendMut<BackbufferResource>,
     mut debug_texture: NonSendMut<DebugTextureResource>,
     debug_state: Res<DebugState>,
+    timings: Res<SystemTimings>,
     map: Res<Map>,
     colliders: Query<(&Collider, &Position)>,
 ) {
@@ -90,51 +128,59 @@ pub fn debug_render_system(
         })
         .unwrap();
 
+    // Get texture creator before entering the closure to avoid borrowing conflicts
+    let mut texture_creator = canvas.texture_creator();
+
     // Draw debug info on the high-resolution debug texture
     canvas
-        .with_texture_canvas(&mut debug_texture.0, |debug_canvas| match *debug_state {
-            DebugState::Graph => {
-                debug_canvas.set_draw_color(Color::RED);
-                for (start_node, end_node) in map.graph.edges() {
-                    let start_node = map.graph.get_node(start_node).unwrap().position;
-                    let end_node = map.graph.get_node(end_node.target).unwrap().position;
+        .with_texture_canvas(&mut debug_texture.0, |debug_canvas| {
+            match *debug_state {
+                DebugState::Graph => {
+                    debug_canvas.set_draw_color(Color::RED);
+                    for (start_node, end_node) in map.graph.edges() {
+                        let start_node = map.graph.get_node(start_node).unwrap().position;
+                        let end_node = map.graph.get_node(end_node.target).unwrap().position;
 
-                    // Transform positions using common method
-                    let (start_x, start_y) =
-                        transform_position_with_offset((start_node.x, start_node.y), output_size, logical_size);
-                    let (end_x, end_y) = transform_position_with_offset((end_node.x, end_node.y), output_size, logical_size);
+                        // Transform positions using common method
+                        let (start_x, start_y) =
+                            transform_position_with_offset((start_node.x, start_node.y), output_size, logical_size);
+                        let (end_x, end_y) = transform_position_with_offset((end_node.x, end_node.y), output_size, logical_size);
 
-                    debug_canvas.draw_line((start_x, start_y), (end_x, end_y)).unwrap();
+                        debug_canvas.draw_line((start_x, start_y), (end_x, end_y)).unwrap();
+                    }
+
+                    debug_canvas.set_draw_color(Color::BLUE);
+                    for node in map.graph.nodes() {
+                        let pos = node.position;
+
+                        // Transform position using common method
+                        let (x, y) = transform_position_with_offset((pos.x, pos.y), output_size, logical_size);
+                        let size = transform_size(4.0, output_size, logical_size);
+
+                        debug_canvas
+                            .fill_rect(Rect::new(x - (size as i32 / 2), y - (size as i32 / 2), size, size))
+                            .unwrap();
+                    }
                 }
+                DebugState::Collision => {
+                    debug_canvas.set_draw_color(Color::GREEN);
+                    for (collider, position) in colliders.iter() {
+                        let pos = position.get_pixel_pos(&map.graph).unwrap();
 
-                debug_canvas.set_draw_color(Color::BLUE);
-                for node in map.graph.nodes() {
-                    let pos = node.position;
+                        // Transform position and size using common methods
+                        let (x, y) = transform_position((pos.x, pos.y), output_size, logical_size);
+                        let size = transform_size(collider.size, output_size, logical_size);
 
-                    // Transform position using common method
-                    let (x, y) = transform_position_with_offset((pos.x, pos.y), output_size, logical_size);
-                    let size = transform_size(4.0, output_size, logical_size);
-
-                    debug_canvas
-                        .fill_rect(Rect::new(x - (size as i32 / 2), y - (size as i32 / 2), size, size))
-                        .unwrap();
+                        // Center the collision box on the entity
+                        let rect = Rect::new(x - (size as i32 / 2), y - (size as i32 / 2), size, size);
+                        debug_canvas.draw_rect(rect).unwrap();
+                    }
                 }
+                _ => {}
             }
-            DebugState::Collision => {
-                debug_canvas.set_draw_color(Color::GREEN);
-                for (collider, position) in colliders.iter() {
-                    let pos = position.get_pixel_pos(&map.graph).unwrap();
 
-                    // Transform position and size using common methods
-                    let (x, y) = transform_position((pos.x, pos.y), output_size, logical_size);
-                    let size = transform_size(collider.size, output_size, logical_size);
-
-                    // Center the collision box on the entity
-                    let rect = Rect::new(x - (size as i32 / 2), y - (size as i32 / 2), size, size);
-                    debug_canvas.draw_rect(rect).unwrap();
-                }
-            }
-            _ => {}
+            // Render timing information in the top-left corner
+            render_timing_display(debug_canvas, &mut texture_creator, &timings);
         })
         .unwrap();
 

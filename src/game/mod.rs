@@ -222,7 +222,7 @@ impl Game {
                      backbuffer: NonSendMut<BackbufferResource>,
                      debug_state: Res<DebugState>,
                      mut dirty: ResMut<RenderDirty>| {
-                        if dirty.0 {
+                        if dirty.0 || *debug_state != DebugState::Off {
                             // Only copy backbuffer to main canvas if debug rendering is off
                             // (debug rendering draws directly to main canvas)
                             if *debug_state == DebugState::Off {
