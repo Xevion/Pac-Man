@@ -1,7 +1,7 @@
-use crate::ecs::components::{DeltaTime, PlayerControlled, Position, Velocity};
 use crate::entity::graph::EdgePermissions;
 use crate::error::{EntityError, GameError};
 use crate::map::builder::Map;
+use crate::systems::components::{DeltaTime, PlayerControlled, Position, Velocity};
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::{Query, Res};
 

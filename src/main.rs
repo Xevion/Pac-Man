@@ -10,7 +10,6 @@ mod asset;
 mod audio;
 mod constants;
 
-mod ecs;
 mod entity;
 mod error;
 mod game;
@@ -18,6 +17,7 @@ mod helpers;
 mod input;
 mod map;
 mod platform;
+mod systems;
 mod texture;
 
 /// The main entry point of the application.

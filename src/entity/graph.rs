@@ -1,6 +1,6 @@
 use glam::Vec2;
 
-use crate::ecs::components::NodeId;
+use crate::systems::components::NodeId;
 
 use super::direction::Direction;
 

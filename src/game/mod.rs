@@ -3,16 +3,16 @@
 include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 
 use crate::constants::CANVAS_SIZE;
-use crate::ecs::components::{
-    DeltaTime, DirectionalAnimated, GlobalState, PlayerBundle, PlayerControlled, Position, Renderable, Velocity,
-};
-use crate::ecs::interact::interact_system;
-use crate::ecs::movement::movement_system;
-use crate::ecs::render::{directional_render_system, render_system, BackbufferResource, MapTextureResource};
 use crate::entity::direction::Direction;
 use crate::error::{GameError, GameResult, TextureError};
 use crate::input::commands::GameCommand;
 use crate::map::builder::Map;
+use crate::systems::components::{
+    DeltaTime, DirectionalAnimated, GlobalState, PlayerBundle, PlayerControlled, Position, Renderable, Velocity,
+};
+use crate::systems::interact::interact_system;
+use crate::systems::movement::movement_system;
+use crate::systems::render::{directional_render_system, render_system, BackbufferResource, MapTextureResource};
 use crate::texture::animated::AnimatedTexture;
 use bevy_ecs::event::EventRegistry;
 use bevy_ecs::observer::Trigger;

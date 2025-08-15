@@ -4,10 +4,10 @@ use bevy_ecs::{
 };
 
 use crate::{
-    ecs::components::{GlobalState, PlayerControlled, Velocity},
     error::GameError,
     game::events::GameEvent,
     input::commands::GameCommand,
+    systems::components::{GlobalState, PlayerControlled, Velocity},
 };
 
 // Handles

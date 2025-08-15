@@ -1,11 +1,11 @@
 //! Map construction and building functionality.
 
 use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE};
-use crate::ecs::components::NodeId;
 use crate::entity::direction::Direction;
 use crate::entity::graph::{EdgePermissions, Graph, Node};
 use crate::map::parser::MapTileParser;
 use crate::map::render::MapRenderer;
+use crate::systems::components::NodeId;
 use crate::texture::sprite::SpriteAtlas;
 use bevy_ecs::resource::Resource;
 use glam::{IVec2, Vec2};
