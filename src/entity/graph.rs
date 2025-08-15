@@ -223,6 +223,19 @@ impl Graph {
         self.nodes.len()
     }
 
+    /// Returns an iterator over all nodes in the graph.
+    pub fn nodes(&self) -> impl Iterator<Item = &Node> {
+        self.nodes.iter()
+    }
+
+    /// Returns an iterator over all edges in the graph.
+    pub fn edges(&self) -> impl Iterator<Item = (NodeId, Edge)> + '_ {
+        self.adjacency_list
+            .iter()
+            .enumerate()
+            .flat_map(|(node_id, intersection)| intersection.edges().map(move |edge| (node_id, edge)))
+    }
+
     /// Finds a specific edge from a source node to a target node.
     pub fn find_edge(&self, from: NodeId, to: NodeId) -> Option<Edge> {
         self.adjacency_list.get(from)?.edges().find(|edge| edge.target == to)

@@ -17,6 +17,7 @@ use crate::systems::{
         PacmanCollider, PlayerBundle, PlayerControlled, RenderDirty, Renderable, Score, ScoreResource,
     },
     control::player_system,
+    debug::{debug_render_system, DebugState, DebugTextureResource},
     input::input_system,
     movement::movement_system,
     profiling::{profile, SystemTimings},
@@ -24,7 +25,14 @@ use crate::systems::{
 };
 use crate::texture::animated::AnimatedTexture;
 use bevy_ecs::schedule::IntoScheduleConfigs;
-use bevy_ecs::{event::EventRegistry, observer::Trigger, schedule::Schedule, system::ResMut, world::World};
+use bevy_ecs::system::NonSendMut;
+use bevy_ecs::{
+    event::EventRegistry,
+    observer::Trigger,
+    schedule::Schedule,
+    system::{Res, ResMut},
+    world::World,
+};
 use sdl2::image::LoadTexture;
 use sdl2::render::{Canvas, ScaleMode, TextureCreator};
 use sdl2::video::{Window, WindowContext};
@@ -71,6 +79,13 @@ impl Game {
             .create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
         map_texture.set_scale_mode(ScaleMode::Nearest);
+
+        // Create debug texture at output resolution for crisp debug rendering
+        let output_size = canvas.output_size().unwrap();
+        let mut debug_texture = texture_creator
+            .create_texture_target(None, output_size.0, output_size.1)
+            .map_err(|e| GameError::Sdl(e.to_string()))?;
+        debug_texture.set_scale_mode(ScaleMode::Nearest);
 
         // Load atlas and create map texture
         let atlas_bytes = get_asset_bytes(Asset::Atlas)?;
@@ -157,7 +172,7 @@ impl Game {
             },
             entity_type: EntityType::Player,
             collider: Collider {
-                size: constants::CELL_SIZE as f32 * 1.25,
+                size: constants::CELL_SIZE as f32 * 1.1,
                 layer: CollisionLayer::PACMAN,
             },
             pacman_collider: PacmanCollider,
@@ -168,6 +183,7 @@ impl Game {
         world.insert_non_send_resource(canvas);
         world.insert_non_send_resource(BackbufferResource(backbuffer));
         world.insert_non_send_resource(MapTextureResource(map_texture));
+        world.insert_non_send_resource(DebugTextureResource(debug_texture));
 
         world.insert_resource(map);
         world.insert_resource(GlobalState { exit: false });
@@ -176,6 +192,7 @@ impl Game {
         world.insert_resource(Bindings::default());
         world.insert_resource(DeltaTime(0f32));
         world.insert_resource(RenderDirty::default());
+        world.insert_resource(DebugState::default());
 
         world.add_observer(
             |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| match *event {
@@ -188,7 +205,6 @@ impl Game {
                 GameEvent::Collision(_a, _b) => {}
             },
         );
-
         schedule.add_systems(
             (
                 profile("input", input_system),
@@ -197,11 +213,29 @@ impl Game {
                 profile("collision", collision_system),
                 profile("blinking", blinking_system),
                 profile("directional_render", directional_render_system),
+                profile("dirty_render", dirty_render_system),
+                profile("render", render_system),
+                profile("debug_render", debug_render_system),
+                profile(
+                    "present",
+                    |mut canvas: NonSendMut<&mut Canvas<Window>>,
+                     backbuffer: NonSendMut<BackbufferResource>,
+                     debug_state: Res<DebugState>,
+                     mut dirty: ResMut<RenderDirty>| {
+                        if dirty.0 {
+                            // Only copy backbuffer to main canvas if debug rendering is off
+                            // (debug rendering draws directly to main canvas)
+                            if *debug_state == DebugState::Off {
+                                canvas.copy(&backbuffer.0, None, None).unwrap();
+                            }
+                            dirty.0 = false;
+                            canvas.present();
+                        }
+                    },
+                ),
             )
                 .chain(),
         );
-        schedule.add_systems((profile("dirty_render", dirty_render_system), profile("render", render_system)).chain());
-
         // Spawn player
         world.spawn(player);
 

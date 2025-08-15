@@ -9,6 +9,7 @@ use crate::{
     error::GameError,
     events::{GameCommand, GameEvent},
     systems::components::{GlobalState, PlayerControlled},
+    systems::debug::DebugState,
     systems::movement::Movable,
 };
 
@@ -16,6 +17,7 @@ use crate::{
 pub fn player_system(
     mut events: EventReader<GameEvent>,
     mut state: ResMut<GlobalState>,
+    mut debug_state: ResMut<DebugState>,
     mut players: Query<&mut Movable, With<PlayerControlled>>,
     mut errors: EventWriter<GameError>,
 ) {
@@ -37,6 +39,9 @@ pub fn player_system(
                 }
                 GameCommand::Exit => {
                     state.exit = true;
+                }
+                GameCommand::ToggleDebug => {
+                    *debug_state = debug_state.next();
                 }
                 _ => {}
             }

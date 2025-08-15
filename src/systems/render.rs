@@ -65,17 +65,13 @@ pub fn render_system(
     mut backbuffer: NonSendMut<BackbufferResource>,
     mut atlas: NonSendMut<SpriteAtlas>,
     map: Res<Map>,
-    mut dirty: ResMut<RenderDirty>,
+    dirty: Res<RenderDirty>,
     renderables: Query<(Entity, &Renderable, &Position)>,
     mut errors: EventWriter<GameError>,
 ) {
     if !dirty.0 {
         return;
     }
-    // Clear the main canvas first
-    canvas.set_draw_color(sdl2::pixels::Color::BLACK);
-    canvas.clear();
-
     // Render to backbuffer
     canvas
         .with_texture_canvas(&mut backbuffer.0, |backbuffer_canvas| {
@@ -116,14 +112,4 @@ pub fn render_system(
         })
         .err()
         .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
-
-    // Copy backbuffer to main canvas and present
-    canvas
-        .copy(&backbuffer.0, None, None)
-        .err()
-        .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
-
-    canvas.present();
-
-    dirty.0 = false;
 }
