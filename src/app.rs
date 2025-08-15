@@ -17,7 +17,7 @@ pub struct App {
     pub game: Game,
     last_tick: Instant,
     focused: bool,
-    cursor_pos: Vec2,
+    _cursor_pos: Vec2,
 }
 
 impl App {
@@ -46,7 +46,7 @@ impl App {
             .build()
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
-        let mut canvas = Box::leak(Box::new(
+        let canvas = Box::leak(Box::new(
             window
                 .into_canvas()
                 .accelerated()
@@ -74,7 +74,7 @@ impl App {
             game,
             focused: true,
             last_tick: Instant::now(),
-            cursor_pos: Vec2::ZERO,
+            _cursor_pos: Vec2::ZERO,
         })
     }
 

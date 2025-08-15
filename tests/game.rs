@@ -1,7 +1,6 @@
 use pacman::constants::RAW_BOARD;
 use pacman::map::builder::Map;
 
-mod collision;
 mod item;
 
 #[test]

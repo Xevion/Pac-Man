@@ -5,4 +5,3 @@ pub mod graph;
 pub mod item;
 pub mod pacman;
 pub mod r#trait;
-pub mod traversal;

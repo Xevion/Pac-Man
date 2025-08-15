@@ -1,8 +1,5 @@
-use sdl2::rect::Rect;
-use sdl2::render::{Canvas, RenderTarget};
-
 use crate::error::{AnimatedTextureError, GameError, GameResult, TextureError};
-use crate::texture::sprite::{AtlasTile, SpriteAtlas};
+use crate::texture::sprite::AtlasTile;
 
 #[derive(Debug, Clone)]
 pub struct AnimatedTexture {
@@ -38,12 +35,6 @@ impl AnimatedTexture {
 
     pub fn current_tile(&self) -> &AtlasTile {
         &self.tiles[self.current_frame]
-    }
-
-    pub fn render<T: RenderTarget>(&self, canvas: &mut Canvas<T>, atlas: &mut SpriteAtlas, dest: Rect) -> GameResult<()> {
-        let mut tile = *self.current_tile();
-        tile.render(canvas, atlas, dest)?;
-        Ok(())
     }
 
     /// Returns the current frame index.

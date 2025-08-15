@@ -1,6 +1,5 @@
 use pacman::entity::direction::Direction;
 use pacman::entity::graph::{EdgePermissions, Graph, Node};
-use pacman::entity::traversal::{Position, Traverser};
 
 fn create_test_graph() -> Graph {
     let mut graph = Graph::new();
@@ -149,69 +148,4 @@ fn should_find_edge_between_nodes() {
 
     let non_existent_edge = graph.find_edge(0, 99);
     assert!(non_existent_edge.is_none());
-}
-
-#[test]
-fn test_traverser_basic() {
-    let graph = create_test_graph();
-    let mut traverser = Traverser::new(&graph, 0, Direction::Left, &|_| true);
-
-    traverser.set_next_direction(Direction::Up);
-    assert!(traverser.next_direction.is_some());
-    assert_eq!(traverser.next_direction.unwrap().0, Direction::Up);
-}
-
-#[test]
-fn test_traverser_advance() {
-    let graph = create_test_graph();
-    let mut traverser = Traverser::new(&graph, 0, Direction::Right, &|_| true);
-
-    traverser.advance(&graph, 5.0, &|_| true).unwrap();
-
-    match traverser.position {
-        Position::BetweenNodes { from, to, traversed } => {
-            assert_eq!(from, 0);
-            assert_eq!(to, 1);
-            assert_eq!(traversed, 5.0);
-        }
-        _ => panic!("Expected to be between nodes"),
-    }
-
-    traverser.advance(&graph, 3.0, &|_| true).unwrap();
-
-    match traverser.position {
-        Position::BetweenNodes { from, to, traversed } => {
-            assert_eq!(from, 0);
-            assert_eq!(to, 1);
-            assert_eq!(traversed, 8.0);
-        }
-        _ => panic!("Expected to be between nodes"),
-    }
-}
-
-#[test]
-fn test_traverser_with_permissions() {
-    let mut graph = Graph::new();
-    let node1 = graph.add_node(Node {
-        position: glam::Vec2::new(0.0, 0.0),
-    });
-    let node2 = graph.add_node(Node {
-        position: glam::Vec2::new(16.0, 0.0),
-    });
-
-    graph
-        .add_edge(node1, node2, false, None, Direction::Right, EdgePermissions::GhostsOnly)
-        .unwrap();
-
-    // Pacman can't traverse ghost-only edges
-    let mut traverser = Traverser::new(&graph, node1, Direction::Right, &|edge| {
-        matches!(edge.permissions, EdgePermissions::All)
-    });
-
-    traverser
-        .advance(&graph, 5.0, &|edge| matches!(edge.permissions, EdgePermissions::All))
-        .unwrap();
-
-    // Should still be at the node since it can't traverse
-    assert!(traverser.position.is_at_node());
 }

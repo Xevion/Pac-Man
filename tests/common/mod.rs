@@ -2,7 +2,7 @@
 
 use pacman::{
     asset::{get_asset_bytes, Asset},
-    game::state::ATLAS_FRAMES,
+    game::ATLAS_FRAMES,
     texture::sprite::{AtlasMapper, SpriteAtlas},
 };
 use sdl2::{
