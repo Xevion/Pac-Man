@@ -87,7 +87,11 @@ pub fn render_system(
             }
 
             // Render all entities to the backbuffer
-            for (_, renderable, position) in renderables.iter() {
+            for (_, renderable, position) in renderables
+                .iter()
+                .sort_by_key::<(Entity, &Renderable, &Position), _>(|(_, renderable, _)| renderable.layer)
+                .rev()
+            {
                 if !renderable.visible {
                     continue;
                 }
