@@ -60,7 +60,6 @@ bitflags! {
 #[derive(Component)]
 pub struct Collider {
     pub size: f32,
-    pub layer: CollisionLayer,
 }
 
 /// Marker components for collision filtering optimization
@@ -72,9 +71,6 @@ pub struct GhostCollider;
 
 #[derive(Component)]
 pub struct ItemCollider;
-
-#[derive(Component)]
-pub struct Score(pub u32);
 
 #[derive(Bundle)]
 pub struct PlayerBundle {
@@ -94,7 +90,6 @@ pub struct ItemBundle {
     pub position: Position,
     pub sprite: Renderable,
     pub entity_type: EntityType,
-    pub score: Score,
     pub collider: Collider,
     pub item_collider: ItemCollider,
 }

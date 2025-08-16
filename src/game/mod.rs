@@ -13,8 +13,8 @@ use crate::systems::{
     blinking::blinking_system,
     collision::collision_system,
     components::{
-        Collider, CollisionLayer, DeltaTime, DirectionalAnimated, EntityType, GlobalState, ItemBundle, ItemCollider,
-        PacmanCollider, PlayerBundle, PlayerControlled, RenderDirty, Renderable, Score, ScoreResource,
+        Collider, DeltaTime, DirectionalAnimated, EntityType, GlobalState, ItemBundle, ItemCollider, PacmanCollider,
+        PlayerBundle, PlayerControlled, RenderDirty, Renderable, ScoreResource,
     },
     control::player_system,
     debug::{debug_render_system, DebugState, DebugTextureResource},
@@ -174,7 +174,6 @@ impl Game {
             entity_type: EntityType::Player,
             collider: Collider {
                 size: constants::CELL_SIZE as f32 * 1.375,
-                layer: CollisionLayer::PACMAN,
             },
             pacman_collider: PacmanCollider,
         };
@@ -196,14 +195,10 @@ impl Game {
         world.insert_resource(DebugState::default());
 
         world.add_observer(
-            |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| match *event {
-                GameEvent::Command(command) => match command {
-                    GameCommand::Exit => {
-                        state.exit = true;
-                    }
-                    _ => {}
-                },
-                GameEvent::Collision(_a, _b) => {}
+            |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| {
+                if matches!(*event, GameEvent::Command(GameCommand::Exit)) {
+                    state.exit = true;
+                }
             },
         );
         schedule.add_systems(
@@ -238,6 +233,7 @@ impl Game {
             )
                 .chain(),
         );
+
         // Spawn player
         world.spawn(player);
 
@@ -250,14 +246,11 @@ impl Game {
         let nodes: Vec<_> = world.resource::<Map>().iter_nodes().map(|(id, tile)| (*id, *tile)).collect();
 
         for (node_id, tile) in nodes {
-            let (item_type, score, sprite, size) = match tile {
-                crate::constants::MapTile::Pellet => (EntityType::Pellet, 10, pellet_sprite, constants::CELL_SIZE as f32 * 0.4),
-                crate::constants::MapTile::PowerPellet => (
-                    EntityType::PowerPellet,
-                    50,
-                    energizer_sprite,
-                    constants::CELL_SIZE as f32 * 0.95,
-                ),
+            let (item_type, sprite, size) = match tile {
+                crate::constants::MapTile::Pellet => (EntityType::Pellet, pellet_sprite, constants::CELL_SIZE as f32 * 0.4),
+                crate::constants::MapTile::PowerPellet => {
+                    (EntityType::PowerPellet, energizer_sprite, constants::CELL_SIZE as f32 * 0.95)
+                }
                 _ => continue,
             };
 
@@ -272,11 +265,7 @@ impl Game {
                     visible: true,
                 },
                 entity_type: item_type,
-                score: Score(score),
-                collider: Collider {
-                    size,
-                    layer: CollisionLayer::ITEM,
-                },
+                collider: Collider { size },
                 item_collider: ItemCollider,
             });
 
@@ -290,78 +279,6 @@ impl Game {
 
         Ok(Game { world, schedule })
     }
-
-    // fn handle_command(&mut self, command: crate::input::commands::GameCommand) {
-    //     use crate::input::commands::GameCommand;
-    //     match command {
-    //         GameCommand::MovePlayer(direction) => {
-    //             self.state.pacman.set_next_direction(direction);
-    //         }
-    //         GameCommand::ToggleDebug => {
-    //             self.toggle_debug_mode();
-    //         }
-    //         GameCommand::MuteAudio => {
-    //             let is_muted = self.state.audio.is_muted();
-    //             self.state.audio.set_mute(!is_muted);
-    //         }
-    //         GameCommand::ResetLevel => {
-    //             if let Err(e) = self.reset_game_state() {
-    //                 tracing::error!("Failed to reset game state: {}", e);
-    //             }
-    //         }
-    //         GameCommand::TogglePause => {
-    //             self.state.paused = !self.state.paused;
-    //         }
-    //         GameCommand::Exit => {}
-    //     }
-    // }
-
-    // fn process_events(&mut self) {
-    //     while let Some(event) = self.state.event_queue.pop_front() {
-    //         match event {
-    //             GameEvent::Command(command) => self.handle_command(command),
-    //         }
-    // }
-
-    // /// Resets the game state, randomizing ghost positions and resetting Pac-Man
-    // fn reset_game_state(&mut self) -> GameResult<()> {
-    //     let pacman_start_node = self.state.map.start_positions.pacman;
-    //     self.state.pacman = Pacman::new(&self.state.map.graph, pacman_start_node, &self.state.atlas)?;
-
-    //     // Reset items
-    //     self.state.items = self.state.map.generate_items(&self.state.atlas)?;
-
-    //     // Randomize ghost positions
-    //     let ghost_types = [GhostType::Blinky, GhostType::Pinky, GhostType::Inky, GhostType::Clyde];
-    //     let mut rng = SmallRng::from_os_rng();
-
-    //     for (i, ghost) in self.state.ghosts.iter_mut().enumerate() {
-    //         let random_node = rng.random_range(0..self.state.map.graph.node_count());
-    //         *ghost = Ghost::new(&self.state.map.graph, random_node, ghost_types[i], &self.state.atlas)?;
-    //     }
-
-    //     // Reset collision system
-    //     self.state.collision_system = CollisionSystem::default();
-
-    //     // Re-register Pac-Man
-    //     self.state.pacman_id = self.state.collision_system.register_entity(self.state.pacman.position());
-
-    //     // Re-register items
-    //     self.state.item_ids.clear();
-    //     for item in &self.state.items {
-    //         let item_id = self.state.collision_system.register_entity(item.position());
-    //         self.state.item_ids.push(item_id);
-    //     }
-
-    //     // Re-register ghosts
-    //     self.state.ghost_ids.clear();
-    //     for ghost in &self.state.ghosts {
-    //         let ghost_id = self.state.collision_system.register_entity(ghost.position());
-    //         self.state.ghost_ids.push(ghost_id);
-    //     }
-
-    //     Ok(())
-    // }
 
     /// Ticks the game state.
     ///
@@ -377,51 +294,8 @@ impl Game {
             .get_resource::<GlobalState>()
             .expect("GlobalState could not be acquired");
 
-        return state.exit;
-
-        // // Process any events that have been posted (such as unpausing)
-        // self.process_events();
-
-        // // If the game is paused, we don't need to do anything beyond returning
-        // if self.state.paused {
-        //     return false;
-        // }
-
-        // self.schedule.run(&mut self.world);
-
-        // self.state.pacman.tick(dt, &self.state.map.graph);
-
-        // // Update all ghosts
-        // for ghost in &mut self.state.ghosts {
-        //     ghost.tick(dt, &self.state.map.graph);
-        // }
-
-        // // Update collision system positions
-        // self.update_collision_positions();
-
-        // // Check for collisions
-        // self.check_collisions();
+        state.exit
     }
-
-    // /// Toggles the debug mode on and off.
-    // ///
-    // /// When debug mode is enabled, the game will render additional information
-    // /// that is useful for debugging, such as the collision grid and entity paths.
-    // pub fn toggle_debug_mode(&mut self) {
-    //     self.state.debug_mode = !self.state.debug_mode;
-    // }
-
-    // fn update_collision_positions(&mut self) {
-    //     // Update Pac-Man's position
-    //     self.state
-    //         .collision_system
-    //         .update_position(self.state.pacman_id, self.state.pacman.position());
-
-    //     // Update ghost positions
-    //     for (ghost, &ghost_id) in self.state.ghosts.iter().zip(&self.state.ghost_ids) {
-    //         self.state.collision_system.update_position(ghost_id, ghost.position());
-    //     }
-    // }
 
     // fn check_collisions(&mut self) {
     //     // Check Pac-Man vs Items

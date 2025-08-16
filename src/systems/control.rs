@@ -25,7 +25,10 @@ pub fn player_system(
     let mut movable = match players.single_mut() {
         Ok(movable) => movable,
         Err(e) => {
-            errors.write(GameError::InvalidState(format!("No/multiple entities queried for player system: {}", e)).into());
+            errors.write(GameError::InvalidState(format!(
+                "No/multiple entities queried for player system: {}",
+                e
+            )));
             return;
         }
     };

@@ -1,6 +1,4 @@
-use itertools::izip;
 use pacman::systems::formatting::format_timing_display;
-use smallvec::SmallVec;
 use std::time::Duration;
 
 use pretty_assertions::assert_eq;
@@ -56,7 +54,7 @@ fn test_formatting_alignment() {
 
     // Assert that all positions were found
     assert_eq!(
-        vec![
+        [
             &colon_positions,
             &first_decimal_positions,
             &second_decimal_positions,

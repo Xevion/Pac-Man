@@ -20,7 +20,7 @@ pub struct EdgeProgress {
 }
 
 /// Pure spatial position component - works for both static and dynamic entities.
-#[derive(Component, Debug, Copy, Clone, PartialEq)]
+#[derive(Component, Debug, Copy, Clone, PartialEq, Default)]
 pub struct Position {
     /// The current/primary node this entity is at or traveling from
     pub node: NodeId,
@@ -29,10 +29,13 @@ pub struct Position {
 }
 
 /// Explicit movement state - only for entities that can move.
-#[derive(Component, Debug, Clone, Copy, PartialEq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Default)]
 pub enum MovementState {
+    #[default]
     Stopped,
-    Moving { direction: Direction },
+    Moving {
+        direction: Direction,
+    },
 }
 
 /// Movement capability and parameters - only for entities that can move.
@@ -80,15 +83,6 @@ impl Position {
             pos.x + crate::constants::BOARD_PIXEL_OFFSET.x as f32,
             pos.y + crate::constants::BOARD_PIXEL_OFFSET.y as f32,
         ))
-    }
-}
-
-impl Default for Position {
-    fn default() -> Self {
-        Position {
-            node: 0,
-            edge_progress: None,
-        }
     }
 }
 

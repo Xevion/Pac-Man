@@ -10,6 +10,7 @@ use bevy_ecs::system::{NonSendMut, Query, Res, ResMut};
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 
+#[allow(clippy::type_complexity)]
 pub fn dirty_render_system(
     mut dirty: ResMut<RenderDirty>,
     changed_renderables: Query<(), Or<(Changed<Renderable>, Changed<Position>)>>,
@@ -47,7 +48,7 @@ pub fn directional_render_system(
                 renderable.sprite = new_tile;
             }
         } else {
-            errors.write(TextureError::RenderFailed(format!("Entity has no texture")).into());
+            errors.write(TextureError::RenderFailed("Entity has no texture".to_string()).into());
             continue;
         }
     }
@@ -59,6 +60,7 @@ pub struct MapTextureResource(pub Texture<'static>);
 /// A non-send resource for the backbuffer texture. This just wraps the texture with a type so it can be differentiated when exposed as a resource.
 pub struct BackbufferResource(pub Texture<'static>);
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_system(
     mut canvas: NonSendMut<&mut Canvas<Window>>,
     map_texture: NonSendMut<MapTextureResource>,
@@ -105,7 +107,7 @@ pub fn render_system(
                             .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
                     }
                     Err(e) => {
-                        errors.write(e.into());
+                        errors.write(e);
                     }
                 }
             }

@@ -1,6 +1,6 @@
 use num_width::NumberWidth;
 use smallvec::SmallVec;
-use std::{iter, time::Duration};
+use std::time::Duration;
 
 // Helper to split a duration into a integer, decimal, and unit
 fn get_value(duration: &Duration) -> (u64, u32, &'static str) {
@@ -50,7 +50,7 @@ pub fn format_timing_display(timing_data: impl IntoIterator<Item = (String, Dura
         std_unit: &'static str,
     }
 
-    let mut entries = iter
+    let entries = iter
         .map(|(name, avg, std_dev)| {
             let (avg_int, avg_decimal, avg_unit) = get_value(&avg);
             let (std_int, std_decimal, std_unit) = get_value(&std_dev);
