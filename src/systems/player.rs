@@ -23,7 +23,7 @@ pub fn player_control_system(
     mut state: ResMut<GlobalState>,
     mut debug_state: ResMut<DebugState>,
     mut audio_state: ResMut<AudioState>,
-    mut players: Query<(&mut BufferedDirection), With<PlayerControlled>>,
+    mut players: Query<&mut BufferedDirection, With<PlayerControlled>>,
     mut errors: EventWriter<GameError>,
 ) {
     // Get the player's movable component (ensuring there is only one player)
@@ -73,7 +73,7 @@ pub fn player_movement_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,
     mut entities: Query<(&mut Position, &mut Velocity, &mut BufferedDirection), With<PlayerControlled>>,
-    mut errors: EventWriter<GameError>,
+    // mut errors: EventWriter<GameError>,
 ) {
     for (mut position, mut velocity, mut buffered_direction) in entities.iter_mut() {
         // Decrement the buffered direction remaining time

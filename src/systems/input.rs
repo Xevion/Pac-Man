@@ -1,6 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use bevy_ecs::{event::EventWriter, prelude::Res, resource::Resource, system::NonSendMut};
+use bevy_ecs::{
+    event::EventWriter,
+    resource::Resource,
+    system::{NonSendMut, ResMut},
+};
 use sdl2::{event::Event, keyboard::Keycode, EventPump};
 
 use crate::{
@@ -11,6 +15,8 @@ use crate::{
 #[derive(Debug, Clone, Resource)]
 pub struct Bindings {
     key_bindings: HashMap<Keycode, GameCommand>,
+    movement_keys: HashSet<Keycode>,
+    last_movement_key: Option<Keycode>,
 }
 
 impl Default for Bindings {
@@ -35,23 +41,74 @@ impl Default for Bindings {
         key_bindings.insert(Keycode::Escape, GameCommand::Exit);
         key_bindings.insert(Keycode::Q, GameCommand::Exit);
 
-        Self { key_bindings }
+        let movement_keys = HashSet::from([
+            Keycode::W,
+            Keycode::A,
+            Keycode::S,
+            Keycode::D,
+            Keycode::Up,
+            Keycode::Down,
+            Keycode::Left,
+            Keycode::Right,
+        ]);
+
+        Self {
+            key_bindings,
+            movement_keys,
+            last_movement_key: None,
+        }
     }
 }
 
-pub fn input_system(bindings: Res<Bindings>, mut writer: EventWriter<GameEvent>, mut pump: NonSendMut<&'static mut EventPump>) {
+pub fn input_system(
+    mut bindings: ResMut<Bindings>,
+    mut writer: EventWriter<GameEvent>,
+    mut pump: NonSendMut<&'static mut EventPump>,
+) {
+    let mut movement_key_pressed = false;
+
     for event in pump.poll_iter() {
         match event {
             Event::Quit { .. } => {
                 writer.write(GameEvent::Command(GameCommand::Exit));
             }
-            Event::KeyDown { keycode: Some(key), .. } => {
+            Event::KeyUp {
+                repeat: false,
+                keycode: Some(key),
+                ..
+            } => {
+                // If the last movement key was released, then forget it.
+                if let Some(last_movement_key) = bindings.last_movement_key {
+                    if last_movement_key == key {
+                        bindings.last_movement_key = None;
+                    }
+                }
+            }
+            Event::KeyDown {
+                keycode: Some(key),
+                repeat: false,
+                ..
+            } => {
                 let command = bindings.key_bindings.get(&key).copied();
                 if let Some(command) = command {
                     writer.write(GameEvent::Command(command));
                 }
+
+                if bindings.movement_keys.contains(&key) {
+                    movement_key_pressed = true;
+                    bindings.last_movement_key = Some(key);
+                }
             }
             _ => {}
+        }
+    }
+
+    if let Some(last_movement_key) = bindings.last_movement_key {
+        if !movement_key_pressed {
+            let command = bindings.key_bindings.get(&last_movement_key).copied();
+            if let Some(command) = command {
+                writer.write(GameEvent::Command(command));
+            }
         }
     }
 }

@@ -1,12 +1,7 @@
+use crate::entity::direction::Direction;
 use crate::entity::graph::Graph;
-use crate::entity::{direction::Direction, graph::Edge};
-use crate::error::{EntityError, GameError, GameResult};
-use crate::map::builder::Map;
-use crate::systems::components::{DeltaTime, EntityType, PlayerControlled};
+use crate::error::{EntityError, GameResult};
 use bevy_ecs::component::Component;
-use bevy_ecs::event::EventWriter;
-use bevy_ecs::query::With;
-use bevy_ecs::system::{Query, Res};
 use glam::Vec2;
 
 /// A unique identifier for a node, represented by its index in the graph's storage.
