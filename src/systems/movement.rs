@@ -126,19 +126,6 @@ impl Position {
             Position::Moving { from, .. } => *from,
         }
     }
-
-    /// Returns the `NodeId` of the destination node, if currently traveling.
-    pub fn target_node(&self) -> Option<NodeId> {
-        match self {
-            Position::Stopped { .. } => None,
-            Position::Moving { to, .. } => Some(*to),
-        }
-    }
-
-    /// Returns `true` if the entity is traveling between nodes.
-    pub fn is_moving(&self) -> bool {
-        matches!(self, Position::Moving { .. })
-    }
 }
 
 // pub fn movement_system(

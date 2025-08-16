@@ -5,8 +5,10 @@ use bevy_ecs::{
     resource::Resource,
     system::{NonSendMut, ResMut},
 };
+use glam::Vec2;
 use sdl2::{event::Event, keyboard::Keycode, EventPump};
 
+use crate::systems::debug::CursorPosition;
 use crate::{
     entity::direction::Direction,
     events::{GameCommand, GameEvent},
@@ -64,6 +66,7 @@ pub fn input_system(
     mut bindings: ResMut<Bindings>,
     mut writer: EventWriter<GameEvent>,
     mut pump: NonSendMut<&'static mut EventPump>,
+    mut cursor: ResMut<CursorPosition>,
 ) {
     let mut movement_key_pressed = false;
 
@@ -71,6 +74,9 @@ pub fn input_system(
         match event {
             Event::Quit { .. } => {
                 writer.write(GameEvent::Command(GameCommand::Exit));
+            }
+            Event::MouseMotion { x, y, .. } => {
+                cursor.0 = Vec2::new(x as f32, y as f32);
             }
             Event::KeyUp {
                 repeat: false,

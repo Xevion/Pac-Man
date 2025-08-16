@@ -47,7 +47,7 @@ use crate::{
     constants,
     events::GameCommand,
     map::render::MapRenderer,
-    systems::input::Bindings,
+    systems::{debug::CursorPosition, input::Bindings},
     texture::sprite::{AtlasMapper, SpriteAtlas},
 };
 
@@ -198,6 +198,7 @@ impl Game {
         world.insert_resource(RenderDirty::default());
         world.insert_resource(DebugState::default());
         world.insert_resource(AudioState::default());
+        world.insert_resource(CursorPosition::default());
 
         world.add_observer(
             |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| {

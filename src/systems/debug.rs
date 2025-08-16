@@ -1,4 +1,6 @@
 //! Debug rendering system
+use std::cmp::Ordering;
+
 use crate::constants::BOARD_PIXEL_OFFSET;
 use crate::map::builder::Map;
 use crate::systems::components::Collider;
@@ -6,10 +8,14 @@ use crate::systems::movement::Position;
 use crate::systems::profiling::SystemTimings;
 use crate::systems::render::BackbufferResource;
 use bevy_ecs::prelude::*;
+use glam::Vec2;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, Texture, TextureCreator};
 use sdl2::video::{Window, WindowContext};
+
+#[derive(Resource, Default, Debug, Copy, Clone)]
+pub struct CursorPosition(pub Vec2);
 
 #[derive(Resource, Default, Debug, Copy, Clone, PartialEq)]
 pub enum DebugState {
@@ -36,10 +42,13 @@ pub struct DebugTextureResource(pub Texture<'static>);
 fn transform_position(pos: (f32, f32), output_size: (u32, u32), logical_size: (u32, u32)) -> (i32, i32) {
     let scale_x = output_size.0 as f32 / logical_size.0 as f32;
     let scale_y = output_size.1 as f32 / logical_size.1 as f32;
-    let scale = scale_x.min(scale_y); // Use the smaller scale to maintain aspect ratio
+    let scale = scale_x.min(scale_y);
 
-    let x = (pos.0 * scale) as i32;
-    let y = (pos.1 * scale) as i32;
+    let offset_x = (output_size.0 as f32 - logical_size.0 as f32 * scale) / 2.0;
+    let offset_y = (output_size.1 as f32 - logical_size.1 as f32 * scale) / 2.0;
+
+    let x = (pos.0 * scale + offset_x) as i32;
+    let y = (pos.1 * scale + offset_y) as i32;
     (x, y)
 }
 
@@ -47,10 +56,13 @@ fn transform_position(pos: (f32, f32), output_size: (u32, u32), logical_size: (u
 fn transform_position_with_offset(pos: (f32, f32), output_size: (u32, u32), logical_size: (u32, u32)) -> (i32, i32) {
     let scale_x = output_size.0 as f32 / logical_size.0 as f32;
     let scale_y = output_size.1 as f32 / logical_size.1 as f32;
-    let scale = scale_x.min(scale_y); // Use the smaller scale to maintain aspect ratio
+    let scale = scale_x.min(scale_y);
 
-    let x = ((pos.0 + BOARD_PIXEL_OFFSET.x as f32) * scale) as i32;
-    let y = ((pos.1 + BOARD_PIXEL_OFFSET.y as f32) * scale) as i32;
+    let offset_x = (output_size.0 as f32 - logical_size.0 as f32 * scale) / 2.0;
+    let offset_y = (output_size.1 as f32 - logical_size.1 as f32 * scale) / 2.0;
+
+    let x = ((pos.0 + BOARD_PIXEL_OFFSET.x as f32) * scale + offset_x) as i32;
+    let y = ((pos.1 + BOARD_PIXEL_OFFSET.y as f32) * scale + offset_y) as i32;
     (x, y)
 }
 
@@ -129,6 +141,7 @@ pub fn debug_render_system(
     timings: Res<SystemTimings>,
     map: Res<Map>,
     colliders: Query<(&Collider, &Position)>,
+    cursor: Res<CursorPosition>,
 ) {
     if *debug_state == DebugState::Off {
         return;
@@ -153,27 +166,48 @@ pub fn debug_render_system(
     // Get texture creator before entering the closure to avoid borrowing conflicts
     let mut texture_creator = canvas.texture_creator();
 
+    let cursor_world_pos = cursor.0 - BOARD_PIXEL_OFFSET.as_vec2();
+
     // Draw debug info on the high-resolution debug texture
     canvas
         .with_texture_canvas(&mut debug_texture.0, |debug_canvas| {
             match *debug_state {
                 DebugState::Graph => {
+                    // Find the closest node to the cursor
+
+                    let closest_node = map
+                        .graph
+                        .nodes()
+                        .map(|node| node.position.distance(cursor_world_pos))
+                        .enumerate()
+                        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Less))
+                        .map(|(id, _)| id);
+
                     debug_canvas.set_draw_color(Color::RED);
                     for (start_node, end_node) in map.graph.edges() {
-                        let start_node = map.graph.get_node(start_node).unwrap().position;
+                        let start_node_model = map.graph.get_node(start_node).unwrap();
                         let end_node = map.graph.get_node(end_node.target).unwrap().position;
 
                         // Transform positions using common method
-                        let (start_x, start_y) =
-                            transform_position_with_offset((start_node.x, start_node.y), output_size, logical_size);
+                        let (start_x, start_y) = transform_position_with_offset(
+                            (start_node_model.position.x, start_node_model.position.y),
+                            output_size,
+                            logical_size,
+                        );
                         let (end_x, end_y) = transform_position_with_offset((end_node.x, end_node.y), output_size, logical_size);
 
                         debug_canvas.draw_line((start_x, start_y), (end_x, end_y)).unwrap();
                     }
 
-                    debug_canvas.set_draw_color(Color::BLUE);
-                    for node in map.graph.nodes() {
+                    for (id, node) in map.graph.nodes().enumerate() {
                         let pos = node.position;
+
+                        // Set color based on whether the node is the closest to the cursor
+                        if Some(id) == closest_node {
+                            debug_canvas.set_draw_color(Color::YELLOW);
+                        } else {
+                            debug_canvas.set_draw_color(Color::BLUE);
+                        }
 
                         // Transform position using common method
                         let (x, y) = transform_position_with_offset((pos.x, pos.y), output_size, logical_size);
@@ -199,6 +233,28 @@ pub fn debug_render_system(
                     }
                 }
                 _ => {}
+            }
+
+            // Render node ID if a node is highlighted
+            if let DebugState::Graph = *debug_state {
+                if let Some(closest_node_id) = map
+                    .graph
+                    .nodes()
+                    .map(|node| node.position.distance(cursor_world_pos))
+                    .enumerate()
+                    .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Less))
+                    .map(|(id, _)| id)
+                {
+                    let node = map.graph.get_node(closest_node_id).unwrap();
+                    let (x, y) = transform_position_with_offset((node.position.x, node.position.y), output_size, logical_size);
+
+                    let ttf_context = sdl2::ttf::init().unwrap();
+                    let font = ttf_context.load_font("assets/site/TerminalVector.ttf", 12).unwrap();
+                    let surface = font.render(&closest_node_id.to_string()).blended(Color::WHITE).unwrap();
+                    let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
+                    let dest = Rect::new(x + 10, y - 5, texture.query().width, texture.query().height);
+                    debug_canvas.copy(&texture, None, dest).unwrap();
+                }
             }
 
             // Render timing information in the top-left corner
