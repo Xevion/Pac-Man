@@ -218,11 +218,6 @@ impl Graph {
         self.nodes.get(id)
     }
 
-    /// Returns the total number of nodes in the graph.
-    pub fn node_count(&self) -> usize {
-        self.nodes.len()
-    }
-
     /// Returns an iterator over all nodes in the graph.
     pub fn nodes(&self) -> impl Iterator<Item = &Node> {
         self.nodes.iter()

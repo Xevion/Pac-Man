@@ -3,18 +3,28 @@ use std::collections::{HashMap, HashSet};
 use bevy_ecs::{
     event::EventWriter,
     resource::Resource,
-    system::{NonSendMut, ResMut},
+    system::{NonSendMut, Res, ResMut},
 };
 use glam::Vec2;
 use sdl2::{event::Event, keyboard::Keycode, EventPump};
 
-use crate::systems::debug::CursorPosition;
+use crate::systems::components::DeltaTime;
 use crate::{
     entity::direction::Direction,
     events::{GameCommand, GameEvent},
 };
 
-#[derive(Debug, Clone, Resource)]
+#[derive(Resource, Default, Debug, Copy, Clone)]
+pub enum CursorPosition {
+    #[default]
+    None,
+    Some {
+        position: Vec2,
+        remaining_time: f32,
+    },
+}
+
+#[derive(Resource, Debug, Clone)]
 pub struct Bindings {
     key_bindings: HashMap<Keycode, GameCommand>,
     movement_keys: HashSet<Keycode>,
@@ -63,12 +73,14 @@ impl Default for Bindings {
 }
 
 pub fn input_system(
+    delta_time: Res<DeltaTime>,
     mut bindings: ResMut<Bindings>,
     mut writer: EventWriter<GameEvent>,
     mut pump: NonSendMut<&'static mut EventPump>,
     mut cursor: ResMut<CursorPosition>,
 ) {
     let mut movement_key_pressed = false;
+    let mut cursor_seen = false;
 
     for event in pump.poll_iter() {
         match event {
@@ -76,7 +88,11 @@ pub fn input_system(
                 writer.write(GameEvent::Command(GameCommand::Exit));
             }
             Event::MouseMotion { x, y, .. } => {
-                cursor.0 = Vec2::new(x as f32, y as f32);
+                *cursor = CursorPosition::Some {
+                    position: Vec2::new(x as f32, y as f32),
+                    remaining_time: 0.20,
+                };
+                cursor_seen = true;
             }
             Event::KeyUp {
                 repeat: false,
@@ -115,6 +131,13 @@ pub fn input_system(
             if let Some(command) = command {
                 writer.write(GameEvent::Command(command));
             }
+        }
+    }
+
+    if let (false, CursorPosition::Some { remaining_time, .. }) = (cursor_seen, &mut *cursor) {
+        *remaining_time -= delta_time.0;
+        if *remaining_time <= 0.0 {
+            *cursor = CursorPosition::None;
         }
     }
 }

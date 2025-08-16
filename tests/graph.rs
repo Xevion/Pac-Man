@@ -29,7 +29,7 @@ fn test_graph_basic_operations() {
         position: glam::Vec2::new(16.0, 0.0),
     });
 
-    assert_eq!(graph.node_count(), 2);
+    assert_eq!(graph.nodes().count(), 2);
     assert!(graph.get_node(node1).is_some());
     assert!(graph.get_node(node2).is_some());
     assert!(graph.get_node(999).is_none());
@@ -102,7 +102,7 @@ fn should_add_connected_node() {
         )
         .unwrap();
 
-    assert_eq!(graph.node_count(), 2);
+    assert_eq!(graph.nodes().count(), 2);
     let edge = graph.find_edge(node1, node2);
     assert!(edge.is_some());
     assert_eq!(edge.unwrap().direction, Direction::Right);

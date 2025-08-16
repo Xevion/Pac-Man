@@ -3,12 +3,9 @@ use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE};
 use crate::entity::direction::Direction;
 use crate::entity::graph::{Graph, Node, TraversalFlags};
 use crate::map::parser::MapTileParser;
-use crate::map::render::MapRenderer;
 use crate::systems::movement::NodeId;
-use crate::texture::sprite::SpriteAtlas;
 use bevy_ecs::resource::Resource;
 use glam::{IVec2, Vec2};
-use sdl2::render::{Canvas, RenderTarget};
 use std::collections::{HashMap, VecDeque};
 use tracing::debug;
 
@@ -163,20 +160,6 @@ impl Map {
             let tile = &self.tiles[pos.x as usize][pos.y as usize];
             (node_id, tile)
         })
-    }
-
-    /// Renders a debug visualization with cursor-based highlighting.
-    ///
-    /// This function provides interactive debugging by highlighting the nearest node
-    /// to the cursor, showing its ID, and highlighting its connections.
-    pub fn debug_render_with_cursor<T: RenderTarget>(
-        &self,
-        canvas: &mut Canvas<T>,
-        text_renderer: &mut crate::texture::text::TextTexture,
-        atlas: &mut SpriteAtlas,
-        cursor_pos: glam::Vec2,
-    ) -> GameResult<()> {
-        MapRenderer::debug_render_with_cursor(&self.graph, canvas, text_renderer, atlas, cursor_pos)
     }
 
     /// Builds the house structure in the graph.

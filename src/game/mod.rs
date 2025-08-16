@@ -47,7 +47,7 @@ use crate::{
     constants,
     events::GameCommand,
     map::render::MapRenderer,
-    systems::{debug::CursorPosition, input::Bindings},
+    systems::input::{Bindings, CursorPosition},
     texture::sprite::{AtlasMapper, SpriteAtlas},
 };
 
