@@ -10,6 +10,7 @@ pub mod components;
 pub mod control;
 pub mod debug;
 pub mod formatting;
+pub mod ghost;
 pub mod input;
 pub mod item;
 pub mod movement;

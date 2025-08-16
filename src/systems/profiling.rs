@@ -7,7 +7,7 @@ use std::time::Duration;
 use thousands::Separable;
 
 /// The maximum number of systems that can be profiled. Must not be exceeded, or it will panic.
-const MAX_SYSTEMS: usize = 12;
+const MAX_SYSTEMS: usize = 13;
 /// The number of durations to keep in the circular buffer.
 const TIMING_WINDOW_SIZE: usize = 30;
 

@@ -14,11 +14,13 @@ use crate::systems::{
     blinking::blinking_system,
     collision::collision_system,
     components::{
-        AudioState, Collider, DeltaTime, DirectionalAnimated, EntityType, GlobalState, ItemBundle, ItemCollider, PacmanCollider,
-        PlayerBundle, PlayerControlled, RenderDirty, Renderable, ScoreResource,
+        AudioState, Collider, DeltaTime, DirectionalAnimated, EntityType, GhostBehavior, GhostBundle, GhostCollider, GhostType,
+        GlobalState, ItemBundle, ItemCollider, PacmanCollider, PlayerBundle, PlayerControlled, RenderDirty, Renderable,
+        ScoreResource,
     },
     control::player_system,
     debug::{debug_render_system, DebugState, DebugTextureResource},
+    ghost::ghost_ai_system,
     input::input_system,
     item::item_system,
     movement::movement_system,
@@ -212,6 +214,7 @@ impl Game {
             (
                 profile("input", input_system),
                 profile("player", player_system),
+                profile("ghost_ai", ghost_ai_system),
                 profile("movement", movement_system),
                 profile("collision", collision_system),
                 profile("item", item_system),
@@ -244,6 +247,9 @@ impl Game {
 
         // Spawn player
         world.spawn(player);
+
+        // Spawn ghosts
+        Self::spawn_ghosts(&mut world)?;
 
         // Spawn items
         let pellet_sprite = SpriteAtlas::get_tile(world.non_send_resource::<SpriteAtlas>(), "maze/pellet.png")
@@ -286,6 +292,117 @@ impl Game {
         }
 
         Ok(Game { world, schedule })
+    }
+
+    /// Spawns all four ghosts at their starting positions with appropriate textures.
+    fn spawn_ghosts(world: &mut World) -> GameResult<()> {
+        // Extract the data we need first to avoid borrow conflicts
+        let ghost_start_positions = {
+            let map = world.resource::<Map>();
+            [
+                (GhostType::Blinky, map.start_positions.blinky),
+                (GhostType::Pinky, map.start_positions.pinky),
+                (GhostType::Inky, map.start_positions.inky),
+                (GhostType::Clyde, map.start_positions.clyde),
+            ]
+        };
+
+        for (ghost_type, start_node) in ghost_start_positions {
+            // Create the ghost bundle in a separate scope to manage borrows
+            let ghost = {
+                let atlas = world.non_send_resource::<SpriteAtlas>();
+
+                // Create directional animated textures for the ghost
+                let mut textures = [None, None, None, None];
+                let mut stopped_textures = [None, None, None, None];
+
+                for direction in Direction::DIRECTIONS {
+                    let moving_prefix = match direction {
+                        Direction::Up => "up",
+                        Direction::Down => "down",
+                        Direction::Left => "left",
+                        Direction::Right => "right",
+                    };
+
+                    let moving_tiles = vec![
+                        SpriteAtlas::get_tile(atlas, &format!("ghost/{}/{}_{}.png", ghost_type.as_str(), moving_prefix, "a"))
+                            .ok_or_else(|| {
+                                GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                                    "ghost/{}/{}_{}.png",
+                                    ghost_type.as_str(),
+                                    moving_prefix,
+                                    "a"
+                                )))
+                            })?,
+                        SpriteAtlas::get_tile(atlas, &format!("ghost/{}/{}_{}.png", ghost_type.as_str(), moving_prefix, "b"))
+                            .ok_or_else(|| {
+                                GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                                    "ghost/{}/{}_{}.png",
+                                    ghost_type.as_str(),
+                                    moving_prefix,
+                                    "b"
+                                )))
+                            })?,
+                    ];
+
+                    let stopped_tiles = vec![SpriteAtlas::get_tile(
+                        atlas,
+                        &format!("ghost/{}/{}_{}.png", ghost_type.as_str(), moving_prefix, "a"),
+                    )
+                    .ok_or_else(|| {
+                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                            "ghost/{}/{}_{}.png",
+                            ghost_type.as_str(),
+                            moving_prefix,
+                            "a"
+                        )))
+                    })?];
+
+                    textures[direction.as_usize()] = Some(AnimatedTexture::new(moving_tiles, 0.2)?);
+                    stopped_textures[direction.as_usize()] = Some(AnimatedTexture::new(stopped_tiles, 0.1)?);
+                }
+
+                GhostBundle {
+                    ghost_type,
+                    ghost_behavior: GhostBehavior::default(),
+                    position: Position {
+                        node: start_node,
+                        edge_progress: None,
+                    },
+                    movement_state: MovementState::Stopped,
+                    movable: Movable {
+                        speed: ghost_type.base_speed(),
+                        current_direction: Direction::Left,
+                        requested_direction: Some(Direction::Left), // Start with some movement
+                    },
+                    sprite: Renderable {
+                        sprite: SpriteAtlas::get_tile(atlas, &format!("ghost/{}/left_a.png", ghost_type.as_str())).ok_or_else(
+                            || {
+                                GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                                    "ghost/{}/left_a.png",
+                                    ghost_type.as_str()
+                                )))
+                            },
+                        )?,
+                        layer: 0,
+                        visible: true,
+                    },
+                    directional_animated: DirectionalAnimated {
+                        textures,
+                        stopped_textures,
+                    },
+                    entity_type: EntityType::Ghost,
+                    collider: Collider {
+                        size: crate::constants::CELL_SIZE as f32 * 1.375,
+                    },
+                    ghost_collider: GhostCollider,
+                }
+            };
+
+            world.spawn(ghost);
+        }
+
+        Ok(())
     }
 
     /// Ticks the game state.
