@@ -2,7 +2,10 @@ use bevy_ecs::{event::EventReader, prelude::*, query::With, system::Query};
 
 use crate::{
     events::GameEvent,
-    systems::components::{EntityType, ItemCollider, PacmanCollider, ScoreResource},
+    systems::{
+        audio::AudioEvent,
+        components::{EntityType, ItemCollider, PacmanCollider, ScoreResource},
+    },
 };
 
 pub fn item_system(
@@ -11,6 +14,7 @@ pub fn item_system(
     mut score: ResMut<ScoreResource>,
     pacman_query: Query<Entity, With<PacmanCollider>>,
     item_query: Query<(Entity, &EntityType), With<ItemCollider>>,
+    mut events: EventWriter<AudioEvent>,
 ) {
     for event in collision_events.read() {
         if let GameEvent::Collision(entity1, entity2) = event {
@@ -37,6 +41,8 @@ pub fn item_system(
 
                 // Remove the collected item
                 commands.entity(item_ent).despawn();
+
+                events.write(AudioEvent::PlayEat);
             }
         }
     }

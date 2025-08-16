@@ -10,10 +10,11 @@ use crate::map::builder::Map;
 use crate::systems::blinking::Blinking;
 use crate::systems::movement::{Movable, MovementState, Position};
 use crate::systems::{
+    audio::{audio_system, AudioEvent, AudioResource},
     blinking::blinking_system,
     collision::collision_system,
     components::{
-        Collider, DeltaTime, DirectionalAnimated, EntityType, GlobalState, ItemBundle, ItemCollider, PacmanCollider,
+        AudioState, Collider, DeltaTime, DirectionalAnimated, EntityType, GlobalState, ItemBundle, ItemCollider, PacmanCollider,
         PlayerBundle, PlayerControlled, RenderDirty, Renderable, ScoreResource,
     },
     control::player_system,
@@ -70,6 +71,7 @@ impl Game {
 
         EventRegistry::register_event::<GameError>(&mut world);
         EventRegistry::register_event::<GameEvent>(&mut world);
+        EventRegistry::register_event::<AudioEvent>(&mut world);
 
         let mut backbuffer = texture_creator
             .create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)
@@ -87,6 +89,9 @@ impl Game {
             .create_texture_target(None, output_size.0, output_size.1)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
         debug_texture.set_scale_mode(ScaleMode::Nearest);
+
+        // Initialize audio system
+        let audio = crate::audio::Audio::new();
 
         // Load atlas and create map texture
         let atlas_bytes = get_asset_bytes(Asset::Atlas)?;
@@ -184,6 +189,7 @@ impl Game {
         world.insert_non_send_resource(BackbufferResource(backbuffer));
         world.insert_non_send_resource(MapTextureResource(map_texture));
         world.insert_non_send_resource(DebugTextureResource(debug_texture));
+        world.insert_non_send_resource(AudioResource(audio));
 
         world.insert_resource(map);
         world.insert_resource(GlobalState { exit: false });
@@ -193,6 +199,7 @@ impl Game {
         world.insert_resource(DeltaTime(0f32));
         world.insert_resource(RenderDirty::default());
         world.insert_resource(DebugState::default());
+        world.insert_resource(AudioState::default());
 
         world.add_observer(
             |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| {
@@ -208,6 +215,7 @@ impl Game {
                 profile("movement", movement_system),
                 profile("collision", collision_system),
                 profile("item", item_system),
+                profile("audio", audio_system),
                 profile("blinking", blinking_system),
                 profile("directional_render", directional_render_system),
                 profile("dirty_render", dirty_render_system),
