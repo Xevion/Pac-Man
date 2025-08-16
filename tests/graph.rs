@@ -1,5 +1,5 @@
-use pacman::entity::direction::Direction;
-use pacman::entity::graph::{Graph, Node, TraversalFlags};
+use pacman::map::direction::Direction;
+use pacman::map::graph::{Graph, Node, TraversalFlags};
 
 fn create_test_graph() -> Graph {
     let mut graph = Graph::new();

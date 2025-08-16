@@ -1,6 +1,6 @@
-use crate::entity::direction::Direction;
-use crate::entity::graph::Graph;
 use crate::error::{EntityError, GameResult};
+use crate::map::direction::Direction;
+use crate::map::graph::Graph;
 use bevy_ecs::component::Component;
 use glam::Vec2;
 

@@ -1,9 +1,11 @@
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::Entity, event::Event};
+
+use crate::map::direction::Direction;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GameCommand {
     Exit,
-    MovePlayer(crate::entity::direction::Direction),
+    MovePlayer(Direction),
     ToggleDebug,
     MuteAudio,
     ResetLevel,

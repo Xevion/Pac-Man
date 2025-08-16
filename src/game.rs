@@ -3,10 +3,10 @@
 include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 
 use crate::constants::CANVAS_SIZE;
-use crate::entity::direction::Direction;
 use crate::error::{GameError, GameResult, TextureError};
 use crate::events::GameEvent;
 use crate::map::builder::Map;
+use crate::map::direction::Direction;
 use crate::systems::blinking::Blinking;
 use crate::systems::movement::{BufferedDirection, Position, Velocity};
 use crate::systems::player::player_movement_system;
@@ -47,8 +47,6 @@ use crate::{
     systems::input::{Bindings, CursorPosition},
     texture::sprite::{AtlasMapper, SpriteAtlas},
 };
-
-pub mod state;
 
 /// The `Game` struct is the main entry point for the game.
 ///

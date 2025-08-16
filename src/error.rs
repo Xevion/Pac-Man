@@ -31,9 +31,6 @@ pub enum GameError {
     #[error("Entity error: {0}")]
     Entity(#[from] EntityError),
 
-    #[error("Game state error: {0}")]
-    GameState(#[from] GameStateError),
-
     #[error("SDL error: {0}")]
     Sdl(String),
 
@@ -51,6 +48,8 @@ pub enum GameError {
 pub enum AssetError {
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
+
+    #[allow(dead_code)]
     #[error("Asset not found: {0}")]
     NotFound(String),
 }
@@ -109,17 +108,7 @@ pub enum EntityError {
 
     #[error("Edge not found: from {from} to {to}")]
     EdgeNotFound { from: usize, to: usize },
-
-    #[error("Invalid movement: {0}")]
-    InvalidMovement(String),
-
-    #[error("Pathfinding failed: {0}")]
-    PathfindingFailed(String),
 }
-
-/// Errors related to game state operations.
-#[derive(thiserror::Error, Debug)]
-pub enum GameStateError {}
 
 /// Errors related to map operations.
 #[derive(thiserror::Error, Debug)]

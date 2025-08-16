@@ -2,7 +2,7 @@ use bevy_ecs::{bundle::Bundle, component::Component, resource::Resource};
 use bitflags::bitflags;
 
 use crate::{
-    entity::graph::TraversalFlags,
+    map::graph::TraversalFlags,
     systems::movement::{BufferedDirection, Position, Velocity},
     texture::{animated::AnimatedTexture, sprite::AtlasTile},
 };
@@ -41,6 +41,7 @@ impl Ghost {
     }
 
     /// Returns the ghost's color for debug rendering.
+    #[allow(dead_code)]
     pub fn debug_color(&self) -> sdl2::pixels::Color {
         match self {
             Ghost::Blinky => sdl2::pixels::Color::RGB(255, 0, 0),    // Red

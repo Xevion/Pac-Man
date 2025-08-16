@@ -10,8 +10,8 @@ use sdl2::{event::Event, keyboard::Keycode, EventPump};
 
 use crate::systems::components::DeltaTime;
 use crate::{
-    entity::direction::Direction,
     events::{GameCommand, GameEvent},
+    map::direction::Direction,
 };
 
 #[derive(Resource, Default, Debug, Copy, Clone)]

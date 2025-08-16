@@ -1,7 +1,7 @@
 //! Map construction and building functionality.
 use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE};
-use crate::entity::direction::Direction;
-use crate::entity::graph::{Graph, Node, TraversalFlags};
+use crate::map::direction::Direction;
+use crate::map::graph::{Graph, Node, TraversalFlags};
 use crate::map::parser::MapTileParser;
 use crate::systems::movement::NodeId;
 use bevy_ecs::resource::Resource;

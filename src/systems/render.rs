@@ -7,6 +7,7 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::prelude::{Changed, Or, RemovedComponents};
 use bevy_ecs::system::{NonSendMut, Query, Res, ResMut};
+use sdl2::rect::{Point, Rect};
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 
@@ -99,9 +100,10 @@ pub fn render_system(
                 let pos = position.get_pixel_position(&map.graph);
                 match pos {
                     Ok(pos) => {
-                        let dest = crate::helpers::centered_with_size(
-                            glam::IVec2::new(pos.x as i32, pos.y as i32),
-                            glam::UVec2::new(renderable.sprite.size.x as u32, renderable.sprite.size.y as u32),
+                        let dest = Rect::from_center(
+                            Point::from((pos.x as i32, pos.y as i32)),
+                            renderable.sprite.size.x as u32,
+                            renderable.sprite.size.y as u32,
                         );
 
                         renderable

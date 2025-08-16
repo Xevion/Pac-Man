@@ -6,10 +6,10 @@ use bevy_ecs::{
 };
 
 use crate::{
-    entity::graph::Edge,
     error::GameError,
     events::{GameCommand, GameEvent},
     map::builder::Map,
+    map::graph::Edge,
     systems::{
         components::{AudioState, DeltaTime, EntityType, GlobalState, PlayerControlled},
         debug::DebugState,

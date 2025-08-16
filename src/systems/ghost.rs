@@ -3,8 +3,11 @@ use rand::prelude::*;
 use smallvec::SmallVec;
 
 use crate::{
-    entity::{direction::Direction, graph::Edge},
-    map::builder::Map,
+    map::{
+        builder::Map,
+        direction::Direction,
+        graph::{Edge, TraversalFlags},
+    },
     systems::{
         components::{DeltaTime, Ghost},
         movement::{Position, Velocity},
@@ -32,9 +35,7 @@ pub fn ghost_movement_system(
 
                     // Collect all available directions that ghosts can traverse
                     for edge in Direction::DIRECTIONS.iter().flat_map(|d| intersection.get(*d)) {
-                        if edge.traversal_flags.contains(crate::entity::graph::TraversalFlags::GHOST)
-                            && edge.direction != opposite
-                        {
+                        if edge.traversal_flags.contains(TraversalFlags::GHOST) && edge.direction != opposite {
                             non_opposite_options.push(edge);
                         }
                     }

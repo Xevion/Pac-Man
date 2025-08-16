@@ -10,11 +10,9 @@ mod asset;
 mod audio;
 mod constants;
 
-mod entity;
 mod error;
 mod events;
 mod game;
-mod helpers;
 mod map;
 mod platform;
 mod systems;
