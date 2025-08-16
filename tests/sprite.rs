@@ -1,5 +1,5 @@
 use glam::U16Vec2;
-use pacman::texture::sprite::{AtlasMapper, AtlasTile, MapperFrame, Sprite, SpriteAtlas};
+use pacman::texture::sprite::{AtlasMapper, AtlasTile, MapperFrame, SpriteAtlas};
 use sdl2::pixels::Color;
 use std::collections::HashMap;
 
@@ -91,13 +91,4 @@ fn test_atlas_tile_new_and_with_color() {
 
     let tile_with_color = tile.with_color(color);
     assert_eq!(tile_with_color.color, Some(color));
-}
-
-#[test]
-fn test_sprite_new() {
-    let atlas_tile = AtlasTile::new(U16Vec2::new(0, 0), U16Vec2::new(16, 16), None);
-    let sprite = Sprite::new(atlas_tile);
-
-    assert_eq!(sprite.atlas_tile.pos, atlas_tile.pos);
-    assert_eq!(sprite.atlas_tile.size, atlas_tile.size);
 }

@@ -1,14 +1,11 @@
 //! Map construction and building functionality.
-
-use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE, RAW_BOARD};
-use crate::entity::direction::Direction;
-use crate::entity::graph::{EdgePermissions, Graph, Node, NodeId};
-use crate::entity::item::{Item, ItemType};
+use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE};
+use crate::map::direction::Direction;
+use crate::map::graph::{Graph, Node, TraversalFlags};
 use crate::map::parser::MapTileParser;
-use crate::map::render::MapRenderer;
-use crate::texture::sprite::{Sprite, SpriteAtlas};
+use crate::systems::movement::NodeId;
+use bevy_ecs::resource::Resource;
 use glam::{IVec2, Vec2};
-use sdl2::render::{Canvas, RenderTarget};
 use std::collections::{HashMap, VecDeque};
 use tracing::debug;
 
@@ -24,6 +21,7 @@ pub struct NodePositions {
 }
 
 /// The main map structure containing the game board and navigation graph.
+#[derive(Resource)]
 pub struct Map {
     /// The node map for entity movement.
     pub graph: Graph,
@@ -31,6 +29,8 @@ pub struct Map {
     pub grid_to_node: HashMap<IVec2, NodeId>,
     /// A mapping of the starting positions of the entities.
     pub start_positions: NodePositions,
+    /// The raw tile data for the map.
+    tiles: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
 }
 
 impl Map {
@@ -151,59 +151,15 @@ impl Map {
             graph,
             grid_to_node,
             start_positions,
+            tiles: map,
         })
     }
 
-    /// Generates Item entities for pellets and energizers from the parsed map.
-    pub fn generate_items(&self, atlas: &SpriteAtlas) -> GameResult<Vec<Item>> {
-        // Pre-load sprites to avoid repeated texture lookups
-        let pellet_sprite = SpriteAtlas::get_tile(atlas, "maze/pellet.png")
-            .ok_or_else(|| MapError::InvalidConfig("Pellet texture not found".to_string()))?;
-        let energizer_sprite = SpriteAtlas::get_tile(atlas, "maze/energizer.png")
-            .ok_or_else(|| MapError::InvalidConfig("Energizer texture not found".to_string()))?;
-
-        // Pre-allocate with estimated capacity (typical Pac-Man maps have ~240 pellets + 4 energizers)
-        let mut items = Vec::with_capacity(250);
-
-        // Parse the raw board once
-        let parsed_map = MapTileParser::parse_board(RAW_BOARD)?;
-        let map = parsed_map.tiles;
-
-        // Iterate through the map and collect items more efficiently
-        for (x, row) in map.iter().enumerate() {
-            for (y, tile) in row.iter().enumerate() {
-                match tile {
-                    MapTile::Pellet | MapTile::PowerPellet => {
-                        let grid_pos = IVec2::new(x as i32, y as i32);
-                        if let Some(&node_id) = self.grid_to_node.get(&grid_pos) {
-                            let (item_type, sprite) = match tile {
-                                MapTile::Pellet => (ItemType::Pellet, Sprite::new(pellet_sprite)),
-                                MapTile::PowerPellet => (ItemType::Energizer, Sprite::new(energizer_sprite)),
-                                _ => unreachable!(), // We already filtered for these types
-                            };
-                            items.push(Item::new(node_id, item_type, sprite));
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        Ok(items)
-    }
-
-    /// Renders a debug visualization with cursor-based highlighting.
-    ///
-    /// This function provides interactive debugging by highlighting the nearest node
-    /// to the cursor, showing its ID, and highlighting its connections.
-    pub fn debug_render_with_cursor<T: RenderTarget>(
-        &self,
-        canvas: &mut Canvas<T>,
-        text_renderer: &mut crate::texture::text::TextTexture,
-        atlas: &mut SpriteAtlas,
-        cursor_pos: glam::Vec2,
-    ) -> GameResult<()> {
-        MapRenderer::debug_render_with_cursor(&self.graph, canvas, text_renderer, atlas, cursor_pos)
+    pub fn iter_nodes(&self) -> impl Iterator<Item = (&NodeId, &MapTile)> {
+        self.grid_to_node.iter().map(move |(pos, node_id)| {
+            let tile = &self.tiles[pos.x as usize][pos.y as usize];
+            (node_id, tile)
+        })
     }
 
     /// Builds the house structure in the graph.
@@ -292,7 +248,7 @@ impl Map {
                 false,
                 None,
                 Direction::Down,
-                EdgePermissions::GhostsOnly,
+                TraversalFlags::GHOST,
             )
             .map_err(|e| MapError::InvalidConfig(format!("Failed to create ghost-only entrance to house: {e}")))?;
 
@@ -303,7 +259,7 @@ impl Map {
                 false,
                 None,
                 Direction::Up,
-                EdgePermissions::GhostsOnly,
+                TraversalFlags::GHOST,
             )
             .map_err(|e| MapError::InvalidConfig(format!("Failed to create ghost-only exit from house: {e}")))?;
 

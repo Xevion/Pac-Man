@@ -1,5 +1,5 @@
 use glam::IVec2;
-use pacman::entity::direction::*;
+use pacman::map::direction::*;
 
 #[test]
 fn test_direction_opposite() {
