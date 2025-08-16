@@ -1,135 +1,97 @@
+use itertools::izip;
 use pacman::systems::formatting::format_timing_display;
+use smallvec::SmallVec;
 use std::time::Duration;
 
-#[test]
-fn test_basic_formatting() {
-    let timing_data = vec![
-        ("60 FPS".to_string(), Duration::from_micros(1234), Duration::from_micros(567)),
-        ("input".to_string(), Duration::from_micros(123), Duration::from_micros(45)),
+use pretty_assertions::assert_eq;
+
+fn get_timing_data() -> Vec<(String, Duration, Duration)> {
+    vec![
+        ("total".to_string(), Duration::from_micros(1234), Duration::from_micros(570)),
+        ("input".to_string(), Duration::from_micros(120), Duration::from_micros(45)),
         ("player".to_string(), Duration::from_micros(456), Duration::from_micros(123)),
         ("movement".to_string(), Duration::from_micros(789), Duration::from_micros(234)),
         ("render".to_string(), Duration::from_micros(12), Duration::from_micros(3)),
-        ("debug".to_string(), Duration::from_nanos(1000000), Duration::from_nanos(1000)),
-    ];
+        ("debug".to_string(), Duration::from_nanos(460), Duration::from_nanos(557)),
+    ]
+}
 
-    let result = format_timing_display(timing_data);
-    println!("Basic formatting test:");
-    println!("{}", result);
-    println!();
+fn get_formatted_output() -> impl IntoIterator<Item = String> {
+    format_timing_display(get_timing_data())
 }
 
 #[test]
-fn test_desired_format() {
-    // This test represents the exact format you want to achieve
-    let timing_data = vec![
-        ("total".to_string(), Duration::from_micros(1230), Duration::from_micros(570)),
-        ("input".to_string(), Duration::from_micros(120), Duration::from_micros(50)),
-        ("player".to_string(), Duration::from_micros(460), Duration::from_micros(120)),
-        ("movement".to_string(), Duration::from_micros(790), Duration::from_micros(230)),
-        ("render".to_string(), Duration::from_micros(10), Duration::from_micros(3)),
-        ("debug".to_string(), Duration::from_nanos(1000000), Duration::from_nanos(1000)),
-    ];
+fn test_formatting_alignment() {
+    let mut colon_positions = vec![];
+    let mut first_decimal_positions = vec![];
+    let mut second_decimal_positions = vec![];
+    let mut first_unit_positions = vec![];
+    let mut second_unit_positions = vec![];
 
-    let result = format_timing_display(timing_data);
-    println!("Desired format test:");
-    println!("{}", result);
-    println!();
+    get_formatted_output().into_iter().for_each(|line| {
+        let (mut got_decimal, mut got_unit) = (false, false);
+        for (i, char) in line.chars().enumerate() {
+            match char {
+                ':' => colon_positions.push(i),
+                '.' => {
+                    if got_decimal {
+                        second_decimal_positions.push(i);
+                    } else {
+                        first_decimal_positions.push(i);
+                    }
+                    got_decimal = true;
+                }
+                's' => {
+                    if got_unit {
+                        first_unit_positions.push(i);
+                    } else {
+                        second_unit_positions.push(i);
+                        got_unit = true;
+                    }
+                }
+                _ => {}
+            }
+        }
+    });
 
-    // Expected output should look like:
-    // total    :    1.23 ms ±    0.57 ms
-    // input    :    0.12 ms ±    0.05 ms
-    // player   :    0.46 ms ±    0.12 ms
-    // movement :    0.79 ms ±    0.23 ms
-    // render   :    0.01 ms ±    0.003ms
-    // debug    :    0.001ms ±    0.000ms
-}
+    // Assert that all positions were found
+    assert_eq!(
+        vec![
+            &colon_positions,
+            &first_decimal_positions,
+            &second_decimal_positions,
+            &first_unit_positions,
+            &second_unit_positions
+        ]
+        .iter()
+        .all(|p| p.len() == 6),
+        true
+    );
 
-#[test]
-fn test_mixed_units() {
-    let timing_data = vec![
-        ("60 FPS".to_string(), Duration::from_millis(16), Duration::from_micros(500)),
-        (
-            "fast_system".to_string(),
-            Duration::from_nanos(500000),
-            Duration::from_nanos(100000),
-        ),
-        (
-            "medium_system".to_string(),
-            Duration::from_micros(2500),
-            Duration::from_micros(500),
-        ),
-        ("slow_system".to_string(), Duration::from_millis(5), Duration::from_millis(1)),
-    ];
-
-    let result = format_timing_display(timing_data);
-    println!("Mixed units test:");
-    println!("{}", result);
-    println!();
-}
-
-#[test]
-fn test_trailing_zeros() {
-    let timing_data = vec![
-        ("60 FPS".to_string(), Duration::from_micros(1000), Duration::from_micros(500)),
-        ("exact_ms".to_string(), Duration::from_millis(1), Duration::from_micros(100)),
-        ("exact_us".to_string(), Duration::from_micros(1), Duration::from_nanos(100000)),
-        ("exact_ns".to_string(), Duration::from_nanos(1000), Duration::from_nanos(100)),
-    ];
-
-    let result = format_timing_display(timing_data);
-    println!("Trailing zeros test:");
-    println!("{}", result);
-    println!();
-}
-
-#[test]
-fn test_edge_cases() {
-    let timing_data = vec![
-        ("60 FPS".to_string(), Duration::from_nanos(1), Duration::from_nanos(1)),
-        ("very_small".to_string(), Duration::from_nanos(100), Duration::from_nanos(50)),
-        ("very_large".to_string(), Duration::from_secs(1), Duration::from_millis(100)),
-        ("zero_time".to_string(), Duration::ZERO, Duration::ZERO),
-    ];
-
-    let result = format_timing_display(timing_data);
-    println!("Edge cases test:");
-    println!("{}", result);
-    println!();
-}
-
-#[test]
-fn test_variable_name_lengths() {
-    let timing_data = vec![
-        ("60 FPS".to_string(), Duration::from_micros(1234), Duration::from_micros(567)),
-        ("a".to_string(), Duration::from_micros(123), Duration::from_micros(45)),
-        (
-            "very_long_system_name".to_string(),
-            Duration::from_micros(456),
-            Duration::from_micros(123),
-        ),
-        ("medium".to_string(), Duration::from_micros(789), Duration::from_micros(234)),
-    ];
-
-    let result = format_timing_display(timing_data);
-    println!("Variable name lengths test:");
-    println!("{}", result);
-    println!();
-}
-
-#[test]
-fn test_empty_input() {
-    let timing_data = vec![];
-    let result = format_timing_display(timing_data);
-    assert_eq!(result, "");
-    println!("Empty input test: PASS");
-}
-
-#[test]
-fn test_single_entry() {
-    let timing_data = vec![("60 FPS".to_string(), Duration::from_micros(1234), Duration::from_micros(567))];
-
-    let result = format_timing_display(timing_data);
-    println!("Single entry test:");
-    println!("{}", result);
-    println!();
+    // Assert that all positions are the same
+    assert!(
+        colon_positions.iter().all(|&p| p == colon_positions[0]),
+        "colon positions are not the same {:?}",
+        colon_positions
+    );
+    assert!(
+        first_decimal_positions.iter().all(|&p| p == first_decimal_positions[0]),
+        "first decimal positions are not the same {:?}",
+        first_decimal_positions
+    );
+    assert!(
+        second_decimal_positions.iter().all(|&p| p == second_decimal_positions[0]),
+        "second decimal positions are not the same {:?}",
+        second_decimal_positions
+    );
+    assert!(
+        first_unit_positions.iter().all(|&p| p == first_unit_positions[0]),
+        "first unit positions are not the same {:?}",
+        first_unit_positions
+    );
+    assert!(
+        second_unit_positions.iter().all(|&p| p == second_unit_positions[0]),
+        "second unit positions are not the same {:?}",
+        second_unit_positions
+    );
 }
