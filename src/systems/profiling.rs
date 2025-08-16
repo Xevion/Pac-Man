@@ -126,7 +126,7 @@ impl SystemTimings {
         }
 
         // Use the formatting module to format the data
-        crate::systems::formatting::format_timing_display(timing_data)
+        crate::systems::formatting::format_timing_display(timing_data).join("\n")
     }
 }
 
