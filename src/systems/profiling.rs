@@ -3,13 +3,42 @@ use bevy_ecs::system::{IntoSystem, System};
 use circular_buffer::CircularBuffer;
 use micromap::Map;
 use parking_lot::{Mutex, RwLock};
+use smallvec::SmallVec;
+use std::fmt::Display;
 use std::time::Duration;
+use strum::EnumCount;
+use strum_macros::{EnumCount, IntoStaticStr};
 use thousands::Separable;
 
+use crate::systems::formatting;
+
 /// The maximum number of systems that can be profiled. Must not be exceeded, or it will panic.
-const MAX_SYSTEMS: usize = 13;
+const MAX_SYSTEMS: usize = SystemId::COUNT;
 /// The number of durations to keep in the circular buffer.
 const TIMING_WINDOW_SIZE: usize = 30;
+
+#[derive(EnumCount, IntoStaticStr, Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum SystemId {
+    Input,
+    Player,
+    Ghost,
+    Movement,
+    Audio,
+    Blinking,
+    DirectionalRender,
+    DirtyRender,
+    Render,
+    DebugRender,
+    Present,
+    Collision,
+    Item,
+}
+
+impl Display for SystemId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", Into::<&'static str>::into(self).to_ascii_lowercase())
+    }
+}
 
 #[derive(Resource, Default, Debug)]
 pub struct SystemTimings {
@@ -20,18 +49,18 @@ pub struct SystemTimings {
     ///
     /// Also, we use a micromap::Map as the number of systems is generally quite small.
     /// Just make sure to set the capacity appropriately, or it will panic.
-    pub timings: RwLock<Map<&'static str, Mutex<CircularBuffer<TIMING_WINDOW_SIZE, Duration>>, MAX_SYSTEMS>>,
+    pub timings: RwLock<Map<SystemId, Mutex<CircularBuffer<TIMING_WINDOW_SIZE, Duration>>, MAX_SYSTEMS>>,
 }
 
 impl SystemTimings {
-    pub fn add_timing(&self, name: &'static str, duration: Duration) {
+    pub fn add_timing(&self, id: SystemId, duration: Duration) {
         // acquire a upgradable read lock
         let mut timings = self.timings.upgradable_read();
 
         // happy path, the name is already in the map (no need to mutate the hashmap)
-        if timings.contains_key(name) {
+        if timings.contains_key(&id) {
             let queue = timings
-                .get(name)
+                .get(&id)
                 .expect("System name not found in map after contains_key check");
             let mut queue = queue.lock();
 
@@ -41,16 +70,16 @@ impl SystemTimings {
 
         // otherwise, acquire a write lock and insert a new queue
         timings.with_upgraded(|timings| {
-            let queue = timings.entry(name).or_insert_with(|| Mutex::new(CircularBuffer::new()));
+            let queue = timings.entry(id).or_insert_with(|| Mutex::new(CircularBuffer::new()));
             queue.lock().push_back(duration);
         });
     }
 
-    pub fn get_stats(&self) -> Map<&'static str, (Duration, Duration), MAX_SYSTEMS> {
+    pub fn get_stats(&self) -> Map<SystemId, (Duration, Duration), MAX_SYSTEMS> {
         let timings = self.timings.read();
         let mut stats = Map::new();
 
-        for (name, queue) in timings.iter() {
+        for (id, queue) in timings.iter() {
             if queue.lock().is_empty() {
                 continue;
             }
@@ -65,7 +94,7 @@ impl SystemTimings {
             let std_dev = variance.sqrt();
 
             stats.insert(
-                *name,
+                *id,
                 (
                     Duration::from_secs_f64(mean / 1000.0),
                     Duration::from_secs_f64(std_dev / 1000.0),
@@ -101,7 +130,7 @@ impl SystemTimings {
         )
     }
 
-    pub fn format_timing_display(&self) -> String {
+    pub fn format_timing_display(&self) -> SmallVec<[String; SystemId::COUNT]> {
         let stats = self.get_stats();
         let (total_avg, total_std) = self.get_total_stats();
 
@@ -126,11 +155,11 @@ impl SystemTimings {
         }
 
         // Use the formatting module to format the data
-        crate::systems::formatting::format_timing_display(timing_data).join("\n")
+        formatting::format_timing_display(timing_data)
     }
 }
 
-pub fn profile<S, M>(name: &'static str, system: S) -> impl FnMut(&mut bevy_ecs::world::World)
+pub fn profile<S, M>(id: SystemId, system: S) -> impl FnMut(&mut bevy_ecs::world::World)
 where
     S: IntoSystem<(), (), M> + 'static,
 {
@@ -147,7 +176,7 @@ where
         let duration = start.elapsed();
 
         if let Some(timings) = world.get_resource::<SystemTimings>() {
-            timings.add_timing(name, duration);
+            timings.add_timing(id, duration);
         }
     }
 }

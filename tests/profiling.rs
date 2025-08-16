@@ -1,4 +1,4 @@
-use pacman::systems::profiling::SystemTimings;
+use pacman::systems::profiling::{SystemId, SystemTimings};
 use std::time::Duration;
 
 #[test]
@@ -6,12 +6,12 @@ fn test_timing_statistics() {
     let timings = SystemTimings::default();
 
     // Add some test data
-    timings.add_timing("test_system", Duration::from_millis(10));
-    timings.add_timing("test_system", Duration::from_millis(12));
-    timings.add_timing("test_system", Duration::from_millis(8));
+    timings.add_timing(SystemId::PlayerControls, Duration::from_millis(10));
+    timings.add_timing(SystemId::PlayerControls, Duration::from_millis(12));
+    timings.add_timing(SystemId::PlayerControls, Duration::from_millis(8));
 
     let stats = timings.get_stats();
-    let (avg, std_dev) = stats.get("test_system").unwrap();
+    let (avg, std_dev) = stats.get(&SystemId::PlayerControls).unwrap();
 
     // Average should be 10ms, standard deviation should be small
     assert!((avg.as_millis() as f64 - 10.0).abs() < 1.0);

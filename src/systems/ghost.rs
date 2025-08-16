@@ -15,7 +15,7 @@ use crate::{
 ///
 /// This system runs on all ghosts and makes periodic decisions about
 /// which direction to move in when they reach intersections.
-pub fn ghost_ai_system(
+pub fn ghost_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,
     mut ghosts: Query<(&mut GhostBehavior, &mut Movable, &Position, &EntityType, &GhostType)>,

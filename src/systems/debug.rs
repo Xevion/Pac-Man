@@ -76,20 +76,14 @@ fn render_timing_display(
     let font = ttf_context.load_font("assets/site/TerminalVector.ttf", 12).unwrap();
 
     // Format timing information using the formatting module
-    let timing_text = timings.format_timing_display();
-
-    // Split text by newlines and render each line separately
-    let lines: Vec<&str> = timing_text.lines().collect();
-    if lines.is_empty() {
-        return;
-    }
+    let lines = timings.format_timing_display();
     let line_height = 14; // Approximate line height for 12pt font
     let padding = 10;
 
     // Calculate background dimensions
     let max_width = lines
         .iter()
-        .filter(|&&l| !l.is_empty()) // Don't consider empty lines for width
+        .filter(|l| !l.is_empty()) // Don't consider empty lines for width
         .map(|line| font.size_of(line).unwrap().0)
         .max()
         .unwrap_or(0);

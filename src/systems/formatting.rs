@@ -1,6 +1,9 @@
 use num_width::NumberWidth;
 use smallvec::SmallVec;
 use std::time::Duration;
+use strum::EnumCount;
+
+use crate::systems::profiling::SystemId;
 
 // Helper to split a duration into a integer, decimal, and unit
 fn get_value(duration: &Duration) -> (u64, u32, &'static str) {
@@ -34,7 +37,9 @@ fn get_value(duration: &Duration) -> (u64, u32, &'static str) {
 }
 
 /// Formats timing data into a vector of strings with proper alignment
-pub fn format_timing_display(timing_data: impl IntoIterator<Item = (String, Duration, Duration)>) -> SmallVec<[String; 12]> {
+pub fn format_timing_display(
+    timing_data: impl IntoIterator<Item = (String, Duration, Duration)>,
+) -> SmallVec<[String; SystemId::COUNT]> {
     let mut iter = timing_data.into_iter().peekable();
     if iter.peek().is_none() {
         return SmallVec::new();
@@ -98,5 +103,5 @@ pub fn format_timing_display(timing_data: impl IntoIterator<Item = (String, Dura
                 max_std_int_width = max_std_int_width,
                 max_std_decimal_width = max_std_decimal_width
             )
-        }).collect::<SmallVec<[String; 12]>>()
+        }).collect::<SmallVec<[String; SystemId::COUNT]>>()
 }

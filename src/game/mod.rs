@@ -9,6 +9,7 @@ use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::systems::blinking::Blinking;
 use crate::systems::movement::{Movable, MovementState, Position};
+use crate::systems::profiling::SystemId;
 use crate::systems::{
     audio::{audio_system, AudioEvent, AudioResource},
     blinking::blinking_system,
@@ -20,7 +21,7 @@ use crate::systems::{
     },
     control::player_system,
     debug::{debug_render_system, DebugState, DebugTextureResource},
-    ghost::ghost_ai_system,
+    ghost::ghost_system,
     input::input_system,
     item::item_system,
     movement::movement_system,
@@ -212,20 +213,20 @@ impl Game {
         );
         schedule.add_systems(
             (
-                profile("input", input_system),
-                profile("player", player_system),
-                profile("ghost_ai", ghost_ai_system),
-                profile("movement", movement_system),
-                profile("collision", collision_system),
-                profile("item", item_system),
-                profile("audio", audio_system),
-                profile("blinking", blinking_system),
-                profile("directional_render", directional_render_system),
-                profile("dirty_render", dirty_render_system),
-                profile("render", render_system),
-                profile("debug_render", debug_render_system),
+                profile(SystemId::Input, input_system),
+                profile(SystemId::Player, player_system),
+                profile(SystemId::Ghost, ghost_system),
+                profile(SystemId::Movement, movement_system),
+                profile(SystemId::Collision, collision_system),
+                profile(SystemId::Item, item_system),
+                profile(SystemId::Audio, audio_system),
+                profile(SystemId::Blinking, blinking_system),
+                profile(SystemId::DirectionalRender, directional_render_system),
+                profile(SystemId::DirtyRender, dirty_render_system),
+                profile(SystemId::Render, render_system),
+                profile(SystemId::DebugRender, debug_render_system),
                 profile(
-                    "present",
+                    SystemId::Present,
                     |mut canvas: NonSendMut<&mut Canvas<Window>>,
                      backbuffer: NonSendMut<BackbufferResource>,
                      debug_state: Res<DebugState>,
