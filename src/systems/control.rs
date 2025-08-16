@@ -8,7 +8,7 @@ use bevy_ecs::{
 use crate::{
     error::GameError,
     events::{GameCommand, GameEvent},
-    systems::components::{GlobalState, PlayerControlled},
+    systems::components::{AudioState, GlobalState, PlayerControlled},
     systems::debug::DebugState,
     systems::movement::Movable,
 };
@@ -18,6 +18,7 @@ pub fn player_system(
     mut events: EventReader<GameEvent>,
     mut state: ResMut<GlobalState>,
     mut debug_state: ResMut<DebugState>,
+    mut audio_state: ResMut<AudioState>,
     mut players: Query<&mut Movable, With<PlayerControlled>>,
     mut errors: EventWriter<GameError>,
 ) {
@@ -45,6 +46,10 @@ pub fn player_system(
                 }
                 GameCommand::ToggleDebug => {
                     *debug_state = debug_state.next();
+                }
+                GameCommand::MuteAudio => {
+                    audio_state.muted = !audio_state.muted;
+                    tracing::info!("Audio {}", if audio_state.muted { "muted" } else { "unmuted" });
                 }
                 _ => {}
             }
