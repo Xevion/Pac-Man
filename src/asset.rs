@@ -11,7 +11,8 @@ pub enum Asset {
     Wav2,
     Wav3,
     Wav4,
-    Atlas,
+    AtlasImage,
+    Font,
 }
 
 impl Asset {
@@ -23,7 +24,8 @@ impl Asset {
             Wav2 => "sound/waka/2.ogg",
             Wav3 => "sound/waka/3.ogg",
             Wav4 => "sound/waka/4.ogg",
-            Atlas => "atlas.png",
+            AtlasImage => "atlas.png",
+            Font => "TerminalVector.ttf",
         }
     }
 }

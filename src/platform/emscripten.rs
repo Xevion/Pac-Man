@@ -5,12 +5,12 @@ use std::time::Duration;
 
 use crate::asset::Asset;
 use crate::error::{AssetError, PlatformError};
-use crate::platform::Platform;
+use crate::platform::CommonPlatform;
 
 /// Emscripten platform implementation.
-pub struct EmscriptenPlatform;
+pub struct Platform;
 
-impl Platform for EmscriptenPlatform {
+impl CommonPlatform for Platform {
     fn sleep(&self, duration: Duration, _focused: bool) {
         unsafe {
             emscripten_sleep(duration.as_millis() as u32);

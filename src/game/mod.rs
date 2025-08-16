@@ -19,7 +19,7 @@ use crate::systems::{
         AudioState, Collider, DeltaTime, DirectionalAnimated, EntityType, Ghost, GhostBundle, GhostCollider, GlobalState,
         ItemBundle, ItemCollider, PacmanCollider, PlayerBundle, PlayerControlled, RenderDirty, Renderable, ScoreResource,
     },
-    debug::{debug_render_system, DebugState, DebugTextureResource},
+    debug::{debug_render_system, DebugFontResource, DebugState, DebugTextureResource},
     ghost::ghost_movement_system,
     input::input_system,
     item::item_system,
@@ -28,17 +28,14 @@ use crate::systems::{
     render::{directional_render_system, dirty_render_system, render_system, BackbufferResource, MapTextureResource},
 };
 use crate::texture::animated::AnimatedTexture;
-use bevy_ecs::schedule::IntoScheduleConfigs;
-use bevy_ecs::system::NonSendMut;
-use bevy_ecs::{
-    event::EventRegistry,
-    observer::Trigger,
-    schedule::Schedule,
-    system::{Res, ResMut},
-    world::World,
-};
+use bevy_ecs::event::EventRegistry;
+use bevy_ecs::observer::Trigger;
+use bevy_ecs::schedule::Schedule;
+use bevy_ecs::system::{NonSendMut, Res, ResMut};
+use bevy_ecs::world::World;
 use sdl2::image::LoadTexture;
 use sdl2::render::{Canvas, ScaleMode, TextureCreator};
+use sdl2::rwops::RWops;
 use sdl2::video::{Window, WindowContext};
 use sdl2::EventPump;
 
@@ -70,6 +67,7 @@ impl Game {
     ) -> GameResult<Game> {
         let mut world = World::default();
         let mut schedule = Schedule::default();
+        let ttf_context = Box::leak(Box::new(sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?));
 
         EventRegistry::register_event::<GameError>(&mut world);
         EventRegistry::register_event::<GameEvent>(&mut world);
@@ -92,11 +90,18 @@ impl Game {
             .map_err(|e| GameError::Sdl(e.to_string()))?;
         debug_texture.set_scale_mode(ScaleMode::Nearest);
 
+        let font_data = get_asset_bytes(Asset::Font)?;
+        let static_font_data: &'static [u8] = Box::leak(font_data.to_vec().into_boxed_slice());
+        let font_asset = RWops::from_bytes(static_font_data).map_err(|_| GameError::Sdl("Failed to load font".to_string()))?;
+        let debug_font = ttf_context
+            .load_font_from_rwops(font_asset, 12)
+            .map_err(|e| GameError::Sdl(e.to_string()))?;
+
         // Initialize audio system
         let audio = crate::audio::Audio::new();
 
         // Load atlas and create map texture
-        let atlas_bytes = get_asset_bytes(Asset::Atlas)?;
+        let atlas_bytes = get_asset_bytes(Asset::AtlasImage)?;
         let atlas_texture = texture_creator.load_texture_bytes(&atlas_bytes).map_err(|e| {
             if e.to_string().contains("format") || e.to_string().contains("unsupported") {
                 GameError::Texture(crate::error::TextureError::InvalidFormat(format!(
@@ -187,6 +192,7 @@ impl Game {
         world.insert_non_send_resource(BackbufferResource(backbuffer));
         world.insert_non_send_resource(MapTextureResource(map_texture));
         world.insert_non_send_resource(DebugTextureResource(debug_texture));
+        world.insert_non_send_resource(DebugFontResource(debug_font));
         world.insert_non_send_resource(AudioResource(audio));
 
         world.insert_resource(map);
@@ -207,40 +213,37 @@ impl Game {
                 }
             },
         );
-        schedule.add_systems(
-            (
-                profile(SystemId::Input, input_system),
-                profile(SystemId::PlayerControls, player_control_system),
-                profile(SystemId::PlayerMovement, player_movement_system),
-                profile(SystemId::Ghost, ghost_movement_system),
-                profile(SystemId::Collision, collision_system),
-                profile(SystemId::Item, item_system),
-                profile(SystemId::Audio, audio_system),
-                profile(SystemId::Blinking, blinking_system),
-                profile(SystemId::DirectionalRender, directional_render_system),
-                profile(SystemId::DirtyRender, dirty_render_system),
-                profile(SystemId::Render, render_system),
-                profile(SystemId::DebugRender, debug_render_system),
-                profile(
-                    SystemId::Present,
-                    |mut canvas: NonSendMut<&mut Canvas<Window>>,
-                     backbuffer: NonSendMut<BackbufferResource>,
-                     debug_state: Res<DebugState>,
-                     mut dirty: ResMut<RenderDirty>| {
-                        if dirty.0 || *debug_state != DebugState::Off {
-                            // Only copy backbuffer to main canvas if debug rendering is off
-                            // (debug rendering draws directly to main canvas)
-                            if *debug_state == DebugState::Off {
-                                canvas.copy(&backbuffer.0, None, None).unwrap();
-                            }
-                            dirty.0 = false;
-                            canvas.present();
+        schedule.add_systems((
+            profile(SystemId::Input, input_system),
+            profile(SystemId::PlayerControls, player_control_system),
+            profile(SystemId::PlayerMovement, player_movement_system),
+            profile(SystemId::Ghost, ghost_movement_system),
+            profile(SystemId::Collision, collision_system),
+            profile(SystemId::Item, item_system),
+            profile(SystemId::Audio, audio_system),
+            profile(SystemId::Blinking, blinking_system),
+            profile(SystemId::DirectionalRender, directional_render_system),
+            profile(SystemId::DirtyRender, dirty_render_system),
+            profile(SystemId::Render, render_system),
+            profile(SystemId::DebugRender, debug_render_system),
+            profile(
+                SystemId::Present,
+                |mut canvas: NonSendMut<&mut Canvas<Window>>,
+                 backbuffer: NonSendMut<BackbufferResource>,
+                 debug_state: Res<DebugState>,
+                 mut dirty: ResMut<RenderDirty>| {
+                    if dirty.0 || *debug_state != DebugState::Off {
+                        // Only copy backbuffer to main canvas if debug rendering is off
+                        // (debug rendering draws directly to main canvas)
+                        if *debug_state == DebugState::Off {
+                            canvas.copy(&backbuffer.0, None, None).unwrap();
                         }
-                    },
-                ),
-            )
-                .chain(),
-        );
+                        dirty.0 = false;
+                        canvas.present();
+                    }
+                },
+            ),
+        ));
 
         // Spawn player
         world.spawn(player);
@@ -288,7 +291,7 @@ impl Game {
         Ok(Game { world, schedule })
     }
 
-    /// Spawns all four ghosts at their starting positions with appropriate textures.
+    /// Spowns all four ghosts at their starting positions with appropriate textures.
     fn spawn_ghosts(world: &mut World) -> GameResult<()> {
         // Extract the data we need first to avoid borrow conflicts
         let ghost_start_positions = {

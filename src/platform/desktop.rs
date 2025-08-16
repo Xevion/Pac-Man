@@ -5,12 +5,12 @@ use std::time::Duration;
 
 use crate::asset::Asset;
 use crate::error::{AssetError, PlatformError};
-use crate::platform::Platform;
+use crate::platform::CommonPlatform;
 
 /// Desktop platform implementation.
-pub struct DesktopPlatform;
+pub struct Platform;
 
-impl Platform for DesktopPlatform {
+impl CommonPlatform for Platform {
     fn sleep(&self, duration: Duration, focused: bool) {
         if focused {
             spin_sleep::sleep(duration);
@@ -75,7 +75,8 @@ impl Platform for DesktopPlatform {
             Asset::Wav2 => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/waka/2.ogg"))),
             Asset::Wav3 => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/waka/3.ogg"))),
             Asset::Wav4 => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/waka/4.ogg"))),
-            Asset::Atlas => Ok(Cow::Borrowed(include_bytes!("../../assets/game/atlas.png"))),
+            Asset::AtlasImage => Ok(Cow::Borrowed(include_bytes!("../../assets/game/atlas.png"))),
+            Asset::Font => Ok(Cow::Borrowed(include_bytes!("../../assets/game/TerminalVector.ttf"))),
         }
     }
 }

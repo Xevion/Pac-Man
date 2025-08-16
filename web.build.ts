@@ -1,7 +1,7 @@
 import { $ } from "bun";
 import { existsSync, promises as fs } from "fs";
 import { platform } from "os";
-import { dirname, join, relative, resolve } from "path";
+import { basename, dirname, join, relative, resolve } from "path";
 import { match, P } from "ts-pattern";
 import { configure, getConsoleSink, getLogger } from "@logtape/logtape";
 
@@ -79,16 +79,19 @@ async function build(release: boolean, env: Record<string, string> | null) {
 
   // The files to copy into 'dist'
   const files = [
-    ...["index.html", "favicon.ico", "build.css", "TerminalVector.ttf"].map(
-      (file) => ({
-        src: join(siteFolder, file),
-        dest: join(dist, file),
-        optional: false,
-      })
-    ),
+    ...[
+      "index.html",
+      "favicon.ico",
+      "build.css",
+      "../game/TerminalVector.ttf",
+    ].map((file) => ({
+      src: resolve(join(siteFolder, file)),
+      dest: join(dist, basename(file)),
+      optional: false,
+    })),
     ...["pacman.wasm", "pacman.js", "deps/pacman.data"].map((file) => ({
       src: join(outputFolder, file),
-      dest: join(dist, file.split("/").pop() || file),
+      dest: join(dist, basename(file)),
       optional: false,
     })),
     {

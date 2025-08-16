@@ -13,6 +13,7 @@ use glam::{IVec2, UVec2, Vec2};
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::{Canvas, Texture, TextureCreator};
+use sdl2::ttf::Font;
 use sdl2::video::{Window, WindowContext};
 
 #[derive(Resource, Default, Debug, Copy, Clone, PartialEq)]
@@ -36,6 +37,9 @@ impl DebugState {
 /// Resource to hold the debug texture for persistent rendering
 pub struct DebugTextureResource(pub Texture<'static>);
 
+/// Resource to hold the debug font
+pub struct DebugFontResource(pub Font<'static, 'static>);
+
 /// Transforms a position from logical canvas coordinates to output canvas coordinates (with board offset)
 fn transform_position_with_offset(pos: Vec2, scale: f32) -> IVec2 {
     ((pos + BOARD_PIXEL_OFFSET.as_vec2()) * scale).as_ivec2()
@@ -46,13 +50,8 @@ fn render_timing_display(
     canvas: &mut Canvas<Window>,
     texture_creator: &mut TextureCreator<WindowContext>,
     timings: &SystemTimings,
+    font: &Font,
 ) {
-    // Get TTF context
-    let ttf_context = sdl2::ttf::init().unwrap();
-
-    // Load font
-    let font = ttf_context.load_font("assets/site/TerminalVector.ttf", 12).unwrap();
-
     // Format timing information using the formatting module
     let lines = timings.format_timing_display();
     let line_height = 14; // Approximate line height for 12pt font
@@ -104,6 +103,7 @@ pub fn debug_render_system(
     mut canvas: NonSendMut<&mut Canvas<Window>>,
     backbuffer: NonSendMut<BackbufferResource>,
     mut debug_texture: NonSendMut<DebugTextureResource>,
+    debug_font: NonSendMut<DebugFontResource>,
     debug_state: Res<DebugState>,
     timings: Res<SystemTimings>,
     map: Res<Map>,
@@ -130,6 +130,7 @@ pub fn debug_render_system(
 
     // Get texture creator before entering the closure to avoid borrowing conflicts
     let mut texture_creator = canvas.texture_creator();
+    let font = &debug_font.0;
 
     let cursor_world_pos = match *cursor {
         CursorPosition::None => None,
@@ -192,8 +193,6 @@ pub fn debug_render_system(
                         let node = map.graph.get_node(closest_node_id).unwrap();
                         let pos = transform_position_with_offset(node.position, scale);
 
-                        let ttf_context = sdl2::ttf::init().unwrap();
-                        let font = ttf_context.load_font("assets/site/TerminalVector.ttf", 12).unwrap();
                         let surface = font.render(&closest_node_id.to_string()).blended(Color::WHITE).unwrap();
                         let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
                         let dest = Rect::new(pos.x + 10, pos.y - 5, texture.query().width, texture.query().height);
@@ -217,7 +216,7 @@ pub fn debug_render_system(
             }
 
             // Render timing information in the top-left corner
-            render_timing_display(debug_canvas, &mut texture_creator, &timings);
+            render_timing_display(debug_canvas, &mut texture_creator, &timings, font);
         })
         .unwrap();
 
