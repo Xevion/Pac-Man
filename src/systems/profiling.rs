@@ -20,7 +20,7 @@ const TIMING_WINDOW_SIZE: usize = 30;
 #[derive(EnumCount, IntoStaticStr, Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum SystemId {
     Input,
-    Player,
+    PlayerControls,
     Ghost,
     Movement,
     Audio,
@@ -32,6 +32,7 @@ pub enum SystemId {
     Present,
     Collision,
     Item,
+    PlayerMovement,
 }
 
 impl Display for SystemId {

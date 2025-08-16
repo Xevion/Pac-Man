@@ -3,7 +3,7 @@ use bitflags::bitflags;
 
 use crate::{
     entity::graph::TraversalFlags,
-    systems::movement::{Movable, MovementState, Position},
+    systems::movement::{BufferedDirection, Position, Velocity},
     texture::{animated::AnimatedTexture, sprite::AtlasTile},
 };
 
@@ -11,61 +11,42 @@ use crate::{
 #[derive(Default, Component)]
 pub struct PlayerControlled;
 
-/// The four classic ghost types.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GhostType {
+pub enum Ghost {
     Blinky,
     Pinky,
     Inky,
     Clyde,
 }
 
-impl GhostType {
+impl Ghost {
     /// Returns the ghost type name for atlas lookups.
     pub fn as_str(self) -> &'static str {
         match self {
-            GhostType::Blinky => "blinky",
-            GhostType::Pinky => "pinky",
-            GhostType::Inky => "inky",
-            GhostType::Clyde => "clyde",
+            Ghost::Blinky => "blinky",
+            Ghost::Pinky => "pinky",
+            Ghost::Inky => "inky",
+            Ghost::Clyde => "clyde",
         }
     }
 
     /// Returns the base movement speed for this ghost type.
     pub fn base_speed(self) -> f32 {
         match self {
-            GhostType::Blinky => 1.0,
-            GhostType::Pinky => 0.95,
-            GhostType::Inky => 0.9,
-            GhostType::Clyde => 0.85,
+            Ghost::Blinky => 1.0,
+            Ghost::Pinky => 0.95,
+            Ghost::Inky => 0.9,
+            Ghost::Clyde => 0.85,
         }
     }
 
     /// Returns the ghost's color for debug rendering.
     pub fn debug_color(&self) -> sdl2::pixels::Color {
         match self {
-            GhostType::Blinky => sdl2::pixels::Color::RGB(255, 0, 0),    // Red
-            GhostType::Pinky => sdl2::pixels::Color::RGB(255, 182, 255), // Pink
-            GhostType::Inky => sdl2::pixels::Color::RGB(0, 255, 255),    // Cyan
-            GhostType::Clyde => sdl2::pixels::Color::RGB(255, 182, 85),  // Orange
-        }
-    }
-}
-
-/// Ghost AI behavior component - controls randomized movement decisions.
-#[derive(Component)]
-pub struct GhostBehavior {
-    /// Timer for making new direction decisions
-    pub decision_timer: f32,
-    /// Interval between direction decisions (in seconds)
-    pub decision_interval: f32,
-}
-
-impl Default for GhostBehavior {
-    fn default() -> Self {
-        Self {
-            decision_timer: 0.0,
-            decision_interval: 0.5, // Make decisions every half second
+            Ghost::Blinky => sdl2::pixels::Color::RGB(255, 0, 0),    // Red
+            Ghost::Pinky => sdl2::pixels::Color::RGB(255, 182, 255), // Pink
+            Ghost::Inky => sdl2::pixels::Color::RGB(0, 255, 255),    // Cyan
+            Ghost::Clyde => sdl2::pixels::Color::RGB(255, 182, 85),  // Orange
         }
     }
 }
@@ -135,8 +116,8 @@ pub struct ItemCollider;
 pub struct PlayerBundle {
     pub player: PlayerControlled,
     pub position: Position,
-    pub movement_state: MovementState,
-    pub movable: Movable,
+    pub velocity: Velocity,
+    pub buffered_direction: BufferedDirection,
     pub sprite: Renderable,
     pub directional_animated: DirectionalAnimated,
     pub entity_type: EntityType,
@@ -155,11 +136,9 @@ pub struct ItemBundle {
 
 #[derive(Bundle)]
 pub struct GhostBundle {
-    pub ghost_type: GhostType,
-    pub ghost_behavior: GhostBehavior,
+    pub ghost: Ghost,
     pub position: Position,
-    pub movement_state: MovementState,
-    pub movable: Movable,
+    pub velocity: Velocity,
     pub sprite: Renderable,
     pub directional_animated: DirectionalAnimated,
     pub entity_type: EntityType,

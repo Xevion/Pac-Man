@@ -3,11 +3,11 @@ use rand::prelude::*;
 use smallvec::SmallVec;
 
 use crate::{
-    entity::direction::Direction,
+    entity::{direction::Direction, graph::Edge},
     map::builder::Map,
     systems::{
-        components::{DeltaTime, EntityType, GhostBehavior, GhostType},
-        movement::{Movable, Position},
+        components::{DeltaTime, Ghost},
+        movement::{Position, Velocity},
     },
 };
 
@@ -15,27 +15,55 @@ use crate::{
 ///
 /// This system runs on all ghosts and makes periodic decisions about
 /// which direction to move in when they reach intersections.
-pub fn ghost_system(
+pub fn ghost_movement_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,
-    mut ghosts: Query<(&mut GhostBehavior, &mut Movable, &Position, &EntityType, &GhostType)>,
+    mut ghosts: Query<(&mut Ghost, &mut Velocity, &mut Position)>,
 ) {
-    for (mut ghost_behavior, mut movable, position, entity_type, _ghost_type) in ghosts.iter_mut() {
-        // Only process ghosts
-        if *entity_type != EntityType::Ghost {
-            continue;
-        }
+    for (mut ghost, mut velocity, mut position) in ghosts.iter_mut() {
+        let mut distance = velocity.speed * 60.0 * delta_time.0;
+        loop {
+            match *position {
+                Position::Stopped { node: current_node } => {
+                    let intersection = &map.graph.adjacency_list[current_node];
+                    let opposite = velocity.direction.opposite();
 
-        // Update decision timer
-        ghost_behavior.decision_timer += delta_time.0;
+                    let mut non_opposite_options: SmallVec<[Edge; 3]> = SmallVec::new();
 
-        // Check if we should make a new direction decision
-        let should_decide = ghost_behavior.decision_timer >= ghost_behavior.decision_interval;
-        let at_intersection = position.is_at_node();
+                    // Collect all available directions that ghosts can traverse
+                    for edge in Direction::DIRECTIONS.iter().flat_map(|d| intersection.get(*d)) {
+                        if edge.traversal_flags.contains(crate::entity::graph::TraversalFlags::GHOST) {
+                            if edge.direction != opposite {
+                                non_opposite_options.push(edge);
+                            }
+                        }
+                    }
 
-        if should_decide && at_intersection {
-            choose_random_direction(&map, &mut movable, position);
-            ghost_behavior.decision_timer = 0.0;
+                    let new_edge: Edge = if non_opposite_options.is_empty() {
+                        if let Some(edge) = intersection.get(opposite) {
+                            edge
+                        } else {
+                            break;
+                        }
+                    } else {
+                        *non_opposite_options.choose(&mut SmallRng::from_os_rng()).unwrap()
+                    };
+
+                    velocity.direction = new_edge.direction;
+                    *position = Position::Moving {
+                        from: current_node,
+                        to: new_edge.target,
+                        remaining_distance: new_edge.distance,
+                    };
+                }
+                Position::Moving { .. } => {
+                    if let Some(overflow) = position.tick(distance) {
+                        distance = overflow;
+                    } else {
+                        break;
+                    }
+                }
+            }
         }
     }
 }
@@ -44,7 +72,7 @@ pub fn ghost_system(
 ///
 /// This function mirrors the behavior from the old ghost implementation,
 /// preferring not to reverse direction unless it's the only option.
-fn choose_random_direction(map: &Map, movable: &mut Movable, position: &Position) {
+fn choose_random_direction(map: &Map, velocity: &mut Velocity, position: &Position) {
     let current_node = position.current_node();
     let intersection = &map.graph.adjacency_list[current_node];
 
@@ -64,14 +92,14 @@ fn choose_random_direction(map: &Map, movable: &mut Movable, position: &Position
         let mut rng = SmallRng::from_os_rng();
 
         // Filter out the opposite direction if possible, but allow it if we have limited options
-        let opposite = movable.current_direction.opposite();
+        let opposite = velocity.direction.opposite();
         let filtered_directions: Vec<_> = available_directions
             .iter()
             .filter(|&&dir| dir != opposite || available_directions.len() <= 2)
             .collect();
 
         if let Some(&random_direction) = filtered_directions.choose(&mut rng) {
-            movable.requested_direction = Some(*random_direction);
+            velocity.direction = *random_direction;
         }
     }
 }

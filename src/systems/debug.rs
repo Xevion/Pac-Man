@@ -187,7 +187,7 @@ pub fn debug_render_system(
                 DebugState::Collision => {
                     debug_canvas.set_draw_color(Color::GREEN);
                     for (collider, position) in colliders.iter() {
-                        let pos = position.get_pixel_pos(&map.graph).unwrap();
+                        let pos = position.get_pixel_position(&map.graph).unwrap();
 
                         // Transform position and size using common methods
                         let (x, y) = transform_position((pos.x, pos.y), output_size, logical_size);

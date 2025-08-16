@@ -8,23 +8,22 @@ use crate::error::{GameError, GameResult, TextureError};
 use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::systems::blinking::Blinking;
-use crate::systems::movement::{Movable, MovementState, Position};
+use crate::systems::movement::{BufferedDirection, Position, Velocity};
+use crate::systems::player::player_movement_system;
 use crate::systems::profiling::SystemId;
 use crate::systems::{
     audio::{audio_system, AudioEvent, AudioResource},
     blinking::blinking_system,
     collision::collision_system,
     components::{
-        AudioState, Collider, DeltaTime, DirectionalAnimated, EntityType, GhostBehavior, GhostBundle, GhostCollider, GhostType,
-        GlobalState, ItemBundle, ItemCollider, PacmanCollider, PlayerBundle, PlayerControlled, RenderDirty, Renderable,
-        ScoreResource,
+        AudioState, Collider, DeltaTime, DirectionalAnimated, EntityType, Ghost, GhostBundle, GhostCollider, GlobalState,
+        ItemBundle, ItemCollider, PacmanCollider, PlayerBundle, PlayerControlled, RenderDirty, Renderable, ScoreResource,
     },
-    control::player_system,
     debug::{debug_render_system, DebugState, DebugTextureResource},
-    ghost::ghost_system,
+    ghost::ghost_movement_system,
     input::input_system,
     item::item_system,
-    movement::movement_system,
+    player::player_control_system,
     profiling::{profile, SystemTimings},
     render::{directional_render_system, dirty_render_system, render_system, BackbufferResource, MapTextureResource},
 };
@@ -159,16 +158,12 @@ impl Game {
 
         let player = PlayerBundle {
             player: PlayerControlled,
-            position: Position {
-                node: pacman_start_node,
-                edge_progress: None,
-            },
-            movement_state: MovementState::Stopped,
-            movable: Movable {
+            position: Position::Stopped { node: pacman_start_node },
+            velocity: Velocity {
                 speed: 1.15,
-                current_direction: Direction::Left,
-                requested_direction: Some(Direction::Left), // Start moving left immediately
+                direction: Direction::Left,
             },
+            buffered_direction: BufferedDirection::None,
             sprite: Renderable {
                 sprite: SpriteAtlas::get_tile(&atlas, "pacman/full.png")
                     .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
@@ -214,9 +209,9 @@ impl Game {
         schedule.add_systems(
             (
                 profile(SystemId::Input, input_system),
-                profile(SystemId::Player, player_system),
-                profile(SystemId::Ghost, ghost_system),
-                profile(SystemId::Movement, movement_system),
+                profile(SystemId::PlayerControls, player_control_system),
+                profile(SystemId::PlayerMovement, player_movement_system),
+                profile(SystemId::Ghost, ghost_movement_system),
                 profile(SystemId::Collision, collision_system),
                 profile(SystemId::Item, item_system),
                 profile(SystemId::Audio, audio_system),
@@ -270,10 +265,7 @@ impl Game {
             };
 
             let mut item = world.spawn(ItemBundle {
-                position: Position {
-                    node: node_id,
-                    edge_progress: None,
-                },
+                position: Position::Stopped { node: node_id },
                 sprite: Renderable {
                     sprite,
                     layer: 1,
@@ -301,10 +293,10 @@ impl Game {
         let ghost_start_positions = {
             let map = world.resource::<Map>();
             [
-                (GhostType::Blinky, map.start_positions.blinky),
-                (GhostType::Pinky, map.start_positions.pinky),
-                (GhostType::Inky, map.start_positions.inky),
-                (GhostType::Clyde, map.start_positions.clyde),
+                (Ghost::Blinky, map.start_positions.blinky),
+                (Ghost::Pinky, map.start_positions.pinky),
+                (Ghost::Inky, map.start_positions.inky),
+                (Ghost::Clyde, map.start_positions.clyde),
             ]
         };
 
@@ -364,17 +356,11 @@ impl Game {
                 }
 
                 GhostBundle {
-                    ghost_type,
-                    ghost_behavior: GhostBehavior::default(),
-                    position: Position {
-                        node: start_node,
-                        edge_progress: None,
-                    },
-                    movement_state: MovementState::Stopped,
-                    movable: Movable {
+                    ghost: ghost_type,
+                    position: Position::Stopped { node: start_node },
+                    velocity: Velocity {
                         speed: ghost_type.base_speed(),
-                        current_direction: Direction::Left,
-                        requested_direction: Some(Direction::Left), // Start with some movement
+                        direction: Direction::Left,
                     },
                     sprite: Renderable {
                         sprite: SpriteAtlas::get_tile(atlas, &format!("ghost/{}/left_a.png", ghost_type.as_str())).ok_or_else(

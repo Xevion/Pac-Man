@@ -1,7 +1,7 @@
 use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
 use crate::systems::components::{DeltaTime, DirectionalAnimated, RenderDirty, Renderable};
-use crate::systems::movement::{Movable, MovementState, Position};
+use crate::systems::movement::{Position, Velocity};
 use crate::texture::sprite::SpriteAtlas;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
@@ -26,12 +26,12 @@ pub fn dirty_render_system(
 /// This runs before the render system so it can update the sprite based on the current direction of travel, as well as whether the entity is moving.
 pub fn directional_render_system(
     dt: Res<DeltaTime>,
-    mut renderables: Query<(&MovementState, &Movable, &mut DirectionalAnimated, &mut Renderable)>,
+    mut renderables: Query<(&Position, &Velocity, &mut DirectionalAnimated, &mut Renderable)>,
     mut errors: EventWriter<GameError>,
 ) {
-    for (movement_state, movable, mut texture, mut renderable) in renderables.iter_mut() {
-        let stopped = matches!(movement_state, MovementState::Stopped);
-        let current_direction = movable.current_direction;
+    for (position, velocity, mut texture, mut renderable) in renderables.iter_mut() {
+        let stopped = matches!(position, Position::Stopped { .. });
+        let current_direction = velocity.direction;
 
         let texture = if stopped {
             texture.stopped_textures[current_direction.as_usize()].as_mut()
@@ -96,7 +96,7 @@ pub fn render_system(
                     continue;
                 }
 
-                let pos = position.get_pixel_pos(&map.graph);
+                let pos = position.get_pixel_position(&map.graph);
                 match pos {
                     Ok(pos) => {
                         let dest = crate::helpers::centered_with_size(

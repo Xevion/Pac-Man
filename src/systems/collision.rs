@@ -19,7 +19,10 @@ pub fn collision_system(
     // Check PACMAN × ITEM collisions
     for (pacman_entity, pacman_pos, pacman_collider) in pacman_query.iter() {
         for (item_entity, item_pos, item_collider) in item_query.iter() {
-            match (pacman_pos.get_pixel_pos(&map.graph), item_pos.get_pixel_pos(&map.graph)) {
+            match (
+                pacman_pos.get_pixel_position(&map.graph),
+                item_pos.get_pixel_position(&map.graph),
+            ) {
                 (Ok(pacman_pixel), Ok(item_pixel)) => {
                     // Calculate the distance between the two entities's precise pixel positions
                     let distance = pacman_pixel.distance(item_pixel);
