@@ -70,6 +70,17 @@ impl EntityType {
             _ => TraversalFlags::empty(), // Static entities don't traverse
         }
     }
+    pub fn score_value(&self) -> Option<u32> {
+        match self {
+            EntityType::Pellet => Some(10),
+            EntityType::PowerPellet => Some(50),
+            _ => None,
+        }
+    }
+
+    pub fn is_collectible(&self) -> bool {
+        matches!(self, EntityType::Pellet | EntityType::PowerPellet)
+    }
 }
 
 /// A component for entities that have a sprite, with a layer for ordering.

@@ -1,159 +1,278 @@
-use pacman::systems::components::EntityType;
+use bevy_ecs::{event::Events, prelude::*, system::RunSystemOnce, world::World};
 
-// Helper functions that extract the core scoring logic from item_system
-// This allows us to test the business rules without ECS complexity
+use pacman::{
+    events::GameEvent,
+    map::builder::Map,
+    systems::{
+        audio::AudioEvent,
+        components::{AudioState, EntityType, ItemCollider, PacmanCollider, ScoreResource},
+        item::{is_valid_item_collision, item_system},
+        movement::Position,
+    },
+};
 
-fn calculate_score_for_item(entity_type: EntityType) -> Option<u32> {
-    match entity_type {
-        EntityType::Pellet => Some(10),
-        EntityType::PowerPellet => Some(50),
-        _ => None,
-    }
-}
-
-fn is_collectible_item(entity_type: EntityType) -> bool {
-    matches!(entity_type, EntityType::Pellet | EntityType::PowerPellet)
-}
-
-fn should_trigger_audio_on_collection(entity_type: EntityType) -> bool {
-    is_collectible_item(entity_type)
+#[test]
+fn test_calculate_score_for_item() {
+    assert!(EntityType::Pellet.score_value() < EntityType::PowerPellet.score_value());
+    assert!(EntityType::Pellet.score_value().is_some());
+    assert!(EntityType::PowerPellet.score_value().is_some());
+    assert!(EntityType::Pellet.score_value().unwrap() < EntityType::PowerPellet.score_value().unwrap());
+    assert!(EntityType::Player.score_value().is_none());
+    assert!(EntityType::Ghost.score_value().is_none());
 }
 
 #[test]
-fn test_pellet_scoring() {
-    assert_eq!(calculate_score_for_item(EntityType::Pellet), Some(10));
+fn test_is_collectible_item() {
+    // Collectible
+    assert!(EntityType::Pellet.is_collectible());
+    assert!(EntityType::PowerPellet.is_collectible());
+
+    // Non-collectible
+    assert!(!EntityType::Player.is_collectible());
+    assert!(!EntityType::Ghost.is_collectible());
 }
 
 #[test]
-fn test_power_pellet_scoring() {
-    assert_eq!(calculate_score_for_item(EntityType::PowerPellet), Some(50));
+fn test_is_valid_item_collision() {
+    // Player-item collisions should be valid
+    assert!(is_valid_item_collision(EntityType::Player, EntityType::Pellet));
+    assert!(is_valid_item_collision(EntityType::Player, EntityType::PowerPellet));
+    assert!(is_valid_item_collision(EntityType::Pellet, EntityType::Player));
+    assert!(is_valid_item_collision(EntityType::PowerPellet, EntityType::Player));
+
+    // Non-player-item collisions should be invalid
+    assert!(!is_valid_item_collision(EntityType::Player, EntityType::Ghost));
+    assert!(!is_valid_item_collision(EntityType::Ghost, EntityType::Pellet));
+    assert!(!is_valid_item_collision(EntityType::Pellet, EntityType::PowerPellet));
+    assert!(!is_valid_item_collision(EntityType::Player, EntityType::Player));
+}
+
+fn create_test_world() -> World {
+    let mut world = World::new();
+
+    // Add required resources
+    world.insert_resource(ScoreResource(0));
+    world.insert_resource(AudioState::default());
+    world.insert_resource(Events::<GameEvent>::default());
+    world.insert_resource(Events::<AudioEvent>::default());
+    world.insert_resource(Events::<pacman::error::GameError>::default());
+
+    // Add a minimal test map
+    world.insert_resource(create_test_map());
+
+    world
+}
+
+fn create_test_map() -> Map {
+    use pacman::constants::RAW_BOARD;
+    Map::new(RAW_BOARD).expect("Failed to create test map")
+}
+
+fn spawn_test_pacman(world: &mut World) -> Entity {
+    world
+        .spawn((Position::Stopped { node: 0 }, EntityType::Player, PacmanCollider))
+        .id()
+}
+
+fn spawn_test_item(world: &mut World, item_type: EntityType) -> Entity {
+    world.spawn((Position::Stopped { node: 1 }, item_type, ItemCollider)).id()
+}
+
+fn send_collision_event(world: &mut World, entity1: Entity, entity2: Entity) {
+    let mut events = world.resource_mut::<Events<GameEvent>>();
+    events.send(GameEvent::Collision(entity1, entity2));
 }
 
 #[test]
-fn test_non_collectible_items_no_score() {
-    assert_eq!(calculate_score_for_item(EntityType::Player), None);
-    assert_eq!(calculate_score_for_item(EntityType::Ghost), None);
+fn test_item_system_pellet_collection() {
+    let mut world = create_test_world();
+    let pacman = spawn_test_pacman(&mut world);
+    let pellet = spawn_test_item(&mut world, EntityType::Pellet);
+
+    // Send collision event
+    send_collision_event(&mut world, pacman, pellet);
+
+    // Run the item system
+    world.run_system_once(item_system).expect("System should run successfully");
+
+    // Check that score was updated
+    let score = world.resource::<ScoreResource>();
+    assert_eq!(score.0, 10);
+
+    // Check that the pellet was despawned (query should return empty)
+    let item_count = world
+        .query::<&EntityType>()
+        .iter(&world)
+        .filter(|&entity_type| matches!(entity_type, EntityType::Pellet))
+        .count();
+    assert_eq!(item_count, 0);
 }
 
 #[test]
-fn test_collectible_item_detection() {
-    assert!(is_collectible_item(EntityType::Pellet));
-    assert!(is_collectible_item(EntityType::PowerPellet));
-    assert!(!is_collectible_item(EntityType::Player));
-    assert!(!is_collectible_item(EntityType::Ghost));
+fn test_item_system_power_pellet_collection() {
+    let mut world = create_test_world();
+    let pacman = spawn_test_pacman(&mut world);
+    let power_pellet = spawn_test_item(&mut world, EntityType::PowerPellet);
+
+    send_collision_event(&mut world, pacman, power_pellet);
+
+    world.run_system_once(item_system).expect("System should run successfully");
+
+    // Check that score was updated with power pellet value
+    let score = world.resource::<ScoreResource>();
+    assert_eq!(score.0, 50);
+
+    // Check that the power pellet was despawned (query should return empty)
+    let item_count = world
+        .query::<&EntityType>()
+        .iter(&world)
+        .filter(|&entity_type| matches!(entity_type, EntityType::PowerPellet))
+        .count();
+    assert_eq!(item_count, 0);
 }
 
 #[test]
-fn test_audio_trigger_for_collectibles() {
-    assert!(should_trigger_audio_on_collection(EntityType::Pellet));
-    assert!(should_trigger_audio_on_collection(EntityType::PowerPellet));
-    assert!(!should_trigger_audio_on_collection(EntityType::Player));
-    assert!(!should_trigger_audio_on_collection(EntityType::Ghost));
+fn test_item_system_multiple_collections() {
+    let mut world = create_test_world();
+    let pacman = spawn_test_pacman(&mut world);
+    let pellet1 = spawn_test_item(&mut world, EntityType::Pellet);
+    let pellet2 = spawn_test_item(&mut world, EntityType::Pellet);
+    let power_pellet = spawn_test_item(&mut world, EntityType::PowerPellet);
+
+    // Send multiple collision events
+    send_collision_event(&mut world, pacman, pellet1);
+    send_collision_event(&mut world, pacman, pellet2);
+    send_collision_event(&mut world, pacman, power_pellet);
+
+    world.run_system_once(item_system).expect("System should run successfully");
+
+    // Check final score: 2 pellets (20) + 1 power pellet (50) = 70
+    let score = world.resource::<ScoreResource>();
+    assert_eq!(score.0, 70);
+
+    // Check that all items were despawned
+    let pellet_count = world
+        .query::<&EntityType>()
+        .iter(&world)
+        .filter(|&entity_type| matches!(entity_type, EntityType::Pellet))
+        .count();
+    let power_pellet_count = world
+        .query::<&EntityType>()
+        .iter(&world)
+        .filter(|&entity_type| matches!(entity_type, EntityType::PowerPellet))
+        .count();
+    assert_eq!(pellet_count, 0);
+    assert_eq!(power_pellet_count, 0);
 }
 
 #[test]
-fn test_score_progression() {
-    // Test that power pellets are worth more than regular pellets
-    let pellet_score = calculate_score_for_item(EntityType::Pellet).unwrap();
-    let power_pellet_score = calculate_score_for_item(EntityType::PowerPellet).unwrap();
+fn test_item_system_ignores_non_item_collisions() {
+    let mut world = create_test_world();
+    let pacman = spawn_test_pacman(&mut world);
 
-    assert!(power_pellet_score > pellet_score);
-    assert_eq!(power_pellet_score / pellet_score, 5); // Power pellets are worth 5x regular pellets
+    // Create a ghost entity (not an item)
+    let ghost = world.spawn((Position::Stopped { node: 2 }, EntityType::Ghost)).id();
+
+    // Initial score
+    let initial_score = world.resource::<ScoreResource>().0;
+
+    // Send collision event between pacman and ghost
+    send_collision_event(&mut world, pacman, ghost);
+
+    world.run_system_once(item_system).expect("System should run successfully");
+
+    // Score should remain unchanged
+    let score = world.resource::<ScoreResource>();
+    assert_eq!(score.0, initial_score);
+
+    // Ghost should still exist (not despawned)
+    let ghost_count = world
+        .query::<&EntityType>()
+        .iter(&world)
+        .filter(|&entity_type| matches!(entity_type, EntityType::Ghost))
+        .count();
+    assert_eq!(ghost_count, 1);
 }
 
 #[test]
-fn test_entity_type_variants() {
-    // Test all EntityType variants to ensure they're handled appropriately
-    let all_types = vec![
-        EntityType::Player,
-        EntityType::Ghost,
-        EntityType::Pellet,
-        EntityType::PowerPellet,
-    ];
+fn test_item_system_wrong_collision_order() {
+    let mut world = create_test_world();
+    let pacman = spawn_test_pacman(&mut world);
+    let pellet = spawn_test_item(&mut world, EntityType::Pellet);
 
-    let mut collectible_count = 0;
-    let mut non_collectible_count = 0;
+    // Send collision event with entities in reverse order
+    send_collision_event(&mut world, pellet, pacman);
 
-    for entity_type in all_types {
-        if is_collectible_item(entity_type) {
-            collectible_count += 1;
-            // All collectible items should have a score
-            assert!(calculate_score_for_item(entity_type).is_some());
-        } else {
-            non_collectible_count += 1;
-            // Non-collectible items should not have a score
-            assert!(calculate_score_for_item(entity_type).is_none());
-        }
-    }
+    world.run_system_once(item_system).expect("System should run successfully");
 
-    // Verify we have the expected number of each type
-    assert_eq!(collectible_count, 2); // Pellet and PowerPellet
-    assert_eq!(non_collectible_count, 2); // Player and Ghost
+    // Should still work correctly
+    let score = world.resource::<ScoreResource>();
+    assert_eq!(score.0, 10);
+    let pellet_count = world
+        .query::<&EntityType>()
+        .iter(&world)
+        .filter(|&entity_type| matches!(entity_type, EntityType::Pellet))
+        .count();
+    assert_eq!(pellet_count, 0);
 }
 
 #[test]
-fn test_score_accumulation() {
-    // Test score accumulation logic (simulating multiple collections)
-    let mut total_score = 0u32;
+fn test_item_system_no_collision_events() {
+    let mut world = create_test_world();
+    let _pacman = spawn_test_pacman(&mut world);
+    let _pellet = spawn_test_item(&mut world, EntityType::Pellet);
 
-    // Collect some items
-    let collected_items = vec![
-        EntityType::Pellet,
-        EntityType::Pellet,
-        EntityType::PowerPellet,
-        EntityType::Pellet,
-        EntityType::PowerPellet,
-    ];
+    let initial_score = world.resource::<ScoreResource>().0;
 
-    for item in collected_items {
-        if let Some(score) = calculate_score_for_item(item) {
-            total_score += score;
-        }
-    }
+    // Run system without any collision events
+    world.run_system_once(item_system).expect("System should run successfully");
 
-    // Expected: 3 pellets (30) + 2 power pellets (100) = 130
-    assert_eq!(total_score, 130);
+    // Nothing should change
+    let score = world.resource::<ScoreResource>();
+    assert_eq!(score.0, initial_score);
+    let pellet_count = world
+        .query::<&EntityType>()
+        .iter(&world)
+        .filter(|&entity_type| matches!(entity_type, EntityType::Pellet))
+        .count();
+    assert_eq!(pellet_count, 1);
 }
 
 #[test]
-fn test_collision_filtering_logic() {
-    // Test the logic for determining valid collision pairs
-    // This mirrors the logic in item_system that checks entity types
+fn test_item_system_collision_with_missing_entity() {
+    let mut world = create_test_world();
+    let pacman = spawn_test_pacman(&mut world);
 
-    let test_cases = vec![
-        (EntityType::Player, EntityType::Pellet, true),
-        (EntityType::Player, EntityType::PowerPellet, true),
-        (EntityType::Player, EntityType::Ghost, false), // Not handled by item system
-        (EntityType::Player, EntityType::Player, false), // Not a valid collision
-        (EntityType::Ghost, EntityType::Pellet, false), // Ghosts don't collect items
-        (EntityType::Pellet, EntityType::PowerPellet, false), // Items don't interact
-    ];
+    // Create a fake entity ID that doesn't exist
+    let fake_entity = Entity::from_raw(999);
 
-    for (entity1, entity2, should_be_valid) in test_cases {
-        let is_valid_item_collision = (entity1 == EntityType::Player && is_collectible_item(entity2))
-            || (entity2 == EntityType::Player && is_collectible_item(entity1));
+    send_collision_event(&mut world, pacman, fake_entity);
 
-        assert_eq!(
-            is_valid_item_collision, should_be_valid,
-            "Failed for collision between {:?} and {:?}",
-            entity1, entity2
-        );
-    }
+    // System should handle gracefully and not crash
+    world
+        .run_system_once(item_system)
+        .expect("System should handle missing entities gracefully");
+
+    // Score should remain unchanged
+    let score = world.resource::<ScoreResource>();
+    assert_eq!(score.0, 0);
 }
 
 #[test]
-fn test_item_collection_side_effects() {
-    // Test that collecting items should trigger the expected side effects
-    let collectible_items = vec![EntityType::Pellet, EntityType::PowerPellet];
+fn test_item_system_preserves_existing_score() {
+    let mut world = create_test_world();
 
-    for item in collectible_items {
-        // Should provide score
-        assert!(calculate_score_for_item(item).is_some());
+    // Set initial score
+    world.insert_resource(ScoreResource(100));
 
-        // Should trigger audio
-        assert!(should_trigger_audio_on_collection(item));
+    let pacman = spawn_test_pacman(&mut world);
+    let pellet = spawn_test_item(&mut world, EntityType::Pellet);
 
-        // Should be marked as collectible
-        assert!(is_collectible_item(item));
-    }
+    send_collision_event(&mut world, pacman, pellet);
+
+    world.run_system_once(item_system).expect("System should run successfully");
+
+    // Score should be initial + pellet value
+    let score = world.resource::<ScoreResource>();
+    assert_eq!(score.0, 110);
 }

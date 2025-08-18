@@ -8,6 +8,17 @@ use crate::{
     },
 };
 
+/// Determines if a collision between two entity types should be handled by the item system.
+///
+/// Returns `true` if one entity is a player and the other is a collectible item.
+#[allow(dead_code)]
+pub fn is_valid_item_collision(entity1: EntityType, entity2: EntityType) -> bool {
+    match (entity1, entity2) {
+        (EntityType::Player, entity) | (entity, EntityType::Player) => entity.is_collectible(),
+        _ => false,
+    }
+}
+
 pub fn item_system(
     mut commands: Commands,
     mut collision_events: EventReader<GameEvent>,
@@ -29,20 +40,17 @@ pub fn item_system(
 
             // Get the item type and update score
             if let Ok((item_ent, entity_type)) = item_query.get(item_entity) {
-                match entity_type {
-                    EntityType::Pellet => {
-                        score.0 += 10;
+                if let Some(score_value) = entity_type.score_value() {
+                    score.0 += score_value;
+
+                    // Remove the collected item
+                    commands.entity(item_ent).despawn();
+
+                    // Trigger audio if appropriate
+                    if entity_type.is_collectible() {
+                        events.write(AudioEvent::PlayEat);
                     }
-                    EntityType::PowerPellet => {
-                        score.0 += 50;
-                    }
-                    _ => continue,
                 }
-
-                // Remove the collected item
-                commands.entity(item_ent).despawn();
-
-                events.write(AudioEvent::PlayEat);
             }
         }
     }
