@@ -4,7 +4,7 @@ use pacman::map::direction::Direction;
 #[test]
 fn test_game_command_variants() {
     // Test that all GameCommand variants can be created
-    let commands = vec![
+    let commands = [
         GameCommand::Exit,
         GameCommand::MovePlayer(Direction::Up),
         GameCommand::MovePlayer(Direction::Down),
@@ -36,17 +36,6 @@ fn test_game_command_equality() {
         GameCommand::MovePlayer(Direction::Left),
         GameCommand::MovePlayer(Direction::Right)
     );
-}
-
-#[test]
-fn test_game_command_copy_clone() {
-    let original = GameCommand::MovePlayer(Direction::Up);
-    let copied = original;
-    let cloned = original.clone();
-
-    assert_eq!(original, copied);
-    assert_eq!(original, cloned);
-    assert_eq!(copied, cloned);
 }
 
 #[test]

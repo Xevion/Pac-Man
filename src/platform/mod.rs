@@ -28,7 +28,6 @@ pub trait CommonPlatform {
     fn get_canvas_size(&self) -> Option<(u32, u32)>;
 
     /// Loads raw asset data using the appropriate platform-specific method.
-
     fn get_asset_bytes(&self, asset: Asset) -> Result<Cow<'static, [u8]>, AssetError>;
 }
 
