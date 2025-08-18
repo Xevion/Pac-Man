@@ -48,16 +48,37 @@ use crate::{
     texture::sprite::{AtlasMapper, SpriteAtlas},
 };
 
-/// The `Game` struct is the main entry point for the game.
+/// Core game state manager built on the Bevy ECS architecture.
 ///
-/// It contains the game's state and logic, and is responsible for
-/// handling user input, updating the game state, and rendering the game.
+/// Orchestrates all game systems through a centralized `World` containing entities,
+/// components, and resources, while a `Schedule` defines system execution order.
+/// Handles initialization of graphics resources, entity spawning, and per-frame
+/// game logic coordination. SDL2 resources are stored as `NonSend` to respect
+/// thread safety requirements while integrating with the ECS.
 pub struct Game {
     pub world: World,
     pub schedule: Schedule,
 }
 
 impl Game {
+    /// Initializes the complete game state including ECS world, graphics, and entity spawning.
+    ///
+    /// Performs extensive setup: creates render targets and debug textures, loads and parses
+    /// the sprite atlas, renders the static map to a cached texture, builds the navigation
+    /// graph from the board layout, spawns Pac-Man with directional animations, creates
+    /// all four ghosts with their AI behavior, and places collectible items throughout
+    /// the maze. Registers event types and configures the system execution schedule.
+    ///
+    /// # Arguments
+    ///
+    /// * `canvas` - SDL2 rendering context with static lifetime for ECS storage
+    /// * `texture_creator` - SDL2 texture factory for creating render targets
+    /// * `event_pump` - SDL2 event polling interface for input handling
+    ///
+    /// # Errors
+    ///
+    /// Returns `GameError` for SDL2 failures, asset loading problems, atlas parsing
+    /// errors, or entity initialization issues.
     pub fn new(
         canvas: &'static mut Canvas<Window>,
         texture_creator: &'static mut TextureCreator<WindowContext>,
@@ -289,7 +310,12 @@ impl Game {
         Ok(Game { world, schedule })
     }
 
-    /// Spowns all four ghosts at their starting positions with appropriate textures.
+    /// Creates and spawns all four ghosts with unique AI personalities and directional animations.
+    ///
+    /// # Errors
+    ///
+    /// Returns `GameError::Texture` if any ghost sprite cannot be found in the atlas,
+    /// typically indicating missing or misnamed sprite files.
     fn spawn_ghosts(world: &mut World) -> GameResult<()> {
         // Extract the data we need first to avoid borrow conflicts
         let ghost_start_positions = {
@@ -394,9 +420,21 @@ impl Game {
         Ok(())
     }
 
-    /// Ticks the game state.
+    /// Executes one frame of game logic by running all scheduled ECS systems.
     ///
-    /// Returns true if the game should exit.
+    /// Updates the world's delta time resource and runs the complete system pipeline:
+    /// input processing, entity movement, collision detection, item collection,
+    /// audio playback, animation updates, and rendering. Each system operates on
+    /// relevant entities and modifies world state, with the schedule ensuring
+    /// proper execution order and data dependencies.
+    ///
+    /// # Arguments
+    ///
+    /// * `dt` - Frame delta time in seconds for time-based animations and movement
+    ///
+    /// # Returns
+    ///
+    /// `true` if the game should terminate (exit command received), `false` to continue
     pub fn tick(&mut self, dt: f32) -> bool {
         self.world.insert_resource(DeltaTime(dt));
 

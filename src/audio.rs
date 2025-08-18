@@ -114,9 +114,11 @@ impl Audio {
         }
     }
 
-    /// Plays the "eat" sound effect.
+    /// Plays the next waka eating sound in the cycle of four variants.
     ///
-    /// If audio is disabled or muted, this function does nothing.
+    /// Automatically rotates through the four eating sound assets. The sound plays on channel 0 and the internal sound index
+    /// advances to the next variant. Silently returns if audio is disabled, muted,
+    /// or no sounds were loaded successfully.
     #[allow(dead_code)]
     pub fn eat(&mut self) {
         if self.disabled || self.muted || self.sounds.is_empty() {
@@ -136,9 +138,11 @@ impl Audio {
         self.next_sound_index = (self.next_sound_index + 1) % self.sounds.len();
     }
 
-    /// Instantly mute or unmute all channels.
+    /// Instantly mutes or unmutes all audio channels by adjusting their volume.
     ///
-    /// If audio is disabled, this function does nothing.
+    /// Sets all 4 mixer channels to zero volume when muting, or restores them to
+    /// their default volume (32) when unmuting. The mute state is tracked internally
+    /// regardless of whether audio is disabled, allowing the state to be preserved.
     pub fn set_mute(&mut self, mute: bool) {
         if !self.disabled {
             let channels = 4;
@@ -151,12 +155,19 @@ impl Audio {
         self.muted = mute;
     }
 
-    /// Returns `true` if the audio is muted.
+    /// Returns the current mute state regardless of whether audio is functional.
+    ///
+    /// This tracks the user's mute preference and will return `true` if muted
+    /// even when the audio system is disabled due to initialization failures.
     pub fn is_muted(&self) -> bool {
         self.muted
     }
 
-    /// Returns `true` if the audio system is disabled.
+    /// Returns whether the audio system failed to initialize and is non-functional.
+    ///
+    /// Audio can be disabled due to SDL2_mixer initialization failures, missing
+    /// audio device, or failure to load any sound assets. When disabled, all
+    /// audio operations become no-ops.
     #[allow(dead_code)]
     pub fn is_disabled(&self) -> bool {
         self.disabled

@@ -11,25 +11,37 @@ use tracing::debug;
 
 use crate::error::{GameResult, MapError};
 
-/// The starting positions of the entities in the game.
+/// Predefined spawn locations for all game entities within the navigation graph.
+///
+/// These positions are determined during map parsing and graph construction.
 pub struct NodePositions {
+    /// Pac-Man's starting position in the lower section of the maze
     pub pacman: NodeId,
+    /// Blinky starts at the ghost house entrance
     pub blinky: NodeId,
+    /// Pinky starts in the left area of the ghost house
     pub pinky: NodeId,
+    /// Inky starts in the right area of the ghost house
     pub inky: NodeId,
+    /// Clyde starts in the center of the ghost house
     pub clyde: NodeId,
 }
 
-/// The main map structure containing the game board and navigation graph.
+/// Complete maze representation combining visual layout with navigation pathfinding.
+///
+/// Transforms the ASCII board layout into a fully connected navigation graph
+/// while preserving tile-based collision and rendering data. The graph enables
+/// smooth entity movement with proper pathfinding, while the grid mapping allows
+/// efficient spatial queries and debug visualization.
 #[derive(Resource)]
 pub struct Map {
-    /// The node map for entity movement.
+    /// Connected graph of navigable positions.
     pub graph: Graph,
-    /// A mapping from grid positions to node IDs.
+    /// Bidirectional mapping between 2D grid coordinates and graph node indices.
     pub grid_to_node: HashMap<IVec2, NodeId>,
-    /// A mapping of the starting positions of the entities.
+    /// Predetermined spawn locations for all game entities
     pub start_positions: NodePositions,
-    /// The raw tile data for the map.
+    /// 2D array of tile types for collision detection and rendering
     tiles: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
 }
 
@@ -162,7 +174,18 @@ impl Map {
         })
     }
 
-    /// Builds the house structure in the graph.
+    /// Constructs the ghost house area with restricted access and internal navigation.
+    ///
+    /// Creates a multi-level ghost house with entrance control, internal movement
+    /// areas, and starting positions for each ghost. The house entrance uses
+    /// ghost-only traversal flags to prevent Pac-Man from entering while allowing
+    /// ghosts to exit. Internal nodes are arranged in vertical lines to provide
+    /// distinct starting areas for each ghost character.
+    ///
+    /// # Returns
+    ///
+    /// Tuple of node IDs: (house_entrance, left_center, center_center, right_center)
+    /// representing the four key positions within the ghost house structure.
     fn build_house(
         graph: &mut Graph,
         grid_to_node: &HashMap<IVec2, NodeId>,
@@ -296,7 +319,10 @@ impl Map {
         ))
     }
 
-    /// Builds the tunnel connections in the graph.
+    /// Creates horizontal tunnel portals for instant teleportation across the maze.
+    ///
+    /// Establishes the tunnel system that allows entities to instantly travel from the left edge of the maze to the right edge.
+    /// Creates hidden intermediate nodes beyond the visible tunnel entrances and connects them with zero-distance edges for instantaneous traversal.
     fn build_tunnels(
         graph: &mut Graph,
         grid_to_node: &HashMap<IVec2, NodeId>,

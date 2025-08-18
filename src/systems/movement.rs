@@ -4,7 +4,10 @@ use crate::map::graph::Graph;
 use bevy_ecs::component::Component;
 use glam::Vec2;
 
-/// A unique identifier for a node, represented by its index in the graph's storage.
+/// Zero-based index identifying a specific node in the navigation graph.
+///
+/// Nodes represent discrete movement targets in the maze. The index directly corresponds to the node's position in the
+/// graph's internal storage arrays.
 pub type NodeId = usize;
 
 /// A component that represents the speed and cardinal direction of an entity.
@@ -24,15 +27,19 @@ pub enum BufferedDirection {
     Some { direction: Direction, remaining_time: f32 },
 }
 
-/// Pure spatial position component - works for both static and dynamic entities.
+/// Entity position state that handles both stationary entities and moving entities.
+///
+/// Supports precise positioning during movement between discrete navigation nodes.
+/// When moving, entities smoothly interpolate along edges while tracking exact distance remaining to the target node.
 #[derive(Component, Debug, Copy, Clone, PartialEq)]
 pub enum Position {
-    Stopped {
-        node: NodeId,
-    },
+    /// Entity is stationary at a specific graph node.
+    Stopped { node: NodeId },
+    /// Entity is traveling between two nodes.
     Moving {
         from: NodeId,
         to: NodeId,
+        /// Distance remaining to reach the target node.
         remaining_distance: f32,
     },
 }
@@ -82,9 +89,21 @@ impl Position {
         ))
     }
 
-    /// Moves the position by a given distance towards it's current target node.
+    /// Advances movement progress by the specified distance with overflow handling.
     ///
-    /// Returns the overflow distance, if any.
+    /// For moving entities, decreases the remaining distance to the target node.
+    /// If the distance would overshoot the target, the entity transitions to
+    /// `Stopped` state and returns the excess distance for chaining movement
+    /// to the next edge in the same frame.
+    ///
+    /// # Arguments
+    ///
+    /// * `distance` - Distance to travel this frame (typically speed × delta_time)
+    ///
+    /// # Returns
+    ///
+    /// `Some(overflow)` if the target was reached with distance remaining,
+    /// `None` if still moving or already stopped.
     pub fn tick(&mut self, distance: f32) -> Option<f32> {
         if distance <= 0.0 || self.is_at_node() {
             return None;

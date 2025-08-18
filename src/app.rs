@@ -12,6 +12,11 @@ use crate::constants::{CANVAS_SIZE, LOOP_TIME, SCALE};
 use crate::game::Game;
 use crate::platform::get_platform;
 
+/// Main application wrapper that manages SDL initialization, window lifecycle, and the game loop.
+///
+/// Handles platform-specific setup, maintains consistent frame timing, and delegates
+/// game logic to the contained `Game` instance. The app manages focus state to
+/// optimize CPU usage when the window loses focus.
 pub struct App {
     pub game: Game,
     last_tick: Instant,
@@ -20,6 +25,16 @@ pub struct App {
 }
 
 impl App {
+    /// Initializes SDL subsystems, creates the game window, and sets up the game state.
+    ///
+    /// Performs comprehensive initialization including video/audio subsystems, platform-specific
+    /// console setup, window creation with proper scaling, and canvas configuration. All SDL
+    /// resources are leaked to maintain 'static lifetimes required by the game architecture.
+    ///
+    /// # Errors
+    ///
+    /// Returns `GameError::Sdl` if any SDL initialization step fails, or propagates
+    /// errors from `Game::new()` during game state setup.
     pub fn new() -> GameResult<Self> {
         let sdl_context: &'static Sdl = Box::leak(Box::new(sdl2::init().map_err(|e| GameError::Sdl(e.to_string()))?));
         let video_subsystem: &'static VideoSubsystem =
@@ -70,6 +85,16 @@ impl App {
         })
     }
 
+    /// Executes a single frame of the game loop with consistent timing and optional sleep.
+    ///
+    /// Calculates delta time since the last frame, runs game logic via `game.tick()`,
+    /// and implements frame rate limiting by sleeping for remaining time if the frame
+    /// completed faster than the target `LOOP_TIME`. Sleep behavior varies based on
+    /// window focus to conserve CPU when the game is not active.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the game should continue running, `false` if the game requested exit.
     pub fn run(&mut self) -> bool {
         {
             let start = Instant::now();

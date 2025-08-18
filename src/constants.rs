@@ -4,6 +4,11 @@ use std::time::Duration;
 
 use glam::UVec2;
 
+/// Target frame duration for 60 FPS game loop timing.
+///
+/// Calculated as 1/60th of a second (≈16.67ms).
+///
+/// Written out explicitly to satisfy const-eval constraints.
 pub const LOOP_TIME: Duration = Duration::from_nanos((1_000_000_000.0 / 60.0) as u64);
 
 /// The size of each cell, in pixels.
@@ -14,9 +19,16 @@ pub const BOARD_CELL_SIZE: UVec2 = UVec2::new(28, 31);
 /// The scale factor for the window (integer zoom)
 pub const SCALE: f32 = 2.6;
 
-/// The offset of the game board from the top-left corner of the window, in cells.
+/// Game board offset from window origin to reserve space for HUD elements.
+///
+/// The 3-cell vertical offset (24 pixels) provides space at the top of the
+/// screen for score display, player lives, and other UI elements.
 pub const BOARD_CELL_OFFSET: UVec2 = UVec2::new(0, 3);
-/// The offset of the game board from the top-left corner of the window, in pixels.
+
+/// Pixel-space equivalent of `BOARD_CELL_OFFSET` for rendering calculations.
+///
+/// Automatically calculated from the cell offset to maintain consistency
+/// when the cell size changes. Used for positioning sprites and debug overlays.
 pub const BOARD_PIXEL_OFFSET: UVec2 = UVec2::new(BOARD_CELL_OFFSET.x * CELL_SIZE, BOARD_CELL_OFFSET.y * CELL_SIZE);
 /// The size of the canvas, in pixels.
 pub const CANVAS_SIZE: UVec2 = UVec2::new(
@@ -24,22 +36,24 @@ pub const CANVAS_SIZE: UVec2 = UVec2::new(
     (BOARD_CELL_SIZE.y + BOARD_CELL_OFFSET.y) * CELL_SIZE,
 );
 
-/// An enum representing the different types of tiles on the map.
+/// Map tile types that define gameplay behavior and collision properties.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MapTile {
-    /// An empty tile.
+    /// Traversable space with no collectible items
     Empty,
-    /// A wall tile.
     Wall,
-    /// A regular pellet.
+    /// Small collectible. Implicitly a traversable tile.
     Pellet,
-    /// A power pellet.
+    /// Large collectible. Implicitly a traversable tile.
     PowerPellet,
-    /// A tunnel tile.
+    /// Special traversable tile that connects to tunnel portals.
     Tunnel,
 }
 
-/// The raw layout of the game board, as a 2D array of characters.
+/// ASCII art representation of the classic Pac-Man maze layout.
+///
+/// Uses character symbols to define the game world. This layout is parsed by `MapTileParser`
+/// to generate the navigable graph and collision geometry.
 pub const RAW_BOARD: [&str; BOARD_CELL_SIZE.y as usize] = [
     "############################",
     "#............##............#",

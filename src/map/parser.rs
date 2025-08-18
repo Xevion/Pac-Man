@@ -4,16 +4,21 @@ use crate::constants::{MapTile, BOARD_CELL_SIZE};
 use crate::error::ParseError;
 use glam::IVec2;
 
-/// Represents the parsed data from a raw board layout.
+/// Structured representation of parsed ASCII board layout with extracted special positions.
+///
+/// Contains the complete board state after character-to-tile conversion, along with
+/// the locations of special gameplay elements that require additional processing
+/// during graph construction. Special positions are extracted during parsing to
+/// enable proper map builder initialization.
 #[derive(Debug)]
 pub struct ParsedMap {
-    /// The parsed tile layout.
+    /// 2D array of tiles converted from ASCII characters
     pub tiles: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
-    /// The positions of the house door tiles.
+    /// Two positions marking the ghost house entrance (represented by '=' characters)
     pub house_door: [Option<IVec2>; 2],
-    /// The positions of the tunnel end tiles.
+    /// Two positions marking tunnel portals for wraparound teleportation ('T' characters)
     pub tunnel_ends: [Option<IVec2>; 2],
-    /// Pac-Man's starting position.
+    /// Starting position for Pac-Man (marked by 'X' character in the layout)
     pub pacman_start: Option<IVec2>,
 }
 
@@ -21,15 +26,18 @@ pub struct ParsedMap {
 pub struct MapTileParser;
 
 impl MapTileParser {
-    /// Parses a single character into a map tile.
+    /// Converts ASCII characters from the board layout into corresponding tile types.
     ///
-    /// # Arguments
+    /// Interprets the character-based maze representation: walls (`#`), collectible
+    /// pellets (`.` and `o`), traversable spaces (` `), tunnel entrances (`T`),
+    /// ghost house doors (`=`), and entity spawn markers (`X`). Special characters
+    /// that don't represent tiles in the final map (like spawn markers) are
+    /// converted to `Empty` tiles while their positions are tracked separately.
     ///
-    /// * `c` - The character to parse
+    /// # Errors
     ///
-    /// # Returns
-    ///
-    /// The parsed map tile, or an error if the character is unknown.
+    /// Returns `ParseError::UnknownCharacter` for any character not defined
+    /// in the game's ASCII art vocabulary.
     pub fn parse_character(c: char) -> Result<MapTile, ParseError> {
         match c {
             '#' => Ok(MapTile::Wall),

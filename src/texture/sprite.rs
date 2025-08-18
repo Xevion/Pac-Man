@@ -8,8 +8,10 @@ use std::collections::HashMap;
 
 use crate::error::TextureError;
 
+/// Atlas frame mapping data loaded from JSON metadata files.
 #[derive(Clone, Debug, Deserialize)]
 pub struct AtlasMapper {
+    /// Mapping from sprite name to frame bounds within the atlas texture
     pub frames: HashMap<String, MapperFrame>,
 }
 
@@ -72,10 +74,19 @@ impl AtlasTile {
     }
 }
 
+/// High-performance sprite atlas providing fast texture region lookups and rendering.
+///
+/// Combines a single large texture with metadata mapping to enable efficient
+/// sprite rendering without texture switching. Caches color modulation state
+/// to minimize redundant SDL2 calls and supports both named sprite lookups
+/// and optional default color modulation configuration.
 pub struct SpriteAtlas {
+    /// The combined texture containing all sprite frames
     texture: Texture<'static>,
+    /// Mapping from sprite names to their pixel coordinates within the texture
     tiles: HashMap<String, MapperFrame>,
     default_color: Option<Color>,
+    /// Cached color modulation state to avoid redundant SDL2 calls
     last_modulation: Option<Color>,
 }
 
@@ -89,6 +100,12 @@ impl SpriteAtlas {
         }
     }
 
+    /// Retrieves a sprite tile by name from the atlas with fast HashMap lookup.
+    ///
+    /// Returns an `AtlasTile` containing the texture coordinates and dimensions
+    /// for the named sprite, or `None` if the sprite name is not found in the
+    /// atlas. The returned tile can be used for immediate rendering or stored
+    /// for repeated use in animations and entity sprites.
     pub fn get_tile(&self, name: &str) -> Option<AtlasTile> {
         self.tiles.get(name).map(|frame| AtlasTile {
             pos: U16Vec2::new(frame.x, frame.y),

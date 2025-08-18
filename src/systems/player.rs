@@ -17,7 +17,12 @@ use crate::{
     },
 };
 
-// Handles player input and control
+/// Processes player input commands and updates game state accordingly.
+///
+/// Handles keyboard-driven commands like movement direction changes, debug mode
+/// toggling, audio muting, and game exit requests. Movement commands are buffered
+/// to allow direction changes before reaching intersections, improving gameplay
+/// responsiveness. Non-movement commands immediately modify global game state.
 pub fn player_control_system(
     mut events: EventReader<GameEvent>,
     mut state: ResMut<GlobalState>,
@@ -69,6 +74,11 @@ fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
     edge.traversal_flags.contains(entity_flags)
 }
 
+/// Executes frame-by-frame movement for Pac-Man.
+///
+/// Handles movement logic including buffered direction changes, edge traversal validation, and continuous movement between nodes.
+/// When stopped, prioritizes buffered directions for responsive controls, falling back to current direction.
+/// Supports movement chaining within a single frame when traveling at high speeds.
 pub fn player_movement_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,

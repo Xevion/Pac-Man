@@ -14,10 +14,7 @@ use crate::{
     },
 };
 
-/// Ghost AI system that handles randomized movement decisions.
-///
-/// This system runs on all ghosts and makes periodic decisions about
-/// which direction to move in when they reach intersections.
+/// Autonomous ghost AI system implementing randomized movement with backtracking avoidance.
 pub fn ghost_movement_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,

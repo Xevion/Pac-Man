@@ -9,6 +9,13 @@ use crate::map::builder::Map;
 use crate::systems::components::{Collider, ItemCollider, PacmanCollider};
 use crate::systems::movement::Position;
 
+/// Detects overlapping entities and generates collision events for gameplay systems.
+///
+/// Performs distance-based collision detection between Pac-Man and collectible items
+/// using each entity's position and collision radius. When entities overlap, emits
+/// a `GameEvent::Collision` for the item system to handle scoring and removal.
+/// Collision detection accounts for both entities being in motion and supports
+/// circular collision boundaries for accurate gameplay feel.
 pub fn collision_system(
     map: Res<Map>,
     pacman_query: Query<(Entity, &Position, &Collider), With<PacmanCollider>>,
