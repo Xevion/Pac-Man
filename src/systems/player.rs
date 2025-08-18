@@ -69,7 +69,7 @@ pub fn player_control_system(
     }
 }
 
-fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
+pub fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
     let entity_flags = entity_type.traversal_flags();
     edge.traversal_flags.contains(entity_flags)
 }
