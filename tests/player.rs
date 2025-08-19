@@ -21,7 +21,7 @@ fn create_test_world() -> World {
 
     // Add resources
     world.insert_resource(GlobalState { exit: false });
-    world.insert_resource(DebugState::Off);
+    world.insert_resource(DebugState::default());
     world.insert_resource(AudioState::default());
     world.insert_resource(DeltaTime(1.0 / 60.0)); // 60 FPS
     world.insert_resource(Events::<GameEvent>::default());
@@ -222,7 +222,7 @@ fn test_player_control_system_toggle_debug() {
 
     // Check that debug state changed
     let debug_state = world.resource::<DebugState>();
-    assert_eq!(*debug_state, DebugState::Graph);
+    assert_eq!(debug_state.enabled, true);
 }
 
 #[test]
@@ -565,7 +565,7 @@ fn test_player_state_persistence_across_systems() {
     let position = *query.single(&world).expect("Player should exist");
 
     // Check that the state changes persisted individually
-    assert_eq!(debug_state_after_toggle, DebugState::Graph, "Debug state should have toggled");
+    assert_eq!(debug_state_after_toggle.enabled, true, "Debug state should have toggled");
     assert!(audio_muted_after_toggle, "Audio should be muted");
 
     // Player position depends on actual map connectivity

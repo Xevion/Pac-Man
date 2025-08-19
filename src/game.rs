@@ -251,14 +251,13 @@ impl Game {
                  backbuffer: NonSendMut<BackbufferResource>,
                  debug_state: Res<DebugState>,
                  mut dirty: ResMut<RenderDirty>| {
-                    if dirty.0 || *debug_state != DebugState::Off {
+                    if dirty.0 || debug_state.enabled {
                         // Only copy backbuffer to main canvas if debug rendering is off
                         // (debug rendering draws directly to main canvas)
-                        if *debug_state == DebugState::Off {
-                            canvas.copy(&backbuffer.0, None, None).unwrap();
+                        if !debug_state.enabled {
+                            canvas.present();
                         }
                         dirty.0 = false;
-                        canvas.present();
                     }
                 },
             ),

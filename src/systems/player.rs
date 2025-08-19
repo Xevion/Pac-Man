@@ -57,7 +57,7 @@ pub fn player_control_system(
                     state.exit = true;
                 }
                 GameCommand::ToggleDebug => {
-                    *debug_state = debug_state.next();
+                    debug_state.enabled = !debug_state.enabled;
                 }
                 GameCommand::MuteAudio => {
                     audio_state.muted = !audio_state.muted;
