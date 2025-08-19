@@ -28,7 +28,7 @@ pub enum CursorPosition {
 pub struct Bindings {
     key_bindings: HashMap<Keycode, GameCommand>,
     movement_keys: HashSet<Keycode>,
-    last_movement_key: Option<Keycode>,
+    pressed_movement_keys: Vec<Keycode>,
 }
 
 impl Default for Bindings {
@@ -67,9 +67,61 @@ impl Default for Bindings {
         Self {
             key_bindings,
             movement_keys,
-            last_movement_key: None,
+            pressed_movement_keys: Vec::new(),
         }
     }
+}
+
+/// A simplified input event used for deterministic testing and logic reuse
+/// without depending on SDL's event pump.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SimpleKeyEvent {
+    KeyDown(Keycode),
+    KeyUp(Keycode),
+}
+
+/// Processes a frame's worth of simplified key events and returns the resulting
+/// `GameEvent`s that would be emitted by the input system for that frame.
+///
+/// This mirrors the behavior of `input_system` for keyboard-related logic:
+/// - KeyDown emits the bound command immediately (movement or otherwise)
+/// - Tracks pressed movement keys in order to continue movement on subsequent frames
+/// - KeyUp removes movement keys; if another movement key remains, it resumes
+pub fn process_simple_key_events(bindings: &mut Bindings, frame_events: &[SimpleKeyEvent]) -> Vec<GameEvent> {
+    let mut emitted_events = Vec::new();
+    let mut movement_key_pressed = false;
+
+    for event in frame_events {
+        match *event {
+            SimpleKeyEvent::KeyDown(key) => {
+                if let Some(command) = bindings.key_bindings.get(&key).copied() {
+                    emitted_events.push(GameEvent::Command(command));
+                }
+
+                if bindings.movement_keys.contains(&key) {
+                    movement_key_pressed = true;
+                    if !bindings.pressed_movement_keys.contains(&key) {
+                        bindings.pressed_movement_keys.push(key);
+                    }
+                }
+            }
+            SimpleKeyEvent::KeyUp(key) => {
+                if bindings.movement_keys.contains(&key) {
+                    bindings.pressed_movement_keys.retain(|&k| k != key);
+                }
+            }
+        }
+    }
+
+    if !movement_key_pressed {
+        if let Some(&last_movement_key) = bindings.pressed_movement_keys.last() {
+            if let Some(command) = bindings.key_bindings.get(&last_movement_key).copied() {
+                emitted_events.push(GameEvent::Command(command));
+            }
+        }
+    }
+
+    emitted_events
 }
 
 pub fn input_system(
@@ -79,11 +131,14 @@ pub fn input_system(
     mut pump: NonSendMut<&'static mut EventPump>,
     mut cursor: ResMut<CursorPosition>,
 ) {
-    let mut movement_key_pressed = false;
     let mut cursor_seen = false;
+    // Collect all events for this frame.
+    let frame_events: Vec<Event> = pump.poll_iter().collect();
 
-    for event in pump.poll_iter() {
-        match event {
+    // Handle non-keyboard events inline and build a simplified keyboard event stream.
+    let mut simple_key_events = Vec::new();
+    for event in &frame_events {
+        match *event {
             Event::Quit { .. } => {
                 writer.write(GameEvent::Command(GameCommand::Exit));
             }
@@ -94,44 +149,28 @@ pub fn input_system(
                 };
                 cursor_seen = true;
             }
-            Event::KeyUp {
-                repeat: false,
-                keycode: Some(key),
-                ..
-            } => {
-                // If the last movement key was released, then forget it.
-                if let Some(last_movement_key) = bindings.last_movement_key {
-                    if last_movement_key == key {
-                        bindings.last_movement_key = None;
-                    }
-                }
-            }
             Event::KeyDown {
                 keycode: Some(key),
                 repeat: false,
                 ..
             } => {
-                let command = bindings.key_bindings.get(&key).copied();
-                if let Some(command) = command {
-                    writer.write(GameEvent::Command(command));
-                }
-
-                if bindings.movement_keys.contains(&key) {
-                    movement_key_pressed = true;
-                    bindings.last_movement_key = Some(key);
-                }
+                simple_key_events.push(SimpleKeyEvent::KeyDown(key));
+            }
+            Event::KeyUp {
+                keycode: Some(key),
+                repeat: false,
+                ..
+            } => {
+                simple_key_events.push(SimpleKeyEvent::KeyUp(key));
             }
             _ => {}
         }
     }
 
-    if let Some(last_movement_key) = bindings.last_movement_key {
-        if !movement_key_pressed {
-            let command = bindings.key_bindings.get(&last_movement_key).copied();
-            if let Some(command) = command {
-                writer.write(GameEvent::Command(command));
-            }
-        }
+    // Delegate keyboard handling to shared logic used by tests and production.
+    let emitted = process_simple_key_events(&mut bindings, &simple_key_events);
+    for event in emitted {
+        writer.write(event);
     }
 
     if let (false, CursorPosition::Some { remaining_time, .. }) = (cursor_seen, &mut *cursor) {
