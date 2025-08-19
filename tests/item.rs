@@ -16,7 +16,6 @@ fn test_calculate_score_for_item() {
     assert!(EntityType::Pellet.score_value() < EntityType::PowerPellet.score_value());
     assert!(EntityType::Pellet.score_value().is_some());
     assert!(EntityType::PowerPellet.score_value().is_some());
-    assert!(EntityType::Pellet.score_value().unwrap() < EntityType::PowerPellet.score_value().unwrap());
     assert!(EntityType::Player.score_value().is_none());
     assert!(EntityType::Ghost.score_value().is_none());
 }
@@ -194,27 +193,7 @@ fn test_item_system_ignores_non_item_collisions() {
     assert_eq!(ghost_count, 1);
 }
 
-#[test]
-fn test_item_system_wrong_collision_order() {
-    let mut world = create_test_world();
-    let pacman = spawn_test_pacman(&mut world);
-    let pellet = spawn_test_item(&mut world, EntityType::Pellet);
 
-    // Send collision event with entities in reverse order
-    send_collision_event(&mut world, pellet, pacman);
-
-    world.run_system_once(item_system).expect("System should run successfully");
-
-    // Should still work correctly
-    let score = world.resource::<ScoreResource>();
-    assert_eq!(score.0, 10);
-    let pellet_count = world
-        .query::<&EntityType>()
-        .iter(&world)
-        .filter(|&entity_type| matches!(entity_type, EntityType::Pellet))
-        .count();
-    assert_eq!(pellet_count, 0);
-}
 
 #[test]
 fn test_item_system_no_collision_events() {

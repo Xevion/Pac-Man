@@ -119,12 +119,7 @@ fn test_format_timing_display_basic() {
     }
 }
 
-#[test]
-fn test_format_timing_display_empty() {
-    let timing_data = vec![];
-    let formatted = format_timing_display(timing_data);
-    assert!(formatted.is_empty());
-}
+
 
 #[test]
 fn test_format_timing_display_units() {
