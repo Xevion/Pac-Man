@@ -4,7 +4,7 @@ use crate::{
     events::GameEvent,
     systems::{
         audio::AudioEvent,
-        components::{EntityType, ItemCollider, PacmanCollider, ScoreResource},
+        components::{CombatState, EntityType, ItemCollider, LevelTiming, PacmanCollider, ScoreResource},
     },
 };
 
@@ -24,8 +24,10 @@ pub fn item_system(
     mut collision_events: EventReader<GameEvent>,
     mut score: ResMut<ScoreResource>,
     pacman_query: Query<Entity, With<PacmanCollider>>,
+    mut combat_q: Query<&mut CombatState, With<PacmanCollider>>,
     item_query: Query<(Entity, &EntityType), With<ItemCollider>>,
     mut events: EventWriter<AudioEvent>,
+    level_timing: Res<LevelTiming>,
 ) {
     for event in collision_events.read() {
         if let GameEvent::Collision(entity1, entity2) = event {
@@ -49,6 +51,19 @@ pub fn item_system(
                     // Trigger audio if appropriate
                     if entity_type.is_collectible() {
                         events.write(AudioEvent::PlayEat);
+                    }
+
+                    // Activate energizer on power pellet using tick-based durations
+                    if *entity_type == EntityType::PowerPellet {
+                        if let Ok(mut combat) = combat_q.single_mut() {
+                            // Convert seconds to frames (assumes 60 FPS)
+                            let total_ticks = (level_timing.energizer_duration * 60.0).round().clamp(0.0, u32::MAX as f32) as u32;
+                            // Flash lead: e.g., 3 seconds (180 ticks) before end; ensure it doesn't underflow
+                            let flash_lead_ticks = (level_timing.energizer_flash_threshold * 60.0)
+                                .round()
+                                .clamp(0.0, u32::MAX as f32) as u32;
+                            combat.activate_energizer_ticks(total_ticks, flash_lead_ticks);
+                        }
                     }
                 }
             }

@@ -177,9 +177,6 @@ pub struct ScoreResource(pub u32);
 #[derive(Resource)]
 pub struct DeltaTime(pub f32);
 
-#[derive(Resource, Default)]
-pub struct RenderDirty(pub bool);
-
 /// Resource for tracking audio state
 #[derive(Resource, Debug, Clone, Default)]
 pub struct AudioState {
@@ -187,4 +184,229 @@ pub struct AudioState {
     pub muted: bool,
     /// Current sound index for cycling through eat sounds
     pub sound_index: usize,
+}
+
+/// Lifecycle state for the player entity.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlayerLifecycle {
+    Spawning,
+    Alive,
+    Dying,
+    Respawning,
+}
+
+impl PlayerLifecycle {
+    /// Returns true when gameplay input and movement should be active
+    pub fn is_interactive(self) -> bool {
+        matches!(self, PlayerLifecycle::Alive)
+    }
+}
+
+impl Default for PlayerLifecycle {
+    fn default() -> Self {
+        PlayerLifecycle::Spawning
+    }
+}
+
+/// Whether player input should be processed.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ControlState {
+    InputEnabled,
+    InputLocked,
+}
+
+impl Default for ControlState {
+    fn default() -> Self {
+        Self::InputLocked
+    }
+}
+
+/// Combat-related state for Pac-Man. Tick-based energizer logic.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CombatState {
+    Normal,
+    Energized {
+        /// Remaining energizer duration in ticks (frames)
+        remaining_ticks: u32,
+        /// Ticks until flashing begins (counts down to 0, then flashing is active)
+        flash_countdown_ticks: u32,
+    },
+}
+
+impl Default for CombatState {
+    fn default() -> Self {
+        CombatState::Normal
+    }
+}
+
+impl CombatState {
+    pub fn is_energized(&self) -> bool {
+        matches!(self, CombatState::Energized { .. })
+    }
+
+    pub fn is_flashing(&self) -> bool {
+        matches!(self, CombatState::Energized { flash_countdown_ticks, .. } if *flash_countdown_ticks == 0)
+    }
+
+    pub fn deactivate_energizer(&mut self) {
+        *self = CombatState::Normal;
+    }
+
+    /// Activate energizer using tick-based durations.
+    pub fn activate_energizer_ticks(&mut self, total_ticks: u32, flash_lead_ticks: u32) {
+        let flash_countdown_ticks = total_ticks.saturating_sub(flash_lead_ticks);
+        *self = CombatState::Energized {
+            remaining_ticks: total_ticks,
+            flash_countdown_ticks,
+        };
+    }
+
+    /// Advance one frame. When ticks reach zero, returns to Normal.
+    pub fn tick_frame(&mut self) {
+        if let CombatState::Energized {
+            remaining_ticks,
+            flash_countdown_ticks,
+        } = self
+        {
+            if *remaining_ticks > 0 {
+                *remaining_ticks -= 1;
+                if *flash_countdown_ticks > 0 {
+                    *flash_countdown_ticks -= 1;
+                }
+            }
+            if *remaining_ticks == 0 {
+                *self = CombatState::Normal;
+            }
+        }
+    }
+}
+
+/// Movement modifiers that can affect Pac-Man's speed or handling.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct MovementModifiers {
+    /// Multiplier applied to base speed (e.g., tunnels)
+    pub speed_multiplier: f32,
+    /// True when currently in a tunnel slowdown region
+    pub tunnel_slowdown_active: bool,
+}
+
+impl Default for MovementModifiers {
+    fn default() -> Self {
+        Self {
+            speed_multiplier: 1.0,
+            tunnel_slowdown_active: false,
+        }
+    }
+}
+
+/// Level-dependent timing configuration
+#[derive(Resource, Debug, Clone, Copy)]
+pub struct LevelTiming {
+    /// Duration of energizer effect in seconds
+    pub energizer_duration: f32,
+    /// Freeze duration at spawn/ready in seconds
+    pub spawn_freeze_duration: f32,
+    /// When to start flashing relative to energizer end (seconds)
+    pub energizer_flash_threshold: f32,
+}
+
+impl Default for LevelTiming {
+    fn default() -> Self {
+        Self {
+            energizer_duration: 6.0,
+            spawn_freeze_duration: 1.5,
+            energizer_flash_threshold: 2.0,
+        }
+    }
+}
+
+impl LevelTiming {
+    /// Returns timing configuration for a given level.
+    pub fn for_level(_level: u32) -> Self {
+        // Placeholder: tune per the Pac-Man Dossier tables
+        Self::default()
+    }
+}
+
+/// Tag component for entities that should be frozen during startup
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Frozen;
+
+/// Convenience bundle for attaching the hybrid FSM to the player entity
+#[derive(Bundle, Default)]
+pub struct PlayerStateBundle {
+    pub lifecycle: PlayerLifecycle,
+    pub control: ControlState,
+    pub combat: CombatState,
+    pub movement_modifiers: MovementModifiers,
+}
+
+#[derive(Resource, Debug, Clone, Copy)]
+pub enum StartupSequence {
+    /// Stage 1: Text-only stage
+    /// - Player & ghosts are hidden
+    /// - READY! and PLAYER ONE text are shown
+    /// - Energizers do not blink
+    TextOnly {
+        /// Remaining ticks in this stage
+        remaining_ticks: u32,
+    },
+    /// Stage 2: Characters visible stage
+    /// - PLAYER ONE text is hidden, READY! text remains
+    /// - Ghosts and Pac-Man are now shown
+    CharactersVisible {
+        /// Remaining ticks in this stage
+        remaining_ticks: u32,
+    },
+    /// Stage 3: Game begins
+    /// - Final state, game is fully active
+    GameActive,
+}
+
+impl StartupSequence {
+    /// Creates a new StartupSequence with the specified duration in ticks
+    pub fn new(text_only_ticks: u32, _characters_visible_ticks: u32) -> Self {
+        Self::TextOnly {
+            remaining_ticks: text_only_ticks,
+        }
+    }
+
+    /// Returns true if the timer is still active (not in GameActive state)
+    pub fn is_active(&self) -> bool {
+        !matches!(self, StartupSequence::GameActive)
+    }
+
+    /// Returns true if we're in the game active stage
+    pub fn is_game_active(&self) -> bool {
+        matches!(self, StartupSequence::GameActive)
+    }
+
+    /// Ticks the timer by one frame, returning transition information if state changes
+    pub fn tick(&mut self) -> Option<(StartupSequence, StartupSequence)> {
+        match self {
+            StartupSequence::TextOnly { remaining_ticks } => {
+                if *remaining_ticks > 0 {
+                    *remaining_ticks -= 1;
+                    None
+                } else {
+                    let from = *self;
+                    *self = StartupSequence::CharactersVisible {
+                        remaining_ticks: 60, // 1 second at 60 FPS
+                    };
+                    Some((from, *self))
+                }
+            }
+            StartupSequence::CharactersVisible { remaining_ticks } => {
+                if *remaining_ticks > 0 {
+                    *remaining_ticks -= 1;
+                    None
+                } else {
+                    let from = *self;
+                    *self = StartupSequence::GameActive;
+                    Some((from, *self))
+                }
+            }
+            StartupSequence::GameActive => None,
+        }
+    }
 }

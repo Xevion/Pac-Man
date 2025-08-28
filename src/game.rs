@@ -7,32 +7,35 @@ use crate::error::{GameError, GameResult, TextureError};
 use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
+use crate::systems;
 use crate::systems::blinking::Blinking;
+
 use crate::systems::movement::{BufferedDirection, Position, Velocity};
-use crate::systems::player::player_movement_system;
 use crate::systems::profiling::SystemId;
+use crate::systems::render::RenderDirty;
 use crate::systems::{
     audio::{audio_system, AudioEvent, AudioResource},
     blinking::blinking_system,
     collision::collision_system,
     components::{
-        AudioState, Collider, DeltaTime, DirectionalAnimated, EntityType, Ghost, GhostBundle, GhostCollider, GlobalState,
-        ItemBundle, ItemCollider, PacmanCollider, PlayerBundle, PlayerControlled, RenderDirty, Renderable, ScoreResource,
+        AudioState, Collider, DeltaTime, DirectionalAnimated, EntityType, Frozen, Ghost, GhostBundle, GhostCollider, GlobalState,
+        ItemBundle, ItemCollider, LevelTiming, PacmanCollider, PlayerBundle, PlayerControlled, PlayerStateBundle, Renderable,
+        ScoreResource, StartupSequence,
     },
     debug::{debug_render_system, DebugFontResource, DebugState, DebugTextureResource},
-    ghost::ghost_movement_system,
-    input::input_system,
+    ghost::{ghost_collision_system, ghost_movement_system},
     item::item_system,
-    player::player_control_system,
     profiling::{profile, SystemTimings},
     render::{
-        directional_render_system, dirty_render_system, hud_render_system, render_system, BackbufferResource, MapTextureResource,
+        directional_render_system, dirty_render_system, hud_render_system, ready_visibility_system, render_system,
+        BackbufferResource, MapTextureResource,
     },
 };
 use crate::texture::animated::AnimatedTexture;
 use bevy_ecs::event::EventRegistry;
 use bevy_ecs::observer::Trigger;
-use bevy_ecs::schedule::Schedule;
+use bevy_ecs::prelude::SystemSet;
+use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule};
 use bevy_ecs::system::{NonSendMut, Res, ResMut};
 use bevy_ecs::world::World;
 use sdl2::image::LoadTexture;
@@ -49,6 +52,10 @@ use crate::{
     systems::input::{Bindings, CursorPosition},
     texture::sprite::{AtlasMapper, SpriteAtlas},
 };
+
+/// System set for all rendering systems to ensure they run after gameplay logic
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct RenderSet;
 
 /// Core game state manager built on the Bevy ECS architecture.
 ///
@@ -207,6 +214,11 @@ impl Game {
             pacman_collider: PacmanCollider,
         };
 
+        // Spawn player and attach initial state bundle
+        let player_entity = world.spawn(player).id();
+        world.entity_mut(player_entity).insert(PlayerStateBundle::default());
+        world.entity_mut(player_entity).insert(Frozen);
+
         world.insert_non_send_resource(atlas);
         world.insert_non_send_resource(event_pump);
         world.insert_non_send_resource(canvas);
@@ -226,6 +238,7 @@ impl Game {
         world.insert_resource(DebugState::default());
         world.insert_resource(AudioState::default());
         world.insert_resource(CursorPosition::default());
+        world.insert_resource(LevelTiming::for_level(1));
 
         world.add_observer(
             |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| {
@@ -234,37 +247,72 @@ impl Game {
                 }
             },
         );
-        schedule.add_systems((
-            profile(SystemId::Input, input_system),
-            profile(SystemId::PlayerControls, player_control_system),
-            profile(SystemId::PlayerMovement, player_movement_system),
-            profile(SystemId::Ghost, ghost_movement_system),
-            profile(SystemId::Collision, collision_system),
-            profile(SystemId::Item, item_system),
-            profile(SystemId::Audio, audio_system),
-            profile(SystemId::Blinking, blinking_system),
-            profile(SystemId::DirectionalRender, directional_render_system),
-            profile(SystemId::DirtyRender, dirty_render_system),
-            profile(SystemId::HudRender, hud_render_system),
-            profile(SystemId::Render, render_system),
-            profile(SystemId::DebugRender, debug_render_system),
-            profile(
-                SystemId::Present,
-                |mut canvas: NonSendMut<&mut Canvas<Window>>, debug_state: Res<DebugState>, mut dirty: ResMut<RenderDirty>| {
-                    if dirty.0 || debug_state.enabled {
-                        // Only copy backbuffer to main canvas if debug rendering is off
-                        // (debug rendering draws directly to main canvas)
-                        if !debug_state.enabled {
-                            canvas.present();
-                        }
-                        dirty.0 = false;
+
+        let input_system = profile(SystemId::Input, systems::input::input_system);
+        let player_control_system = profile(SystemId::PlayerControls, systems::player::player_control_system);
+        let player_movement_system = profile(SystemId::PlayerMovement, systems::player::player_movement_system);
+        let startup_stage_system = profile(SystemId::Stage, systems::stage::startup_stage_system);
+        let player_tunnel_slowdown_system = profile(SystemId::PlayerMovement, systems::player::player_tunnel_slowdown_system);
+        let ghost_movement_system = profile(SystemId::Ghost, ghost_movement_system);
+        let collision_system = profile(SystemId::Collision, collision_system);
+        let ghost_collision_system = profile(SystemId::GhostCollision, ghost_collision_system);
+        let item_system = profile(SystemId::Item, item_system);
+        let audio_system = profile(SystemId::Audio, audio_system);
+        let blinking_system = profile(SystemId::Blinking, blinking_system);
+        let directional_render_system = profile(SystemId::DirectionalRender, directional_render_system);
+        let dirty_render_system = profile(SystemId::DirtyRender, dirty_render_system);
+        let hud_render_system = profile(SystemId::HudRender, hud_render_system);
+        let render_system = profile(SystemId::Render, render_system);
+        let debug_render_system = profile(SystemId::DebugRender, debug_render_system);
+
+        let present_system = profile(
+            SystemId::Present,
+            |mut canvas: NonSendMut<&mut Canvas<Window>>, debug_state: Res<DebugState>, mut dirty: ResMut<RenderDirty>| {
+                if dirty.0 || debug_state.enabled {
+                    // Only copy backbuffer to main canvas if debug rendering is off
+                    // (debug rendering draws directly to main canvas)
+                    if !debug_state.enabled {
+                        canvas.present();
                     }
-                },
-            ),
+                    dirty.0 = false;
+                }
+            },
+        );
+
+        schedule.add_systems((
+            (
+                input_system,
+                player_control_system,
+                player_movement_system,
+                startup_stage_system,
+            )
+                .chain(),
+            player_tunnel_slowdown_system,
+            ghost_movement_system,
+            (collision_system, ghost_collision_system, item_system).chain(),
+            audio_system,
+            blinking_system,
+            ready_visibility_system,
+            (
+                directional_render_system,
+                dirty_render_system,
+                render_system,
+                hud_render_system,
+                debug_render_system,
+                present_system,
+            )
+                .chain(),
         ));
 
-        // Spawn player
-        world.spawn(player);
+        // Initialize StartupSequence as a global resource
+        let ready_duration_ticks = {
+            let duration = world
+                .get_resource::<LevelTiming>()
+                .map(|t| t.spawn_freeze_duration)
+                .unwrap_or(1.5);
+            (duration * 60.0) as u32 // Convert to ticks at 60 FPS
+        };
+        world.insert_resource(StartupSequence::new(ready_duration_ticks, 60));
 
         // Spawn ghosts
         Self::spawn_ghosts(&mut world)?;
@@ -413,7 +461,7 @@ impl Game {
                 }
             };
 
-            world.spawn(ghost);
+            world.spawn(ghost).insert(Frozen);
         }
 
         Ok(())

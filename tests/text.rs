@@ -107,3 +107,23 @@ fn test_text_scale() -> Result<(), String> {
 
     Ok(())
 }
+
+#[test]
+fn test_text_color() -> Result<(), String> {
+    let mut text_texture = TextTexture::new(1.0);
+
+    // Test default color (should be None initially)
+    assert_eq!(text_texture.color(), None);
+
+    // Test setting color
+    let test_color = sdl2::pixels::Color::YELLOW;
+    text_texture.set_color(test_color);
+    assert_eq!(text_texture.color(), Some(test_color));
+
+    // Test changing color
+    let new_color = sdl2::pixels::Color::RED;
+    text_texture.set_color(new_color);
+    assert_eq!(text_texture.color(), Some(new_color));
+
+    Ok(())
+}

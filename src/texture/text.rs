@@ -10,9 +10,19 @@
 //!
 //! ```rust
 //! use pacman::texture::text::TextTexture;
+//! use sdl2::pixels::Color;
 //!
 //! // Create a text texture with 1.0 scale (8x8 pixels per character)
 //! let mut text_renderer = TextTexture::new(1.0);
+//!
+//! // Set default color for all text
+//! text_renderer.set_color(Color::WHITE);
+//!
+//! // Render text with default color
+//! text_renderer.render(&mut canvas, &mut atlas, "Hello", position)?;
+//!
+//! // Render text with specific color
+//! text_renderer.render_with_color(&mut canvas, &mut atlas, "World", position, Color::YELLOW)?;
 //!
 //! // Set scale for larger text
 //! text_renderer.set_scale(2.0);
@@ -46,6 +56,7 @@
 use anyhow::Result;
 use glam::UVec2;
 
+use sdl2::pixels::Color;
 use sdl2::render::{Canvas, RenderTarget};
 use std::collections::HashMap;
 
@@ -79,6 +90,7 @@ fn char_to_tile_name(c: char) -> Option<String> {
 pub struct TextTexture {
     char_map: HashMap<char, AtlasTile>,
     scale: f32,
+    default_color: Option<Color>,
 }
 
 impl Default for TextTexture {
@@ -86,6 +98,7 @@ impl Default for TextTexture {
         Self {
             scale: 1.0,
             char_map: Default::default(),
+            default_color: None,
         }
     }
 }
@@ -119,13 +132,26 @@ impl TextTexture {
         }
     }
 
-    /// Renders a string of text at the given position.
+    /// Renders a string of text at the given position using the default color.
     pub fn render<C: RenderTarget>(
         &mut self,
         canvas: &mut Canvas<C>,
         atlas: &mut SpriteAtlas,
         text: &str,
         position: UVec2,
+    ) -> Result<()> {
+        let color = self.default_color.unwrap_or(Color::WHITE);
+        self.render_with_color(canvas, atlas, text, position, color)
+    }
+
+    /// Renders a string of text at the given position with a specific color.
+    pub fn render_with_color<C: RenderTarget>(
+        &mut self,
+        canvas: &mut Canvas<C>,
+        atlas: &mut SpriteAtlas,
+        text: &str,
+        position: UVec2,
+        color: Color,
     ) -> Result<()> {
         let mut x_offset = 0;
         let char_width = (8.0 * self.scale) as u32;
@@ -134,9 +160,9 @@ impl TextTexture {
         for c in text.chars() {
             // Get the tile from the char_map, or insert it if it doesn't exist
             if let Some(tile) = self.get_tile(c, atlas)? {
-                // Render the tile if it exists
+                // Render the tile with the specified color
                 let dest = sdl2::rect::Rect::new((position.x + x_offset) as i32, position.y as i32, char_width, char_height);
-                tile.render(canvas, atlas, dest)?;
+                tile.render_with_color(canvas, atlas, dest, color)?;
             }
 
             // Always advance x_offset for all characters (including spaces)
@@ -144,6 +170,16 @@ impl TextTexture {
         }
 
         Ok(())
+    }
+
+    /// Sets the default color for text rendering.
+    pub fn set_color(&mut self, color: Color) {
+        self.default_color = Some(color);
+    }
+
+    /// Gets the current default color.
+    pub fn color(&self) -> Option<Color> {
+        self.default_color
     }
 
     /// Sets the scale for text rendering.

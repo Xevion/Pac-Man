@@ -34,6 +34,8 @@ pub enum SystemId {
     Collision,
     Item,
     PlayerMovement,
+    GhostCollision,
+    Stage,
 }
 
 impl Display for SystemId {

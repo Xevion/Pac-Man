@@ -1,7 +1,15 @@
-use bevy_ecs::system::{Query, Res};
-use rand::prelude::*;
+use bevy_ecs::entity::Entity;
+use bevy_ecs::event::{EventReader, EventWriter};
+use bevy_ecs::query::{With, Without};
+use bevy_ecs::system::{Commands, Query, Res, ResMut};
+use rand::rngs::SmallRng;
+use rand::seq::IndexedRandom;
+use rand::SeedableRng;
 use smallvec::SmallVec;
 
+use crate::events::GameEvent;
+use crate::systems::audio::AudioEvent;
+use crate::systems::components::{Frozen, GhostCollider, ScoreResource};
 use crate::{
     map::{
         builder::Map,
@@ -9,7 +17,7 @@ use crate::{
         graph::{Edge, TraversalFlags},
     },
     systems::{
-        components::{DeltaTime, Ghost},
+        components::{CombatState, DeltaTime, Ghost, PlayerControlled},
         movement::{Position, Velocity},
     },
 };
@@ -18,7 +26,7 @@ use crate::{
 pub fn ghost_movement_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,
-    mut ghosts: Query<(&Ghost, &mut Velocity, &mut Position)>,
+    mut ghosts: Query<(&Ghost, &mut Velocity, &mut Position), Without<Frozen>>,
 ) {
     for (_ghost, mut velocity, mut position) in ghosts.iter_mut() {
         let mut distance = velocity.speed * 60.0 * delta_time.0;
@@ -60,6 +68,49 @@ pub fn ghost_movement_system(
                     } else {
                         break;
                     }
+                }
+            }
+        }
+    }
+}
+
+pub fn ghost_collision_system(
+    mut commands: Commands,
+    mut collision_events: EventReader<GameEvent>,
+    mut score: ResMut<ScoreResource>,
+    pacman_query: Query<&CombatState, With<PlayerControlled>>,
+    ghost_query: Query<(Entity, &Ghost), With<GhostCollider>>,
+    mut events: EventWriter<AudioEvent>,
+) {
+    for event in collision_events.read() {
+        if let GameEvent::Collision(entity1, entity2) = event {
+            // Check if one is Pacman and the other is a ghost
+            let (pacman_entity, ghost_entity) = if pacman_query.get(*entity1).is_ok() && ghost_query.get(*entity2).is_ok() {
+                (*entity1, *entity2)
+            } else if pacman_query.get(*entity2).is_ok() && ghost_query.get(*entity1).is_ok() {
+                (*entity2, *entity1)
+            } else {
+                continue;
+            };
+
+            // Check if Pac-Man is energized
+            if let Ok(combat_state) = pacman_query.get(pacman_entity) {
+                if combat_state.is_energized() {
+                    // Pac-Man eats the ghost
+                    if let Ok((ghost_ent, _ghost_type)) = ghost_query.get(ghost_entity) {
+                        // Add score (200 points per ghost eaten)
+                        score.0 += 200;
+
+                        // Remove the ghost
+                        commands.entity(ghost_ent).despawn();
+
+                        // Play eat sound
+                        events.write(AudioEvent::PlayEat);
+                    }
+                } else {
+                    // Pac-Man dies (this would need a death system)
+                    // For now, just log it
+                    tracing::warn!("Pac-Man collided with ghost while not energized!");
                 }
             }
         }

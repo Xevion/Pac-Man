@@ -1,6 +1,7 @@
 use bevy_ecs::{
+    entity::Entity,
     event::{EventReader, EventWriter},
-    prelude::ResMut,
+    prelude::{Commands, ResMut},
     query::With,
     system::{Query, Res},
 };
@@ -11,7 +12,10 @@ use crate::{
     map::builder::Map,
     map::graph::Edge,
     systems::{
-        components::{AudioState, DeltaTime, EntityType, GlobalState, PlayerControlled},
+        components::{
+            AudioState, ControlState, DeltaTime, EntityType, Frozen, GhostCollider, GlobalState, MovementModifiers,
+            PlayerControlled, PlayerLifecycle, StartupSequence,
+        },
         debug::DebugState,
         movement::{BufferedDirection, Position, Velocity},
     },
@@ -28,12 +32,12 @@ pub fn player_control_system(
     mut state: ResMut<GlobalState>,
     mut debug_state: ResMut<DebugState>,
     mut audio_state: ResMut<AudioState>,
-    mut players: Query<&mut BufferedDirection, With<PlayerControlled>>,
+    mut players: Query<(&PlayerLifecycle, &ControlState, &mut BufferedDirection), With<PlayerControlled>>,
     mut errors: EventWriter<GameError>,
 ) {
     // Get the player's movable component (ensuring there is only one player)
-    let mut buffered_direction = match players.single_mut() {
-        Ok(buffered_direction) => buffered_direction,
+    let (lifecycle, control, mut buffered_direction) = match players.single_mut() {
+        Ok(tuple) => tuple,
         Err(e) => {
             errors.write(GameError::InvalidState(format!(
                 "No/multiple entities queried for player system: {}",
@@ -43,15 +47,20 @@ pub fn player_control_system(
         }
     };
 
+    // If the player is not interactive or input is locked, ignore movement commands
+    let allow_input = lifecycle.is_interactive() && matches!(control, ControlState::InputEnabled);
+
     // Handle events
     for event in events.read() {
         if let GameEvent::Command(command) = event {
             match command {
                 GameCommand::MovePlayer(direction) => {
-                    *buffered_direction = BufferedDirection::Some {
-                        direction: *direction,
-                        remaining_time: 0.25,
-                    };
+                    if allow_input {
+                        *buffered_direction = BufferedDirection::Some {
+                            direction: *direction,
+                            remaining_time: 0.25,
+                        };
+                    }
                 }
                 GameCommand::Exit => {
                     state.exit = true;
@@ -82,10 +91,24 @@ pub fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
 pub fn player_movement_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,
-    mut entities: Query<(&mut Position, &mut Velocity, &mut BufferedDirection), With<PlayerControlled>>,
+    mut entities: Query<
+        (
+            &PlayerLifecycle,
+            &ControlState,
+            &MovementModifiers,
+            &mut Position,
+            &mut Velocity,
+            &mut BufferedDirection,
+        ),
+        With<PlayerControlled>,
+    >,
     // mut errors: EventWriter<GameError>,
 ) {
-    for (mut position, mut velocity, mut buffered_direction) in entities.iter_mut() {
+    for (lifecycle, control, modifiers, mut position, mut velocity, mut buffered_direction) in entities.iter_mut() {
+        if !lifecycle.is_interactive() || !matches!(control, ControlState::InputEnabled) {
+            continue;
+        }
+
         // Decrement the buffered direction remaining time
         if let BufferedDirection::Some {
             direction,
@@ -102,7 +125,7 @@ pub fn player_movement_system(
             }
         }
 
-        let mut distance = velocity.speed * 60.0 * delta_time.0;
+        let mut distance = velocity.speed * modifiers.speed_multiplier * 60.0 * delta_time.0;
 
         loop {
             match *position {
@@ -149,5 +172,18 @@ pub fn player_movement_system(
                 }
             }
         }
+    }
+}
+
+/// Applies tunnel slowdown based on the current node tile
+pub fn player_tunnel_slowdown_system(map: Res<Map>, mut q: Query<(&Position, &mut MovementModifiers), With<PlayerControlled>>) {
+    if let Ok((position, mut modifiers)) = q.single_mut() {
+        let node = position.current_node();
+        let in_tunnel = map
+            .tile_at_node(node)
+            .map(|t| t == crate::constants::MapTile::Tunnel)
+            .unwrap_or(false);
+        modifiers.tunnel_slowdown_active = in_tunnel;
+        modifiers.speed_multiplier = if in_tunnel { 0.6 } else { 1.0 };
     }
 }

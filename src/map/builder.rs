@@ -174,6 +174,17 @@ impl Map {
         })
     }
 
+    /// Returns the `MapTile` at a given node id.
+    pub fn tile_at_node(&self, node_id: NodeId) -> Option<MapTile> {
+        // reverse lookup: node -> grid
+        for (grid_pos, id) in &self.grid_to_node {
+            if *id == node_id {
+                return Some(self.tiles[grid_pos.x as usize][grid_pos.y as usize]);
+            }
+        }
+        None
+    }
+
     /// Constructs the ghost house area with restricted access and internal navigation.
     ///
     /// Creates a multi-level ghost house with entrance control, internal movement
