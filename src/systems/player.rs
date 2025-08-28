@@ -1,7 +1,7 @@
 use bevy_ecs::{
     component::Component,
     event::{EventReader, EventWriter},
-    query::With,
+    query::{With, Without},
     system::{Query, Res, ResMut},
 };
 
@@ -10,7 +10,7 @@ use crate::{
     events::{GameCommand, GameEvent},
     map::{builder::Map, graph::Edge},
     systems::{
-        components::{DeltaTime, EntityType, GlobalState, MovementModifiers, PlayerControlled},
+        components::{DeltaTime, EntityType, Frozen, GlobalState, MovementModifiers, PlayerControlled},
         debug::DebugState,
         movement::{BufferedDirection, Position, Velocity},
         AudioState,
@@ -39,79 +39,6 @@ impl Default for PlayerLifecycle {
     }
 }
 
-/// Whether player input should be processed.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ControlState {
-    InputEnabled,
-    InputLocked,
-}
-
-impl Default for ControlState {
-    fn default() -> Self {
-        Self::InputLocked
-    }
-}
-
-/// Combat-related state for Pac-Man. Tick-based energizer logic.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CombatState {
-    Normal,
-    Energized {
-        /// Remaining energizer duration in ticks (frames)
-        remaining_ticks: u32,
-        /// Ticks until flashing begins (counts down to 0, then flashing is active)
-        flash_countdown_ticks: u32,
-    },
-}
-
-impl Default for CombatState {
-    fn default() -> Self {
-        CombatState::Normal
-    }
-}
-
-impl CombatState {
-    pub fn is_energized(&self) -> bool {
-        matches!(self, CombatState::Energized { .. })
-    }
-
-    pub fn is_flashing(&self) -> bool {
-        matches!(self, CombatState::Energized { flash_countdown_ticks, .. } if *flash_countdown_ticks == 0)
-    }
-
-    pub fn deactivate_energizer(&mut self) {
-        *self = CombatState::Normal;
-    }
-
-    /// Activate energizer using tick-based durations.
-    pub fn activate_energizer_ticks(&mut self, total_ticks: u32, flash_lead_ticks: u32) {
-        let flash_countdown_ticks = total_ticks.saturating_sub(flash_lead_ticks);
-        *self = CombatState::Energized {
-            remaining_ticks: total_ticks,
-            flash_countdown_ticks,
-        };
-    }
-
-    /// Advance one frame. When ticks reach zero, returns to Normal.
-    pub fn tick_frame(&mut self) {
-        if let CombatState::Energized {
-            remaining_ticks,
-            flash_countdown_ticks,
-        } = self
-        {
-            if *remaining_ticks > 0 {
-                *remaining_ticks -= 1;
-                if *flash_countdown_ticks > 0 {
-                    *flash_countdown_ticks -= 1;
-                }
-            }
-            if *remaining_ticks == 0 {
-                *self = CombatState::Normal;
-            }
-        }
-    }
-}
-
 /// Processes player input commands and updates game state accordingly.
 ///
 /// Handles keyboard-driven commands like movement direction changes, debug mode
@@ -123,11 +50,11 @@ pub fn player_control_system(
     mut state: ResMut<GlobalState>,
     mut debug_state: ResMut<DebugState>,
     mut audio_state: ResMut<AudioState>,
-    mut players: Query<(&PlayerLifecycle, &ControlState, &mut BufferedDirection), With<PlayerControlled>>,
+    mut players: Query<(&PlayerLifecycle, &mut BufferedDirection), (With<PlayerControlled>, Without<Frozen>)>,
     mut errors: EventWriter<GameError>,
 ) {
     // Get the player's movable component (ensuring there is only one player)
-    let (lifecycle, control, mut buffered_direction) = match players.single_mut() {
+    let (lifecycle, mut buffered_direction) = match players.single_mut() {
         Ok(tuple) => tuple,
         Err(e) => {
             errors.write(GameError::InvalidState(format!(
@@ -139,19 +66,17 @@ pub fn player_control_system(
     };
 
     // If the player is not interactive or input is locked, ignore movement commands
-    let allow_input = lifecycle.is_interactive() && matches!(control, ControlState::InputEnabled);
+    // let allow_input = lifecycle.is_interactive();
 
     // Handle events
     for event in events.read() {
         if let GameEvent::Command(command) = event {
             match command {
                 GameCommand::MovePlayer(direction) => {
-                    if allow_input {
-                        *buffered_direction = BufferedDirection::Some {
-                            direction: *direction,
-                            remaining_time: 0.25,
-                        };
-                    }
+                    *buffered_direction = BufferedDirection::Some {
+                        direction: *direction,
+                        remaining_time: 0.25,
+                    };
                 }
                 GameCommand::Exit => {
                     state.exit = true;
@@ -185,21 +110,16 @@ pub fn player_movement_system(
     mut entities: Query<
         (
             &PlayerLifecycle,
-            &ControlState,
             &MovementModifiers,
             &mut Position,
             &mut Velocity,
             &mut BufferedDirection,
         ),
-        With<PlayerControlled>,
+        (With<PlayerControlled>, Without<Frozen>),
     >,
     // mut errors: EventWriter<GameError>,
 ) {
-    for (lifecycle, control, modifiers, mut position, mut velocity, mut buffered_direction) in entities.iter_mut() {
-        if !lifecycle.is_interactive() || !matches!(control, ControlState::InputEnabled) {
-            continue;
-        }
-
+    for (lifecycle, modifiers, mut position, mut velocity, mut buffered_direction) in entities.iter_mut() {
         // Decrement the buffered direction remaining time
         if let BufferedDirection::Some {
             direction,

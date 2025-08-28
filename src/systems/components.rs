@@ -5,7 +5,7 @@ use crate::{
     map::graph::TraversalFlags,
     systems::{
         movement::{BufferedDirection, Position, Velocity},
-        Collider, CombatState, ControlState, GhostCollider, ItemCollider, PacmanCollider, PlayerLifecycle,
+        Collider, GhostCollider, ItemCollider, PacmanCollider, PlayerLifecycle,
     },
     texture::{animated::AnimatedTexture, sprite::AtlasTile},
 };
@@ -174,6 +174,12 @@ impl LevelTiming {
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Frozen;
 
+/// Component for ghosts that are vulnerable to Pac-Man
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Vulnerable {
+    pub remaining_ticks: u32,
+}
+
 #[derive(Bundle)]
 pub struct PlayerBundle {
     pub player: PlayerControlled,
@@ -191,8 +197,6 @@ pub struct PlayerBundle {
 #[derive(Bundle, Default)]
 pub struct PlayerStateBundle {
     pub lifecycle: PlayerLifecycle,
-    pub control: ControlState,
-    pub combat: CombatState,
     pub movement_modifiers: MovementModifiers,
 }
 

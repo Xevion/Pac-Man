@@ -8,7 +8,7 @@ use crate::error::GameError;
 use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::systems::movement::Position;
-use crate::systems::{AudioEvent, CombatState, Ghost, PlayerControlled, ScoreResource};
+use crate::systems::{AudioEvent, Ghost, PlayerControlled, ScoreResource, Vulnerable};
 
 #[derive(Component)]
 pub struct Collider {
@@ -111,14 +111,15 @@ pub fn ghost_collision_system(
     mut commands: Commands,
     mut collision_events: EventReader<GameEvent>,
     mut score: ResMut<ScoreResource>,
-    pacman_query: Query<&CombatState, With<PlayerControlled>>,
+    pacman_query: Query<(), With<PlayerControlled>>,
     ghost_query: Query<(Entity, &Ghost), With<GhostCollider>>,
+    vulnerable_query: Query<Entity, With<Vulnerable>>,
     mut events: EventWriter<AudioEvent>,
 ) {
     for event in collision_events.read() {
         if let GameEvent::Collision(entity1, entity2) = event {
             // Check if one is Pacman and the other is a ghost
-            let (pacman_entity, ghost_entity) = if pacman_query.get(*entity1).is_ok() && ghost_query.get(*entity2).is_ok() {
+            let (_pacman_entity, ghost_entity) = if pacman_query.get(*entity1).is_ok() && ghost_query.get(*entity2).is_ok() {
                 (*entity1, *entity2)
             } else if pacman_query.get(*entity2).is_ok() && ghost_query.get(*entity1).is_ok() {
                 (*entity2, *entity1)
@@ -126,24 +127,23 @@ pub fn ghost_collision_system(
                 continue;
             };
 
-            // Check if Pac-Man is energized
-            if let Ok(combat_state) = pacman_query.get(pacman_entity) {
-                if combat_state.is_energized() {
+            // Check if the ghost is vulnerable
+            if let Ok((ghost_ent, _ghost_type)) = ghost_query.get(ghost_entity) {
+                // Check if ghost has Vulnerable component
+                if vulnerable_query.get(ghost_ent).is_ok() {
                     // Pac-Man eats the ghost
-                    if let Ok((ghost_ent, _ghost_type)) = ghost_query.get(ghost_entity) {
-                        // Add score (200 points per ghost eaten)
-                        score.0 += 200;
+                    // Add score (200 points per ghost eaten)
+                    score.0 += 200;
 
-                        // Remove the ghost
-                        commands.entity(ghost_ent).despawn();
+                    // Remove the ghost
+                    commands.entity(ghost_ent).despawn();
 
-                        // Play eat sound
-                        events.write(AudioEvent::PlayEat);
-                    }
+                    // Play eat sound
+                    events.write(AudioEvent::PlayEat);
                 } else {
                     // Pac-Man dies (this would need a death system)
                     // For now, just log it
-                    tracing::warn!("Pac-Man collided with ghost while not energized!");
+                    tracing::warn!("Pac-Man collided with ghost while not vulnerable!");
                 }
             }
         }

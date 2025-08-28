@@ -245,6 +245,7 @@ impl Game {
         let ghost_movement_system = profile(SystemId::Ghost, ghost_movement_system);
         let collision_system = profile(SystemId::Collision, collision_system);
         let ghost_collision_system = profile(SystemId::GhostCollision, ghost_collision_system);
+        let vulnerable_tick_system = profile(SystemId::Ghost, systems::vulnerable_tick_system);
         let item_system = profile(SystemId::Item, item_system);
         let audio_system = profile(SystemId::Audio, audio_system);
         let blinking_system = profile(SystemId::Blinking, blinking_system);
@@ -278,6 +279,7 @@ impl Game {
                 .chain(),
             player_tunnel_slowdown_system,
             ghost_movement_system,
+            vulnerable_tick_system,
             (collision_system, ghost_collision_system, item_system).chain(),
             audio_system,
             blinking_system,

@@ -7,7 +7,7 @@ use bevy_ecs::{
 
 use crate::{
     events::GameEvent,
-    systems::{AudioEvent, CombatState, EntityType, ItemCollider, LevelTiming, PacmanCollider, ScoreResource},
+    systems::{AudioEvent, EntityType, GhostCollider, ItemCollider, LevelTiming, PacmanCollider, ScoreResource, Vulnerable},
 };
 
 /// Determines if a collision between two entity types should be handled by the item system.
@@ -26,8 +26,8 @@ pub fn item_system(
     mut collision_events: EventReader<GameEvent>,
     mut score: ResMut<ScoreResource>,
     pacman_query: Query<Entity, With<PacmanCollider>>,
-    mut combat_q: Query<&mut CombatState, With<PacmanCollider>>,
     item_query: Query<(Entity, &EntityType), With<ItemCollider>>,
+    ghost_query: Query<Entity, With<GhostCollider>>,
     mut events: EventWriter<AudioEvent>,
     level_timing: Res<LevelTiming>,
 ) {
@@ -55,16 +55,16 @@ pub fn item_system(
                         events.write(AudioEvent::PlayEat);
                     }
 
-                    // Activate energizer on power pellet using tick-based durations
+                    // Make ghosts vulnerable when power pellet is collected
                     if *entity_type == EntityType::PowerPellet {
-                        if let Ok(mut combat) = combat_q.single_mut() {
-                            // Convert seconds to frames (assumes 60 FPS)
-                            let total_ticks = (level_timing.energizer_duration * 60.0).round().clamp(0.0, u32::MAX as f32) as u32;
-                            // Flash lead: e.g., 3 seconds (180 ticks) before end; ensure it doesn't underflow
-                            let flash_lead_ticks = (level_timing.energizer_flash_threshold * 60.0)
-                                .round()
-                                .clamp(0.0, u32::MAX as f32) as u32;
-                            combat.activate_energizer_ticks(total_ticks, flash_lead_ticks);
+                        // Convert seconds to frames (assumes 60 FPS)
+                        let total_ticks = (level_timing.energizer_duration * 60.0).round().clamp(0.0, u32::MAX as f32) as u32;
+
+                        // Add Vulnerable component to all ghosts
+                        for ghost_entity in ghost_query.iter() {
+                            commands.entity(ghost_entity).insert(Vulnerable {
+                                remaining_ticks: total_ticks,
+                            });
                         }
                     }
                 }

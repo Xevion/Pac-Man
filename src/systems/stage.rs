@@ -82,10 +82,12 @@ pub fn startup_stage_system(
                 // TODO: Remove TextOnly tag component
             }
             (StartupSequence::CharactersVisible { .. }, StartupSequence::GameActive) => {
-                // Remove Frozen tag from all entities
+                // Remove Frozen tag from all entities and enable player input
                 for entity in player_query.iter_mut().chain(ghost_query.iter_mut()) {
+                    tracing::info!("Removing Frozen component from entity {}", entity);
                     commands.entity(entity).remove::<Frozen>();
                 }
+
                 // TODO: Add GameActive tag component
                 // TODO: Remove CharactersVisible tag component
             }
