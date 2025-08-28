@@ -1,6 +1,5 @@
 use std::time::{Duration, Instant};
 
-use glam::Vec2;
 use sdl2::render::TextureCreator;
 use sdl2::ttf::Sdl2TtfContext;
 use sdl2::video::WindowContext;
@@ -21,7 +20,6 @@ pub struct App {
     pub game: Game,
     last_tick: Instant,
     focused: bool,
-    _cursor_pos: Vec2,
 }
 
 impl App {
@@ -81,7 +79,6 @@ impl App {
             game,
             focused: true,
             last_tick: Instant::now(),
-            _cursor_pos: Vec2::ZERO,
         })
     }
 
