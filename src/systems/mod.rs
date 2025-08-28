@@ -8,7 +8,6 @@ pub mod blinking;
 pub mod collision;
 pub mod components;
 pub mod debug;
-pub mod formatting;
 pub mod ghost;
 pub mod input;
 pub mod item;

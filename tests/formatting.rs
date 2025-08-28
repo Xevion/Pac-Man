@@ -1,4 +1,4 @@
-use pacman::systems::formatting::format_timing_display;
+use pacman::systems::profiling::format_timing_display;
 use std::time::Duration;
 
 use pretty_assertions::assert_eq;
