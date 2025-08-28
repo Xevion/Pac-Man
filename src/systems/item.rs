@@ -2,7 +2,7 @@ use bevy_ecs::{
     entity::Entity,
     event::{EventReader, EventWriter},
     query::With,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, ResMut},
 };
 
 use crate::{

@@ -39,6 +39,11 @@ impl Default for PlayerLifecycle {
     }
 }
 
+pub fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
+    let entity_flags = entity_type.traversal_flags();
+    edge.traversal_flags.contains(entity_flags)
+}
+
 /// Processes player input commands and updates game state accordingly.
 ///
 /// Handles keyboard-driven commands like movement direction changes, debug mode
@@ -50,29 +55,26 @@ pub fn player_control_system(
     mut state: ResMut<GlobalState>,
     mut debug_state: ResMut<DebugState>,
     mut audio_state: ResMut<AudioState>,
-    mut players: Query<(&PlayerLifecycle, &mut BufferedDirection), (With<PlayerControlled>, Without<Frozen>)>,
+    mut players: Query<&mut BufferedDirection, (With<PlayerControlled>, Without<Frozen>)>,
     mut errors: EventWriter<GameError>,
 ) {
-    // Get the player's movable component (ensuring there is only one player)
-    let (lifecycle, mut buffered_direction) = match players.single_mut() {
-        Ok(tuple) => tuple,
-        Err(e) => {
-            errors.write(GameError::InvalidState(format!(
-                "No/multiple entities queried for player system: {}",
-                e
-            )));
-            return;
-        }
-    };
-
-    // If the player is not interactive or input is locked, ignore movement commands
-    // let allow_input = lifecycle.is_interactive();
-
     // Handle events
     for event in events.read() {
         if let GameEvent::Command(command) = event {
             match command {
                 GameCommand::MovePlayer(direction) => {
+                    // Get the player's movable component (ensuring there is only one player)
+                    let (mut buffered_direction) = match players.single_mut() {
+                        Ok(tuple) => tuple,
+                        Err(e) => {
+                            errors.write(GameError::InvalidState(format!(
+                                "No/multiple entities queried for player system: {}",
+                                e
+                            )));
+                            return;
+                        }
+                    };
+
                     *buffered_direction = BufferedDirection::Some {
                         direction: *direction,
                         remaining_time: 0.25,
@@ -92,11 +94,6 @@ pub fn player_control_system(
             }
         }
     }
-}
-
-pub fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
-    let entity_flags = entity_type.traversal_flags();
-    edge.traversal_flags.contains(entity_flags)
 }
 
 /// Executes frame-by-frame movement for Pac-Man.
