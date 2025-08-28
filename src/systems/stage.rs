@@ -1,7 +1,8 @@
 use bevy_ecs::{
-    prelude::{Commands, Entity, Query, With},
+    entity::Entity,
+    query::With,
     resource::Resource,
-    system::ResMut,
+    system::{Commands, Query, ResMut},
 };
 
 use crate::systems::{Frozen, GhostCollider, PlayerControlled};
@@ -34,16 +35,6 @@ impl StartupSequence {
         Self::TextOnly {
             remaining_ticks: text_only_ticks,
         }
-    }
-
-    /// Returns true if the timer is still active (not in GameActive state)
-    pub fn is_active(&self) -> bool {
-        !matches!(self, StartupSequence::GameActive)
-    }
-
-    /// Returns true if we're in the game active stage
-    pub fn is_game_active(&self) -> bool {
-        matches!(self, StartupSequence::GameActive)
     }
 
     /// Ticks the timer by one frame, returning transition information if state changes

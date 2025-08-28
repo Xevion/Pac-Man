@@ -1,4 +1,9 @@
-use bevy_ecs::{event::EventReader, prelude::*, query::With, system::Query};
+use bevy_ecs::{
+    entity::Entity,
+    event::{EventReader, EventWriter},
+    query::With,
+    system::{Commands, Query, Res, ResMut},
+};
 
 use crate::{
     events::GameEvent,

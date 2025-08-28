@@ -1,5 +1,5 @@
-use bevy_ecs::prelude::Resource;
-use bevy_ecs::system::{IntoSystem, System};
+use bevy_ecs::system::IntoSystem;
+use bevy_ecs::{resource::Resource, system::System};
 use circular_buffer::CircularBuffer;
 use micromap::Map;
 use parking_lot::{Mutex, RwLock};

@@ -1,4 +1,4 @@
-use bevy_ecs::{event::Events, prelude::*, system::RunSystemOnce, world::World};
+use bevy_ecs::{entity::Entity, event::Events, system::RunSystemOnce, world::World};
 
 use pacman::{
     events::{GameCommand, GameEvent},

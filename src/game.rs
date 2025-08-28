@@ -24,8 +24,7 @@ use crate::systems::{
 use crate::texture::animated::AnimatedTexture;
 use bevy_ecs::event::EventRegistry;
 use bevy_ecs::observer::Trigger;
-use bevy_ecs::prelude::SystemSet;
-use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule};
+use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule, SystemSet};
 use bevy_ecs::system::{NonSendMut, Res, ResMut};
 use bevy_ecs::world::World;
 use sdl2::image::LoadTexture;

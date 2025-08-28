@@ -1,9 +1,8 @@
 use bevy_ecs::{
     component::Component,
     event::{EventReader, EventWriter},
-    prelude::ResMut,
     query::With,
-    system::{Query, Res},
+    system::{Query, Res, ResMut},
 };
 
 use crate::{
