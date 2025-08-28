@@ -27,6 +27,7 @@ pub enum SystemId {
     Blinking,
     DirectionalRender,
     DirtyRender,
+    HudRender,
     Render,
     DebugRender,
     Present,

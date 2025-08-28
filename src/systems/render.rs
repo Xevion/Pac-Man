@@ -1,8 +1,9 @@
 use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
-use crate::systems::components::{DeltaTime, DirectionalAnimated, RenderDirty, Renderable};
+use crate::systems::components::{DeltaTime, DirectionalAnimated, RenderDirty, Renderable, ScoreResource};
 use crate::systems::movement::{Position, Velocity};
 use crate::texture::sprite::SpriteAtlas;
+use crate::texture::text::TextTexture;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::prelude::{Changed, Or, RemovedComponents};
@@ -60,6 +61,34 @@ pub struct MapTextureResource(pub Texture<'static>);
 
 /// A non-send resource for the backbuffer texture. This just wraps the texture with a type so it can be differentiated when exposed as a resource.
 pub struct BackbufferResource(pub Texture<'static>);
+
+/// Renders the HUD (score, lives, etc.) on top of the game.
+pub fn hud_render_system(
+    mut canvas: NonSendMut<&mut Canvas<Window>>,
+    mut atlas: NonSendMut<SpriteAtlas>,
+    score: Res<ScoreResource>,
+    mut errors: EventWriter<GameError>,
+) {
+    let mut text_renderer = TextTexture::new(1.0);
+
+    // Render lives and high score text
+    let lives = 3; // TODO: Get from actual lives resource
+    let lives_text = format!("{lives}UP   HIGH SCORE   ");
+    let lives_position = glam::UVec2::new(4 + 8 * 3, 2); // x_offset + lives_offset * 8, y_offset
+
+    if let Err(e) = text_renderer.render(&mut canvas, &mut atlas, &lives_text, lives_position) {
+        errors.write(TextureError::RenderFailed(format!("Failed to render lives text: {}", e)).into());
+    }
+
+    // Render score text
+    let score_text = format!("{:02}", score.0);
+    let score_offset = 7 - (score_text.len() as i32);
+    let score_position = glam::UVec2::new(4 + 8 * score_offset as u32, 10); // x_offset + score_offset * 8, 8 + y_offset
+
+    if let Err(e) = text_renderer.render(&mut canvas, &mut atlas, &score_text, score_position) {
+        errors.write(TextureError::RenderFailed(format!("Failed to render score text: {}", e)).into());
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub fn render_system(

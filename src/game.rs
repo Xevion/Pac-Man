@@ -25,7 +25,9 @@ use crate::systems::{
     item::item_system,
     player::player_control_system,
     profiling::{profile, SystemTimings},
-    render::{directional_render_system, dirty_render_system, render_system, BackbufferResource, MapTextureResource},
+    render::{
+        directional_render_system, dirty_render_system, hud_render_system, render_system, BackbufferResource, MapTextureResource,
+    },
 };
 use crate::texture::animated::AnimatedTexture;
 use bevy_ecs::event::EventRegistry;
@@ -243,6 +245,7 @@ impl Game {
             profile(SystemId::Blinking, blinking_system),
             profile(SystemId::DirectionalRender, directional_render_system),
             profile(SystemId::DirtyRender, dirty_render_system),
+            profile(SystemId::HudRender, hud_render_system),
             profile(SystemId::Render, render_system),
             profile(SystemId::DebugRender, debug_render_system),
             profile(
