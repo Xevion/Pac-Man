@@ -17,3 +17,17 @@ pub mod player;
 pub mod profiling;
 pub mod render;
 pub mod stage;
+
+pub use self::audio::*;
+pub use self::blinking::*;
+pub use self::collision::*;
+pub use self::components::*;
+pub use self::debug::*;
+pub use self::ghost::*;
+pub use self::input::*;
+pub use self::item::*;
+pub use self::movement::*;
+pub use self::player::*;
+pub use self::profiling::*;
+pub use self::render::*;
+pub use self::stage::*;

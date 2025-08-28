@@ -1,13 +1,37 @@
+use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
-use bevy_ecs::event::EventWriter;
+use bevy_ecs::event::{EventReader, EventWriter};
 use bevy_ecs::query::With;
-use bevy_ecs::system::{Query, Res};
+use bevy_ecs::system::{Commands, Query, Res, ResMut};
 
 use crate::error::GameError;
 use crate::events::GameEvent;
 use crate::map::builder::Map;
-use crate::systems::components::{Collider, GhostCollider, ItemCollider, PacmanCollider};
 use crate::systems::movement::Position;
+use crate::systems::{AudioEvent, CombatState, Ghost, PlayerControlled, ScoreResource};
+
+#[derive(Component)]
+pub struct Collider {
+    pub size: f32,
+}
+
+impl Collider {
+    /// Checks if this collider collides with another collider at the given distance.
+    pub fn collides_with(&self, other_size: f32, distance: f32) -> bool {
+        let collision_distance = (self.size + other_size) / 2.0;
+        distance < collision_distance
+    }
+}
+
+/// Marker components for collision filtering optimization
+#[derive(Component)]
+pub struct PacmanCollider;
+
+#[derive(Component)]
+pub struct GhostCollider;
+
+#[derive(Component)]
+pub struct ItemCollider;
 
 /// Helper function to check collision between two entities with colliders.
 pub fn check_collision(
@@ -77,6 +101,49 @@ pub fn collision_system(
                         "Collision system failed to check collision between entities {:?} and {:?}: {}",
                         pacman_entity, ghost_entity, e
                     )));
+                }
+            }
+        }
+    }
+}
+
+pub fn ghost_collision_system(
+    mut commands: Commands,
+    mut collision_events: EventReader<GameEvent>,
+    mut score: ResMut<ScoreResource>,
+    pacman_query: Query<&CombatState, With<PlayerControlled>>,
+    ghost_query: Query<(Entity, &Ghost), With<GhostCollider>>,
+    mut events: EventWriter<AudioEvent>,
+) {
+    for event in collision_events.read() {
+        if let GameEvent::Collision(entity1, entity2) = event {
+            // Check if one is Pacman and the other is a ghost
+            let (pacman_entity, ghost_entity) = if pacman_query.get(*entity1).is_ok() && ghost_query.get(*entity2).is_ok() {
+                (*entity1, *entity2)
+            } else if pacman_query.get(*entity2).is_ok() && ghost_query.get(*entity1).is_ok() {
+                (*entity2, *entity1)
+            } else {
+                continue;
+            };
+
+            // Check if Pac-Man is energized
+            if let Ok(combat_state) = pacman_query.get(pacman_entity) {
+                if combat_state.is_energized() {
+                    // Pac-Man eats the ghost
+                    if let Ok((ghost_ent, _ghost_type)) = ghost_query.get(ghost_entity) {
+                        // Add score (200 points per ghost eaten)
+                        score.0 += 200;
+
+                        // Remove the ghost
+                        commands.entity(ghost_ent).despawn();
+
+                        // Play eat sound
+                        events.write(AudioEvent::PlayEat);
+                    }
+                } else {
+                    // Pac-Man dies (this would need a death system)
+                    // For now, just log it
+                    tracing::warn!("Pac-Man collided with ghost while not energized!");
                 }
             }
         }

@@ -7,29 +7,19 @@ use crate::error::{GameError, GameResult, TextureError};
 use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
-use crate::systems;
 use crate::systems::blinking::Blinking;
+use crate::systems::{self, ghost_collision_system};
 
 use crate::systems::movement::{BufferedDirection, Position, Velocity};
 use crate::systems::profiling::SystemId;
 use crate::systems::render::RenderDirty;
 use crate::systems::{
-    audio::{audio_system, AudioEvent, AudioResource},
-    blinking::blinking_system,
-    collision::collision_system,
-    components::{
-        AudioState, Collider, DeltaTime, DirectionalAnimated, EntityType, Frozen, Ghost, GhostBundle, GhostCollider, GlobalState,
-        ItemBundle, ItemCollider, LevelTiming, PacmanCollider, PlayerBundle, PlayerControlled, PlayerStateBundle, Renderable,
-        ScoreResource, StartupSequence,
-    },
-    debug::{debug_render_system, DebugFontResource, DebugState, DebugTextureResource},
-    ghost::{ghost_collision_system, ghost_movement_system},
-    item::item_system,
-    profiling::{profile, SystemTimings},
-    render::{
-        directional_render_system, dirty_render_system, hud_render_system, ready_visibility_system, render_system,
-        BackbufferResource, MapTextureResource,
-    },
+    audio_system, blinking_system, collision_system, debug_render_system, directional_render_system, dirty_render_system,
+    ghost_movement_system, hud_render_system, item_system, profile, ready_visibility_system, render_system, AudioEvent,
+    AudioResource, AudioState, BackbufferResource, Collider, DebugFontResource, DebugState, DebugTextureResource, DeltaTime,
+    DirectionalAnimated, EntityType, Frozen, Ghost, GhostBundle, GhostCollider, GlobalState, ItemBundle, ItemCollider,
+    LevelTiming, MapTextureResource, PacmanCollider, PlayerBundle, PlayerControlled, PlayerStateBundle, Renderable,
+    ScoreResource, StartupSequence, SystemTimings,
 };
 use crate::texture::animated::AnimatedTexture;
 use bevy_ecs::event::EventRegistry;
@@ -249,9 +239,9 @@ impl Game {
         );
 
         let input_system = profile(SystemId::Input, systems::input::input_system);
-        let player_control_system = profile(SystemId::PlayerControls, systems::player::player_control_system);
-        let player_movement_system = profile(SystemId::PlayerMovement, systems::player::player_movement_system);
-        let startup_stage_system = profile(SystemId::Stage, systems::stage::startup_stage_system);
+        let player_control_system = profile(SystemId::PlayerControls, systems::player_control_system);
+        let player_movement_system = profile(SystemId::PlayerMovement, systems::player_movement_system);
+        let startup_stage_system = profile(SystemId::Stage, systems::startup_stage_system);
         let player_tunnel_slowdown_system = profile(SystemId::PlayerMovement, systems::player::player_tunnel_slowdown_system);
         let ghost_movement_system = profile(SystemId::Ghost, ghost_movement_system);
         let collision_system = profile(SystemId::Collision, collision_system);

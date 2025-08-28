@@ -4,10 +4,8 @@ use pacman::{
     events::GameEvent,
     map::builder::Map,
     systems::{
-        audio::AudioEvent,
-        components::{AudioState, EntityType, ItemCollider, PacmanCollider, ScoreResource},
-        item::{is_valid_item_collision, item_system},
-        movement::Position,
+        is_valid_item_collision, item_system, AudioEvent, AudioState, EntityType, ItemCollider, PacmanCollider, Position,
+        ScoreResource,
     },
 };
 

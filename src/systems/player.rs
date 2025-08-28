@@ -1,7 +1,7 @@
 use bevy_ecs::{
-    entity::Entity,
+    component::Component,
     event::{EventReader, EventWriter},
-    prelude::{Commands, ResMut},
+    prelude::ResMut,
     query::With,
     system::{Query, Res},
 };
@@ -9,17 +9,109 @@ use bevy_ecs::{
 use crate::{
     error::GameError,
     events::{GameCommand, GameEvent},
-    map::builder::Map,
-    map::graph::Edge,
+    map::{builder::Map, graph::Edge},
     systems::{
-        components::{
-            AudioState, ControlState, DeltaTime, EntityType, Frozen, GhostCollider, GlobalState, MovementModifiers,
-            PlayerControlled, PlayerLifecycle, StartupSequence,
-        },
+        components::{DeltaTime, EntityType, GlobalState, MovementModifiers, PlayerControlled},
         debug::DebugState,
         movement::{BufferedDirection, Position, Velocity},
+        AudioState,
     },
 };
+
+/// Lifecycle state for the player entity.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlayerLifecycle {
+    Spawning,
+    Alive,
+    Dying,
+    Respawning,
+}
+
+impl PlayerLifecycle {
+    /// Returns true when gameplay input and movement should be active
+    pub fn is_interactive(self) -> bool {
+        matches!(self, PlayerLifecycle::Alive)
+    }
+}
+
+impl Default for PlayerLifecycle {
+    fn default() -> Self {
+        PlayerLifecycle::Spawning
+    }
+}
+
+/// Whether player input should be processed.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ControlState {
+    InputEnabled,
+    InputLocked,
+}
+
+impl Default for ControlState {
+    fn default() -> Self {
+        Self::InputLocked
+    }
+}
+
+/// Combat-related state for Pac-Man. Tick-based energizer logic.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CombatState {
+    Normal,
+    Energized {
+        /// Remaining energizer duration in ticks (frames)
+        remaining_ticks: u32,
+        /// Ticks until flashing begins (counts down to 0, then flashing is active)
+        flash_countdown_ticks: u32,
+    },
+}
+
+impl Default for CombatState {
+    fn default() -> Self {
+        CombatState::Normal
+    }
+}
+
+impl CombatState {
+    pub fn is_energized(&self) -> bool {
+        matches!(self, CombatState::Energized { .. })
+    }
+
+    pub fn is_flashing(&self) -> bool {
+        matches!(self, CombatState::Energized { flash_countdown_ticks, .. } if *flash_countdown_ticks == 0)
+    }
+
+    pub fn deactivate_energizer(&mut self) {
+        *self = CombatState::Normal;
+    }
+
+    /// Activate energizer using tick-based durations.
+    pub fn activate_energizer_ticks(&mut self, total_ticks: u32, flash_lead_ticks: u32) {
+        let flash_countdown_ticks = total_ticks.saturating_sub(flash_lead_ticks);
+        *self = CombatState::Energized {
+            remaining_ticks: total_ticks,
+            flash_countdown_ticks,
+        };
+    }
+
+    /// Advance one frame. When ticks reach zero, returns to Normal.
+    pub fn tick_frame(&mut self) {
+        if let CombatState::Energized {
+            remaining_ticks,
+            flash_countdown_ticks,
+        } = self
+        {
+            if *remaining_ticks > 0 {
+                *remaining_ticks -= 1;
+                if *flash_countdown_ticks > 0 {
+                    *flash_countdown_ticks -= 1;
+                }
+            }
+            if *remaining_ticks == 0 {
+                *self = CombatState::Normal;
+            }
+        }
+    }
+}
 
 /// Processes player input commands and updates game state accordingly.
 ///

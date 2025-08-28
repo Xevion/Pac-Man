@@ -6,10 +6,20 @@
 
 use bevy_ecs::{
     event::{Event, EventReader, EventWriter},
+    resource::Resource,
     system::{NonSendMut, ResMut},
 };
 
-use crate::{audio::Audio, error::GameError, systems::components::AudioState};
+use crate::{audio::Audio, error::GameError};
+
+/// Resource for tracking audio state
+#[derive(Resource, Debug, Clone, Default)]
+pub struct AudioState {
+    /// Whether audio is currently muted
+    pub muted: bool,
+    /// Current sound index for cycling through eat sounds
+    pub sound_index: usize,
+}
 
 /// Events for triggering audio playback
 #[derive(Event, Debug, Clone, Copy, PartialEq, Eq)]

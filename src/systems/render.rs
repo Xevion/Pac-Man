@@ -1,11 +1,10 @@
 use crate::constants::CANVAS_SIZE;
 use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
-use crate::systems::blinking::Blinking;
-use crate::systems::components::{
-    DeltaTime, DirectionalAnimated, EntityType, GhostCollider, PlayerControlled, Renderable, ScoreResource, StartupSequence,
+use crate::systems::{
+    Blinking, DeltaTime, DirectionalAnimated, EntityType, GhostCollider, PlayerControlled, Position, Renderable, ScoreResource,
+    StartupSequence, Velocity,
 };
-use crate::systems::movement::{Position, Velocity};
 use crate::texture::sprite::SpriteAtlas;
 use crate::texture::text::TextTexture;
 use bevy_ecs::entity::Entity;

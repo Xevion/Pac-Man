@@ -5,9 +5,7 @@ use pacman::{
     events::GameEvent,
     map::builder::Map,
     systems::{
-        collision::{check_collision, collision_system},
-        components::{Collider, EntityType, Ghost, GhostCollider, ItemCollider, PacmanCollider},
-        movement::Position,
+        check_collision, collision_system, Collider, EntityType, Ghost, GhostCollider, ItemCollider, PacmanCollider, Position,
     },
 };
 

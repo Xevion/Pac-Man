@@ -8,10 +8,8 @@ use pacman::{
         graph::{Edge, TraversalFlags},
     },
     systems::{
-        components::{AudioState, DeltaTime, EntityType, GlobalState, PlayerControlled},
-        debug::DebugState,
-        movement::{BufferedDirection, Position, Velocity},
-        player::{can_traverse, player_control_system, player_movement_system},
+        can_traverse, player_control_system, player_movement_system, AudioState, BufferedDirection, DebugState, DeltaTime,
+        EntityType, GlobalState, PlayerControlled, Position, Velocity,
     },
 };
 

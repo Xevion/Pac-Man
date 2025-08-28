@@ -3,11 +3,7 @@ use std::cmp::Ordering;
 
 use crate::constants::BOARD_PIXEL_OFFSET;
 use crate::map::builder::Map;
-use crate::systems::components::Collider;
-use crate::systems::input::CursorPosition;
-use crate::systems::movement::Position;
-use crate::systems::profiling::SystemTimings;
-use crate::systems::render::BackbufferResource;
+use crate::systems::{BackbufferResource, Collider, CursorPosition, Position, SystemTimings};
 use bevy_ecs::prelude::*;
 use glam::{IVec2, UVec2, Vec2};
 use sdl2::pixels::Color;

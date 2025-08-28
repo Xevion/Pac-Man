@@ -2,10 +2,7 @@ use bevy_ecs::{event::EventReader, prelude::*, query::With, system::Query};
 
 use crate::{
     events::GameEvent,
-    systems::{
-        audio::AudioEvent,
-        components::{CombatState, EntityType, ItemCollider, LevelTiming, PacmanCollider, ScoreResource},
-    },
+    systems::{AudioEvent, CombatState, EntityType, ItemCollider, LevelTiming, PacmanCollider, ScoreResource},
 };
 
 /// Determines if a collision between two entity types should be handled by the item system.
