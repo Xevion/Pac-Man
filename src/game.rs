@@ -18,8 +18,8 @@ use crate::systems::{
     ghost_movement_system, hud_render_system, item_system, profile, ready_visibility_system, render_system, AudioEvent,
     AudioResource, AudioState, BackbufferResource, Collider, DebugFontResource, DebugState, DebugTextureResource, DeltaTime,
     DirectionalAnimated, EntityType, Frozen, Ghost, GhostBundle, GhostCollider, GlobalState, ItemBundle, ItemCollider,
-    LevelTiming, MapTextureResource, PacmanCollider, PlayerBundle, PlayerControlled, PlayerStateBundle, Renderable,
-    ScoreResource, StartupSequence, SystemTimings,
+    MapTextureResource, PacmanCollider, PlayerBundle, PlayerControlled, PlayerStateBundle, Renderable, ScoreResource,
+    StartupSequence, SystemTimings,
 };
 use crate::texture::animated::AnimatedTexture;
 use bevy_ecs::event::EventRegistry;
@@ -227,7 +227,6 @@ impl Game {
         world.insert_resource(DebugState::default());
         world.insert_resource(AudioState::default());
         world.insert_resource(CursorPosition::default());
-        world.insert_resource(LevelTiming::for_level(1));
 
         world.add_observer(
             |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| {
@@ -295,15 +294,7 @@ impl Game {
                 .chain(),
         ));
 
-        // Initialize StartupSequence as a global resource
-        let ready_duration_ticks = {
-            let duration = world
-                .get_resource::<LevelTiming>()
-                .map(|t| t.spawn_freeze_duration)
-                .unwrap_or(1.5);
-            (duration * 60.0) as u32 // Convert to ticks at 60 FPS
-        };
-        world.insert_resource(StartupSequence::new(ready_duration_ticks, 60));
+        world.insert_resource(StartupSequence::new(60 * 3, 60));
 
         // Spawn ghosts
         Self::spawn_ghosts(&mut world)?;

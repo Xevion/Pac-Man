@@ -7,7 +7,7 @@ use bevy_ecs::{
 
 use crate::{
     events::GameEvent,
-    systems::{AudioEvent, EntityType, GhostCollider, ItemCollider, LevelTiming, PacmanCollider, ScoreResource, Vulnerable},
+    systems::{AudioEvent, EntityType, GhostCollider, ItemCollider, PacmanCollider, ScoreResource, Vulnerable},
 };
 
 /// Determines if a collision between two entity types should be handled by the item system.
@@ -29,7 +29,6 @@ pub fn item_system(
     item_query: Query<(Entity, &EntityType), With<ItemCollider>>,
     ghost_query: Query<Entity, With<GhostCollider>>,
     mut events: EventWriter<AudioEvent>,
-    level_timing: Res<LevelTiming>,
 ) {
     for event in collision_events.read() {
         if let GameEvent::Collision(entity1, entity2) = event {
@@ -58,7 +57,7 @@ pub fn item_system(
                     // Make ghosts vulnerable when power pellet is collected
                     if *entity_type == EntityType::PowerPellet {
                         // Convert seconds to frames (assumes 60 FPS)
-                        let total_ticks = (level_timing.energizer_duration * 60.0).round().clamp(0.0, u32::MAX as f32) as u32;
+                        let total_ticks = 60 * 5;
 
                         // Add Vulnerable component to all ghosts
                         for ghost_entity in ghost_query.iter() {

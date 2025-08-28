@@ -141,35 +141,6 @@ impl Default for MovementModifiers {
     }
 }
 
-/// Level-dependent timing configuration
-#[derive(Resource, Debug, Clone, Copy)]
-pub struct LevelTiming {
-    /// Duration of energizer effect in seconds
-    pub energizer_duration: f32,
-    /// Freeze duration at spawn/ready in seconds
-    pub spawn_freeze_duration: f32,
-    /// When to start flashing relative to energizer end (seconds)
-    pub energizer_flash_threshold: f32,
-}
-
-impl Default for LevelTiming {
-    fn default() -> Self {
-        Self {
-            energizer_duration: 6.0,
-            spawn_freeze_duration: 1.5,
-            energizer_flash_threshold: 2.0,
-        }
-    }
-}
-
-impl LevelTiming {
-    /// Returns timing configuration for a given level.
-    pub fn for_level(_level: u32) -> Self {
-        // Placeholder: tune per the Pac-Man Dossier tables
-        Self::default()
-    }
-}
-
 /// Tag component for entities that should be frozen during startup
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Frozen;
