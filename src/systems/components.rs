@@ -5,7 +5,7 @@ use crate::{
     map::graph::TraversalFlags,
     systems::{
         movement::{BufferedDirection, Position, Velocity},
-        Collider, GhostCollider, ItemCollider, PacmanCollider, PlayerLifecycle,
+        Collider, GhostCollider, ItemCollider, PacmanCollider,
     },
     texture::{animated::AnimatedTexture, sprite::AtlasTile},
 };
@@ -160,14 +160,8 @@ pub struct PlayerBundle {
     pub directional_animated: DirectionalAnimated,
     pub entity_type: EntityType,
     pub collider: Collider,
-    pub pacman_collider: PacmanCollider,
-}
-
-/// Convenience bundle for attaching the hybrid FSM to the player entity
-#[derive(Bundle, Default)]
-pub struct PlayerStateBundle {
-    pub lifecycle: PlayerLifecycle,
     pub movement_modifiers: MovementModifiers,
+    pub pacman_collider: PacmanCollider,
 }
 
 #[derive(Bundle)]

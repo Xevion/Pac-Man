@@ -1,5 +1,4 @@
 use bevy_ecs::{
-    component::Component,
     event::{EventReader, EventWriter},
     query::{With, Without},
     system::{Query, Res, ResMut},
@@ -16,28 +15,6 @@ use crate::{
         AudioState,
     },
 };
-
-/// Lifecycle state for the player entity.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PlayerLifecycle {
-    Spawning,
-    Alive,
-    Dying,
-    Respawning,
-}
-
-impl PlayerLifecycle {
-    /// Returns true when gameplay input and movement should be active
-    pub fn is_interactive(self) -> bool {
-        matches!(self, PlayerLifecycle::Alive)
-    }
-}
-
-impl Default for PlayerLifecycle {
-    fn default() -> Self {
-        PlayerLifecycle::Spawning
-    }
-}
 
 pub fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
     let entity_flags = entity_type.traversal_flags();
@@ -64,7 +41,7 @@ pub fn player_control_system(
             match command {
                 GameCommand::MovePlayer(direction) => {
                     // Get the player's movable component (ensuring there is only one player)
-                    let (mut buffered_direction) = match players.single_mut() {
+                    let mut buffered_direction = match players.single_mut() {
                         Ok(tuple) => tuple,
                         Err(e) => {
                             errors.write(GameError::InvalidState(format!(
@@ -101,22 +78,16 @@ pub fn player_control_system(
 /// Handles movement logic including buffered direction changes, edge traversal validation, and continuous movement between nodes.
 /// When stopped, prioritizes buffered directions for responsive controls, falling back to current direction.
 /// Supports movement chaining within a single frame when traveling at high speeds.
+#[allow(clippy::type_complexity)]
 pub fn player_movement_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,
     mut entities: Query<
-        (
-            &PlayerLifecycle,
-            &MovementModifiers,
-            &mut Position,
-            &mut Velocity,
-            &mut BufferedDirection,
-        ),
+        (&MovementModifiers, &mut Position, &mut Velocity, &mut BufferedDirection),
         (With<PlayerControlled>, Without<Frozen>),
     >,
-    // mut errors: EventWriter<GameError>,
 ) {
-    for (lifecycle, modifiers, mut position, mut velocity, mut buffered_direction) in entities.iter_mut() {
+    for (modifiers, mut position, mut velocity, mut buffered_direction) in entities.iter_mut() {
         // Decrement the buffered direction remaining time
         if let BufferedDirection::Some {
             direction,

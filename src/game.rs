@@ -8,7 +8,7 @@ use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::systems::blinking::Blinking;
-use crate::systems::{self, ghost_collision_system};
+use crate::systems::{self, ghost_collision_system, MovementModifiers};
 
 use crate::systems::movement::{BufferedDirection, Position, Velocity};
 use crate::systems::profiling::SystemId;
@@ -18,7 +18,7 @@ use crate::systems::{
     ghost_movement_system, hud_render_system, item_system, profile, render_system, AudioEvent, AudioResource, AudioState,
     BackbufferResource, Collider, DebugFontResource, DebugState, DebugTextureResource, DeltaTime, DirectionalAnimated,
     EntityType, Frozen, Ghost, GhostBundle, GhostCollider, GlobalState, ItemBundle, ItemCollider, MapTextureResource,
-    PacmanCollider, PlayerBundle, PlayerControlled, PlayerStateBundle, Renderable, ScoreResource, StartupSequence, SystemTimings,
+    PacmanCollider, PlayerBundle, PlayerControlled, Renderable, ScoreResource, StartupSequence, SystemTimings,
 };
 use crate::texture::animated::AnimatedTexture;
 use bevy_ecs::event::EventRegistry;
@@ -184,6 +184,7 @@ impl Game {
                 speed: 1.15,
                 direction: Direction::Left,
             },
+            movement_modifiers: MovementModifiers::default(),
             buffered_direction: BufferedDirection::None,
             sprite: Renderable {
                 sprite: SpriteAtlas::get_tile(&atlas, "pacman/full.png")
@@ -203,7 +204,6 @@ impl Game {
 
         // Spawn player and attach initial state bundle
         let player_entity = world.spawn(player).id();
-        world.entity_mut(player_entity).insert(PlayerStateBundle::default());
         world.entity_mut(player_entity).insert(Frozen);
 
         world.insert_non_send_resource(atlas);
