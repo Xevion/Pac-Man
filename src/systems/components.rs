@@ -93,7 +93,6 @@ impl EntityType {
 pub struct Renderable {
     pub sprite: AtlasTile,
     pub layer: u8,
-    pub visible: bool,
 }
 
 /// A component for entities that have a directional animated texture.

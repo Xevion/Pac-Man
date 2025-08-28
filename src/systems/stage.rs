@@ -4,8 +4,9 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Query, ResMut},
 };
+use tracing::debug;
 
-use crate::systems::{Frozen, GhostCollider, PlayerControlled};
+use crate::systems::{Frozen, GhostCollider, Hidden, PlayerControlled};
 
 #[derive(Resource, Debug, Clone, Copy)]
 pub enum StartupSequence {
@@ -75,21 +76,14 @@ pub fn startup_stage_system(
     mut ghost_query: Query<Entity, With<GhostCollider>>,
 ) {
     if let Some((from, to)) = startup.tick() {
+        debug!("StartupSequence transition from {from:?} to {to:?}");
         match (from, to) {
-            (StartupSequence::TextOnly { .. }, StartupSequence::CharactersVisible { .. }) => {
-                // TODO: Add TextOnly tag component to hide entities
-                // TODO: Add CharactersVisible tag component to show entities
-                // TODO: Remove TextOnly tag component
-            }
+            // (StartupSequence::TextOnly { .. }, StartupSequence::CharactersVisible { .. }) => {}
             (StartupSequence::CharactersVisible { .. }, StartupSequence::GameActive) => {
-                // Remove Frozen tag from all entities and enable player input
+                // Remove Frozen/Hidden tags from all entities and enable player input
                 for entity in player_query.iter_mut().chain(ghost_query.iter_mut()) {
-                    tracing::info!("Removing Frozen component from entity {}", entity);
-                    commands.entity(entity).remove::<Frozen>();
+                    commands.entity(entity).remove::<(Frozen, Hidden)>();
                 }
-
-                // TODO: Add GameActive tag component
-                // TODO: Remove CharactersVisible tag component
             }
             _ => {}
         }

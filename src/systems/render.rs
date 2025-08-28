@@ -7,6 +7,7 @@ use crate::systems::{
 };
 use crate::texture::sprite::SpriteAtlas;
 use crate::texture::text::TextTexture;
+use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::query::{Changed, Or, With, Without};
@@ -20,6 +21,9 @@ use sdl2::video::Window;
 
 #[derive(Resource, Default)]
 pub struct RenderDirty(pub bool);
+
+#[derive(Component)]
+pub struct Hidden;
 
 #[allow(clippy::type_complexity)]
 pub fn dirty_render_system(
@@ -70,56 +74,6 @@ pub struct MapTextureResource(pub Texture<'static>);
 
 /// A non-send resource for the backbuffer texture. This just wraps the texture with a type so it can be differentiated when exposed as a resource.
 pub struct BackbufferResource(pub Texture<'static>);
-
-/// Updates entity visibility based on StartupSequence stages
-pub fn ready_visibility_system(
-    startup: Res<StartupSequence>,
-    mut player_query: Query<&mut Renderable, (With<PlayerControlled>, Without<GhostCollider>)>,
-    mut ghost_query: Query<&mut Renderable, (With<GhostCollider>, Without<PlayerControlled>)>,
-    mut energizer_query: Query<(&mut Blinking, &EntityType)>,
-) {
-    match *startup {
-        StartupSequence::TextOnly { .. } => {
-            // Hide player and ghosts, disable energizer blinking
-            if let Ok(mut renderable) = player_query.single_mut() {
-                renderable.visible = false;
-            }
-
-            for mut renderable in ghost_query.iter_mut() {
-                renderable.visible = false;
-            }
-
-            // Disable energizer blinking in text-only stage
-            for (mut blinking, entity_type) in energizer_query.iter_mut() {
-                if matches!(entity_type, EntityType::PowerPellet) {
-                    blinking.timer = 0.0; // Reset timer to prevent blinking
-                }
-            }
-        }
-        StartupSequence::CharactersVisible { .. } => {
-            // Show player and ghosts, enable energizer blinking
-            if let Ok(mut renderable) = player_query.single_mut() {
-                renderable.visible = true;
-            }
-
-            for mut renderable in ghost_query.iter_mut() {
-                renderable.visible = true;
-            }
-
-            // Energizer blinking is handled by the blinking system
-        }
-        StartupSequence::GameActive => {
-            // All entities are visible and blinking is normal
-            if let Ok(mut renderable) = player_query.single_mut() {
-                renderable.visible = true;
-            }
-
-            for mut renderable in ghost_query.iter_mut() {
-                renderable.visible = true;
-            }
-        }
-    }
-}
 
 /// Renders the HUD (score, lives, etc.) on top of the game.
 pub fn hud_render_system(
@@ -183,7 +137,7 @@ pub fn render_system(
     mut atlas: NonSendMut<SpriteAtlas>,
     map: Res<Map>,
     dirty: Res<RenderDirty>,
-    renderables: Query<(Entity, &Renderable, &Position)>,
+    renderables: Query<(Entity, &Renderable, &Position), Without<Hidden>>,
     mut errors: EventWriter<GameError>,
 ) {
     if !dirty.0 {
@@ -207,10 +161,6 @@ pub fn render_system(
                 .sort_by_key::<(Entity, &Renderable, &Position), _>(|(_, renderable, _)| renderable.layer)
                 .rev()
             {
-                if !renderable.visible {
-                    continue;
-                }
-
                 let pos = position.get_pixel_position(&map.graph);
                 match pos {
                     Ok(pos) => {

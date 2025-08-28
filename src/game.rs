@@ -15,11 +15,10 @@ use crate::systems::profiling::SystemId;
 use crate::systems::render::RenderDirty;
 use crate::systems::{
     audio_system, blinking_system, collision_system, debug_render_system, directional_render_system, dirty_render_system,
-    ghost_movement_system, hud_render_system, item_system, profile, ready_visibility_system, render_system, AudioEvent,
-    AudioResource, AudioState, BackbufferResource, Collider, DebugFontResource, DebugState, DebugTextureResource, DeltaTime,
-    DirectionalAnimated, EntityType, Frozen, Ghost, GhostBundle, GhostCollider, GlobalState, ItemBundle, ItemCollider,
-    MapTextureResource, PacmanCollider, PlayerBundle, PlayerControlled, PlayerStateBundle, Renderable, ScoreResource,
-    StartupSequence, SystemTimings,
+    ghost_movement_system, hud_render_system, item_system, profile, render_system, AudioEvent, AudioResource, AudioState,
+    BackbufferResource, Collider, DebugFontResource, DebugState, DebugTextureResource, DeltaTime, DirectionalAnimated,
+    EntityType, Frozen, Ghost, GhostBundle, GhostCollider, GlobalState, ItemBundle, ItemCollider, MapTextureResource,
+    PacmanCollider, PlayerBundle, PlayerControlled, PlayerStateBundle, Renderable, ScoreResource, StartupSequence, SystemTimings,
 };
 use crate::texture::animated::AnimatedTexture;
 use bevy_ecs::event::EventRegistry;
@@ -190,7 +189,6 @@ impl Game {
                 sprite: SpriteAtlas::get_tile(&atlas, "pacman/full.png")
                     .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
                 layer: 0,
-                visible: true,
             },
             directional_animated: DirectionalAnimated {
                 textures,
@@ -282,7 +280,6 @@ impl Game {
             (collision_system, ghost_collision_system, item_system).chain(),
             audio_system,
             blinking_system,
-            ready_visibility_system,
             (
                 directional_render_system,
                 dirty_render_system,
@@ -318,11 +315,7 @@ impl Game {
 
             let mut item = world.spawn(ItemBundle {
                 position: Position::Stopped { node: node_id },
-                sprite: Renderable {
-                    sprite,
-                    layer: 1,
-                    visible: true,
-                },
+                sprite: Renderable { sprite, layer: 1 },
                 entity_type: item_type,
                 collider: Collider { size },
                 item_collider: ItemCollider,
@@ -429,7 +422,6 @@ impl Game {
                             },
                         )?,
                         layer: 0,
-                        visible: true,
                     },
                     directional_animated: DirectionalAnimated {
                         textures,
