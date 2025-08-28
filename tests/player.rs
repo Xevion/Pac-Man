@@ -9,7 +9,7 @@ use pacman::{
     },
     systems::{
         can_traverse, player_control_system, player_movement_system, AudioState, BufferedDirection, DebugState, DeltaTime,
-        EntityType, GlobalState, PlayerControlled, Position, Velocity,
+        EntityType, GlobalState, MovementModifiers, PlayerControlled, Position, Velocity,
     },
 };
 
@@ -49,6 +49,7 @@ fn spawn_test_player(world: &mut World) -> Entity {
             },
             BufferedDirection::None,
             EntityType::Player,
+            MovementModifiers::default(),
         ))
         .id()
 }
