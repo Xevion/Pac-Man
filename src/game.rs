@@ -247,10 +247,7 @@ impl Game {
             profile(SystemId::DebugRender, debug_render_system),
             profile(
                 SystemId::Present,
-                |mut canvas: NonSendMut<&mut Canvas<Window>>,
-                 backbuffer: NonSendMut<BackbufferResource>,
-                 debug_state: Res<DebugState>,
-                 mut dirty: ResMut<RenderDirty>| {
+                |mut canvas: NonSendMut<&mut Canvas<Window>>, debug_state: Res<DebugState>, mut dirty: ResMut<RenderDirty>| {
                     if dirty.0 || debug_state.enabled {
                         // Only copy backbuffer to main canvas if debug rendering is off
                         // (debug rendering draws directly to main canvas)
