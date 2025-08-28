@@ -6,8 +6,27 @@ use bevy_ecs::system::{Query, Res};
 use crate::error::GameError;
 use crate::events::GameEvent;
 use crate::map::builder::Map;
-use crate::systems::components::{Collider, ItemCollider, PacmanCollider};
+use crate::systems::components::{Collider, GhostCollider, ItemCollider, PacmanCollider};
 use crate::systems::movement::Position;
+
+/// Helper function to check collision between two entities with colliders.
+pub fn check_collision(
+    pos1: &Position,
+    collider1: &Collider,
+    pos2: &Position,
+    collider2: &Collider,
+    map: &Map,
+) -> Result<bool, GameError> {
+    let pixel1 = pos1
+        .get_pixel_position(&map.graph)
+        .map_err(|e| GameError::InvalidState(format!("Failed to get pixel position for entity 1: {}", e)))?;
+    let pixel2 = pos2
+        .get_pixel_position(&map.graph)
+        .map_err(|e| GameError::InvalidState(format!("Failed to get pixel position for entity 2: {}", e)))?;
+
+    let distance = pixel1.distance(pixel2);
+    Ok(collider1.collides_with(collider2.size, distance))
+}
 
 /// Detects overlapping entities and generates collision events for gameplay systems.
 ///
@@ -16,41 +35,48 @@ use crate::systems::movement::Position;
 /// a `GameEvent::Collision` for the item system to handle scoring and removal.
 /// Collision detection accounts for both entities being in motion and supports
 /// circular collision boundaries for accurate gameplay feel.
+///
+/// Also detects collisions between Pac-Man and ghosts for gameplay mechanics like
+/// power pellet effects, ghost eating, and player death.
 pub fn collision_system(
     map: Res<Map>,
     pacman_query: Query<(Entity, &Position, &Collider), With<PacmanCollider>>,
     item_query: Query<(Entity, &Position, &Collider), With<ItemCollider>>,
+    ghost_query: Query<(Entity, &Position, &Collider), With<GhostCollider>>,
     mut events: EventWriter<GameEvent>,
     mut errors: EventWriter<GameError>,
 ) {
     // Check PACMAN × ITEM collisions
     for (pacman_entity, pacman_pos, pacman_collider) in pacman_query.iter() {
         for (item_entity, item_pos, item_collider) in item_query.iter() {
-            match (
-                pacman_pos.get_pixel_position(&map.graph),
-                item_pos.get_pixel_position(&map.graph),
-            ) {
-                (Ok(pacman_pixel), Ok(item_pixel)) => {
-                    // Calculate the distance between the two entities's precise pixel positions
-                    let distance = pacman_pixel.distance(item_pixel);
-                    // Calculate the distance at which the two entities will collide
-                    let collision_distance = (pacman_collider.size + item_collider.size) / 2.0;
-
-                    // If the distance between the two entities is less than the collision distance, then the two entities are colliding
-                    if distance < collision_distance {
+            match check_collision(pacman_pos, pacman_collider, item_pos, item_collider, &map) {
+                Ok(colliding) => {
+                    if colliding {
                         events.write(GameEvent::Collision(pacman_entity, item_entity));
                     }
                 }
-                // Either or both of the pixel positions failed to get, so we need to report the error
-                (result_a, result_b) => {
-                    for result in [result_a, result_b] {
-                        if let Err(e) = result {
-                            errors.write(GameError::InvalidState(format!(
-                                "Collision system failed to get pixel positions for entities {:?} and {:?}: {}",
-                                pacman_entity, item_entity, e
-                            )));
-                        }
+                Err(e) => {
+                    errors.write(GameError::InvalidState(format!(
+                        "Collision system failed to check collision between entities {:?} and {:?}: {}",
+                        pacman_entity, item_entity, e
+                    )));
+                }
+            }
+        }
+
+        // Check PACMAN × GHOST collisions
+        for (ghost_entity, ghost_pos, ghost_collider) in ghost_query.iter() {
+            match check_collision(pacman_pos, pacman_collider, ghost_pos, ghost_collider, &map) {
+                Ok(colliding) => {
+                    if colliding {
+                        events.write(GameEvent::Collision(pacman_entity, ghost_entity));
                     }
+                }
+                Err(e) => {
+                    errors.write(GameError::InvalidState(format!(
+                        "Collision system failed to check collision between entities {:?} and {:?}: {}",
+                        pacman_entity, ghost_entity, e
+                    )));
                 }
             }
         }

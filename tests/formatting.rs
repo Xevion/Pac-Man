@@ -119,8 +119,6 @@ fn test_format_timing_display_basic() {
     }
 }
 
-
-
 #[test]
 fn test_format_timing_display_units() {
     let timing_data = vec![

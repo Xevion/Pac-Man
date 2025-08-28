@@ -114,6 +114,14 @@ pub struct Collider {
     pub size: f32,
 }
 
+impl Collider {
+    /// Checks if this collider collides with another collider at the given distance.
+    pub fn collides_with(&self, other_size: f32, distance: f32) -> bool {
+        let collision_distance = (self.size + other_size) / 2.0;
+        distance < collision_distance
+    }
+}
+
 /// Marker components for collision filtering optimization
 #[derive(Component)]
 pub struct PacmanCollider;

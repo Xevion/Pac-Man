@@ -193,8 +193,6 @@ fn test_item_system_ignores_non_item_collisions() {
     assert_eq!(ghost_count, 1);
 }
 
-
-
 #[test]
 fn test_item_system_no_collision_events() {
     let mut world = create_test_world();
