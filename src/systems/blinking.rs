@@ -26,6 +26,7 @@ impl Blinking {
 ///
 /// This system manages entities that have both `Blinking` and `Renderable` components,
 /// accumulating time and toggling visibility when the specified interval is reached.
+#[allow(clippy::type_complexity)]
 pub fn blinking_system(
     mut commands: Commands,
     time: Res<DeltaTime>,

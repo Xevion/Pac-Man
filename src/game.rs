@@ -8,7 +8,7 @@ use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::systems::blinking::Blinking;
-use crate::systems::{self, ghost_collision_system, present_system, MovementModifiers};
+use crate::systems::{self, ghost_collision_system, present_system, Hidden, MovementModifiers};
 
 use crate::systems::movement::{BufferedDirection, Position, Velocity};
 use crate::systems::profiling::SystemId;
@@ -24,7 +24,8 @@ use crate::texture::animated::AnimatedTexture;
 use crate::texture::sprite::AtlasTile;
 use bevy_ecs::event::EventRegistry;
 use bevy_ecs::observer::Trigger;
-use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule, SystemSet};
+use bevy_ecs::schedule::common_conditions::resource_changed;
+use bevy_ecs::schedule::{Condition, IntoScheduleConfigs, Schedule, SystemSet};
 use bevy_ecs::system::ResMut;
 use bevy_ecs::world::World;
 use sdl2::image::LoadTexture;
@@ -255,7 +256,12 @@ impl Game {
         let debug_render_system = profile(SystemId::DebugRender, debug_render_system);
         let present_system = profile(SystemId::Present, present_system);
 
+        let forced_dirty_system = |mut dirty: ResMut<RenderDirty>| {
+            dirty.0 = true;
+        };
+
         schedule.add_systems((
+            forced_dirty_system.run_if(resource_changed::<ScoreResource>.or(resource_changed::<StartupSequence>)),
             (
                 input_system,
                 player_control_system,
@@ -281,8 +287,7 @@ impl Game {
         ));
 
         // Spawn player and attach initial state bundle
-        let player_entity = world.spawn(player).id();
-        world.entity_mut(player_entity).insert(Frozen);
+        world.spawn(player).insert((Frozen, Hidden));
 
         // Spawn ghosts
         Self::spawn_ghosts(&mut world)?;
@@ -430,7 +435,7 @@ impl Game {
                 }
             };
 
-            world.spawn(ghost).insert(Frozen);
+            world.spawn(ghost).insert((Frozen, Hidden));
         }
 
         Ok(())
