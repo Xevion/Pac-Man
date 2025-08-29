@@ -6,7 +6,7 @@ use bevy_ecs::{
 };
 use tracing::debug;
 
-use crate::systems::{Frozen, GhostCollider, Hidden, PlayerControlled};
+use crate::systems::{Blinking, Frozen, GhostCollider, Hidden, PlayerControlled};
 
 #[derive(Resource, Debug, Clone, Copy)]
 pub enum StartupSequence {
@@ -72,6 +72,7 @@ impl StartupSequence {
 pub fn startup_stage_system(
     mut startup: ResMut<StartupSequence>,
     mut commands: Commands,
+    mut blinking_query: Query<Entity, With<Blinking>>,
     mut player_query: Query<Entity, With<PlayerControlled>>,
     mut ghost_query: Query<Entity, With<GhostCollider>>,
 ) {
@@ -80,9 +81,14 @@ pub fn startup_stage_system(
         match (from, to) {
             // (StartupSequence::TextOnly { .. }, StartupSequence::CharactersVisible { .. }) => {}
             (StartupSequence::CharactersVisible { .. }, StartupSequence::GameActive) => {
-                // Remove Frozen/Hidden tags from all entities and enable player input
+                // Unfreeze and unhide the player & ghosts
                 for entity in player_query.iter_mut().chain(ghost_query.iter_mut()) {
                     commands.entity(entity).remove::<(Frozen, Hidden)>();
+                }
+
+                // Unfreeze pellet blinking
+                for entity in blinking_query.iter_mut() {
+                    commands.entity(entity).remove::<Frozen>();
                 }
             }
             _ => {}

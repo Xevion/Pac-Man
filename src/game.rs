@@ -2,7 +2,7 @@
 
 include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 
-use crate::constants::CANVAS_SIZE;
+use crate::constants::{MapTile, CANVAS_SIZE};
 use crate::error::{GameError, GameResult, TextureError};
 use crate::events::GameEvent;
 use crate::map::builder::Map;
@@ -21,6 +21,7 @@ use crate::systems::{
     PacmanCollider, PlayerBundle, PlayerControlled, Renderable, ScoreResource, StartupSequence, SystemTimings,
 };
 use crate::texture::animated::AnimatedTexture;
+use crate::texture::sprite::AtlasTile;
 use bevy_ecs::event::EventRegistry;
 use bevy_ecs::observer::Trigger;
 use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule, SystemSet};
@@ -81,14 +82,7 @@ impl Game {
         texture_creator: &'static mut TextureCreator<WindowContext>,
         event_pump: &'static mut EventPump,
     ) -> GameResult<Game> {
-        let mut world = World::default();
-        let mut schedule = Schedule::default();
         let ttf_context = Box::leak(Box::new(sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?));
-
-        EventRegistry::register_event::<GameError>(&mut world);
-        EventRegistry::register_event::<GameEvent>(&mut world);
-        EventRegistry::register_event::<AudioEvent>(&mut world);
-
         let mut backbuffer = texture_creator
             .create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
@@ -105,6 +99,7 @@ impl Game {
             .create_texture_target(None, output_size.0, output_size.1)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
+        // Debug texture is copied over the backbuffer, it requires transparency abilities
         debug_texture.set_blend_mode(BlendMode::Blend);
         debug_texture.set_scale_mode(ScaleMode::Nearest);
 
@@ -151,11 +146,10 @@ impl Game {
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
         let map = Map::new(constants::RAW_BOARD)?;
-        let pacman_start_node = map.start_positions.pacman;
 
+        // Create directional animated textures for Pac-Man
         let mut textures = [None, None, None, None];
         let mut stopped_textures = [None, None, None, None];
-
         for direction in Direction::DIRECTIONS {
             let moving_prefix = match direction {
                 Direction::Up => "pacman/up",
@@ -181,7 +175,9 @@ impl Game {
 
         let player = PlayerBundle {
             player: PlayerControlled,
-            position: Position::Stopped { node: pacman_start_node },
+            position: Position::Stopped {
+                node: map.start_positions.pacman,
+            },
             velocity: Velocity {
                 speed: 1.15,
                 direction: Direction::Left,
@@ -204,9 +200,12 @@ impl Game {
             pacman_collider: PacmanCollider,
         };
 
-        // Spawn player and attach initial state bundle
-        let player_entity = world.spawn(player).id();
-        world.entity_mut(player_entity).insert(Frozen);
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+
+        EventRegistry::register_event::<GameError>(&mut world);
+        EventRegistry::register_event::<GameEvent>(&mut world);
+        EventRegistry::register_event::<AudioEvent>(&mut world);
 
         world.insert_non_send_resource(atlas);
         world.insert_non_send_resource(event_pump);
@@ -227,6 +226,7 @@ impl Game {
         world.insert_resource(DebugState::default());
         world.insert_resource(AudioState::default());
         world.insert_resource(CursorPosition::default());
+        world.insert_resource(StartupSequence::new(60 * 3, 60));
 
         world.add_observer(
             |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| {
@@ -280,41 +280,47 @@ impl Game {
                 .chain(),
         ));
 
-        world.insert_resource(StartupSequence::new(60 * 3, 60));
+        // Spawn player and attach initial state bundle
+        let player_entity = world.spawn(player).id();
+        world.entity_mut(player_entity).insert(Frozen);
 
         // Spawn ghosts
         Self::spawn_ghosts(&mut world)?;
 
-        // Spawn items
         let pellet_sprite = SpriteAtlas::get_tile(world.non_send_resource::<SpriteAtlas>(), "maze/pellet.png")
             .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("maze/pellet.png".to_string())))?;
         let energizer_sprite = SpriteAtlas::get_tile(world.non_send_resource::<SpriteAtlas>(), "maze/energizer.png")
             .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("maze/energizer.png".to_string())))?;
 
-        let nodes: Vec<_> = world.resource::<Map>().iter_nodes().map(|(id, tile)| (*id, *tile)).collect();
+        // Build a list of item entities to spawn from the map
+        let nodes: Vec<(usize, EntityType, AtlasTile, f32)> = world
+            .resource::<Map>()
+            .iter_nodes()
+            .filter_map(|(id, tile)| match tile {
+                MapTile::Pellet => Some((*id, EntityType::Pellet, pellet_sprite, constants::CELL_SIZE as f32 * 0.4)),
+                MapTile::PowerPellet => Some((
+                    *id,
+                    EntityType::PowerPellet,
+                    energizer_sprite,
+                    constants::CELL_SIZE as f32 * 0.95,
+                )),
+                _ => None,
+            })
+            .collect();
 
-        for (node_id, tile) in nodes {
-            let (item_type, sprite, size) = match tile {
-                crate::constants::MapTile::Pellet => (EntityType::Pellet, pellet_sprite, constants::CELL_SIZE as f32 * 0.4),
-                crate::constants::MapTile::PowerPellet => {
-                    (EntityType::PowerPellet, energizer_sprite, constants::CELL_SIZE as f32 * 0.95)
-                }
-                _ => continue,
-            };
-
+        // Construct and spawn the item entities
+        for (id, item_type, sprite, size) in nodes {
             let mut item = world.spawn(ItemBundle {
-                position: Position::Stopped { node: node_id },
+                position: Position::Stopped { node: id },
                 sprite: Renderable { sprite, layer: 1 },
                 entity_type: item_type,
                 collider: Collider { size },
                 item_collider: ItemCollider,
             });
 
+            // Make power pellets blink
             if item_type == EntityType::PowerPellet {
-                item.insert(Blinking {
-                    timer: 0.0,
-                    interval: 0.2,
-                });
+                item.insert((Frozen, Blinking::new(0.2)));
             }
         }
 
