@@ -8,7 +8,7 @@ use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::systems::blinking::Blinking;
-use crate::systems::{self, ghost_collision_system, MovementModifiers};
+use crate::systems::{self, ghost_collision_system, present_system, MovementModifiers};
 
 use crate::systems::movement::{BufferedDirection, Position, Velocity};
 use crate::systems::profiling::SystemId;
@@ -24,10 +24,10 @@ use crate::texture::animated::AnimatedTexture;
 use bevy_ecs::event::EventRegistry;
 use bevy_ecs::observer::Trigger;
 use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule, SystemSet};
-use bevy_ecs::system::{NonSendMut, Res, ResMut};
+use bevy_ecs::system::ResMut;
 use bevy_ecs::world::World;
 use sdl2::image::LoadTexture;
-use sdl2::render::{Canvas, ScaleMode, TextureCreator};
+use sdl2::render::{BlendMode, Canvas, ScaleMode, TextureCreator};
 use sdl2::rwops::RWops;
 use sdl2::video::{Window, WindowContext};
 use sdl2::EventPump;
@@ -104,6 +104,8 @@ impl Game {
         let mut debug_texture = texture_creator
             .create_texture_target(None, output_size.0, output_size.1)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
+
+        debug_texture.set_blend_mode(BlendMode::Blend);
         debug_texture.set_scale_mode(ScaleMode::Nearest);
 
         let font_data = get_asset_bytes(Asset::Font)?;
@@ -248,23 +250,10 @@ impl Game {
         let blinking_system = profile(SystemId::Blinking, blinking_system);
         let directional_render_system = profile(SystemId::DirectionalRender, directional_render_system);
         let dirty_render_system = profile(SystemId::DirtyRender, dirty_render_system);
-        let hud_render_system = profile(SystemId::HudRender, hud_render_system);
         let render_system = profile(SystemId::Render, render_system);
+        let hud_render_system = profile(SystemId::HudRender, hud_render_system);
         let debug_render_system = profile(SystemId::DebugRender, debug_render_system);
-
-        let present_system = profile(
-            SystemId::Present,
-            |mut canvas: NonSendMut<&mut Canvas<Window>>, debug_state: Res<DebugState>, mut dirty: ResMut<RenderDirty>| {
-                if dirty.0 || debug_state.enabled {
-                    // Only copy backbuffer to main canvas if debug rendering is off
-                    // (debug rendering draws directly to main canvas)
-                    if !debug_state.enabled {
-                        canvas.present();
-                    }
-                    dirty.0 = false;
-                }
-            },
-        );
+        let present_system = profile(SystemId::Present, present_system);
 
         schedule.add_systems((
             (

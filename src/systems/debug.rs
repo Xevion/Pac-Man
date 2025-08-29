@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 
 use crate::constants::BOARD_PIXEL_OFFSET;
 use crate::map::builder::Map;
-use crate::systems::{BackbufferResource, Collider, CursorPosition, Position, SystemTimings};
+use crate::systems::{Collider, CursorPosition, Position, SystemTimings};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{NonSendMut, Query, Res};
 use glam::{IVec2, UVec2, Vec2};
@@ -89,7 +89,6 @@ fn render_timing_display(
 #[allow(clippy::too_many_arguments)]
 pub fn debug_render_system(
     mut canvas: NonSendMut<&mut Canvas<Window>>,
-    backbuffer: NonSendMut<BackbufferResource>,
     mut debug_texture: NonSendMut<DebugTextureResource>,
     debug_font: NonSendMut<DebugFontResource>,
     debug_state: Res<DebugState>,
@@ -104,18 +103,6 @@ pub fn debug_render_system(
     let scale =
         (UVec2::from(canvas.output_size().unwrap()).as_vec2() / UVec2::from(canvas.logical_size()).as_vec2()).min_element();
 
-    // Copy the current backbuffer to the debug texture
-    canvas
-        .with_texture_canvas(&mut debug_texture.0, |debug_canvas| {
-            // Clear the debug canvas
-            debug_canvas.set_draw_color(Color::BLACK);
-            debug_canvas.clear();
-
-            // Copy the backbuffer to the debug canvas
-            debug_canvas.copy(&backbuffer.0, None, None).unwrap();
-        })
-        .unwrap();
-
     // Get texture creator before entering the closure to avoid borrowing conflicts
     let mut texture_creator = canvas.texture_creator();
     let font = &debug_font.0;
@@ -128,8 +115,11 @@ pub fn debug_render_system(
     // Draw debug info on the high-resolution debug texture
     canvas
         .with_texture_canvas(&mut debug_texture.0, |debug_canvas| {
-            // Find the closest node to the cursor
+            // Clear the debug canvas
+            debug_canvas.set_draw_color(Color::RGBA(0, 0, 0, 0));
+            debug_canvas.clear();
 
+            // Find the closest node to the cursor
             let closest_node = if let Some(cursor_world_pos) = cursor_world_pos {
                 map.graph
                     .nodes()
@@ -214,8 +204,4 @@ pub fn debug_render_system(
             render_timing_display(debug_canvas, &mut texture_creator, &timings, font);
         })
         .unwrap();
-
-    // Draw the debug texture directly onto the main canvas at full resolution
-    canvas.copy(&debug_texture.0, None, None).unwrap();
-    canvas.present();
 }

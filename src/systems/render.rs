@@ -1,7 +1,10 @@
 use crate::constants::CANVAS_SIZE;
 use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
-use crate::systems::{DeltaTime, DirectionalAnimated, Position, Renderable, ScoreResource, StartupSequence, Velocity};
+use crate::systems::{
+    DebugState, DebugTextureResource, DeltaTime, DirectionalAnimated, Position, Renderable, ScoreResource, StartupSequence,
+    Velocity,
+};
 use crate::texture::sprite::SpriteAtlas;
 use crate::texture::text::TextTexture;
 use bevy_ecs::component::Component;
@@ -13,7 +16,7 @@ use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{NonSendMut, Query, Res, ResMut};
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
-use sdl2::render::{Canvas, Texture};
+use sdl2::render::{BlendMode, Canvas, Texture};
 use sdl2::video::Window;
 
 #[derive(Resource, Default)]
@@ -25,10 +28,11 @@ pub struct Hidden;
 #[allow(clippy::type_complexity)]
 pub fn dirty_render_system(
     mut dirty: ResMut<RenderDirty>,
-    changed_renderables: Query<(), Or<(Changed<Renderable>, Changed<Position>)>>,
+    changed: Query<(), Or<(Changed<Renderable>, Changed<Position>)>>,
+    removed_hidden: RemovedComponents<Hidden>,
     removed_renderables: RemovedComponents<Renderable>,
 ) {
-    if !changed_renderables.is_empty() || !removed_renderables.is_empty() {
+    if !changed.is_empty() || !removed_hidden.is_empty() || !removed_renderables.is_empty() {
         dirty.0 = true;
     }
 }
@@ -74,56 +78,59 @@ pub struct BackbufferResource(pub Texture<'static>);
 
 /// Renders the HUD (score, lives, etc.) on top of the game.
 pub fn hud_render_system(
+    mut backbuffer: NonSendMut<BackbufferResource>,
     mut canvas: NonSendMut<&mut Canvas<Window>>,
     mut atlas: NonSendMut<SpriteAtlas>,
     score: Res<ScoreResource>,
     startup: Res<StartupSequence>,
     mut errors: EventWriter<GameError>,
 ) {
-    let mut text_renderer = TextTexture::new(1.0);
+    let _ = canvas.with_texture_canvas(&mut backbuffer.0, |canvas| {
+        let mut text_renderer = TextTexture::new(1.0);
 
-    // Render lives and high score text in white
-    let lives = 3; // TODO: Get from actual lives resource
-    let lives_text = format!("{lives}UP   HIGH SCORE   ");
-    let lives_position = glam::UVec2::new(4 + 8 * 3, 2); // x_offset + lives_offset * 8, y_offset
+        // Render lives and high score text in white
+        let lives = 3; // TODO: Get from actual lives resource
+        let lives_text = format!("{lives}UP   HIGH SCORE   ");
+        let lives_position = glam::UVec2::new(4 + 8 * 3, 2); // x_offset + lives_offset * 8, y_offset
 
-    if let Err(e) = text_renderer.render(&mut canvas, &mut atlas, &lives_text, lives_position) {
-        errors.write(TextureError::RenderFailed(format!("Failed to render lives text: {}", e)).into());
-    }
-
-    // Render score text in yellow (Pac-Man's color)
-    let score_text = format!("{:02}", score.0);
-    let score_offset = 7 - (score_text.len() as i32);
-    let score_position = glam::UVec2::new(4 + 8 * score_offset as u32, 10); // x_offset + score_offset * 8, 8 + y_offset
-
-    if let Err(e) = text_renderer.render(&mut canvas, &mut atlas, &score_text, score_position) {
-        errors.write(TextureError::RenderFailed(format!("Failed to render score text: {}", e)).into());
-    }
-
-    // Render text based on StartupSequence stage
-    if matches!(
-        *startup,
-        StartupSequence::TextOnly { .. } | StartupSequence::CharactersVisible { .. }
-    ) {
-        let ready_text = "READY!";
-        let ready_width = text_renderer.text_width(ready_text);
-        let ready_position = glam::UVec2::new((CANVAS_SIZE.x - ready_width) / 2, 160);
-        if let Err(e) = text_renderer.render_with_color(&mut canvas, &mut atlas, ready_text, ready_position, Color::YELLOW) {
-            errors.write(TextureError::RenderFailed(format!("Failed to render READY text: {}", e)).into());
+        if let Err(e) = text_renderer.render(canvas, &mut atlas, &lives_text, lives_position) {
+            errors.write(TextureError::RenderFailed(format!("Failed to render lives text: {}", e)).into());
         }
 
-        if matches!(*startup, StartupSequence::TextOnly { .. }) {
-            let player_one_text = "PLAYER ONE";
-            let player_one_width = text_renderer.text_width(player_one_text);
-            let player_one_position = glam::UVec2::new((CANVAS_SIZE.x - player_one_width) / 2, 113);
+        // Render score text in yellow (Pac-Man's color)
+        let score_text = format!("{:02}", score.0);
+        let score_offset = 7 - (score_text.len() as i32);
+        let score_position = glam::UVec2::new(4 + 8 * score_offset as u32, 10); // x_offset + score_offset * 8, 8 + y_offset
 
-            if let Err(e) =
-                text_renderer.render_with_color(&mut canvas, &mut atlas, player_one_text, player_one_position, Color::CYAN)
-            {
-                errors.write(TextureError::RenderFailed(format!("Failed to render PLAYER ONE text: {}", e)).into());
+        if let Err(e) = text_renderer.render(canvas, &mut atlas, &score_text, score_position) {
+            errors.write(TextureError::RenderFailed(format!("Failed to render score text: {}", e)).into());
+        }
+
+        // Render text based on StartupSequence stage
+        if matches!(
+            *startup,
+            StartupSequence::TextOnly { .. } | StartupSequence::CharactersVisible { .. }
+        ) {
+            let ready_text = "READY!";
+            let ready_width = text_renderer.text_width(ready_text);
+            let ready_position = glam::UVec2::new((CANVAS_SIZE.x - ready_width) / 2, 160);
+            if let Err(e) = text_renderer.render_with_color(canvas, &mut atlas, ready_text, ready_position, Color::YELLOW) {
+                errors.write(TextureError::RenderFailed(format!("Failed to render READY text: {}", e)).into());
+            }
+
+            if matches!(*startup, StartupSequence::TextOnly { .. }) {
+                let player_one_text = "PLAYER ONE";
+                let player_one_width = text_renderer.text_width(player_one_text);
+                let player_one_position = glam::UVec2::new((CANVAS_SIZE.x - player_one_width) / 2, 113);
+
+                if let Err(e) =
+                    text_renderer.render_with_color(canvas, &mut atlas, player_one_text, player_one_position, Color::CYAN)
+                {
+                    errors.write(TextureError::RenderFailed(format!("Failed to render PLAYER ONE text: {}", e)).into());
+                }
             }
         }
-    }
+    });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -183,4 +190,26 @@ pub fn render_system(
         .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
 
     canvas.copy(&backbuffer.0, None, None).unwrap();
+}
+
+pub fn present_system(
+    mut canvas: NonSendMut<&mut Canvas<Window>>,
+    mut dirty: ResMut<RenderDirty>,
+    backbuffer: NonSendMut<BackbufferResource>,
+    debug_texture: NonSendMut<DebugTextureResource>,
+    debug_state: Res<DebugState>,
+) {
+    if dirty.0 {
+        // Copy the backbuffer to the main canvas
+        canvas.copy(&backbuffer.0, None, None).unwrap();
+
+        // Copy the debug texture to the canvas
+        if debug_state.enabled {
+            canvas.set_blend_mode(BlendMode::Blend);
+            canvas.copy(&debug_texture.0, None, None).unwrap();
+        }
+
+        canvas.present();
+        dirty.0 = false;
+    }
 }
