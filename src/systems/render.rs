@@ -97,13 +97,21 @@ pub fn hud_render_system(
             errors.write(TextureError::RenderFailed(format!("Failed to render lives text: {}", e)).into());
         }
 
-        // Render score text in yellow (Pac-Man's color)
+        // Render score text
         let score_text = format!("{:02}", score.0);
         let score_offset = 7 - (score_text.len() as i32);
         let score_position = glam::UVec2::new(4 + 8 * score_offset as u32, 10); // x_offset + score_offset * 8, 8 + y_offset
 
         if let Err(e) = text_renderer.render(canvas, &mut atlas, &score_text, score_position) {
             errors.write(TextureError::RenderFailed(format!("Failed to render score text: {}", e)).into());
+        }
+
+        // Render high score text
+        let high_score_text = format!("{:02}", score.0);
+        let high_score_offset = 17 - (high_score_text.len() as i32);
+        let high_score_position = glam::UVec2::new(4 + 8 * high_score_offset as u32, 10); // x_offset + score_offset * 8, 8 + y_offset
+        if let Err(e) = text_renderer.render(canvas, &mut atlas, &high_score_text, high_score_position) {
+            errors.write(TextureError::RenderFailed(format!("Failed to render high score text: {}", e)).into());
         }
 
         // Render text based on StartupSequence stage
