@@ -13,10 +13,8 @@ fn test_sprite_atlas_basic() {
     frames.insert(
         "test".to_string(),
         MapperFrame {
-            x: 10,
-            y: 20,
-            width: 32,
-            height: 64,
+            pos: U16Vec2::new(10, 20),
+            size: U16Vec2::new(32, 64),
         },
     );
 
@@ -38,19 +36,15 @@ fn test_sprite_atlas_multiple_tiles() {
     frames.insert(
         "tile1".to_string(),
         MapperFrame {
-            x: 0,
-            y: 0,
-            width: 32,
-            height: 32,
+            pos: U16Vec2::new(0, 0),
+            size: U16Vec2::new(32, 32),
         },
     );
     frames.insert(
         "tile2".to_string(),
         MapperFrame {
-            x: 32,
-            y: 0,
-            width: 64,
-            height: 64,
+            pos: U16Vec2::new(32, 0),
+            size: U16Vec2::new(64, 64),
         },
     );
 

@@ -19,6 +19,15 @@ struct MapperFrame {
     height: u16,
 }
 
+impl MapperFrame {
+    fn to_u16vec2_format(self) -> String {
+        format!(
+            "MapperFrame {{ pos: glam::U16Vec2::new({}, {}), size: glam::U16Vec2::new({}, {}) }}",
+            self.x, self.y, self.width, self.height
+        )
+    }
+}
+
 fn main() {
     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("atlas_data.rs");
     let mut file = BufWriter::new(File::create(&path).unwrap());
@@ -37,12 +46,7 @@ fn main() {
     .unwrap();
 
     for (name, frame) in atlas_mapper.frames {
-        writeln!(
-            &mut file,
-            "    \"{}\" => MapperFrame {{ x: {}, y: {}, width: {}, height: {} }},",
-            name, frame.x, frame.y, frame.width, frame.height
-        )
-        .unwrap();
+        writeln!(&mut file, "    \"{}\" => {},", name, frame.to_u16vec2_format()).unwrap();
     }
 
     writeln!(&mut file, "}};").unwrap();

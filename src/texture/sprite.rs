@@ -3,24 +3,21 @@ use glam::U16Vec2;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, RenderTarget, Texture};
-use serde::Deserialize;
 use std::collections::HashMap;
 
 use crate::error::TextureError;
 
 /// Atlas frame mapping data loaded from JSON metadata files.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct AtlasMapper {
     /// Mapping from sprite name to frame bounds within the atlas texture
     pub frames: HashMap<String, MapperFrame>,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug)]
 pub struct MapperFrame {
-    pub x: u16,
-    pub y: u16,
-    pub width: u16,
-    pub height: u16,
+    pub pos: U16Vec2,
+    pub size: U16Vec2,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -108,8 +105,8 @@ impl SpriteAtlas {
     /// for repeated use in animations and entity sprites.
     pub fn get_tile(&self, name: &str) -> Option<AtlasTile> {
         self.tiles.get(name).map(|frame| AtlasTile {
-            pos: U16Vec2::new(frame.x, frame.y),
-            size: U16Vec2::new(frame.width, frame.height),
+            pos: frame.pos,
+            size: frame.size,
             color: None,
         })
     }
