@@ -107,7 +107,7 @@ impl Graph {
 
     /// Adds a new node with the given data to the graph and returns its ID.
     pub fn add_node(&mut self, data: Node) -> NodeId {
-        let id = self.nodes.len();
+        let id = self.nodes.len() as NodeId;
         self.nodes.push(data);
         self.adjacency_list.push(Intersection::default());
         id
@@ -129,10 +129,10 @@ impl Graph {
         distance: Option<f32>,
         direction: Direction,
     ) -> Result<(), &'static str> {
-        if from >= self.adjacency_list.len() {
+        if from as usize >= self.adjacency_list.len() {
             return Err("From node does not exist.");
         }
-        if to >= self.adjacency_list.len() {
+        if to as usize >= self.adjacency_list.len() {
             return Err("To node does not exist.");
         }
 
@@ -178,8 +178,8 @@ impl Graph {
                 }
                 None => {
                     // If no distance is provided, calculate it based on the positions of the nodes
-                    let from_pos = self.nodes[from].position;
-                    let to_pos = self.nodes[to].position;
+                    let from_pos = self.nodes[from as usize].position;
+                    let to_pos = self.nodes[to as usize].position;
                     from_pos.distance(to_pos)
                 }
             },
@@ -187,11 +187,11 @@ impl Graph {
             traversal_flags,
         };
 
-        if from >= self.adjacency_list.len() {
+        if from as usize >= self.adjacency_list.len() {
             return Err("From node does not exist.");
         }
 
-        let adjacency_list = &mut self.adjacency_list[from];
+        let adjacency_list = &mut self.adjacency_list[from as usize];
 
         // Check if the edge already exists in this direction or to the same target
         if let Some(err) = adjacency_list.edges().find_map(|e| {
@@ -215,7 +215,7 @@ impl Graph {
 
     /// Retrieves an immutable reference to a node's data.
     pub fn get_node(&self, id: NodeId) -> Option<&Node> {
-        self.nodes.get(id)
+        self.nodes.get(id as usize)
     }
 
     /// Returns an iterator over all nodes in the graph.
@@ -228,17 +228,17 @@ impl Graph {
         self.adjacency_list
             .iter()
             .enumerate()
-            .flat_map(|(node_id, intersection)| intersection.edges().map(move |edge| (node_id, edge)))
+            .flat_map(|(node_id, intersection)| intersection.edges().map(move |edge| (node_id as NodeId, edge)))
     }
 
     /// Finds a specific edge from a source node to a target node.
     pub fn find_edge(&self, from: NodeId, to: NodeId) -> Option<Edge> {
-        self.adjacency_list.get(from)?.edges().find(|edge| edge.target == to)
+        self.adjacency_list.get(from as usize)?.edges().find(|edge| edge.target == to)
     }
 
     /// Finds an edge originating from a given node that follows a specific direction.
     pub fn find_edge_in_direction(&self, from: NodeId, direction: Direction) -> Option<Edge> {
-        self.adjacency_list.get(from)?.get(direction)
+        self.adjacency_list.get(from as usize)?.get(direction)
     }
 }
 

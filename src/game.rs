@@ -11,7 +11,7 @@ use crate::systems::blinking::Blinking;
 use crate::systems::movement::{BufferedDirection, Position, Velocity};
 use crate::systems::profiling::SystemId;
 use crate::systems::render::RenderDirty;
-use crate::systems::{self, ghost_collision_system, present_system, Hidden, MovementModifiers};
+use crate::systems::{self, ghost_collision_system, present_system, Hidden, MovementModifiers, NodeId};
 use crate::systems::{
     audio_system, blinking_system, collision_system, debug_render_system, directional_render_system, dirty_render_system,
     eaten_ghost_system, ghost_movement_system, ghost_state_animation_system, hud_render_system, item_system, profile,
@@ -303,7 +303,7 @@ impl Game {
             .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("maze/energizer.png".to_string())))?;
 
         // Build a list of item entities to spawn from the map
-        let nodes: Vec<(usize, EntityType, AtlasTile, f32)> = world
+        let nodes: Vec<(NodeId, EntityType, AtlasTile, f32)> = world
             .resource::<Map>()
             .iter_nodes()
             .filter_map(|(id, tile)| match tile {

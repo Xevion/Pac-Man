@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 
 use crate::constants::BOARD_PIXEL_OFFSET;
 use crate::map::builder::Map;
-use crate::systems::{Collider, CursorPosition, Position, SystemTimings};
+use crate::systems::{Collider, CursorPosition, NodeId, Position, SystemTimings};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{NonSendMut, Query, Res};
 use glam::{IVec2, UVec2, Vec2};
@@ -185,7 +185,7 @@ pub fn debug_render_system(
 
             // Render node ID if a node is highlighted
             if let Some(closest_node_id) = closest_node {
-                let node = map.graph.get_node(closest_node_id).unwrap();
+                let node = map.graph.get_node(closest_node_id as NodeId).unwrap();
                 let pos = transform_position_with_offset(node.position, scale);
 
                 let surface = font

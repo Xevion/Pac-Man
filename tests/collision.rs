@@ -5,7 +5,8 @@ use pacman::{
     events::GameEvent,
     map::builder::Map,
     systems::{
-        check_collision, collision_system, Collider, EntityType, Ghost, GhostCollider, ItemCollider, PacmanCollider, Position,
+        check_collision, collision_system, Collider, EntityType, Ghost, GhostCollider, ItemCollider, NodeId, PacmanCollider,
+        Position,
     },
 };
 
@@ -59,7 +60,7 @@ fn spawn_test_ghost(world: &mut World) -> Entity {
 fn spawn_test_ghost_at_node(world: &mut World, node: usize) -> Entity {
     world
         .spawn((
-            Position::Stopped { node },
+            Position::Stopped { node: node as NodeId },
             Collider { size: 12.0 },
             GhostCollider,
             Ghost::Blinky,

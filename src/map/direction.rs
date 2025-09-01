@@ -1,4 +1,4 @@
-use glam::IVec2;
+use glam::I8Vec2;
 use strum_macros::AsRefStr;
 
 /// The four cardinal directions.
@@ -28,8 +28,8 @@ impl Direction {
         }
     }
 
-    /// Returns the direction as an IVec2.
-    pub fn as_ivec2(self) -> IVec2 {
+    /// Returns the direction as an I8Vec2.
+    pub fn as_ivec2(self) -> I8Vec2 {
         self.into()
     }
 
@@ -45,13 +45,13 @@ impl Direction {
     }
 }
 
-impl From<Direction> for IVec2 {
+impl From<Direction> for I8Vec2 {
     fn from(dir: Direction) -> Self {
         match dir {
-            Direction::Up => -IVec2::Y,
-            Direction::Down => IVec2::Y,
-            Direction::Left => -IVec2::X,
-            Direction::Right => IVec2::X,
+            Direction::Up => -I8Vec2::Y,
+            Direction::Down => I8Vec2::Y,
+            Direction::Left => -I8Vec2::X,
+            Direction::Right => I8Vec2::X,
         }
     }
 }

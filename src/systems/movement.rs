@@ -8,7 +8,7 @@ use glam::Vec2;
 ///
 /// Nodes represent discrete movement targets in the maze. The index directly corresponds to the node's position in the
 /// graph's internal storage arrays.
-pub type NodeId = usize;
+pub type NodeId = u16;
 
 /// A component that represents the speed and cardinal direction of an entity.
 /// Speed is static, only applied when the entity has an edge to traverse.
@@ -57,7 +57,7 @@ impl Position {
         let pos = match &self {
             Position::Stopped { node } => {
                 // Entity is stationary at a node
-                let node = graph.get_node(*node).ok_or(EntityError::NodeNotFound(*node))?;
+                let node = graph.get_node(*node).ok_or(EntityError::NodeNotFound(*node as usize))?;
                 node.position
             }
             Position::Moving {
@@ -66,11 +66,12 @@ impl Position {
                 remaining_distance,
             } => {
                 // Entity is traveling between nodes
-                let from_node = graph.get_node(*from).ok_or(EntityError::NodeNotFound(*from))?;
-                let to_node = graph.get_node(*to).ok_or(EntityError::NodeNotFound(*to))?;
-                let edge = graph
-                    .find_edge(*from, *to)
-                    .ok_or(EntityError::EdgeNotFound { from: *from, to: *to })?;
+                let from_node = graph.get_node(*from).ok_or(EntityError::NodeNotFound(*from as usize))?;
+                let to_node = graph.get_node(*to).ok_or(EntityError::NodeNotFound(*to as usize))?;
+                let edge = graph.find_edge(*from, *to).ok_or(EntityError::EdgeNotFound {
+                    from: *from as usize,
+                    to: *to as usize,
+                })?;
 
                 // For zero-distance edges (tunnels), progress >= 1.0 means we're at the target
                 if edge.distance == 0.0 {

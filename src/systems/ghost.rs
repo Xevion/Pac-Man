@@ -36,7 +36,7 @@ pub fn ghost_movement_system(
         loop {
             match *position {
                 Position::Stopped { node: current_node } => {
-                    let intersection = &map.graph.adjacency_list[current_node];
+                    let intersection = &map.graph.adjacency_list[current_node as usize];
                     let opposite = velocity.direction.opposite();
 
                     let mut non_opposite_options: SmallVec<[Edge; 3]> = SmallVec::new();
@@ -159,8 +159,11 @@ pub fn eaten_ghost_system(
                     velocity.direction = direction;
                     *position = Position::Moving {
                         from: current_node,
-                        to: map.graph.adjacency_list[current_node].get(direction).unwrap().target,
-                        remaining_distance: map.graph.adjacency_list[current_node].get(direction).unwrap().distance,
+                        to: map.graph.adjacency_list[current_node as usize].get(direction).unwrap().target,
+                        remaining_distance: map.graph.adjacency_list[current_node as usize]
+                            .get(direction)
+                            .unwrap()
+                            .distance,
                     };
                 }
             }
@@ -186,8 +189,8 @@ pub fn eaten_ghost_system(
                             velocity.direction = next_direction;
                             *position = Position::Moving {
                                 from: to,
-                                to: map.graph.adjacency_list[to].get(next_direction).unwrap().target,
-                                remaining_distance: map.graph.adjacency_list[to].get(next_direction).unwrap().distance,
+                                to: map.graph.adjacency_list[to as usize].get(next_direction).unwrap().target,
+                                remaining_distance: map.graph.adjacency_list[to as usize].get(next_direction).unwrap().distance,
                             };
                         }
                     }
@@ -202,7 +205,11 @@ pub fn eaten_ghost_system(
 
 /// Helper function to find the direction from a node towards a target node.
 /// Uses simple greedy pathfinding - prefers straight lines when possible.
-fn find_direction_to_target(map: &Map, from_node: usize, target_node: usize) -> Option<Direction> {
+fn find_direction_to_target(
+    map: &Map,
+    from_node: crate::systems::movement::NodeId,
+    target_node: crate::systems::movement::NodeId,
+) -> Option<Direction> {
     let from_pos = map.graph.get_node(from_node).unwrap().position;
     let target_pos = map.graph.get_node(target_node).unwrap().position;
 
@@ -224,7 +231,7 @@ fn find_direction_to_target(map: &Map, from_node: usize, target_node: usize) -> 
 
     // Return first available direction towards target
     for direction in preferred_dirs {
-        if let Some(edge) = map.graph.adjacency_list[from_node].get(direction) {
+        if let Some(edge) = map.graph.adjacency_list[from_node as usize].get(direction) {
             if edge.traversal_flags.contains(TraversalFlags::GHOST) {
                 return Some(direction);
             }

@@ -26,8 +26,10 @@ fn test_map_node_positions() {
 
     for (grid_pos, &node_id) in &map.grid_to_node {
         let node = map.graph.get_node(node_id).unwrap();
-        let expected_pos = Vec2::new((grid_pos.x * CELL_SIZE as i32) as f32, (grid_pos.y * CELL_SIZE as i32) as f32)
-            + Vec2::splat(CELL_SIZE as f32 / 2.0);
+        let expected_pos = Vec2::new(
+            (grid_pos.x as i32 * CELL_SIZE as i32) as f32,
+            (grid_pos.y as i32 * CELL_SIZE as i32) as f32,
+        ) + Vec2::splat(CELL_SIZE as f32 / 2.0);
 
         assert_eq!(node.position, expected_pos);
     }
