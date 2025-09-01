@@ -110,7 +110,7 @@ impl Game {
         let static_font_data: &'static [u8] = Box::leak(font_data.to_vec().into_boxed_slice());
         let font_asset = RWops::from_bytes(static_font_data).map_err(|_| GameError::Sdl("Failed to load font".to_string()))?;
         let debug_font = ttf_context
-            .load_font_from_rwops(font_asset, 12)
+            .load_font_from_rwops(font_asset, constants::ui::DEBUG_FONT_SIZE)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
         // Initialize audio system
@@ -213,7 +213,7 @@ impl Game {
                 node: map.start_positions.pacman,
             },
             velocity: Velocity {
-                speed: 1.15,
+                speed: constants::mechanics::PLAYER_SPEED,
                 direction: Direction::Left,
             },
             movement_modifiers: MovementModifiers::default(),
@@ -226,7 +226,7 @@ impl Game {
             directional_animation: DirectionalAnimation::new(moving_tiles, stopped_tiles, 5),
             entity_type: EntityType::Player,
             collider: Collider {
-                size: constants::CELL_SIZE as f32 * 1.375,
+                size: constants::collider::PLAYER_GHOST_SIZE,
             },
             pacman_collider: PacmanCollider,
         };
@@ -249,7 +249,10 @@ impl Game {
         world.insert_resource(DebugState::default());
         world.insert_resource(AudioState::default());
         world.insert_resource(CursorPosition::default());
-        world.insert_resource(StartupSequence::new(60 * 3, 60));
+        world.insert_resource(StartupSequence::new(
+            constants::startup::STARTUP_FRAMES,
+            constants::startup::STARTUP_TICKS_PER_FRAME,
+        ));
 
         world.insert_non_send_resource(atlas);
         world.insert_non_send_resource(event_pump);
@@ -337,12 +340,12 @@ impl Game {
             .resource::<Map>()
             .iter_nodes()
             .filter_map(|(id, tile)| match tile {
-                MapTile::Pellet => Some((*id, EntityType::Pellet, pellet_sprite, constants::CELL_SIZE as f32 * 0.4)),
+                MapTile::Pellet => Some((*id, EntityType::Pellet, pellet_sprite, constants::collider::PELLET_SIZE)),
                 MapTile::PowerPellet => Some((
                     *id,
                     EntityType::PowerPellet,
                     energizer_sprite,
-                    constants::CELL_SIZE as f32 * 0.95,
+                    constants::collider::POWER_PELLET_SIZE,
                 )),
                 _ => None,
             })
@@ -360,7 +363,7 @@ impl Game {
 
             // Make power pellets blink
             if item_type == EntityType::PowerPellet {
-                item.insert((Frozen, Blinking::new(0.2)));
+                item.insert((Frozen, Blinking::new(constants::ui::POWER_PELLET_BLINK_RATE)));
             }
         }
 
@@ -412,7 +415,7 @@ impl Game {
                     directional_animation: animations,
                     entity_type: EntityType::Ghost,
                     collider: Collider {
-                        size: constants::CELL_SIZE as f32 * 1.375,
+                        size: constants::collider::PLAYER_GHOST_SIZE,
                     },
                     ghost_collider: GhostCollider,
                     ghost_state: GhostState::Normal,

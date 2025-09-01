@@ -49,6 +49,26 @@ pub const CANVAS_SIZE: UVec2 = UVec2::new(
     (BOARD_CELL_SIZE.y + BOARD_CELL_OFFSET.y) * CELL_SIZE,
 );
 
+/// Collider size constants for different entity types
+pub mod collider {
+    use super::CELL_SIZE;
+
+    /// Collider size for player and ghosts (1.375x cell size)
+    pub const PLAYER_GHOST_SIZE: f32 = CELL_SIZE as f32 * 1.375;
+    /// Collider size for pellets (0.4x cell size)
+    pub const PELLET_SIZE: f32 = CELL_SIZE as f32 * 0.4;
+    /// Collider size for power pellets/energizers (0.95x cell size)
+    pub const POWER_PELLET_SIZE: f32 = CELL_SIZE as f32 * 0.95;
+}
+
+/// UI and rendering constants
+pub mod ui {
+    /// Debug font size in points
+    pub const DEBUG_FONT_SIZE: u16 = 12;
+    /// Power pellet blink rate in seconds
+    pub const POWER_PELLET_BLINK_RATE: f32 = 0.2;
+}
+
 /// Map tile types that define gameplay behavior and collision properties.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MapTile {
@@ -100,3 +120,17 @@ pub const RAW_BOARD: [&str; BOARD_CELL_SIZE.y as usize] = [
     "#..........................#",
     "############################",
 ];
+
+/// Game initialization constants
+pub mod startup {
+    /// Number of frames for the startup sequence (3 seconds at 60 FPS)
+    pub const STARTUP_FRAMES: u32 = 60 * 3;
+    /// Number of ticks per frame during startup
+    pub const STARTUP_TICKS_PER_FRAME: u32 = 60;
+}
+
+/// Game mechanics constants
+pub mod mechanics {
+    /// Player movement speed multiplier
+    pub const PLAYER_SPEED: f32 = 1.15;
+}
