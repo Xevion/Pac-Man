@@ -2,8 +2,8 @@ use crate::constants::CANVAS_SIZE;
 use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
 use crate::systems::{
-    DebugState, DebugTextureResource, DeltaTime, DirectionalAnimated, Position, Renderable, ScoreResource, StartupSequence,
-    Velocity,
+    DebugState, DebugTextureResource, DeltaTime, DirectionalAnimation, LinearAnimation, Position, Renderable, ScoreResource,
+    StartupSequence, Velocity,
 };
 use crate::texture::sprite::SpriteAtlas;
 use crate::texture::text::TextTexture;
@@ -37,36 +37,64 @@ pub fn dirty_render_system(
     }
 }
 
-/// Updates the directional animated texture of an entity.
+/// Updates directional animated entities with synchronized timing across directions.
 ///
-/// This runs before the render system so it can update the sprite based on the current direction of travel, as well as whether the entity is moving.
+/// This runs before the render system to update sprites based on current direction and movement state.
+/// All directions share the same frame timing to ensure perfect synchronization.
 pub fn directional_render_system(
     dt: Res<DeltaTime>,
-    mut renderables: Query<(&Position, &Velocity, &mut DirectionalAnimated, &mut Renderable)>,
-    mut errors: EventWriter<GameError>,
+    mut query: Query<(&Position, &Velocity, &mut DirectionalAnimation, &mut Renderable)>,
 ) {
-    for (position, velocity, mut texture, mut renderable) in renderables.iter_mut() {
-        let stopped = matches!(position, Position::Stopped { .. });
-        let current_direction = velocity.direction;
+    let ticks = (dt.0 * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
 
-        let texture = if stopped {
-            texture.stopped_textures[current_direction.as_usize()].as_mut()
+    for (position, velocity, mut anim, mut renderable) in query.iter_mut() {
+        let stopped = matches!(position, Position::Stopped { .. });
+
+        // Only tick animation when moving to preserve stopped frame
+        if !stopped {
+            // Tick shared animation state
+            anim.time_bank += ticks;
+            while anim.time_bank >= anim.frame_duration {
+                anim.time_bank -= anim.frame_duration;
+                anim.current_frame += 1;
+            }
+        }
+
+        // Get tiles for current direction and movement state
+        let tiles = if stopped {
+            anim.stopped_tiles.get(velocity.direction)
         } else {
-            texture.textures[current_direction.as_usize()].as_mut()
+            anim.moving_tiles.get(velocity.direction)
         };
 
-        if let Some(texture) = texture {
-            if !stopped {
-                let ticks = (dt.0 * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
-                texture.tick(ticks);
-            }
-            let new_tile = *texture.current_tile();
+        if !tiles.is_empty() {
+            let new_tile = tiles.get_tile(anim.current_frame);
             if renderable.sprite != new_tile {
                 renderable.sprite = new_tile;
             }
-        } else {
-            errors.write(TextureError::RenderFailed("Entity has no texture".to_string()).into());
-            continue;
+        }
+    }
+}
+
+/// Updates linear animated entities (used for non-directional animations like frightened ghosts).
+///
+/// This system handles entities that use LinearAnimation component for simple frame cycling.
+pub fn linear_render_system(dt: Res<DeltaTime>, mut query: Query<(&mut LinearAnimation, &mut Renderable)>) {
+    let ticks = (dt.0 * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
+
+    for (mut anim, mut renderable) in query.iter_mut() {
+        // Tick animation
+        anim.time_bank += ticks;
+        while anim.time_bank >= anim.frame_duration {
+            anim.time_bank -= anim.frame_duration;
+            anim.current_frame += 1;
+        }
+
+        if !anim.tiles.is_empty() {
+            let new_tile = anim.tiles.get_tile(anim.current_frame);
+            if renderable.sprite != new_tile {
+                renderable.sprite = new_tile;
+            }
         }
     }
 }

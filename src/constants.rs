@@ -39,8 +39,6 @@ pub mod animation {
     pub const GHOST_EATEN_SPEED: u16 = 6;
     /// Frightened ghost animation speed (ticks per frame at 60 ticks/sec)
     pub const GHOST_FRIGHTENED_SPEED: u16 = 12;
-    /// Frightened ghost flashing animation speed (ticks per frame at 60 ticks/sec)
-    pub const GHOST_FLASHING_SPEED: u16 = 9;
 
     /// Time in ticks when frightened ghosts start flashing (2 seconds at 60 FPS)
     pub const FRIGHTENED_FLASH_START_TICKS: u32 = 120;

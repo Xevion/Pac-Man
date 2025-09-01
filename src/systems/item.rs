@@ -28,8 +28,7 @@ pub fn item_system(
     mut score: ResMut<ScoreResource>,
     pacman_query: Query<Entity, With<PacmanCollider>>,
     item_query: Query<(Entity, &EntityType), With<ItemCollider>>,
-    ghost_query: Query<Entity, With<GhostCollider>>,
-    mut ghost_state_query: Query<&mut GhostState>,
+    mut ghost_query: Query<&mut GhostState, With<GhostCollider>>,
     mut events: EventWriter<AudioEvent>,
 ) {
     for event in collision_events.read() {
@@ -62,10 +61,8 @@ pub fn item_system(
                         let total_ticks = 60 * 5; // 5 seconds total
 
                         // Set all ghosts to frightened state
-                        for ghost_entity in ghost_query.iter() {
-                            if let Ok(mut ghost_state) = ghost_state_query.get_mut(ghost_entity) {
-                                *ghost_state = GhostState::new_frightened(total_ticks, FRIGHTENED_FLASH_START_TICKS);
-                            }
+                        for mut ghost_state in ghost_query.iter_mut() {
+                            *ghost_state = GhostState::new_frightened(total_ticks, FRIGHTENED_FLASH_START_TICKS);
                         }
                     }
                 }

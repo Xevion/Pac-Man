@@ -1,6 +1,5 @@
 use pacman::error::{
-    AnimatedTextureError, AssetError, EntityError, GameError, GameResult, IntoGameError, MapError, OptionExt, ParseError,
-    ResultExt, TextureError,
+    AssetError, EntityError, GameError, GameResult, IntoGameError, MapError, OptionExt, ParseError, ResultExt, TextureError,
 };
 use std::io;
 
@@ -47,13 +46,6 @@ fn test_game_error_from_io_error() {
 }
 
 #[test]
-fn test_texture_error_from_animated_error() {
-    let animated_error = AnimatedTextureError::InvalidFrameDuration(0);
-    let texture_error: TextureError = animated_error.into();
-    assert!(matches!(texture_error, TextureError::Animated(_)));
-}
-
-#[test]
 fn test_asset_error_from_io_error() {
     let io_error = io::Error::new(io::ErrorKind::PermissionDenied, "Permission denied");
     let asset_error: AssetError = io_error.into();
@@ -76,12 +68,6 @@ fn test_entity_error_display() {
 
     let error = EntityError::EdgeNotFound { from: 1, to: 2 };
     assert_eq!(error.to_string(), "Edge not found: from 1 to 2");
-}
-
-#[test]
-fn test_animated_texture_error_display() {
-    let error = AnimatedTextureError::InvalidFrameDuration(0);
-    assert_eq!(error.to_string(), "Frame duration must be positive, got 0");
 }
 
 #[test]
@@ -145,14 +131,4 @@ fn test_result_ext_error() {
     } else {
         panic!("Expected InvalidState error");
     }
-}
-
-#[test]
-fn test_error_chain_conversions() {
-    // Test that we can convert through multiple levels
-    let animated_error = AnimatedTextureError::InvalidFrameDuration(0);
-    let texture_error: TextureError = animated_error.into();
-    let game_error: GameError = texture_error.into();
-
-    assert!(matches!(game_error, GameError::Texture(TextureError::Animated(_))));
 }

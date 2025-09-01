@@ -1,4 +1,4 @@
-use crate::systems::components::{DirectionalAnimated, Frozen, GhostState, LastAnimationState};
+use crate::systems::components::{DirectionalAnimation, Frozen, GhostAnimation, GhostState, LastAnimationState, LinearAnimation};
 use crate::{
     map::{
         builder::Map,
@@ -13,7 +13,7 @@ use crate::{
 
 use crate::systems::GhostAnimations;
 use bevy_ecs::query::Without;
-use bevy_ecs::system::{Query, Res};
+use bevy_ecs::system::{Commands, Query, Res};
 use rand::rngs::SmallRng;
 use rand::seq::IndexedRandom;
 use rand::SeedableRng;
@@ -180,23 +180,39 @@ fn find_direction_to_target(
     None
 }
 
-/// Unified system that manages ghost state transitions and animations
+/// Unified system that manages ghost state transitions and animations with component swapping
 pub fn ghost_state_system(
+    mut commands: Commands,
     animations: Res<GhostAnimations>,
-    mut ghosts: Query<(&Ghost, &mut GhostState, &mut DirectionalAnimated, &mut LastAnimationState)>,
+    mut ghosts: Query<(bevy_ecs::entity::Entity, &Ghost, &mut GhostState, &mut LastAnimationState)>,
 ) {
-    for (ghost_type, mut ghost_state, mut directional_animated, mut last_animation_state) in ghosts.iter_mut() {
+    for (entity, ghost_type, mut ghost_state, mut last_animation_state) in ghosts.iter_mut() {
         // Tick the ghost state to handle internal transitions (like flashing)
         let _ = ghost_state.tick();
 
         // Only update animation if the animation state actually changed
         let current_animation_state = ghost_state.animation_state();
         if last_animation_state.0 != current_animation_state {
-            let animation_set = animations.0.get(ghost_type).unwrap();
-            let animation = animation_set.get(current_animation_state).unwrap();
-            *directional_animated = (*animation).clone();
-            // Reset animation timers to synchronize all ghosts
-            directional_animated.reset_all_animations();
+            match current_animation_state {
+                GhostAnimation::Frightened { flash } => {
+                    // Remove DirectionalAnimation, add LinearAnimation
+                    commands
+                        .entity(entity)
+                        .remove::<DirectionalAnimation>()
+                        .insert(*animations.frightened(flash));
+                }
+                GhostAnimation::Normal => {
+                    // Remove LinearAnimation, add DirectionalAnimation
+                    commands
+                        .entity(entity)
+                        .remove::<LinearAnimation>()
+                        .insert(*animations.get_normal(ghost_type).unwrap());
+                }
+                GhostAnimation::Eyes => {
+                    // Remove LinearAnimation, add DirectionalAnimation (eyes animation)
+                    commands.entity(entity).remove::<LinearAnimation>().insert(*animations.eyes());
+                }
+            }
             last_animation_state.0 = current_animation_state;
         }
     }

@@ -2,25 +2,28 @@
 
 include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 
-use crate::constants::{animation, MapTile, CANVAS_SIZE};
+use std::collections::HashMap;
+
+use crate::constants::{self, animation, MapTile, CANVAS_SIZE};
 use crate::error::{GameError, GameResult, TextureError};
 use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::systems::blinking::Blinking;
+use crate::systems::components::{GhostAnimation, GhostState, LastAnimationState};
 use crate::systems::movement::{BufferedDirection, Position, Velocity};
 use crate::systems::profiling::SystemId;
 use crate::systems::render::RenderDirty;
-use crate::systems::{self, ghost_collision_system, present_system, Hidden, MovementModifiers, NodeId};
+use crate::systems::{self, ghost_collision_system, present_system, Hidden, LinearAnimation, MovementModifiers, NodeId};
 use crate::systems::{
     audio_system, blinking_system, collision_system, debug_render_system, directional_render_system, dirty_render_system,
-    eaten_ghost_system, ghost_movement_system, ghost_state_system, hud_render_system, item_system, profile, render_system,
-    AudioEvent, AudioResource, AudioState, BackbufferResource, Collider, DebugFontResource, DebugState, DebugTextureResource,
-    DeltaTime, DirectionalAnimated, EntityType, Frozen, Ghost, GhostAnimationSet, GhostAnimations, GhostBundle, GhostCollider,
-    GlobalState, ItemBundle, ItemCollider, MapTextureResource, PacmanCollider, PlayerBundle, PlayerControlled, Renderable,
-    ScoreResource, StartupSequence, SystemTimings,
+    eaten_ghost_system, ghost_movement_system, ghost_state_system, hud_render_system, item_system, linear_render_system, profile,
+    render_system, AudioEvent, AudioResource, AudioState, BackbufferResource, Collider, DebugFontResource, DebugState,
+    DebugTextureResource, DeltaTime, DirectionalAnimation, EntityType, Frozen, Ghost, GhostAnimations, GhostBundle,
+    GhostCollider, GlobalState, ItemBundle, ItemCollider, MapTextureResource, PacmanCollider, PlayerBundle, PlayerControlled,
+    Renderable, ScoreResource, StartupSequence, SystemTimings,
 };
-use crate::texture::animated::AnimatedTexture;
+use crate::texture::animated::{DirectionalTiles, TileSequence};
 use crate::texture::sprite::AtlasTile;
 use bevy_ecs::event::EventRegistry;
 use bevy_ecs::observer::Trigger;
@@ -33,11 +36,9 @@ use sdl2::render::{BlendMode, Canvas, ScaleMode, TextureCreator};
 use sdl2::rwops::RWops;
 use sdl2::video::{Window, WindowContext};
 use sdl2::EventPump;
-use smallvec::smallvec;
 
 use crate::{
     asset::{get_asset_bytes, Asset},
-    constants,
     events::GameCommand,
     map::render::MapRenderer,
     systems::input::{Bindings, CursorPosition},
@@ -150,30 +151,61 @@ impl Game {
         let map = Map::new(constants::RAW_BOARD)?;
 
         // Create directional animated textures for Pac-Man
-        let mut textures = [None, None, None, None];
-        let mut stopped_textures = [None, None, None, None];
-        for direction in Direction::DIRECTIONS {
-            let moving_prefix = match direction {
-                Direction::Up => "pacman/up",
-                Direction::Down => "pacman/down",
-                Direction::Left => "pacman/left",
-                Direction::Right => "pacman/right",
-            };
-            let moving_tiles = smallvec![
-                SpriteAtlas::get_tile(&atlas, &format!("{moving_prefix}_a.png"))
-                    .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound(format!("{moving_prefix}_a.png"))))?,
-                SpriteAtlas::get_tile(&atlas, &format!("{moving_prefix}_b.png"))
-                    .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound(format!("{moving_prefix}_b.png"))))?,
-                SpriteAtlas::get_tile(&atlas, "pacman/full.png")
-                    .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
-            ];
+        let up_moving_tiles = [
+            SpriteAtlas::get_tile(&atlas, "pacman/up_a.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/up_a.png".to_string())))?,
+            SpriteAtlas::get_tile(&atlas, "pacman/up_b.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/up_b.png".to_string())))?,
+            SpriteAtlas::get_tile(&atlas, "pacman/full.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
+        ];
+        let down_moving_tiles = [
+            SpriteAtlas::get_tile(&atlas, "pacman/down_a.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/down_a.png".to_string())))?,
+            SpriteAtlas::get_tile(&atlas, "pacman/down_b.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/down_b.png".to_string())))?,
+            SpriteAtlas::get_tile(&atlas, "pacman/full.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
+        ];
+        let left_moving_tiles = [
+            SpriteAtlas::get_tile(&atlas, "pacman/left_a.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/left_a.png".to_string())))?,
+            SpriteAtlas::get_tile(&atlas, "pacman/left_b.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/left_b.png".to_string())))?,
+            SpriteAtlas::get_tile(&atlas, "pacman/full.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
+        ];
+        let right_moving_tiles = [
+            SpriteAtlas::get_tile(&atlas, "pacman/right_a.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/right_a.png".to_string())))?,
+            SpriteAtlas::get_tile(&atlas, "pacman/right_b.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/right_b.png".to_string())))?,
+            SpriteAtlas::get_tile(&atlas, "pacman/full.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
+        ];
 
-            let stopped_tiles = smallvec![SpriteAtlas::get_tile(&atlas, &format!("{moving_prefix}_b.png"))
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound(format!("{moving_prefix}_b.png"))))?];
+        let moving_tiles = DirectionalTiles::new(
+            TileSequence::new(&up_moving_tiles),
+            TileSequence::new(&down_moving_tiles),
+            TileSequence::new(&left_moving_tiles),
+            TileSequence::new(&right_moving_tiles),
+        );
 
-            textures[direction.as_usize()] = Some(AnimatedTexture::new(moving_tiles, 5)?);
-            stopped_textures[direction.as_usize()] = Some(AnimatedTexture::new(stopped_tiles, 6)?);
-        }
+        let up_stopped_tile = SpriteAtlas::get_tile(&atlas, "pacman/up_b.png")
+            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/up_b.png".to_string())))?;
+        let down_stopped_tile = SpriteAtlas::get_tile(&atlas, "pacman/down_b.png")
+            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/down_b.png".to_string())))?;
+        let left_stopped_tile = SpriteAtlas::get_tile(&atlas, "pacman/left_b.png")
+            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/left_b.png".to_string())))?;
+        let right_stopped_tile = SpriteAtlas::get_tile(&atlas, "pacman/right_b.png")
+            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/right_b.png".to_string())))?;
+
+        let stopped_tiles = DirectionalTiles::new(
+            TileSequence::new(&[up_stopped_tile]),
+            TileSequence::new(&[down_stopped_tile]),
+            TileSequence::new(&[left_stopped_tile]),
+            TileSequence::new(&[right_stopped_tile]),
+        );
 
         let player = PlayerBundle {
             player: PlayerControlled,
@@ -191,10 +223,7 @@ impl Game {
                     .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
                 layer: 0,
             },
-            directional_animated: DirectionalAnimated {
-                textures,
-                stopped_textures,
-            },
+            directional_animation: DirectionalAnimation::new(moving_tiles, stopped_tiles, 5),
             entity_type: EntityType::Player,
             collider: Collider {
                 size: constants::CELL_SIZE as f32 * 1.375,
@@ -252,6 +281,7 @@ impl Game {
         let audio_system = profile(SystemId::Audio, audio_system);
         let blinking_system = profile(SystemId::Blinking, blinking_system);
         let directional_render_system = profile(SystemId::DirectionalRender, directional_render_system);
+        let linear_render_system = profile(SystemId::LinearRender, linear_render_system);
         let dirty_render_system = profile(SystemId::DirtyRender, dirty_render_system);
         let render_system = profile(SystemId::Render, render_system);
         let hud_render_system = profile(SystemId::HudRender, hud_render_system);
@@ -281,6 +311,7 @@ impl Game {
             blinking_system,
             (
                 directional_render_system,
+                linear_render_system,
                 dirty_render_system,
                 render_system,
                 hud_render_system,
@@ -357,7 +388,7 @@ impl Game {
         for (ghost_type, start_node) in ghost_start_positions {
             // Create the ghost bundle in a separate scope to manage borrows
             let ghost = {
-                let animations = world.resource::<GhostAnimations>().0.get(&ghost_type).unwrap().clone();
+                let animations = *world.resource::<GhostAnimations>().get_normal(&ghost_type).unwrap();
                 let atlas = world.non_send_resource::<SpriteAtlas>();
 
                 GhostBundle {
@@ -378,16 +409,14 @@ impl Game {
                         )?,
                         layer: 0,
                     },
-                    directional_animated: animations.normal().unwrap().clone(),
+                    directional_animation: animations,
                     entity_type: EntityType::Ghost,
                     collider: Collider {
-                        size: crate::constants::CELL_SIZE as f32 * 1.375,
+                        size: constants::CELL_SIZE as f32 * 1.375,
                     },
                     ghost_collider: GhostCollider,
-                    ghost_state: crate::systems::components::GhostState::Normal,
-                    last_animation_state: crate::systems::components::LastAnimationState(
-                        crate::systems::components::GhostAnimation::Normal,
-                    ),
+                    ghost_state: GhostState::Normal,
+                    last_animation_state: LastAnimationState(GhostAnimation::Normal),
                 }
             };
 
@@ -398,103 +427,144 @@ impl Game {
     }
 
     fn create_ghost_animations(atlas: &SpriteAtlas) -> GameResult<GhostAnimations> {
-        let mut animations = std::collections::HashMap::new();
+        // Eaten (eyes) animations - single tile per direction
+        let up_eye = atlas
+            .get_tile("ghost/eyes/up.png")
+            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/eyes/up.png".to_string())))?;
+        let down_eye = atlas
+            .get_tile("ghost/eyes/down.png")
+            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/eyes/down.png".to_string())))?;
+        let left_eye = atlas
+            .get_tile("ghost/eyes/left.png")
+            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/eyes/left.png".to_string())))?;
+        let right_eye = atlas
+            .get_tile("ghost/eyes/right.png")
+            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/eyes/right.png".to_string())))?;
+
+        let eyes_tiles = DirectionalTiles::new(
+            TileSequence::new(&[up_eye]),
+            TileSequence::new(&[down_eye]),
+            TileSequence::new(&[left_eye]),
+            TileSequence::new(&[right_eye]),
+        );
+        let eyes = DirectionalAnimation::new(eyes_tiles, eyes_tiles, animation::GHOST_EATEN_SPEED);
+
+        let mut animations = HashMap::new();
 
         for ghost_type in [Ghost::Blinky, Ghost::Pinky, Ghost::Inky, Ghost::Clyde] {
-            // Normal animations
-            let mut normal_textures = [None, None, None, None];
-            for direction in Direction::DIRECTIONS {
-                let dir_str = direction.as_ref();
-                let tile_a = atlas
-                    .get_tile(&format!("ghost/{}/{}_a.png", ghost_type.as_str(), dir_str))
+            // Normal animations - create directional tiles for each direction
+            let up_tiles = [
+                atlas
+                    .get_tile(&format!("ghost/{}/up_a.png", ghost_type.as_str()))
                     .ok_or_else(|| {
                         GameError::Texture(TextureError::AtlasTileNotFound(format!(
-                            "ghost/{}/{}_a.png",
-                            ghost_type.as_str(),
-                            dir_str
+                            "ghost/{}/up_a.png",
+                            ghost_type.as_str()
                         )))
-                    })?;
-                let tile_b = atlas
-                    .get_tile(&format!("ghost/{}/{}_b.png", ghost_type.as_str(), dir_str))
+                    })?,
+                atlas
+                    .get_tile(&format!("ghost/{}/up_b.png", ghost_type.as_str()))
                     .ok_or_else(|| {
                         GameError::Texture(TextureError::AtlasTileNotFound(format!(
-                            "ghost/{}/{}_b.png",
-                            ghost_type.as_str(),
-                            dir_str
+                            "ghost/{}/up_b.png",
+                            ghost_type.as_str()
                         )))
-                    })?;
-                let tiles = smallvec![tile_a, tile_b];
-                normal_textures[direction.as_usize()] = Some(AnimatedTexture::new(tiles, animation::GHOST_NORMAL_SPEED)?);
-            }
-            let normal = DirectionalAnimated {
-                textures: normal_textures.clone(),
-                stopped_textures: normal_textures,
-            };
+                    })?,
+            ];
+            let down_tiles = [
+                atlas
+                    .get_tile(&format!("ghost/{}/down_a.png", ghost_type.as_str()))
+                    .ok_or_else(|| {
+                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                            "ghost/{}/down_a.png",
+                            ghost_type.as_str()
+                        )))
+                    })?,
+                atlas
+                    .get_tile(&format!("ghost/{}/down_b.png", ghost_type.as_str()))
+                    .ok_or_else(|| {
+                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                            "ghost/{}/down_b.png",
+                            ghost_type.as_str()
+                        )))
+                    })?,
+            ];
+            let left_tiles = [
+                atlas
+                    .get_tile(&format!("ghost/{}/left_a.png", ghost_type.as_str()))
+                    .ok_or_else(|| {
+                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                            "ghost/{}/left_a.png",
+                            ghost_type.as_str()
+                        )))
+                    })?,
+                atlas
+                    .get_tile(&format!("ghost/{}/left_b.png", ghost_type.as_str()))
+                    .ok_or_else(|| {
+                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                            "ghost/{}/left_b.png",
+                            ghost_type.as_str()
+                        )))
+                    })?,
+            ];
+            let right_tiles = [
+                atlas
+                    .get_tile(&format!("ghost/{}/right_a.png", ghost_type.as_str()))
+                    .ok_or_else(|| {
+                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                            "ghost/{}/right_a.png",
+                            ghost_type.as_str()
+                        )))
+                    })?,
+                atlas
+                    .get_tile(&format!("ghost/{}/right_b.png", ghost_type.as_str()))
+                    .ok_or_else(|| {
+                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
+                            "ghost/{}/right_b.png",
+                            ghost_type.as_str()
+                        )))
+                    })?,
+            ];
 
-            // Eaten (eyes) animations
-            let mut eaten_textures = [None, None, None, None];
-            for direction in Direction::DIRECTIONS {
-                let dir_str = direction.as_ref();
-                let tile = atlas
-                    .get_tile(&format!("ghost/eyes/{}.png", dir_str))
-                    .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound(format!("ghost/eyes/{}.png", dir_str))))?;
-                eaten_textures[direction.as_usize()] = Some(AnimatedTexture::new(smallvec![tile], animation::GHOST_EATEN_SPEED)?);
-            }
-            let eaten = DirectionalAnimated {
-                textures: eaten_textures.clone(),
-                stopped_textures: eaten_textures,
-            };
+            let normal_moving = DirectionalTiles::new(
+                TileSequence::new(&up_tiles),
+                TileSequence::new(&down_tiles),
+                TileSequence::new(&left_tiles),
+                TileSequence::new(&right_tiles),
+            );
+            let normal = DirectionalAnimation::new(normal_moving, normal_moving, animation::GHOST_NORMAL_SPEED);
 
-            animations.insert(
-                ghost_type,
-                GhostAnimationSet::new(
-                    normal,
-                    DirectionalAnimated::default(), // Placeholder for frightened
-                    DirectionalAnimated::default(), // Placeholder for frightened_flashing
-                    eaten,
+            animations.insert(ghost_type, normal);
+        }
+
+        let (frightened, frightened_flashing) = {
+            // Load frightened animation tiles (same for all ghosts)
+            let frightened_blue_a = atlas
+                .get_tile("ghost/frightened/blue_a.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/frightened/blue_a.png".to_string())))?;
+            let frightened_blue_b = atlas
+                .get_tile("ghost/frightened/blue_b.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/frightened/blue_b.png".to_string())))?;
+            let frightened_white_a = atlas
+                .get_tile("ghost/frightened/white_a.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/frightened/white_a.png".to_string())))?;
+            let frightened_white_b = atlas
+                .get_tile("ghost/frightened/white_b.png")
+                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/frightened/white_b.png".to_string())))?;
+
+            (
+                LinearAnimation::new(
+                    TileSequence::new(&[frightened_blue_a, frightened_blue_b]),
+                    animation::GHOST_NORMAL_SPEED,
                 ),
-            );
-        }
+                LinearAnimation::new(
+                    TileSequence::new(&[frightened_blue_a, frightened_white_a, frightened_blue_b, frightened_white_b]),
+                    animation::GHOST_FRIGHTENED_SPEED,
+                ),
+            )
+        };
 
-        // Frightened animations (same for all ghosts)
-        let frightened_blue_a = atlas
-            .get_tile("ghost/frightened/blue_a.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/frightened/blue_a.png".to_string())))?;
-        let frightened_blue_b = atlas
-            .get_tile("ghost/frightened/blue_b.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/frightened/blue_b.png".to_string())))?;
-        let frightened_white_a = atlas
-            .get_tile("ghost/frightened/white_a.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/frightened/white_a.png".to_string())))?;
-        let frightened_white_b = atlas
-            .get_tile("ghost/frightened/white_b.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/frightened/white_b.png".to_string())))?;
-
-        let frightened_anim = AnimatedTexture::new(
-            smallvec![frightened_blue_a, frightened_blue_b],
-            animation::GHOST_FRIGHTENED_SPEED,
-        )?;
-        let flashing_anim = AnimatedTexture::new(
-            smallvec![frightened_blue_a, frightened_white_a, frightened_blue_b, frightened_white_b],
-            animation::GHOST_FLASHING_SPEED,
-        )?;
-
-        let frightened_animation = DirectionalAnimated::from_animation(frightened_anim);
-        let frightened_flashing_animation = DirectionalAnimated::from_animation(flashing_anim);
-
-        for ghost_type in [Ghost::Blinky, Ghost::Pinky, Ghost::Inky, Ghost::Clyde] {
-            let entry = animations.get_mut(&ghost_type).unwrap();
-            entry.animations.insert(
-                crate::systems::GhostAnimation::Frightened { flash: false },
-                frightened_animation.clone(),
-            );
-            entry.animations.insert(
-                crate::systems::GhostAnimation::Frightened { flash: true },
-                frightened_flashing_animation.clone(),
-            );
-        }
-
-        Ok(GhostAnimations(animations))
+        Ok(GhostAnimations::new(animations, eyes, frightened, frightened_flashing))
     }
 
     /// Executes one frame of game logic by running all scheduled ECS systems.

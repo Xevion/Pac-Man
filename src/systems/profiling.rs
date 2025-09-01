@@ -25,6 +25,7 @@ pub enum SystemId {
     Audio,
     Blinking,
     DirectionalRender,
+    LinearRender,
     DirtyRender,
     HudRender,
     Render,

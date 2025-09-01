@@ -1,90 +1,73 @@
-use smallvec::SmallVec;
-
-use crate::error::{AnimatedTextureError, GameError, GameResult, TextureError};
+use crate::map::direction::Direction;
 use crate::texture::sprite::AtlasTile;
 
-/// Frame-based animation system for cycling through multiple sprite tiles.
-///
-/// Manages automatic frame progression based on elapsed ticks.
-/// Uses a tick banking system to ensure consistent animation speed regardless of frame rate variations.
-#[derive(Debug, Clone)]
-pub struct AnimatedTexture {
-    /// Sequence of sprite tiles that make up the animation frames
-    tiles: SmallVec<[AtlasTile; 4]>,
-    /// Duration each frame should be displayed (in ticks)
-    frame_duration: u16,
-    /// Index of the currently active frame in the tiles vector
-    current_frame: usize,
-    /// Accumulated ticks since the last frame change (for smooth timing)
-    time_bank: u16,
+/// Fixed-size tile sequence that avoids heap allocation
+#[derive(Clone, Copy, Debug)]
+pub struct TileSequence {
+    tiles: [AtlasTile; 4], // Fixed array, max 4 frames
+    count: usize,          // Actual number of frames used
 }
 
-impl AnimatedTexture {
-    pub fn new(tiles: SmallVec<[AtlasTile; 4]>, frame_duration: u16) -> GameResult<Self> {
-        if frame_duration == 0 {
-            return Err(GameError::Texture(TextureError::Animated(
-                AnimatedTextureError::InvalidFrameDuration(frame_duration),
-            )));
-        }
+impl TileSequence {
+    /// Creates a new tile sequence from a slice of tiles
+    pub fn new(tiles: &[AtlasTile]) -> Self {
+        let mut tile_array = [AtlasTile {
+            pos: glam::U16Vec2::ZERO,
+            size: glam::U16Vec2::ZERO,
+            color: None,
+        }; 4];
 
-        Ok(Self {
-            tiles,
-            frame_duration,
-            current_frame: 0,
-            time_bank: 0,
-        })
-    }
+        let count = tiles.len().min(4);
+        tile_array[..count].copy_from_slice(&tiles[..count]);
 
-    /// Advances the animation by the specified number of ticks with automatic frame cycling.
-    ///
-    /// Accumulates ticks in the time bank and progresses through frames when enough
-    /// ticks have elapsed. Supports frame rates independent of game frame rate by
-    /// potentially advancing multiple frames in a single call if `ticks` is large.
-    /// Animation loops automatically when reaching the final frame.
-    ///
-    /// # Arguments
-    ///
-    /// * `ticks` - Number of ticks elapsed since the last update
-    pub fn tick(&mut self, ticks: u16) {
-        self.time_bank += ticks;
-        while self.time_bank >= self.frame_duration {
-            self.time_bank -= self.frame_duration;
-            self.current_frame = (self.current_frame + 1) % self.tiles.len();
+        Self {
+            tiles: tile_array,
+            count,
         }
     }
 
-    pub fn current_tile(&self) -> &AtlasTile {
-        &self.tiles[self.current_frame]
+    /// Returns the tile at the given frame index, wrapping if necessary
+    pub fn get_tile(&self, frame: usize) -> AtlasTile {
+        if self.count == 0 {
+            // Return a default empty tile if no tiles
+            AtlasTile {
+                pos: glam::U16Vec2::ZERO,
+                size: glam::U16Vec2::ZERO,
+                color: None,
+            }
+        } else {
+            self.tiles[frame % self.count]
+        }
     }
 
-    /// Returns the current frame index.
-    #[allow(dead_code)]
-    pub fn current_frame(&self) -> usize {
-        self.current_frame
+    /// Returns true if this sequence has no tiles
+    pub fn is_empty(&self) -> bool {
+        self.count == 0
+    }
+}
+
+/// Type-safe directional tile storage with named fields
+#[derive(Clone, Copy, Debug)]
+pub struct DirectionalTiles {
+    pub up: TileSequence,
+    pub down: TileSequence,
+    pub left: TileSequence,
+    pub right: TileSequence,
+}
+
+impl DirectionalTiles {
+    /// Creates a new DirectionalTiles with different sequences per direction
+    pub fn new(up: TileSequence, down: TileSequence, left: TileSequence, right: TileSequence) -> Self {
+        Self { up, down, left, right }
     }
 
-    /// Returns the time bank.
-    #[allow(dead_code)]
-    pub fn time_bank(&self) -> u16 {
-        self.time_bank
-    }
-
-    /// Returns the frame duration.
-    #[allow(dead_code)]
-    pub fn frame_duration(&self) -> u16 {
-        self.frame_duration
-    }
-
-    /// Returns the number of tiles in the animation.
-    #[allow(dead_code)]
-    pub fn tiles_len(&self) -> usize {
-        self.tiles.len()
-    }
-
-    /// Resets the animation to the first frame and clears the time bank.
-    /// Useful for synchronizing animations when they are assigned.
-    pub fn reset(&mut self) {
-        self.current_frame = 0;
-        self.time_bank = 0;
+    /// Gets the tile sequence for the given direction
+    pub fn get(&self, direction: Direction) -> &TileSequence {
+        match direction {
+            Direction::Up => &self.up,
+            Direction::Down => &self.down,
+            Direction::Left => &self.left,
+            Direction::Right => &self.right,
+        }
     }
 }

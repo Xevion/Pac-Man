@@ -78,9 +78,6 @@ pub enum ParseError {
 /// Errors related to texture operations.
 #[derive(thiserror::Error, Debug)]
 pub enum TextureError {
-    #[error("Animated texture error: {0}")]
-    Animated(#[from] AnimatedTextureError),
-
     #[error("Failed to load texture: {0}")]
     LoadFailed(String),
 
@@ -92,12 +89,6 @@ pub enum TextureError {
 
     #[error("Rendering failed: {0}")]
     RenderFailed(String),
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum AnimatedTextureError {
-    #[error("Frame duration must be positive, got {0}")]
-    InvalidFrameDuration(u16),
 }
 
 /// Errors related to entity operations.

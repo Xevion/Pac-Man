@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use bevy_ecs::{bundle::Bundle, component::Component, resource::Resource};
 use bitflags::bitflags;
-use tracing::debug;
 
 use crate::{
     map::graph::TraversalFlags,
@@ -8,9 +9,11 @@ use crate::{
         movement::{BufferedDirection, Position, Velocity},
         Collider, GhostCollider, ItemCollider, PacmanCollider,
     },
-    texture::{animated::AnimatedTexture, sprite::AtlasTile},
+    texture::{
+        animated::{DirectionalTiles, TileSequence},
+        sprite::AtlasTile,
+    },
 };
-use micromap::Map;
 
 /// A tag component for entities that are controlled by the player.
 #[derive(Default, Component)]
@@ -97,44 +100,46 @@ pub struct Renderable {
     pub layer: u8,
 }
 
-/// A component for entities that have a directional animated texture.
-#[derive(Component, Clone, Default)]
-pub struct DirectionalAnimated {
-    pub textures: [Option<AnimatedTexture>; 4],
-    pub stopped_textures: [Option<AnimatedTexture>; 4],
+/// Directional animation component with shared timing across all directions
+#[derive(Component, Clone, Copy)]
+pub struct DirectionalAnimation {
+    pub moving_tiles: DirectionalTiles,
+    pub stopped_tiles: DirectionalTiles,
+    pub current_frame: usize,
+    pub time_bank: u16,
+    pub frame_duration: u16,
 }
 
-impl DirectionalAnimated {
-    pub fn from_animation(animation: AnimatedTexture) -> Self {
-        // Create 4 copies of the animation - necessary for independent state per direction
-        // This is initialization-time only, so the cloning cost is acceptable
+impl DirectionalAnimation {
+    /// Creates a new directional animation with the given tiles and frame duration
+    pub fn new(moving_tiles: DirectionalTiles, stopped_tiles: DirectionalTiles, frame_duration: u16) -> Self {
         Self {
-            textures: [
-                Some(animation.clone()),
-                Some(animation.clone()),
-                Some(animation.clone()),
-                Some(animation.clone()),
-            ],
-            stopped_textures: [
-                Some(animation.clone()),
-                Some(animation.clone()),
-                Some(animation.clone()),
-                Some(animation),
-            ],
+            moving_tiles,
+            stopped_tiles,
+            current_frame: 0,
+            time_bank: 0,
+            frame_duration,
         }
     }
+}
 
-    /// Resets all directional animations to frame 0 for synchronization
-    pub fn reset_all_animations(&mut self) {
-        for texture in &mut self.textures {
-            if let Some(anim) = texture {
-                anim.reset();
-            }
-        }
-        for texture in &mut self.stopped_textures {
-            if let Some(anim) = texture {
-                anim.reset();
-            }
+/// Linear animation component for non-directional animations (frightened ghosts)
+#[derive(Component, Clone, Copy)]
+pub struct LinearAnimation {
+    pub tiles: TileSequence,
+    pub current_frame: usize,
+    pub time_bank: u16,
+    pub frame_duration: u16,
+}
+
+impl LinearAnimation {
+    /// Creates a new linear animation with the given tiles and frame duration
+    pub fn new(tiles: TileSequence, frame_duration: u16) -> Self {
+        Self {
+            tiles,
+            current_frame: 0,
+            time_bank: 0,
+            frame_duration,
         }
     }
 }
@@ -215,13 +220,6 @@ impl GhostState {
 
     /// Ticks the ghost state, returning true if the state changed.
     pub fn tick(&mut self) -> bool {
-        match self {
-            GhostState::Frightened { .. } => {
-                debug!("{:?}", self);
-            }
-            _ => {}
-        }
-
         if let GhostState::Frightened {
             remaining_ticks,
             flash,
@@ -276,44 +274,6 @@ pub enum GhostAnimation {
     Eyes,
 }
 
-/// A complete set of animations for a ghost in different behavioral states.
-#[derive(Component, Clone)]
-pub struct GhostAnimationSet {
-    pub animations: Map<GhostAnimation, DirectionalAnimated, 4>,
-}
-
-impl GhostAnimationSet {
-    /// Creates a new GhostAnimationSet with the provided animations.
-    pub fn new(
-        normal: DirectionalAnimated,
-        frightened: DirectionalAnimated,
-        frightened_flashing: DirectionalAnimated,
-        eyes: DirectionalAnimated,
-    ) -> Self {
-        let mut animations = Map::new();
-        animations.insert(GhostAnimation::Normal, normal);
-        animations.insert(GhostAnimation::Frightened { flash: false }, frightened);
-        animations.insert(GhostAnimation::Frightened { flash: true }, frightened_flashing);
-        animations.insert(GhostAnimation::Eyes, eyes);
-        Self { animations }
-    }
-
-    /// Gets the animation for the specified ghost animation state.
-    pub fn get(&self, animation: GhostAnimation) -> Option<&DirectionalAnimated> {
-        self.animations.get(&animation)
-    }
-
-    /// Gets the normal animation state.
-    pub fn normal(&self) -> Option<&DirectionalAnimated> {
-        self.get(GhostAnimation::Normal)
-    }
-
-    /// Gets the eyes animation state (for eaten ghosts).
-    pub fn eyes(&self) -> Option<&DirectionalAnimated> {
-        self.get(GhostAnimation::Eyes)
-    }
-}
-
 /// Global resource containing pre-loaded animation sets for all ghost types.
 ///
 /// This resource is initialized once during game startup and provides O(1) access
@@ -321,9 +281,50 @@ impl GhostAnimationSet {
 /// to efficiently switch between different ghost states without runtime asset loading.
 ///
 /// The HashMap is keyed by `Ghost` enum variants (Blinky, Pinky, Inky, Clyde) and
-/// contains complete animation sets mapped by GhostAnimation states.
+/// contains the normal directional animation for each ghost type.
 #[derive(Resource)]
-pub struct GhostAnimations(pub std::collections::HashMap<Ghost, GhostAnimationSet>);
+pub struct GhostAnimations {
+    pub normal: HashMap<Ghost, DirectionalAnimation>,
+    pub eyes: DirectionalAnimation,
+    pub frightened: LinearAnimation,
+    pub frightened_flashing: LinearAnimation,
+}
+
+impl GhostAnimations {
+    /// Creates a new GhostAnimations resource with the provided data.
+    pub fn new(
+        normal: HashMap<Ghost, DirectionalAnimation>,
+        eyes: DirectionalAnimation,
+        frightened: LinearAnimation,
+        frightened_flashing: LinearAnimation,
+    ) -> Self {
+        Self {
+            normal,
+            eyes,
+            frightened,
+            frightened_flashing,
+        }
+    }
+
+    /// Gets the normal directional animation for the specified ghost type.
+    pub fn get_normal(&self, ghost_type: &Ghost) -> Option<&DirectionalAnimation> {
+        self.normal.get(ghost_type)
+    }
+
+    /// Gets the eyes animation (shared across all ghosts).
+    pub fn eyes(&self) -> &DirectionalAnimation {
+        &self.eyes
+    }
+
+    /// Gets the frightened animations (shared across all ghosts).
+    pub fn frightened(&self, flash: bool) -> &LinearAnimation {
+        if flash {
+            &self.frightened_flashing
+        } else {
+            &self.frightened
+        }
+    }
+}
 
 #[derive(Bundle)]
 pub struct PlayerBundle {
@@ -332,7 +333,7 @@ pub struct PlayerBundle {
     pub velocity: Velocity,
     pub buffered_direction: BufferedDirection,
     pub sprite: Renderable,
-    pub directional_animated: DirectionalAnimated,
+    pub directional_animation: DirectionalAnimation,
     pub entity_type: EntityType,
     pub collider: Collider,
     pub movement_modifiers: MovementModifiers,
@@ -354,7 +355,7 @@ pub struct GhostBundle {
     pub position: Position,
     pub velocity: Velocity,
     pub sprite: Renderable,
-    pub directional_animated: DirectionalAnimated,
+    pub directional_animation: DirectionalAnimation,
     pub entity_type: EntityType,
     pub collider: Collider,
     pub ghost_collider: GhostCollider,
