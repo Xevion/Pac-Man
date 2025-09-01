@@ -6,8 +6,9 @@ use bevy_ecs::{
 };
 
 use crate::{
+    constants::animation::FRIGHTENED_FLASH_START_TICKS,
     events::GameEvent,
-    systems::{AudioEvent, EntityType, GhostCollider, ItemCollider, PacmanCollider, ScoreResource, Vulnerable},
+    systems::{AudioEvent, EntityType, GhostCollider, GhostState, ItemCollider, PacmanCollider, ScoreResource},
 };
 
 /// Determines if a collision between two entity types should be handled by the item system.
@@ -28,6 +29,7 @@ pub fn item_system(
     pacman_query: Query<Entity, With<PacmanCollider>>,
     item_query: Query<(Entity, &EntityType), With<ItemCollider>>,
     ghost_query: Query<Entity, With<GhostCollider>>,
+    mut ghost_state_query: Query<&mut GhostState>,
     mut events: EventWriter<AudioEvent>,
 ) {
     for event in collision_events.read() {
@@ -54,16 +56,16 @@ pub fn item_system(
                         events.write(AudioEvent::PlayEat);
                     }
 
-                    // Make ghosts vulnerable when power pellet is collected
+                    // Make ghosts frightened when power pellet is collected
                     if *entity_type == EntityType::PowerPellet {
                         // Convert seconds to frames (assumes 60 FPS)
-                        let total_ticks = 60 * 5;
+                        let total_ticks = 60 * 5; // 5 seconds total
 
-                        // Add Vulnerable component to all ghosts
+                        // Set all ghosts to frightened state
                         for ghost_entity in ghost_query.iter() {
-                            commands.entity(ghost_entity).insert(Vulnerable {
-                                remaining_ticks: total_ticks,
-                            });
+                            if let Ok(mut ghost_state) = ghost_state_query.get_mut(ghost_entity) {
+                                *ghost_state = GhostState::new_frightened(total_ticks, FRIGHTENED_FLASH_START_TICKS);
+                            }
                         }
                     }
                 }

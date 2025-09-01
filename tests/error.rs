@@ -48,7 +48,7 @@ fn test_game_error_from_io_error() {
 
 #[test]
 fn test_texture_error_from_animated_error() {
-    let animated_error = AnimatedTextureError::InvalidFrameDuration(-1.0);
+    let animated_error = AnimatedTextureError::InvalidFrameDuration(0);
     let texture_error: TextureError = animated_error.into();
     assert!(matches!(texture_error, TextureError::Animated(_)));
 }
@@ -80,7 +80,7 @@ fn test_entity_error_display() {
 
 #[test]
 fn test_animated_texture_error_display() {
-    let error = AnimatedTextureError::InvalidFrameDuration(0.0);
+    let error = AnimatedTextureError::InvalidFrameDuration(0);
     assert_eq!(error.to_string(), "Frame duration must be positive, got 0");
 }
 
@@ -150,7 +150,7 @@ fn test_result_ext_error() {
 #[test]
 fn test_error_chain_conversions() {
     // Test that we can convert through multiple levels
-    let animated_error = AnimatedTextureError::InvalidFrameDuration(-5.0);
+    let animated_error = AnimatedTextureError::InvalidFrameDuration(0);
     let texture_error: TextureError = animated_error.into();
     let game_error: GameError = texture_error.into();
 

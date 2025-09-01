@@ -16,7 +16,6 @@ pub mod player;
 pub mod profiling;
 pub mod render;
 pub mod stage;
-pub mod vulnerable;
 
 pub use self::audio::*;
 pub use self::blinking::*;
@@ -31,4 +30,3 @@ pub use self::player::*;
 pub use self::profiling::*;
 pub use self::render::*;
 pub use self::stage::*;
-pub use self::vulnerable::*;

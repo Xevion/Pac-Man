@@ -2,13 +2,13 @@ use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::{EventReader, EventWriter};
 use bevy_ecs::query::With;
-use bevy_ecs::system::{Commands, Query, Res, ResMut};
+use bevy_ecs::system::{Query, Res, ResMut};
 
 use crate::error::GameError;
 use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::systems::movement::Position;
-use crate::systems::{AudioEvent, Eaten, Ghost, PlayerControlled, ScoreResource, Vulnerable};
+use crate::systems::{AudioEvent, Ghost, GhostState, PlayerControlled, ScoreResource};
 
 #[derive(Component)]
 pub struct Collider {
@@ -108,12 +108,11 @@ pub fn collision_system(
 }
 
 pub fn ghost_collision_system(
-    mut commands: Commands,
     mut collision_events: EventReader<GameEvent>,
     mut score: ResMut<ScoreResource>,
     pacman_query: Query<(), With<PlayerControlled>>,
     ghost_query: Query<(Entity, &Ghost), With<GhostCollider>>,
-    vulnerable_query: Query<Entity, With<Vulnerable>>,
+    mut ghost_state_query: Query<&mut GhostState>,
     mut events: EventWriter<AudioEvent>,
 ) {
     for event in collision_events.read() {
@@ -127,23 +126,25 @@ pub fn ghost_collision_system(
                 continue;
             };
 
-            // Check if the ghost is vulnerable
+            // Check if the ghost is frightened
             if let Ok((ghost_ent, _ghost_type)) = ghost_query.get(ghost_entity) {
-                // Check if ghost has Vulnerable component
-                if vulnerable_query.get(ghost_ent).is_ok() {
-                    // Pac-Man eats the ghost
-                    // Add score (200 points per ghost eaten)
-                    score.0 += 200;
+                if let Ok(mut ghost_state) = ghost_state_query.get_mut(ghost_ent) {
+                    // Check if ghost is in frightened state
+                    if matches!(*ghost_state, GhostState::Frightened { .. }) {
+                        // Pac-Man eats the ghost
+                        // Add score (200 points per ghost eaten)
+                        score.0 += 200;
 
-                    // Remove the ghost
-                    commands.entity(ghost_ent).remove::<Vulnerable>().insert(Eaten);
+                        // Set ghost state to Eyes
+                        *ghost_state = GhostState::Eyes;
 
-                    // Play eat sound
-                    events.write(AudioEvent::PlayEat);
-                } else {
-                    // Pac-Man dies (this would need a death system)
-                    // For now, just log it
-                    tracing::warn!("Pac-Man collided with ghost while not vulnerable!");
+                        // Play eat sound
+                        events.write(AudioEvent::PlayEat);
+                    } else {
+                        // Pac-Man dies (this would need a death system)
+                        // For now, just log it
+                        tracing::warn!("Pac-Man collided with ghost while not frightened!");
+                    }
                 }
             }
         }

@@ -97,7 +97,7 @@ pub enum TextureError {
 #[derive(thiserror::Error, Debug)]
 pub enum AnimatedTextureError {
     #[error("Frame duration must be positive, got {0}")]
-    InvalidFrameDuration(f32),
+    InvalidFrameDuration(u16),
 }
 
 /// Errors related to entity operations.

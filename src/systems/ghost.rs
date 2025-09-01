@@ -1,4 +1,4 @@
-use crate::systems::components::Frozen;
+use crate::systems::components::{DirectionalAnimated, Frozen, GhostState, LastAnimationState};
 use crate::{
     map::{
         builder::Map,
@@ -11,15 +11,9 @@ use crate::{
     },
 };
 
-use bevy_ecs::{
-    query::Added,
-    removal_detection::RemovedComponents,
-    system::{Commands, Query, Res},
-};
-
-use crate::systems::{Eaten, GhostAnimations, Vulnerable};
-
-use bevy_ecs::query::{With, Without};
+use crate::systems::GhostAnimations;
+use bevy_ecs::query::Without;
+use bevy_ecs::system::{Query, Res};
 use rand::rngs::SmallRng;
 use rand::seq::IndexedRandom;
 use rand::SeedableRng;
@@ -77,64 +71,6 @@ pub fn ghost_movement_system(
     }
 }
 
-/// System that manages ghost animation state transitions based on ghost behavior.
-///
-/// This system handles the following animation state changes:
-/// - When a ghost becomes vulnerable (power pellet eaten): switches to frightened animation
-/// - When a ghost is eaten by Pac-Man: switches to eaten (eyes) animation
-/// - When vulnerability ends: switches back to normal animation
-///
-/// The system uses ECS change detection to efficiently track state transitions:
-/// - `Added<Vulnerable>` detects when ghosts become frightened
-/// - `Added<Eaten>` detects when ghosts are consumed
-/// - `RemovedComponents<Vulnerable>` detects when fright period ends
-///
-/// This ensures smooth visual feedback for gameplay state changes while maintaining
-/// separation between game logic and animation state.
-pub fn ghost_state_animation_system(
-    mut commands: Commands,
-    animations: Res<GhostAnimations>,
-    mut vulnerable_added: Query<(bevy_ecs::entity::Entity, &Ghost), Added<Vulnerable>>,
-    mut eaten_added: Query<(bevy_ecs::entity::Entity, &Ghost), Added<Eaten>>,
-    mut vulnerable_removed: RemovedComponents<Vulnerable>,
-    ghosts: Query<&Ghost>,
-    eaten_ghosts: Query<&Ghost, With<Eaten>>,
-) {
-    // When a ghost becomes vulnerable, switch to the frightened animation
-    for (entity, ghost_type) in vulnerable_added.iter_mut() {
-        if let Some(animation_set) = animations.0.get(ghost_type) {
-            if let Some(animation) = animation_set.frightened() {
-                commands.entity(entity).insert(animation.clone());
-            }
-        }
-    }
-
-    // When a ghost is eaten, switch to the eaten animation
-    for (entity, ghost_type) in eaten_added.iter_mut() {
-        if let Some(animation_set) = animations.0.get(ghost_type) {
-            if let Some(animation) = animation_set.eyes() {
-                commands.entity(entity).insert(animation.clone());
-            }
-        }
-    }
-
-    // When a ghost is no longer vulnerable, switch back to the normal animation
-    // But don't switch if the ghost is currently eaten (should keep eyes animation)
-    for entity in vulnerable_removed.read() {
-        if let Ok(ghost_type) = ghosts.get(entity) {
-            // Check if this ghost is currently eaten - if so, don't switch to normal animation
-            let is_eaten = eaten_ghosts.get(entity).is_ok();
-            if !is_eaten {
-                if let Some(animation_set) = animations.0.get(ghost_type) {
-                    if let Some(animation) = animation_set.normal() {
-                        commands.entity(entity).insert(animation.clone());
-                    }
-                }
-            }
-        }
-    }
-}
-
 /// System that handles eaten ghost behavior and respawn logic.
 ///
 /// When a ghost is eaten by Pac-Man, it enters an "eaten" state where:
@@ -146,11 +82,13 @@ pub fn ghost_state_animation_system(
 pub fn eaten_ghost_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,
-    animations: Res<GhostAnimations>,
-    mut commands: Commands,
-    mut eaten_ghosts: Query<(bevy_ecs::entity::Entity, &Ghost, &mut Position, &mut Velocity), With<Eaten>>,
+    mut eaten_ghosts: Query<(&Ghost, &mut Position, &mut Velocity, &mut GhostState)>,
 ) {
-    for (entity, ghost_type, mut position, mut velocity) in eaten_ghosts.iter_mut() {
+    for (ghost_type, mut position, mut velocity, mut ghost_state) in eaten_ghosts.iter_mut() {
+        // Only process ghosts that are in Eyes state
+        if !matches!(*ghost_state, GhostState::Eyes) {
+            continue;
+        }
         // Set higher speed for eaten ghosts returning to ghost house
         let original_speed = velocity.speed;
         velocity.speed = ghost_type.base_speed() * 2.0; // Move twice as fast when eaten
@@ -178,13 +116,8 @@ pub fn eaten_ghost_system(
                 if let Some(_overflow) = position.tick(distance) {
                     // Reached target node, check if we're at ghost house center
                     if to == ghost_house_center {
-                        // Respawn the ghost - remove Eaten component and switch to normal animation
-                        commands.entity(entity).remove::<Eaten>();
-                        if let Some(animation_set) = animations.0.get(ghost_type) {
-                            if let Some(animation) = animation_set.normal() {
-                                commands.entity(entity).insert(animation.clone());
-                            }
-                        }
+                        // Respawn the ghost - set state back to normal
+                        *ghost_state = GhostState::Normal;
                         // Reset to stopped at ghost house center
                         *position = Position::Stopped {
                             node: ghost_house_center,
@@ -245,4 +178,26 @@ fn find_direction_to_target(
     }
 
     None
+}
+
+/// Unified system that manages ghost state transitions and animations
+pub fn ghost_state_system(
+    animations: Res<GhostAnimations>,
+    mut ghosts: Query<(&Ghost, &mut GhostState, &mut DirectionalAnimated, &mut LastAnimationState)>,
+) {
+    for (ghost_type, mut ghost_state, mut directional_animated, mut last_animation_state) in ghosts.iter_mut() {
+        // Tick the ghost state to handle internal transitions (like flashing)
+        let _ = ghost_state.tick();
+
+        // Only update animation if the animation state actually changed
+        let current_animation_state = ghost_state.animation_state();
+        if last_animation_state.0 != current_animation_state {
+            let animation_set = animations.0.get(ghost_type).unwrap();
+            let animation = animation_set.get(current_animation_state).unwrap();
+            *directional_animated = (*animation).clone();
+            // Reset animation timers to synchronize all ghosts
+            directional_animated.reset_all_animations();
+            last_animation_state.0 = current_animation_state;
+        }
+    }
 }

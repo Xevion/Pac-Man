@@ -33,14 +33,14 @@ pub const BOARD_PIXEL_OFFSET: UVec2 = UVec2::new(BOARD_CELL_OFFSET.x * CELL_SIZE
 
 /// Animation timing constants for ghost state management
 pub mod animation {
-    /// Normal ghost movement animation speed (frames per second)
-    pub const GHOST_NORMAL_SPEED: f32 = 0.2;
-    /// Eaten ghost (eyes) animation speed (frames per second)
-    pub const GHOST_EATEN_SPEED: f32 = 0.1;
-    /// Frightened ghost animation speed (frames per second)
-    pub const GHOST_FRIGHTENED_SPEED: f32 = 0.2;
-    /// Frightened ghost flashing animation speed (frames per second)
-    pub const GHOST_FLASHING_SPEED: f32 = 0.15;
+    /// Normal ghost movement animation speed (ticks per frame at 60 ticks/sec)
+    pub const GHOST_NORMAL_SPEED: u16 = 12;
+    /// Eaten ghost (eyes) animation speed (ticks per frame at 60 ticks/sec)
+    pub const GHOST_EATEN_SPEED: u16 = 6;
+    /// Frightened ghost animation speed (ticks per frame at 60 ticks/sec)
+    pub const GHOST_FRIGHTENED_SPEED: u16 = 12;
+    /// Frightened ghost flashing animation speed (ticks per frame at 60 ticks/sec)
+    pub const GHOST_FLASHING_SPEED: u16 = 9;
 
     /// Time in ticks when frightened ghosts start flashing (2 seconds at 60 FPS)
     pub const FRIGHTENED_FLASH_START_TICKS: u32 = 120;

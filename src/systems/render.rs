@@ -57,7 +57,8 @@ pub fn directional_render_system(
 
         if let Some(texture) = texture {
             if !stopped {
-                texture.tick(dt.0);
+                let ticks = (dt.0 * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
+                texture.tick(ticks);
             }
             let new_tile = *texture.current_tile();
             if renderable.sprite != new_tile {

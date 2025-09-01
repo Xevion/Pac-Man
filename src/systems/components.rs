@@ -1,5 +1,6 @@
 use bevy_ecs::{bundle::Bundle, component::Component, resource::Resource};
 use bitflags::bitflags;
+use tracing::debug;
 
 use crate::{
     map::graph::TraversalFlags,
@@ -122,6 +123,20 @@ impl DirectionalAnimated {
             ],
         }
     }
+
+    /// Resets all directional animations to frame 0 for synchronization
+    pub fn reset_all_animations(&mut self) {
+        for texture in &mut self.textures {
+            if let Some(anim) = texture {
+                anim.reset();
+            }
+        }
+        for texture in &mut self.stopped_textures {
+            if let Some(anim) = texture {
+                anim.reset();
+            }
+        }
+    }
 }
 
 bitflags! {
@@ -170,10 +185,82 @@ pub struct Frozen;
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Eaten;
 
-/// Component for ghosts that are vulnerable to Pac-Man
 #[derive(Component, Debug, Clone, Copy)]
-pub struct Vulnerable {
-    pub remaining_ticks: u32,
+pub enum GhostState {
+    /// Normal ghost behavior - chasing Pac-Man
+    Normal,
+    /// Frightened state after power pellet - ghost can be eaten
+    Frightened {
+        remaining_ticks: u32,
+        flash: bool,
+        remaining_flash_ticks: u32,
+    },
+    /// Eyes state - ghost has been eaten and is returning to ghost house
+    Eyes,
+}
+
+/// Component to track the last animation state for efficient change detection
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub struct LastAnimationState(pub GhostAnimation);
+
+impl GhostState {
+    /// Creates a new frightened state with the specified duration
+    pub fn new_frightened(total_ticks: u32, flash_start_ticks: u32) -> Self {
+        Self::Frightened {
+            remaining_ticks: total_ticks,
+            flash: false,
+            remaining_flash_ticks: flash_start_ticks, // Time until flashing starts
+        }
+    }
+
+    /// Ticks the ghost state, returning true if the state changed.
+    pub fn tick(&mut self) -> bool {
+        match self {
+            GhostState::Frightened { .. } => {
+                debug!("{:?}", self);
+            }
+            _ => {}
+        }
+
+        if let GhostState::Frightened {
+            remaining_ticks,
+            flash,
+            remaining_flash_ticks,
+        } = self
+        {
+            // Transition out of frightened state
+            if *remaining_ticks == 0 {
+                *self = GhostState::Normal;
+                return true;
+            }
+
+            *remaining_ticks -= 1;
+
+            if *remaining_flash_ticks > 0 {
+                *remaining_flash_ticks = remaining_flash_ticks.saturating_sub(1);
+                if *remaining_flash_ticks == 0 {
+                    *flash = true;
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Returns the appropriate animation state for this ghost state
+    pub fn animation_state(&self) -> GhostAnimation {
+        match self {
+            GhostState::Normal => GhostAnimation::Normal,
+            GhostState::Eyes => GhostAnimation::Eyes,
+            GhostState::Frightened { flash: false, .. } => GhostAnimation::Frightened { flash: false },
+            GhostState::Frightened { flash: true, .. } => GhostAnimation::Frightened { flash: true },
+        }
+    }
 }
 
 /// Enumeration of different ghost animation states.
@@ -190,10 +277,6 @@ pub enum GhostAnimation {
 }
 
 /// A complete set of animations for a ghost in different behavioral states.
-///
-/// Each ghost maintains animations mapped by their current gameplay state.
-/// The animation system automatically switches between these states based on
-/// the presence of `Vulnerable` and `Eaten` components on the ghost entity.
 #[derive(Component, Clone)]
 pub struct GhostAnimationSet {
     pub animations: Map<GhostAnimation, DirectionalAnimated, 4>,
@@ -223,16 +306,6 @@ impl GhostAnimationSet {
     /// Gets the normal animation state.
     pub fn normal(&self) -> Option<&DirectionalAnimated> {
         self.get(GhostAnimation::Normal)
-    }
-
-    /// Gets the frightened animation state (non-flashing).
-    pub fn frightened(&self) -> Option<&DirectionalAnimated> {
-        self.get(GhostAnimation::Frightened { flash: false })
-    }
-
-    /// Gets the frightened flashing animation state.
-    pub fn frightened_flashing(&self) -> Option<&DirectionalAnimated> {
-        self.get(GhostAnimation::Frightened { flash: true })
     }
 
     /// Gets the eyes animation state (for eaten ghosts).
@@ -285,4 +358,6 @@ pub struct GhostBundle {
     pub entity_type: EntityType,
     pub collider: Collider,
     pub ghost_collider: GhostCollider,
+    pub ghost_state: GhostState,
+    pub last_animation_state: LastAnimationState,
 }

@@ -14,11 +14,11 @@ use crate::systems::render::RenderDirty;
 use crate::systems::{self, ghost_collision_system, present_system, Hidden, MovementModifiers, NodeId};
 use crate::systems::{
     audio_system, blinking_system, collision_system, debug_render_system, directional_render_system, dirty_render_system,
-    eaten_ghost_system, ghost_movement_system, ghost_state_animation_system, hud_render_system, item_system, profile,
-    render_system, AudioEvent, AudioResource, AudioState, BackbufferResource, Collider, DebugFontResource, DebugState,
-    DebugTextureResource, DeltaTime, DirectionalAnimated, EntityType, Frozen, Ghost, GhostAnimationSet, GhostAnimations,
-    GhostBundle, GhostCollider, GlobalState, ItemBundle, ItemCollider, MapTextureResource, PacmanCollider, PlayerBundle,
-    PlayerControlled, Renderable, ScoreResource, StartupSequence, SystemTimings,
+    eaten_ghost_system, ghost_movement_system, ghost_state_system, hud_render_system, item_system, profile, render_system,
+    AudioEvent, AudioResource, AudioState, BackbufferResource, Collider, DebugFontResource, DebugState, DebugTextureResource,
+    DeltaTime, DirectionalAnimated, EntityType, Frozen, Ghost, GhostAnimationSet, GhostAnimations, GhostBundle, GhostCollider,
+    GlobalState, ItemBundle, ItemCollider, MapTextureResource, PacmanCollider, PlayerBundle, PlayerControlled, Renderable,
+    ScoreResource, StartupSequence, SystemTimings,
 };
 use crate::texture::animated::AnimatedTexture;
 use crate::texture::sprite::AtlasTile;
@@ -171,8 +171,8 @@ impl Game {
             let stopped_tiles = smallvec![SpriteAtlas::get_tile(&atlas, &format!("{moving_prefix}_b.png"))
                 .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound(format!("{moving_prefix}_b.png"))))?];
 
-            textures[direction.as_usize()] = Some(AnimatedTexture::new(moving_tiles, 0.08)?);
-            stopped_textures[direction.as_usize()] = Some(AnimatedTexture::new(stopped_tiles, 0.1)?);
+            textures[direction.as_usize()] = Some(AnimatedTexture::new(moving_tiles, 5)?);
+            stopped_textures[direction.as_usize()] = Some(AnimatedTexture::new(stopped_tiles, 6)?);
         }
 
         let player = PlayerBundle {
@@ -247,7 +247,7 @@ impl Game {
         let ghost_movement_system = profile(SystemId::Ghost, ghost_movement_system);
         let collision_system = profile(SystemId::Collision, collision_system);
         let ghost_collision_system = profile(SystemId::GhostCollision, ghost_collision_system);
-        let vulnerable_tick_system = profile(SystemId::Ghost, systems::vulnerable_tick_system);
+
         let item_system = profile(SystemId::Item, item_system);
         let audio_system = profile(SystemId::Audio, audio_system);
         let blinking_system = profile(SystemId::Blinking, blinking_system);
@@ -257,7 +257,7 @@ impl Game {
         let hud_render_system = profile(SystemId::HudRender, hud_render_system);
         let debug_render_system = profile(SystemId::DebugRender, debug_render_system);
         let present_system = profile(SystemId::Present, present_system);
-        let ghost_state_animation_system = profile(SystemId::GhostStateAnimation, ghost_state_animation_system);
+        let unified_ghost_state_system = profile(SystemId::GhostStateAnimation, ghost_state_system);
 
         let forced_dirty_system = |mut dirty: ResMut<RenderDirty>| {
             dirty.0 = true;
@@ -275,8 +275,7 @@ impl Game {
             player_tunnel_slowdown_system,
             ghost_movement_system,
             profile(SystemId::EatenGhost, eaten_ghost_system),
-            vulnerable_tick_system,
-            ghost_state_animation_system,
+            unified_ghost_state_system,
             (collision_system, ghost_collision_system, item_system).chain(),
             audio_system,
             blinking_system,
@@ -385,6 +384,10 @@ impl Game {
                         size: crate::constants::CELL_SIZE as f32 * 1.375,
                     },
                     ghost_collider: GhostCollider,
+                    ghost_state: crate::systems::components::GhostState::Normal,
+                    last_animation_state: crate::systems::components::LastAnimationState(
+                        crate::systems::components::GhostAnimation::Normal,
+                    ),
                 }
             };
 
@@ -476,18 +479,18 @@ impl Game {
             animation::GHOST_FLASHING_SPEED,
         )?;
 
-        let frightened_da = DirectionalAnimated::from_animation(frightened_anim);
-        let frightened_flashing_da = DirectionalAnimated::from_animation(flashing_anim);
+        let frightened_animation = DirectionalAnimated::from_animation(frightened_anim);
+        let frightened_flashing_animation = DirectionalAnimated::from_animation(flashing_anim);
 
         for ghost_type in [Ghost::Blinky, Ghost::Pinky, Ghost::Inky, Ghost::Clyde] {
             let entry = animations.get_mut(&ghost_type).unwrap();
             entry.animations.insert(
                 crate::systems::GhostAnimation::Frightened { flash: false },
-                frightened_da.clone(),
+                frightened_animation.clone(),
             );
             entry.animations.insert(
                 crate::systems::GhostAnimation::Frightened { flash: true },
-                frightened_flashing_da.clone(),
+                frightened_flashing_animation.clone(),
             );
         }
 

@@ -5,23 +5,23 @@ use crate::texture::sprite::AtlasTile;
 
 /// Frame-based animation system for cycling through multiple sprite tiles.
 ///
-/// Manages automatic frame progression based on elapsed time.
-/// Uses a time banking system to ensure consistent animation speed regardless of frame rate variations.
+/// Manages automatic frame progression based on elapsed ticks.
+/// Uses a tick banking system to ensure consistent animation speed regardless of frame rate variations.
 #[derive(Debug, Clone)]
 pub struct AnimatedTexture {
     /// Sequence of sprite tiles that make up the animation frames
     tiles: SmallVec<[AtlasTile; 4]>,
-    /// Duration each frame should be displayed (in seconds)
-    frame_duration: f32,
+    /// Duration each frame should be displayed (in ticks)
+    frame_duration: u16,
     /// Index of the currently active frame in the tiles vector
     current_frame: usize,
-    /// Accumulated time since the last frame change (for smooth timing)
-    time_bank: f32,
+    /// Accumulated ticks since the last frame change (for smooth timing)
+    time_bank: u16,
 }
 
 impl AnimatedTexture {
-    pub fn new(tiles: SmallVec<[AtlasTile; 4]>, frame_duration: f32) -> GameResult<Self> {
-        if frame_duration <= 0.0 {
+    pub fn new(tiles: SmallVec<[AtlasTile; 4]>, frame_duration: u16) -> GameResult<Self> {
+        if frame_duration == 0 {
             return Err(GameError::Texture(TextureError::Animated(
                 AnimatedTextureError::InvalidFrameDuration(frame_duration),
             )));
@@ -31,22 +31,22 @@ impl AnimatedTexture {
             tiles,
             frame_duration,
             current_frame: 0,
-            time_bank: 0.0,
+            time_bank: 0,
         })
     }
 
-    /// Advances the animation by the specified time delta with automatic frame cycling.
+    /// Advances the animation by the specified number of ticks with automatic frame cycling.
     ///
-    /// Accumulates time in the time bank and progresses through frames when enough
-    /// time has elapsed. Supports frame rates independent of game frame rate by
-    /// potentially advancing multiple frames in a single call if `dt` is large.
+    /// Accumulates ticks in the time bank and progresses through frames when enough
+    /// ticks have elapsed. Supports frame rates independent of game frame rate by
+    /// potentially advancing multiple frames in a single call if `ticks` is large.
     /// Animation loops automatically when reaching the final frame.
     ///
     /// # Arguments
     ///
-    /// * `dt` - Time elapsed since the last tick (typically frame delta time)
-    pub fn tick(&mut self, dt: f32) {
-        self.time_bank += dt;
+    /// * `ticks` - Number of ticks elapsed since the last update
+    pub fn tick(&mut self, ticks: u16) {
+        self.time_bank += ticks;
         while self.time_bank >= self.frame_duration {
             self.time_bank -= self.frame_duration;
             self.current_frame = (self.current_frame + 1) % self.tiles.len();
@@ -65,13 +65,13 @@ impl AnimatedTexture {
 
     /// Returns the time bank.
     #[allow(dead_code)]
-    pub fn time_bank(&self) -> f32 {
+    pub fn time_bank(&self) -> u16 {
         self.time_bank
     }
 
     /// Returns the frame duration.
     #[allow(dead_code)]
-    pub fn frame_duration(&self) -> f32 {
+    pub fn frame_duration(&self) -> u16 {
         self.frame_duration
     }
 
@@ -79,5 +79,12 @@ impl AnimatedTexture {
     #[allow(dead_code)]
     pub fn tiles_len(&self) -> usize {
         self.tiles.len()
+    }
+
+    /// Resets the animation to the first frame and clears the time bank.
+    /// Useful for synchronizing animations when they are assigned.
+    pub fn reset(&mut self) {
+        self.current_frame = 0;
+        self.time_bank = 0;
     }
 }
