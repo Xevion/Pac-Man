@@ -98,6 +98,7 @@ pub fn ghost_state_animation_system(
     mut eaten_added: Query<(bevy_ecs::entity::Entity, &Ghost), Added<Eaten>>,
     mut vulnerable_removed: RemovedComponents<Vulnerable>,
     ghosts: Query<&Ghost>,
+    eaten_ghosts: Query<&Ghost, With<Eaten>>,
 ) {
     // When a ghost becomes vulnerable, switch to the frightened animation
     for (entity, ghost_type) in vulnerable_added.iter_mut() {
@@ -118,11 +119,16 @@ pub fn ghost_state_animation_system(
     }
 
     // When a ghost is no longer vulnerable, switch back to the normal animation
+    // But don't switch if the ghost is currently eaten (should keep eyes animation)
     for entity in vulnerable_removed.read() {
         if let Ok(ghost_type) = ghosts.get(entity) {
-            if let Some(animation_set) = animations.0.get(ghost_type) {
-                if let Some(animation) = animation_set.normal() {
-                    commands.entity(entity).insert(animation.clone());
+            // Check if this ghost is currently eaten - if so, don't switch to normal animation
+            let is_eaten = eaten_ghosts.get(entity).is_ok();
+            if !is_eaten {
+                if let Some(animation_set) = animations.0.get(ghost_type) {
+                    if let Some(animation) = animation_set.normal() {
+                        commands.entity(entity).insert(animation.clone());
+                    }
                 }
             }
         }
