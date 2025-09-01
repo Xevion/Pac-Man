@@ -4,8 +4,8 @@ use pacman::{
     events::GameEvent,
     map::builder::Map,
     systems::{
-        is_valid_item_collision, item_system, AudioEvent, AudioState, EntityType, ItemCollider, PacmanCollider, Position,
-        ScoreResource,
+        is_valid_item_collision, item_system, AudioEvent, AudioState, EntityType, Ghost, GhostCollider, GhostState, ItemCollider,
+        PacmanCollider, Position, ScoreResource,
     },
 };
 
@@ -73,6 +73,18 @@ fn spawn_test_pacman(world: &mut World) -> Entity {
 
 fn spawn_test_item(world: &mut World, item_type: EntityType) -> Entity {
     world.spawn((Position::Stopped { node: 1 }, item_type, ItemCollider)).id()
+}
+
+fn spawn_test_ghost(world: &mut World, ghost_state: GhostState) -> Entity {
+    world
+        .spawn((
+            Position::Stopped { node: 2 },
+            Ghost::Blinky,
+            EntityType::Ghost,
+            GhostCollider,
+            ghost_state,
+        ))
+        .id()
 }
 
 fn send_collision_event(world: &mut World, entity1: Entity, entity2: Entity) {
@@ -250,4 +262,41 @@ fn test_item_system_preserves_existing_score() {
     // Score should be initial + pellet value
     let score = world.resource::<ScoreResource>();
     assert_eq!(score.0, 110);
+}
+
+#[test]
+fn test_power_pellet_does_not_affect_ghosts_in_eyes_state() {
+    let mut world = create_test_world();
+    let pacman = spawn_test_pacman(&mut world);
+    let power_pellet = spawn_test_item(&mut world, EntityType::PowerPellet);
+
+    // Spawn a ghost in Eyes state (returning to ghost house)
+    let eyes_ghost = spawn_test_ghost(&mut world, GhostState::Eyes);
+
+    // Spawn a ghost in Normal state
+    let normal_ghost = spawn_test_ghost(&mut world, GhostState::Normal);
+
+    send_collision_event(&mut world, pacman, power_pellet);
+
+    world.run_system_once(item_system).expect("System should run successfully");
+
+    // Check that the power pellet was collected and score updated
+    let score = world.resource::<ScoreResource>();
+    assert_eq!(score.0, 50);
+
+    // Check that the power pellet was despawned
+    let power_pellet_count = world
+        .query::<&EntityType>()
+        .iter(&world)
+        .filter(|&entity_type| matches!(entity_type, EntityType::PowerPellet))
+        .count();
+    assert_eq!(power_pellet_count, 0);
+
+    // Check that the Eyes ghost state was not changed
+    let eyes_ghost_state = world.entity(eyes_ghost).get::<GhostState>().unwrap();
+    assert!(matches!(*eyes_ghost_state, GhostState::Eyes));
+
+    // Check that the Normal ghost state was changed to Frightened
+    let normal_ghost_state = world.entity(normal_ghost).get::<GhostState>().unwrap();
+    assert!(matches!(*normal_ghost_state, GhostState::Frightened { .. }));
 }

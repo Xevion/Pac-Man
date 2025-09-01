@@ -60,9 +60,11 @@ pub fn item_system(
                         // Convert seconds to frames (assumes 60 FPS)
                         let total_ticks = 60 * 5; // 5 seconds total
 
-                        // Set all ghosts to frightened state
+                        // Set all ghosts to frightened state, except those in Eyes state
                         for mut ghost_state in ghost_query.iter_mut() {
-                            *ghost_state = GhostState::new_frightened(total_ticks, FRIGHTENED_FLASH_START_TICKS);
+                            if !matches!(*ghost_state, GhostState::Eyes) {
+                                *ghost_state = GhostState::new_frightened(total_ticks, FRIGHTENED_FLASH_START_TICKS);
+                            }
                         }
                     }
                 }
