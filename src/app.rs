@@ -25,8 +25,8 @@ pub struct App {
 impl App {
     /// Initializes SDL subsystems, creates the game window, and sets up the game state.
     ///
-    /// Performs comprehensive initialization including video/audio subsystems, platform-specific
-    /// console setup, window creation with proper scaling, and canvas configuration. All SDL
+    /// Performs comprehensive initialization including video/audio subsystems,
+    /// window creation with proper scaling, and canvas configuration. All SDL
     /// resources are leaked to maintain 'static lifetimes required by the game architecture.
     ///
     /// # Errors
@@ -43,9 +43,6 @@ impl App {
             Box::leak(Box::new(sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?));
         let event_pump: &'static mut EventPump =
             Box::leak(Box::new(sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?));
-
-        // Initialize platform-specific console
-        get_platform().init_console()?;
 
         let window = video_subsystem
             .window(
