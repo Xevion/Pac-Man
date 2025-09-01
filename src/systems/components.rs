@@ -9,12 +9,13 @@ use crate::{
     },
     texture::{animated::AnimatedTexture, sprite::AtlasTile},
 };
+use micromap::Map;
 
 /// A tag component for entities that are controlled by the player.
 #[derive(Default, Component)]
 pub struct PlayerControlled;
 
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Ghost {
     Blinky,
     Pinky,
@@ -96,10 +97,31 @@ pub struct Renderable {
 }
 
 /// A component for entities that have a directional animated texture.
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 pub struct DirectionalAnimated {
     pub textures: [Option<AnimatedTexture>; 4],
     pub stopped_textures: [Option<AnimatedTexture>; 4],
+}
+
+impl DirectionalAnimated {
+    pub fn from_animation(animation: AnimatedTexture) -> Self {
+        // Create 4 copies of the animation - necessary for independent state per direction
+        // This is initialization-time only, so the cloning cost is acceptable
+        Self {
+            textures: [
+                Some(animation.clone()),
+                Some(animation.clone()),
+                Some(animation.clone()),
+                Some(animation.clone()),
+            ],
+            stopped_textures: [
+                Some(animation.clone()),
+                Some(animation.clone()),
+                Some(animation.clone()),
+                Some(animation),
+            ],
+        }
+    }
 }
 
 bitflags! {
@@ -144,11 +166,91 @@ impl Default for MovementModifiers {
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Frozen;
 
+/// Tag component for eaten ghosts
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Eaten;
+
 /// Component for ghosts that are vulnerable to Pac-Man
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Vulnerable {
     pub remaining_ticks: u32,
 }
+
+/// Enumeration of different ghost animation states.
+/// Note that this is used in micromap which has a fixed size based on the number of variants,
+/// so extending this should be done with caution, and will require updating the micromap's capacity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GhostAnimation {
+    /// Normal ghost appearance with directional movement animations
+    Normal,
+    /// Blue ghost appearance when vulnerable (power pellet active)
+    Frightened { flash: bool },
+    /// Eyes-only animation when ghost has been consumed by Pac-Man (Eaten state)
+    Eyes,
+}
+
+/// A complete set of animations for a ghost in different behavioral states.
+///
+/// Each ghost maintains animations mapped by their current gameplay state.
+/// The animation system automatically switches between these states based on
+/// the presence of `Vulnerable` and `Eaten` components on the ghost entity.
+#[derive(Component, Clone)]
+pub struct GhostAnimationSet {
+    pub animations: Map<GhostAnimation, DirectionalAnimated, 4>,
+}
+
+impl GhostAnimationSet {
+    /// Creates a new GhostAnimationSet with the provided animations.
+    pub fn new(
+        normal: DirectionalAnimated,
+        frightened: DirectionalAnimated,
+        frightened_flashing: DirectionalAnimated,
+        eyes: DirectionalAnimated,
+    ) -> Self {
+        let mut animations = Map::new();
+        animations.insert(GhostAnimation::Normal, normal);
+        animations.insert(GhostAnimation::Frightened { flash: false }, frightened);
+        animations.insert(GhostAnimation::Frightened { flash: true }, frightened_flashing);
+        animations.insert(GhostAnimation::Eyes, eyes);
+        Self { animations }
+    }
+
+    /// Gets the animation for the specified ghost animation state.
+    pub fn get(&self, animation: GhostAnimation) -> Option<&DirectionalAnimated> {
+        self.animations.get(&animation)
+    }
+
+    /// Gets the normal animation state.
+    pub fn normal(&self) -> Option<&DirectionalAnimated> {
+        self.get(GhostAnimation::Normal)
+    }
+
+    /// Gets the frightened animation state (non-flashing).
+    pub fn frightened(&self) -> Option<&DirectionalAnimated> {
+        self.get(GhostAnimation::Frightened { flash: false })
+    }
+
+    /// Gets the frightened flashing animation state.
+    pub fn frightened_flashing(&self) -> Option<&DirectionalAnimated> {
+        self.get(GhostAnimation::Frightened { flash: true })
+    }
+
+    /// Gets the eyes animation state (for eaten ghosts).
+    pub fn eyes(&self) -> Option<&DirectionalAnimated> {
+        self.get(GhostAnimation::Eyes)
+    }
+}
+
+/// Global resource containing pre-loaded animation sets for all ghost types.
+///
+/// This resource is initialized once during game startup and provides O(1) access
+/// to animation sets for each ghost type. The animation system uses this resource
+/// to efficiently switch between different ghost states without runtime asset loading.
+///
+/// The HashMap is keyed by `Ghost` enum variants (Blinky, Pinky, Inky, Clyde) and
+/// contains complete animation sets mapped by GhostAnimation states.
+#[derive(Resource)]
+pub struct GhostAnimations(pub std::collections::HashMap<Ghost, GhostAnimationSet>);
 
 #[derive(Bundle)]
 pub struct PlayerBundle {

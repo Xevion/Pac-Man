@@ -35,6 +35,8 @@ pub enum SystemId {
     PlayerMovement,
     GhostCollision,
     Stage,
+    GhostStateAnimation,
+    EatenGhost,
 }
 
 impl Display for SystemId {
@@ -144,15 +146,13 @@ impl SystemTimings {
         };
 
         // Collect timing data for formatting
-        let mut timing_data = Vec::new();
+        let mut timing_data = vec![(effective_fps, total_avg, total_std)];
 
-        // Add total stats
-        timing_data.push((effective_fps, total_avg, total_std));
-
-        // Add top 5 most expensive systems
+        // Sort the stats by average duration
         let mut sorted_stats: Vec<_> = stats.iter().collect();
         sorted_stats.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
 
+        // Add the top 5 most expensive systems
         for (name, (avg, std_dev)) in sorted_stats.iter().take(5) {
             timing_data.push((name.to_string(), *avg, *std_dev));
         }

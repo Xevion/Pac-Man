@@ -1,3 +1,5 @@
+use smallvec::SmallVec;
+
 use crate::error::{AnimatedTextureError, GameError, GameResult, TextureError};
 use crate::texture::sprite::AtlasTile;
 
@@ -8,7 +10,7 @@ use crate::texture::sprite::AtlasTile;
 #[derive(Debug, Clone)]
 pub struct AnimatedTexture {
     /// Sequence of sprite tiles that make up the animation frames
-    tiles: Vec<AtlasTile>,
+    tiles: SmallVec<[AtlasTile; 4]>,
     /// Duration each frame should be displayed (in seconds)
     frame_duration: f32,
     /// Index of the currently active frame in the tiles vector
@@ -18,7 +20,7 @@ pub struct AnimatedTexture {
 }
 
 impl AnimatedTexture {
-    pub fn new(tiles: Vec<AtlasTile>, frame_duration: f32) -> GameResult<Self> {
+    pub fn new(tiles: SmallVec<[AtlasTile; 4]>, frame_duration: f32) -> GameResult<Self> {
         if frame_duration <= 0.0 {
             return Err(GameError::Texture(TextureError::Animated(
                 AnimatedTextureError::InvalidFrameDuration(frame_duration),

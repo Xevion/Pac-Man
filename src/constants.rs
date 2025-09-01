@@ -30,6 +30,21 @@ pub const BOARD_CELL_OFFSET: UVec2 = UVec2::new(0, 3);
 /// Automatically calculated from the cell offset to maintain consistency
 /// when the cell size changes. Used for positioning sprites and debug overlays.
 pub const BOARD_PIXEL_OFFSET: UVec2 = UVec2::new(BOARD_CELL_OFFSET.x * CELL_SIZE, BOARD_CELL_OFFSET.y * CELL_SIZE);
+
+/// Animation timing constants for ghost state management
+pub mod animation {
+    /// Normal ghost movement animation speed (frames per second)
+    pub const GHOST_NORMAL_SPEED: f32 = 0.2;
+    /// Eaten ghost (eyes) animation speed (frames per second)
+    pub const GHOST_EATEN_SPEED: f32 = 0.1;
+    /// Frightened ghost animation speed (frames per second)
+    pub const GHOST_FRIGHTENED_SPEED: f32 = 0.2;
+    /// Frightened ghost flashing animation speed (frames per second)
+    pub const GHOST_FLASHING_SPEED: f32 = 0.15;
+
+    /// Time in ticks when frightened ghosts start flashing (2 seconds at 60 FPS)
+    pub const FRIGHTENED_FLASH_START_TICKS: u32 = 120;
+}
 /// The size of the canvas, in pixels.
 pub const CANVAS_SIZE: UVec2 = UVec2::new(
     (BOARD_CELL_SIZE.x + BOARD_CELL_OFFSET.x) * CELL_SIZE,

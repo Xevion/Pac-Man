@@ -8,7 +8,7 @@ use crate::error::GameError;
 use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::systems::movement::Position;
-use crate::systems::{AudioEvent, Ghost, PlayerControlled, ScoreResource, Vulnerable};
+use crate::systems::{AudioEvent, Eaten, Ghost, PlayerControlled, ScoreResource, Vulnerable};
 
 #[derive(Component)]
 pub struct Collider {
@@ -136,7 +136,7 @@ pub fn ghost_collision_system(
                     score.0 += 200;
 
                     // Remove the ghost
-                    commands.entity(ghost_ent).despawn();
+                    commands.entity(ghost_ent).remove::<Vulnerable>().insert(Eaten);
 
                     // Play eat sound
                     events.write(AudioEvent::PlayEat);

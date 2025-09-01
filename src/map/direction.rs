@@ -1,8 +1,10 @@
 use glam::IVec2;
+use strum_macros::AsRefStr;
 
 /// The four cardinal directions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, AsRefStr)]
 #[repr(usize)]
+#[strum(serialize_all = "lowercase")]
 pub enum Direction {
     Up,
     Down,
