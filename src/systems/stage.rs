@@ -79,15 +79,19 @@ pub fn startup_stage_system(
     if let Some((from, to)) = startup.tick() {
         debug!("StartupSequence transition from {from:?} to {to:?}");
         match (from, to) {
-            // (StartupSequence::TextOnly { .. }, StartupSequence::CharactersVisible { .. }) => {}
-            (StartupSequence::CharactersVisible { .. }, StartupSequence::GameActive) => {
-                // Unfreeze and unhide the player & ghosts
+            (StartupSequence::TextOnly { .. }, StartupSequence::CharactersVisible { .. }) => {
+                // Unhide the player & ghosts
                 for entity in player_query.iter_mut().chain(ghost_query.iter_mut()) {
-                    commands.entity(entity).remove::<(Frozen, Hidden)>();
+                    commands.entity(entity).remove::<Hidden>();
                 }
-
-                // Unfreeze pellet blinking
-                for entity in blinking_query.iter_mut() {
+            }
+            (StartupSequence::CharactersVisible { .. }, StartupSequence::GameActive) => {
+                // Unfreeze the player & ghosts & pellet blinking
+                for entity in player_query
+                    .iter_mut()
+                    .chain(ghost_query.iter_mut())
+                    .chain(blinking_query.iter_mut())
+                {
                     commands.entity(entity).remove::<Frozen>();
                 }
             }
