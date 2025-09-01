@@ -111,28 +111,26 @@ impl SystemTimings {
     }
 
     pub fn get_total_stats(&self) -> (Duration, Duration) {
-        let timings = self.timings.read();
-        let mut all_durations = Vec::new();
+        let duration_sums = {
+            let timings = self.timings.read();
+            timings
+                .iter()
+                .map(|(_, queue)| queue.lock().iter().sum::<Duration>())
+                .collect::<Vec<_>>()
+        };
 
-        for queue in timings.values() {
-            all_durations.extend(queue.lock().iter().map(|d| d.as_secs_f64() * 1000.0));
-        }
+        let mean = duration_sums.iter().sum::<Duration>() / duration_sums.len() as u32;
+        let variance = duration_sums
+            .iter()
+            .map(|x| {
+                let diff_secs = x.as_secs_f64() - mean.as_secs_f64();
+                diff_secs * diff_secs
+            })
+            .sum::<f64>()
+            / duration_sums.len() as f64;
+        let std_dev_secs = variance.sqrt();
 
-        if all_durations.is_empty() {
-            return (Duration::ZERO, Duration::ZERO);
-        }
-
-        let count = all_durations.len() as f64;
-        let sum: f64 = all_durations.iter().sum();
-        let mean = sum / count;
-
-        let variance = all_durations.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / count;
-        let std_dev = variance.sqrt();
-
-        (
-            Duration::from_secs_f64(mean / 1000.0),
-            Duration::from_secs_f64(std_dev / 1000.0),
-        )
+        (mean, Duration::from_secs_f64(std_dev_secs))
     }
 
     pub fn format_timing_display(&self) -> SmallVec<[String; SystemId::COUNT]> {
@@ -153,7 +151,7 @@ impl SystemTimings {
         sorted_stats.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
 
         // Add the top 5 most expensive systems
-        for (name, (avg, std_dev)) in sorted_stats.iter().take(5) {
+        for (name, (avg, std_dev)) in sorted_stats.iter().take(7) {
             timing_data.push((name.to_string(), *avg, *std_dev));
         }
 

@@ -54,8 +54,8 @@ fn render_timing_display(
         .unwrap_or(0);
 
     // Only draw background if there is text to display
-    if max_width > 0 {
-        let total_height = (lines.len() as u32) * line_height as u32;
+    let total_height = (lines.len() as u32) * line_height as u32;
+    if max_width > 0 && total_height > 0 {
         let bg_padding = 5;
 
         // Draw background
