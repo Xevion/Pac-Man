@@ -93,31 +93,6 @@ impl App {
         {
             let start = Instant::now();
 
-            // for event in self
-            //     .game
-            //     .world
-            //     .get_non_send_resource_mut::<&'static mut EventPump>()
-            //     .unwrap()
-            //     .poll_iter()
-            // {
-            //     match event {
-            //         Event::Window { win_event, .. } => match win_event {
-            //             WindowEvent::FocusGained => {
-            //                 self.focused = true;
-            //             }
-            //             WindowEvent::FocusLost => {
-            //                 self.focused = false;
-            //             }
-            //             _ => {}
-            //         },
-            //         Event::MouseMotion { x, y, .. } => {
-            //             // Convert window coordinates to logical coordinates
-            //             self.cursor_pos = Vec2::new(x as f32, y as f32);
-            //         }
-            //         _ => {}
-            //     }
-            // }
-
             let dt = self.last_tick.elapsed().as_secs_f32();
             self.last_tick = Instant::now();
 

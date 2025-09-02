@@ -1,3 +1,4 @@
+// Note: This disables the console window on Windows. We manually re-attach to the parent terminal or process later on.
 #![windows_subsystem = "windows"]
 
 use crate::{app::App, constants::LOOP_TIME};
