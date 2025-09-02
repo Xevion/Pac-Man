@@ -2,7 +2,7 @@
 
 use crate::platform::buffered_writer::BufferedWriter;
 use std::io;
-use tracing::Level;
+use tracing::{debug, Level};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::SubscriberExt;
@@ -16,17 +16,24 @@ pub struct SwitchableWriter {
 
 impl SwitchableWriter {
     pub fn switch_to_direct_mode(&self) -> io::Result<()> {
-        // Get buffer size before flushing for debug logging
-        let buffer_size = self.buffered_writer.buffer_size();
+        let buffer_size = {
+            // Acquire the lock
+            let mut mode = self.direct_mode.lock();
 
-        // First flush any buffered content
-        self.buffered_writer.flush_to(io::stdout())?;
+            // Get buffer size before flushing for debug logging
+            let buffer_size = self.buffered_writer.buffer_size();
 
-        // Switch to direct mode
-        *self.direct_mode.lock() = true;
+            // Flush any buffered content
+            self.buffered_writer.flush_to(io::stdout())?;
+
+            // Switch to direct mode (and drop the lock)
+            *mode = true;
+
+            buffer_size
+        };
 
         // Log how much was buffered (this will now go directly to stdout)
-        tracing::debug!("Flushed {} bytes of buffered logs to console", buffer_size);
+        debug!("Flushed {buffer_size:?} bytes of buffered logs to console");
 
         Ok(())
     }

@@ -6,7 +6,6 @@ use std::time::Duration;
 use crate::asset::Asset;
 use crate::error::{AssetError, PlatformError};
 use crate::platform::CommonPlatform;
-use tracing::{debug, info, warn};
 
 /// Desktop platform implementation.
 pub struct Platform;
@@ -27,6 +26,7 @@ impl CommonPlatform for Platform {
     fn init_console(&self) -> Result<(), PlatformError> {
         #[cfg(windows)]
         {
+            use tracing::{debug, info};
             use windows::Win32::System::Console::GetConsoleWindow;
 
             // Check if we already have a console window
@@ -51,6 +51,10 @@ impl CommonPlatform for Platform {
         Ok(())
     }
 
+    fn requires_console(&self) -> bool {
+        cfg!(windows)
+    }
+
     fn get_canvas_size(&self) -> Option<(u32, u32)> {
         None // Desktop doesn't need this
     }
@@ -71,6 +75,8 @@ impl CommonPlatform for Platform {
 impl Platform {
     /// Check if the output stream has been setup by a parent process
     fn is_output_setup() -> Result<Option<&'static str>, PlatformError> {
+        use tracing::{debug, warn};
+
         use windows::Win32::Storage::FileSystem::{
             GetFileType, FILE_TYPE_CHAR, FILE_TYPE_DISK, FILE_TYPE_PIPE, FILE_TYPE_REMOTE, FILE_TYPE_UNKNOWN,
         };

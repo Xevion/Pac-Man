@@ -25,6 +25,10 @@ impl CommonPlatform for Platform {
         Ok(()) // No-op for Emscripten
     }
 
+    fn requires_console(&self) -> bool {
+        false
+    }
+
     fn get_canvas_size(&self) -> Option<(u32, u32)> {
         Some(unsafe { get_canvas_size() })
     }

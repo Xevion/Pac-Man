@@ -32,6 +32,9 @@ pub trait CommonPlatform {
 
     /// Loads raw asset data using the appropriate platform-specific method.
     fn get_asset_bytes(&self, asset: Asset) -> Result<Cow<'static, [u8]>, AssetError>;
+
+    /// Whether the platform requires a console to be initialized.
+    fn requires_console(&self) -> bool;
 }
 
 /// Returns the appropriate platform implementation based on compile-time target.
