@@ -15,3 +15,6 @@ assets/site/build.css
 # Coverage reports
 lcov.info
 coverage.html
+
+# Profiling output
+flamegraph.svg
