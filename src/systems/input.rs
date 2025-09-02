@@ -7,6 +7,7 @@ use bevy_ecs::{
 };
 use glam::Vec2;
 use sdl2::{event::Event, keyboard::Keycode, EventPump};
+use smallvec::{smallvec, SmallVec};
 
 use crate::systems::components::DeltaTime;
 use crate::{
@@ -133,10 +134,22 @@ pub fn input_system(
 ) {
     let mut cursor_seen = false;
     // Collect all events for this frame.
-    let frame_events: Vec<Event> = pump.poll_iter().collect();
+    let frame_events: SmallVec<[Event; 3]> = pump.poll_iter().collect();
+
+    // Warn if the smallvec was heap allocated due to exceeding stack capacity
+    #[cfg(debug_assertions)]
+    {
+        if frame_events.len() > frame_events.capacity() {
+            tracing::warn!(
+                "More than {} events in a frame, consider adjusting stack capacity: {:?}",
+                frame_events.capacity(),
+                frame_events
+            );
+        }
+    }
 
     // Handle non-keyboard events inline and build a simplified keyboard event stream.
-    let mut simple_key_events = Vec::new();
+    let mut simple_key_events: SmallVec<[SimpleKeyEvent; 3]> = smallvec![];
     for event in &frame_events {
         match *event {
             Event::Quit { .. } => {
@@ -149,21 +162,25 @@ pub fn input_system(
                 };
                 cursor_seen = true;
             }
-            Event::KeyDown {
-                keycode: Some(key),
-                repeat: false,
-                ..
-            } => {
-                simple_key_events.push(SimpleKeyEvent::KeyDown(key));
+            Event::KeyDown { keycode, repeat, .. } => {
+                if let Some(key) = keycode {
+                    if repeat {
+                        continue;
+                    }
+                    simple_key_events.push(SimpleKeyEvent::KeyDown(key));
+                }
             }
-            Event::KeyUp {
-                keycode: Some(key),
-                repeat: false,
-                ..
-            } => {
-                simple_key_events.push(SimpleKeyEvent::KeyUp(key));
+            Event::KeyUp { keycode, repeat, .. } => {
+                if let Some(key) = keycode {
+                    if repeat {
+                        continue;
+                    }
+                    simple_key_events.push(SimpleKeyEvent::KeyUp(key));
+                }
             }
-            _ => {}
+            _ => {
+                tracing::warn!("Unhandled event, consider disabling: {:?}", event);
+            }
         }
     }
 

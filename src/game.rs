@@ -31,6 +31,7 @@ use bevy_ecs::schedule::common_conditions::resource_changed;
 use bevy_ecs::schedule::{Condition, IntoScheduleConfigs, Schedule, SystemSet};
 use bevy_ecs::system::ResMut;
 use bevy_ecs::world::World;
+use sdl2::event::EventType;
 use sdl2::image::LoadTexture;
 use sdl2::render::{BlendMode, Canvas, ScaleMode, TextureCreator};
 use sdl2::rwops::RWops;
@@ -83,8 +84,63 @@ impl Game {
     pub fn new(
         mut canvas: Canvas<Window>,
         texture_creator: TextureCreator<WindowContext>,
-        event_pump: EventPump,
+        mut event_pump: EventPump,
     ) -> GameResult<Game> {
+        // Disable uninteresting events
+        for event_type in [
+            EventType::JoyAxisMotion,
+            EventType::JoyBallMotion,
+            EventType::JoyHatMotion,
+            EventType::JoyButtonDown,
+            EventType::JoyButtonUp,
+            EventType::JoyDeviceAdded,
+            EventType::JoyDeviceRemoved,
+            EventType::ControllerAxisMotion,
+            EventType::ControllerButtonDown,
+            EventType::ControllerButtonUp,
+            EventType::ControllerDeviceAdded,
+            EventType::ControllerDeviceRemoved,
+            EventType::ControllerDeviceRemapped,
+            EventType::ControllerTouchpadDown,
+            EventType::ControllerTouchpadMotion,
+            EventType::ControllerTouchpadUp,
+            EventType::FingerDown,
+            EventType::FingerUp,
+            EventType::FingerMotion,
+            EventType::DollarGesture,
+            EventType::DollarRecord,
+            EventType::MultiGesture,
+            EventType::ClipboardUpdate,
+            EventType::DropFile,
+            EventType::DropText,
+            EventType::DropBegin,
+            EventType::DropComplete,
+            EventType::AudioDeviceAdded,
+            EventType::AudioDeviceRemoved,
+            EventType::RenderTargetsReset,
+            EventType::RenderDeviceReset,
+            EventType::LocaleChanged,
+            EventType::TextInput,
+            EventType::TextEditing,
+            EventType::Display,
+            EventType::Window,
+            EventType::MouseWheel,
+            EventType::MouseMotion,
+            EventType::MouseButtonDown,
+            EventType::MouseButtonUp,
+            EventType::MouseButtonDown,
+            EventType::AppDidEnterBackground,
+            EventType::AppWillEnterForeground,
+            EventType::AppWillEnterBackground,
+            EventType::AppDidEnterForeground,
+            EventType::AppLowMemory,
+            EventType::AppTerminating,
+            EventType::User,
+            EventType::Last,
+        ] {
+            event_pump.disable_event(event_type);
+        }
+
         let ttf_context = Box::leak(Box::new(sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?));
         let mut backbuffer = texture_creator
             .create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)
