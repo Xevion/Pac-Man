@@ -128,7 +128,7 @@ pub fn input_system(
     delta_time: Res<DeltaTime>,
     mut bindings: ResMut<Bindings>,
     mut writer: EventWriter<GameEvent>,
-    mut pump: NonSendMut<&'static mut EventPump>,
+    mut pump: NonSendMut<EventPump>,
     mut cursor: ResMut<CursorPosition>,
 ) {
     let mut cursor_seen = false;

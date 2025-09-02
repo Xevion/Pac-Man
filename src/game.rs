@@ -81,9 +81,9 @@ impl Game {
     /// Returns `GameError` for SDL2 failures, asset loading problems, atlas parsing
     /// errors, or entity initialization issues.
     pub fn new(
-        canvas: &'static mut Canvas<Window>,
-        texture_creator: &'static mut TextureCreator<WindowContext>,
-        event_pump: &'static mut EventPump,
+        mut canvas: Canvas<Window>,
+        texture_creator: TextureCreator<WindowContext>,
+        event_pump: EventPump,
     ) -> GameResult<Game> {
         let ttf_context = Box::leak(Box::new(sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?));
         let mut backbuffer = texture_creator
@@ -106,9 +106,8 @@ impl Game {
         debug_texture.set_blend_mode(BlendMode::Blend);
         debug_texture.set_scale_mode(ScaleMode::Nearest);
 
-        let font_data = get_asset_bytes(Asset::Font)?;
-        let static_font_data: &'static [u8] = Box::leak(font_data.to_vec().into_boxed_slice());
-        let font_asset = RWops::from_bytes(static_font_data).map_err(|_| GameError::Sdl("Failed to load font".to_string()))?;
+        let font_data: &'static [u8] = get_asset_bytes(Asset::Font)?.to_vec().leak();
+        let font_asset = RWops::from_bytes(font_data).map_err(|_| GameError::Sdl("Failed to load font".to_string()))?;
         let debug_font = ttf_context
             .load_font_from_rwops(font_asset, constants::ui::DEBUG_FONT_SIZE)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
@@ -256,7 +255,7 @@ impl Game {
 
         world.insert_non_send_resource(atlas);
         world.insert_non_send_resource(event_pump);
-        world.insert_non_send_resource(canvas);
+        world.insert_non_send_resource::<&mut Canvas<Window>>(Box::leak(Box::new(canvas)));
         world.insert_non_send_resource(BackbufferResource(backbuffer));
         world.insert_non_send_resource(MapTextureResource(map_texture));
         world.insert_non_send_resource(DebugTextureResource(debug_texture));

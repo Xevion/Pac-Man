@@ -1,10 +1,5 @@
 use std::time::{Duration, Instant};
 
-use sdl2::render::TextureCreator;
-use sdl2::ttf::Sdl2TtfContext;
-use sdl2::video::WindowContext;
-use sdl2::{AudioSubsystem, EventPump, Sdl, VideoSubsystem};
-
 use crate::error::{GameError, GameResult};
 
 use crate::constants::{CANVAS_SIZE, LOOP_TIME, SCALE};
@@ -34,15 +29,11 @@ impl App {
     /// Returns `GameError::Sdl` if any SDL initialization step fails, or propagates
     /// errors from `Game::new()` during game state setup.
     pub fn new() -> GameResult<Self> {
-        let sdl_context: &'static Sdl = Box::leak(Box::new(sdl2::init().map_err(|e| GameError::Sdl(e.to_string()))?));
-        let video_subsystem: &'static VideoSubsystem =
-            Box::leak(Box::new(sdl_context.video().map_err(|e| GameError::Sdl(e.to_string()))?));
-        let _audio_subsystem: &'static AudioSubsystem =
-            Box::leak(Box::new(sdl_context.audio().map_err(|e| GameError::Sdl(e.to_string()))?));
-        let _ttf_context: &'static Sdl2TtfContext =
-            Box::leak(Box::new(sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?));
-        let event_pump: &'static mut EventPump =
-            Box::leak(Box::new(sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?));
+        let sdl_context = sdl2::init().map_err(|e| GameError::Sdl(e.to_string()))?;
+        let video_subsystem = sdl_context.video().map_err(|e| GameError::Sdl(e.to_string()))?;
+        let _audio_subsystem = sdl_context.audio().map_err(|e| GameError::Sdl(e.to_string()))?;
+        let _ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
+        let event_pump = sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
 
         let window = video_subsystem
             .window(
@@ -55,19 +46,17 @@ impl App {
             .build()
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
-        let canvas = Box::leak(Box::new(
-            window
-                .into_canvas()
-                .accelerated()
-                .build()
-                .map_err(|e| GameError::Sdl(e.to_string()))?,
-        ));
+        let mut canvas = window
+            .into_canvas()
+            .accelerated()
+            .build()
+            .map_err(|e| GameError::Sdl(e.to_string()))?;
 
         canvas
             .set_logical_size(CANVAS_SIZE.x, CANVAS_SIZE.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
-        let texture_creator: &'static mut TextureCreator<WindowContext> = Box::leak(Box::new(canvas.texture_creator()));
+        let texture_creator = canvas.texture_creator();
 
         let game = Game::new(canvas, texture_creator, event_pump)?;
         // game.audio.set_mute(cfg!(debug_assertions));
