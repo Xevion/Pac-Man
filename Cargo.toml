@@ -42,16 +42,14 @@ windows-sys = { version = "0.60.2", features = ["Win32_System_Console"] }
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 libc = "0.2"
 
-
-[target.'cfg(target_os = "emscripten")'.dependencies.sdl2]
-version = "0.38"
-default-features = false
-features = ["ttf","image","gfx","mixer"]
-
 [target.'cfg(not(target_os = "emscripten"))'.dependencies.sdl2]
 version = "0.38"
 default-features = false
-features = ["ttf","image","gfx","mixer","static-link","use-vcpkg"]
+features = ["image", "ttf", "gfx", "mixer", "unsafe_textures", "static-link", "use-vcpkg"]
+
+[target.'cfg(target_os = "emscripten")'.dependencies]
+sdl2 = { version = "0.38", default-features = false, features = ["image", "ttf", "gfx", "mixer", "unsafe_textures"] }
+libc = "0.2.175"  # TODO: Describe why this is required.
 
 [package.metadata.vcpkg]
 dependencies = ["sdl2", "sdl2-image", "sdl2-ttf", "sdl2-gfx", "sdl2-mixer"]
@@ -64,8 +62,6 @@ x86_64-unknown-linux-gnu = { triplet = "x64-linux" }
 x86_64-apple-darwin = { triplet = "x64-osx" }
 aarch64-apple-darwin = { triplet = "arm64-osx" }
 
-[target.'cfg(target_os = "emscripten")'.dependencies]
-libc = "0.2.175"
 
 [build-dependencies]
 serde = { version = "1.0", features = ["derive"] }

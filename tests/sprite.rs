@@ -3,7 +3,7 @@ use pacman::texture::sprite::{AtlasMapper, AtlasTile, MapperFrame, SpriteAtlas};
 use sdl2::pixels::Color;
 use std::collections::HashMap;
 
-fn mock_texture() -> sdl2::render::Texture<'static> {
+fn mock_texture() -> sdl2::render::Texture {
     unsafe { std::mem::transmute(0usize) }
 }
 

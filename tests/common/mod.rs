@@ -7,7 +7,7 @@ use pacman::{
 };
 use sdl2::{
     image::LoadTexture,
-    render::{Canvas, Texture, TextureCreator},
+    render::{Canvas, TextureCreator},
     video::{Window, WindowContext},
     Sdl,
 };
@@ -31,7 +31,6 @@ pub fn create_atlas(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) -> S
     let atlas_bytes = get_asset_bytes(Asset::AtlasImage).unwrap();
 
     let texture = texture_creator.load_texture_bytes(&atlas_bytes).unwrap();
-    let texture: Texture<'static> = unsafe { std::mem::transmute(texture) };
 
     let atlas_mapper = AtlasMapper {
         frames: ATLAS_FRAMES.into_iter().map(|(k, v)| (k.to_string(), *v)).collect(),

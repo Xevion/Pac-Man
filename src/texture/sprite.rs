@@ -79,7 +79,7 @@ impl AtlasTile {
 /// and optional default color modulation configuration.
 pub struct SpriteAtlas {
     /// The combined texture containing all sprite frames
-    texture: Texture<'static>,
+    texture: Texture,
     /// Mapping from sprite names to their pixel coordinates within the texture
     tiles: HashMap<String, MapperFrame>,
     default_color: Option<Color>,
@@ -88,7 +88,7 @@ pub struct SpriteAtlas {
 }
 
 impl SpriteAtlas {
-    pub fn new(texture: Texture<'static>, mapper: AtlasMapper) -> Self {
+    pub fn new(texture: Texture, mapper: AtlasMapper) -> Self {
         Self {
             texture,
             tiles: mapper.frames,
@@ -117,7 +117,7 @@ impl SpriteAtlas {
     }
 
     #[allow(dead_code)]
-    pub fn texture(&self) -> &Texture<'static> {
+    pub fn texture(&self) -> &Texture {
         &self.texture
     }
 

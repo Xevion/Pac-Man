@@ -100,10 +100,10 @@ pub fn linear_render_system(dt: Res<DeltaTime>, mut query: Query<(&mut LinearAni
 }
 
 /// A non-send resource for the map texture. This just wraps the texture with a type so it can be differentiated when exposed as a resource.
-pub struct MapTextureResource(pub Texture<'static>);
+pub struct MapTextureResource(pub Texture);
 
 /// A non-send resource for the backbuffer texture. This just wraps the texture with a type so it can be differentiated when exposed as a resource.
-pub struct BackbufferResource(pub Texture<'static>);
+pub struct BackbufferResource(pub Texture);
 
 /// Renders the HUD (score, lives, etc.) on top of the game.
 pub fn hud_render_system(

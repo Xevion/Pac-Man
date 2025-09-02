@@ -23,7 +23,7 @@ fn f32_to_u8(value: f32) -> u8 {
 }
 
 /// Resource to hold the debug texture for persistent rendering
-pub struct DebugTextureResource(pub Texture<'static>);
+pub struct DebugTextureResource(pub Texture);
 
 /// Resource to hold the debug font
 pub struct DebugFontResource(pub Font<'static, 'static>);
