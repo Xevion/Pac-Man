@@ -12,6 +12,7 @@ mod emscripten;
 
 pub mod buffered_writer;
 pub mod tracing_buffer;
+
 /// Cross-platform abstraction layer providing unified APIs for platform-specific operations.
 pub trait CommonPlatform {
     /// Platform-specific sleep function (required due to Emscripten's non-standard sleep requirements).

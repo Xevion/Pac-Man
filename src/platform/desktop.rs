@@ -88,7 +88,7 @@ impl Platform {
             handle => handle,
         };
 
-        // Identify the file type of the handle
+        // Identify the file type of the handle and whether it's 'well known' (i.e. we trust it to be a reasonable output destination)
         let (well_known, file_type) = match unsafe {
             use windows::Win32::Foundation::HANDLE;
             GetFileType(HANDLE(handle))
@@ -107,7 +107,7 @@ impl Platform {
         debug!("File type: {file_type:?}, well known: {well_known}");
 
         // If it's anything recognizable and valid, assume that a parent process has setup an output stream
-        Ok(well_known.then(|| file_type))
+        Ok(well_known.then_some(file_type))
     }
 
     /// Try to attach to parent console
@@ -128,7 +128,7 @@ impl Platform {
             .map_err(|e| PlatformError::ConsoleInit(format!("Failed to attach to parent console: {:?}", e)))?;
 
         let handle = unsafe {
-            let pcstr = PCSTR::from_raw("CONOUT$\0".as_ptr());
+            let pcstr = PCSTR::from_raw(c"CONOUT$".as_ptr() as *const u8);
             CreateFileA::<PCSTR>(
                 pcstr,
                 (GENERIC_READ | GENERIC_WRITE).0,
