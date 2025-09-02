@@ -5,6 +5,8 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 # You can use src\\\\..., but the filename alone is acceptable too
 coverage_exclude_pattern := "src\\\\app.rs|audio.rs|src\\\\error.rs|platform\\\\emscripten.rs"
 
+binary_extension := if os() == "windows" { ".exe" } else { "" }
+
 # !!! --ignore-filename-regex should be used on both reports & coverage testing
 # !!! --remap-path-prefix prevents the absolute path from being used in the generated report
 
@@ -31,3 +33,8 @@ coverage:
     --output-path lcov.info \
     --profile coverage \
     --no-fail-fast nextest
+
+# Profile the project using 'samply'
+samply:
+    cargo build --profile profile
+    samply record ./target/profile/pacman{{ binary_extension }}
