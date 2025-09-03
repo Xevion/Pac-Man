@@ -5,6 +5,7 @@ use crate::error::{GameError, GameResult};
 use crate::constants::{CANVAS_SIZE, LOOP_TIME, SCALE};
 use crate::game::Game;
 use crate::platform::get_platform;
+use sdl2::{AudioSubsystem, Sdl};
 
 /// Main application wrapper that manages SDL initialization, window lifecycle, and the game loop.
 ///
@@ -15,6 +16,9 @@ pub struct App {
     pub game: Game,
     last_tick: Instant,
     focused: bool,
+    // Keep SDL alive for the app lifetime so subsystems (audio) are not shut down
+    _sdl_context: Sdl,
+    _audio_subsystem: AudioSubsystem,
 }
 
 impl App {
@@ -31,8 +35,8 @@ impl App {
     pub fn new() -> GameResult<Self> {
         let sdl_context = sdl2::init().map_err(|e| GameError::Sdl(e.to_string()))?;
         let video_subsystem = sdl_context.video().map_err(|e| GameError::Sdl(e.to_string()))?;
-        let _audio_subsystem = sdl_context.audio().map_err(|e| GameError::Sdl(e.to_string()))?;
-        let _ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
+        let audio_subsystem = sdl_context.audio().map_err(|e| GameError::Sdl(e.to_string()))?;
+        // TTF context is initialized within Game::new where it is leaked for font usage
         let event_pump = sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
 
         let window = video_subsystem
@@ -65,6 +69,8 @@ impl App {
             game,
             focused: true,
             last_tick: Instant::now(),
+            _sdl_context: sdl_context,
+            _audio_subsystem: audio_subsystem,
         })
     }
 
