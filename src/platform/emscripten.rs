@@ -8,6 +8,7 @@ use crate::error::{AssetError, PlatformError};
 use rand::{rngs::SmallRng, SeedableRng};
 
 // Emscripten FFI functions
+#[allow(dead_code)]
 extern "C" {
     fn emscripten_get_now() -> f64;
     fn emscripten_sleep(ms: u32);
@@ -18,10 +19,6 @@ pub fn sleep(duration: Duration, _focused: bool) {
     unsafe {
         emscripten_sleep(duration.as_millis() as u32);
     }
-}
-
-pub fn get_time() -> f64 {
-    unsafe { emscripten_get_now() }
 }
 
 pub fn init_console() -> Result<(), PlatformError> {

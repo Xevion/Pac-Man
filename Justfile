@@ -38,3 +38,7 @@ coverage:
 samply:
     cargo build --profile profile
     samply record ./target/profile/pacman{{ binary_extension }}
+
+# Build the project for Emscripten
+web:
+    bun run web.build.ts

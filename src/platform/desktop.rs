@@ -1,7 +1,7 @@
 //! Desktop platform implementation.
 
 use std::borrow::Cow;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use rand::rngs::ThreadRng;
 
@@ -15,10 +15,6 @@ pub fn sleep(duration: Duration, focused: bool) {
     } else {
         std::thread::sleep(duration);
     }
-}
-
-pub fn get_time() -> f64 {
-    Instant::now().elapsed().as_secs_f64()
 }
 
 pub fn init_console() -> Result<(), PlatformError> {
@@ -51,10 +47,6 @@ pub fn init_console() -> Result<(), PlatformError> {
 
 pub fn requires_console() -> bool {
     cfg!(windows)
-}
-
-pub fn get_canvas_size() -> Option<(u32, u32)> {
-    None // Desktop doesn't need this
 }
 
 pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
