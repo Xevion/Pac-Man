@@ -151,7 +151,7 @@ jobs:
           done
 
       - name: Upload Artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         if: github.ref == 'refs/heads/master' && github.event_name == 'push'
         with:
           path: "./dist/"
