@@ -18,10 +18,10 @@ use crate::systems::{self, ghost_collision_system, present_system, Hidden, Linea
 use crate::systems::{
     audio_system, blinking_system, collision_system, debug_render_system, directional_render_system, dirty_render_system,
     eaten_ghost_system, ghost_movement_system, ghost_state_system, hud_render_system, item_system, linear_render_system, profile,
-    render_system, AudioEvent, AudioResource, AudioState, BackbufferResource, Collider, DebugFontResource, DebugState,
-    DebugTextureResource, DeltaTime, DirectionalAnimation, EntityType, Frozen, Ghost, GhostAnimations, GhostBundle,
-    GhostCollider, GlobalState, ItemBundle, ItemCollider, MapTextureResource, PacmanCollider, PlayerBundle, PlayerControlled,
-    Renderable, ScoreResource, StartupSequence, SystemTimings,
+    render_system, AudioEvent, AudioResource, AudioState, BackbufferResource, Collider, DebugState, DebugTextureResource,
+    DeltaTime, DirectionalAnimation, EntityType, Frozen, Ghost, GhostAnimations, GhostBundle, GhostCollider, GlobalState,
+    ItemBundle, ItemCollider, MapTextureResource, PacmanCollider, PlayerBundle, PlayerControlled, Renderable, ScoreResource,
+    StartupSequence, SystemTimings,
 };
 use crate::texture::animated::{DirectionalTiles, TileSequence};
 use crate::texture::sprite::AtlasTile;
@@ -42,6 +42,7 @@ use crate::{
     asset::{get_asset_bytes, Asset},
     events::GameCommand,
     map::render::MapRenderer,
+    systems::debug::TtfAtlasResource,
     systems::input::{Bindings, CursorPosition},
     texture::sprite::{AtlasMapper, SpriteAtlas},
 };
@@ -162,11 +163,16 @@ impl Game {
         debug_texture.set_blend_mode(BlendMode::Blend);
         debug_texture.set_scale_mode(ScaleMode::Nearest);
 
+        // Create debug text atlas for efficient debug rendering
         let font_data: &'static [u8] = get_asset_bytes(Asset::Font)?.to_vec().leak();
         let font_asset = RWops::from_bytes(font_data).map_err(|_| GameError::Sdl("Failed to load font".to_string()))?;
         let debug_font = ttf_context
             .load_font_from_rwops(font_asset, constants::ui::DEBUG_FONT_SIZE)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
+
+        let mut ttf_atlas = crate::texture::ttf::TtfAtlas::new(&texture_creator, &debug_font)?;
+        // Populate the atlas with actual character data
+        ttf_atlas.populate_atlas(&mut canvas, &texture_creator, &debug_font)?;
 
         // Initialize audio system
         let audio = crate::audio::Audio::new();
@@ -315,7 +321,7 @@ impl Game {
         world.insert_non_send_resource(BackbufferResource(backbuffer));
         world.insert_non_send_resource(MapTextureResource(map_texture));
         world.insert_non_send_resource(DebugTextureResource(debug_texture));
-        world.insert_non_send_resource(DebugFontResource(debug_font));
+        world.insert_non_send_resource(TtfAtlasResource(ttf_atlas));
         world.insert_non_send_resource(AudioResource(audio));
 
         world.add_observer(

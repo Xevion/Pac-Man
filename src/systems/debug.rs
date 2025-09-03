@@ -4,14 +4,14 @@ use std::cmp::Ordering;
 use crate::constants::BOARD_PIXEL_OFFSET;
 use crate::map::builder::Map;
 use crate::systems::{Collider, CursorPosition, NodeId, Position, SystemTimings};
+use crate::texture::ttf::{TtfAtlas, TtfRenderer};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{NonSendMut, Query, Res};
 use glam::{IVec2, UVec2, Vec2};
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
-use sdl2::render::{Canvas, Texture, TextureCreator};
-use sdl2::ttf::Font;
-use sdl2::video::{Window, WindowContext};
+use sdl2::render::{Canvas, Texture};
+use sdl2::video::Window;
 
 #[derive(Resource, Default, Debug, Copy, Clone)]
 pub struct DebugState {
@@ -25,31 +25,31 @@ fn f32_to_u8(value: f32) -> u8 {
 /// Resource to hold the debug texture for persistent rendering
 pub struct DebugTextureResource(pub Texture);
 
-/// Resource to hold the debug font
-pub struct DebugFontResource(pub Font<'static, 'static>);
+/// Resource to hold the TTF text atlas
+pub struct TtfAtlasResource(pub TtfAtlas);
 
 /// Transforms a position from logical canvas coordinates to output canvas coordinates (with board offset)
 fn transform_position_with_offset(pos: Vec2, scale: f32) -> IVec2 {
     ((pos + BOARD_PIXEL_OFFSET.as_vec2()) * scale).as_ivec2()
 }
 
-/// Renders timing information in the top-left corner of the screen
+/// Renders timing information in the top-left corner of the screen using the debug text atlas
 fn render_timing_display(
     canvas: &mut Canvas<Window>,
-    texture_creator: &mut TextureCreator<WindowContext>,
     timings: &SystemTimings,
-    font: &Font,
+    text_renderer: &TtfRenderer,
+    atlas: &mut TtfAtlas,
 ) {
     // Format timing information using the formatting module
     let lines = timings.format_timing_display();
-    let line_height = 14; // Approximate line height for 12pt font
+    let line_height = text_renderer.text_height(atlas) as i32 + 2; // Add 2px line spacing
     let padding = 10;
 
     // Calculate background dimensions
     let max_width = lines
         .iter()
         .filter(|l| !l.is_empty()) // Don't consider empty lines for width
-        .map(|line| font.size_of(line).unwrap().0)
+        .map(|line| text_renderer.text_width(atlas, line))
         .max()
         .unwrap_or(0);
 
@@ -75,14 +75,14 @@ fn render_timing_display(
             continue;
         }
 
-        // Render each line
-        let surface = font.render(line).blended(Color::RGBA(255, 255, 255, 200)).unwrap();
-        let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
-
         // Position each line below the previous one
-        let y_pos = padding + (i * line_height) as i32;
-        let dest = Rect::new(padding, y_pos, texture.query().width, texture.query().height);
-        canvas.copy(&texture, None, dest).unwrap();
+        let y_pos = padding + (i as i32 * line_height);
+        let position = Vec2::new(padding as f32, y_pos as f32);
+
+        // Render the line using the debug text renderer
+        text_renderer
+            .render_text(canvas, atlas, line, position, Color::RGBA(255, 255, 255, 200))
+            .unwrap();
     }
 }
 
@@ -90,7 +90,7 @@ fn render_timing_display(
 pub fn debug_render_system(
     mut canvas: NonSendMut<&mut Canvas<Window>>,
     mut debug_texture: NonSendMut<DebugTextureResource>,
-    debug_font: NonSendMut<DebugFontResource>,
+    mut ttf_atlas: NonSendMut<TtfAtlasResource>,
     debug_state: Res<DebugState>,
     timings: Res<SystemTimings>,
     map: Res<Map>,
@@ -103,9 +103,8 @@ pub fn debug_render_system(
     let scale =
         (UVec2::from(canvas.output_size().unwrap()).as_vec2() / UVec2::from(canvas.logical_size()).as_vec2()).min_element();
 
-    // Get texture creator before entering the closure to avoid borrowing conflicts
-    let mut texture_creator = canvas.texture_creator();
-    let font = &debug_font.0;
+    // Create debug text renderer
+    let text_renderer = TtfRenderer::new(1.0);
 
     let cursor_world_pos = match *cursor {
         CursorPosition::None => None,
@@ -188,20 +187,25 @@ pub fn debug_render_system(
                 let node = map.graph.get_node(closest_node_id as NodeId).unwrap();
                 let pos = transform_position_with_offset(node.position, scale);
 
-                let surface = font
-                    .render(&closest_node_id.to_string())
-                    .blended(Color {
-                        a: f32_to_u8(0.4),
-                        ..Color::WHITE
-                    })
+                let node_id_text = closest_node_id.to_string();
+                let text_pos = Vec2::new((pos.x + 10) as f32, (pos.y - 5) as f32);
+
+                text_renderer
+                    .render_text(
+                        debug_canvas,
+                        &mut ttf_atlas.0,
+                        &node_id_text,
+                        text_pos,
+                        Color {
+                            a: f32_to_u8(0.4),
+                            ..Color::WHITE
+                        },
+                    )
                     .unwrap();
-                let texture = texture_creator.create_texture_from_surface(&surface).unwrap();
-                let dest = Rect::new(pos.x + 10, pos.y - 5, texture.query().width, texture.query().height);
-                debug_canvas.copy(&texture, None, dest).unwrap();
             }
 
             // Render timing information in the top-left corner
-            render_timing_display(debug_canvas, &mut texture_creator, &timings, font);
+            render_timing_display(debug_canvas, &timings, &text_renderer, &mut ttf_atlas.0);
         })
         .unwrap();
 }
