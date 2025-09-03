@@ -22,13 +22,12 @@ mod texture;
 /// This function initializes SDL, the window, the game state, and then enters
 /// the main game loop.
 pub fn main() {
-    let platform = platform::get_platform();
-    if platform.requires_console() {
+    if platform::requires_console() {
         // Setup buffered tracing subscriber that will buffer logs until console is ready
         let switchable_writer = platform::tracing_buffer::setup_switchable_subscriber();
 
         // Initialize platform-specific console
-        platform.init_console().expect("Could not initialize console");
+        platform::init_console().expect("Could not initialize console");
 
         // Now that console is initialized, flush buffered logs and switch to direct output
         debug!("Switching to direct logging mode and flushing buffer...");

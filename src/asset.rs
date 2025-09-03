@@ -44,7 +44,7 @@ impl Asset {
 mod imp {
     use super::*;
     use crate::error::AssetError;
-    use crate::platform::get_platform;
+    use crate::platform;
 
     /// Loads asset bytes using the appropriate platform-specific method.
     ///
@@ -58,7 +58,7 @@ mod imp {
     /// Returns `AssetError::NotFound` if the asset file cannot be located (Emscripten only),
     /// or `AssetError::Io` for filesystem I/O failures.
     pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
-        get_platform().get_asset_bytes(asset)
+        platform::get_asset_bytes(asset)
     }
 }
 

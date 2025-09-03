@@ -4,7 +4,7 @@ use crate::error::{GameError, GameResult};
 
 use crate::constants::{CANVAS_SIZE, LOOP_TIME, SCALE};
 use crate::game::Game;
-use crate::platform::get_platform;
+use crate::platform;
 use sdl2::{AudioSubsystem, Sdl};
 
 /// Main application wrapper that manages SDL initialization, window lifecycle, and the game loop.
@@ -101,7 +101,7 @@ impl App {
             if start.elapsed() < LOOP_TIME {
                 let time = LOOP_TIME.saturating_sub(start.elapsed());
                 if time != Duration::ZERO {
-                    get_platform().sleep(time, self.focused);
+                    platform::sleep(time, self.focused);
                 }
             }
 

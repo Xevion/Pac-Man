@@ -1,3 +1,4 @@
+use crate::platform;
 use crate::systems::components::{DirectionalAnimation, Frozen, GhostAnimation, GhostState, LastAnimationState, LinearAnimation};
 use crate::{
     map::{
@@ -14,9 +15,7 @@ use crate::{
 use crate::systems::GhostAnimations;
 use bevy_ecs::query::Without;
 use bevy_ecs::system::{Commands, Query, Res};
-use rand::rngs::SmallRng;
 use rand::seq::IndexedRandom;
-use rand::SeedableRng;
 use smallvec::SmallVec;
 
 /// Autonomous ghost AI system implementing randomized movement with backtracking avoidance.
@@ -49,7 +48,7 @@ pub fn ghost_movement_system(
                             break;
                         }
                     } else {
-                        *non_opposite_options.choose(&mut SmallRng::from_os_rng()).unwrap()
+                        *non_opposite_options.choose(&mut platform::rng()).unwrap()
                     };
 
                     velocity.direction = new_edge.direction;
