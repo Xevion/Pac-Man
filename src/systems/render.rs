@@ -225,8 +225,6 @@ pub fn render_system(
         })
         .err()
         .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
-
-    canvas.copy(&backbuffer.0, None, None).unwrap();
 }
 
 pub fn present_system(
