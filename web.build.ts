@@ -501,7 +501,6 @@ async function activateEmsdk(
 
   return { vars };
 }
-
 async function main() {
   // Print the OS detected
   logger.debug(
@@ -515,7 +514,19 @@ async function main() {
         .exhaustive()
   );
 
-  const release = process.env.RELEASE !== "0";
+  // Parse command line args for build mode
+  const args = process.argv.slice(2);
+  let release = true; // Default to release mode
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "-d" || arg === "--debug") {
+      release = false;
+    } else if (arg === "-r" || arg === "--release") {
+      release = true;
+    }
+  }
+
   const emsdkDir = resolve("./emsdk");
 
   // Activate the Emscripten SDK (returns null if already activated)

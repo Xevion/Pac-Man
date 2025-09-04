@@ -50,7 +50,7 @@ fn test_atlas_mapper_multiple_frames() {
     assert!(mapper.frames.contains_key("tile1"));
     assert!(mapper.frames.contains_key("tile2"));
     assert!(!mapper.frames.contains_key("tile3"));
-    assert!(mapper.frames.get("nonexistent").is_none());
+    assert!(!mapper.frames.contains_key("nonexistent"));
 }
 
 #[test]

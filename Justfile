@@ -40,5 +40,6 @@ samply:
     samply record ./target/profile/pacman{{ binary_extension }}
 
 # Build the project for Emscripten
-web:
-    bun run web.build.ts; caddy file-server --root dist
+web *args:
+    bun run web.build.ts {{args}};
+    caddy file-server --root dist
