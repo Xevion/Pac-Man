@@ -128,7 +128,7 @@ impl Game {
             EventType::TextInput,
             EventType::TextEditing,
             EventType::Display,
-            EventType::Window,
+            // EventType::Window,
             EventType::MouseWheel,
             // EventType::MouseMotion,
             // EventType::MouseButtonDown,  // Enable for desktop touch testing
