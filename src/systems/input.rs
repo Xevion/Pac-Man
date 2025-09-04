@@ -15,6 +15,12 @@ use crate::{
     map::direction::Direction,
 };
 
+// Touch input constants
+const TOUCH_DIRECTION_THRESHOLD: f32 = 10.0;
+const TOUCH_EASING_DISTANCE_THRESHOLD: f32 = 1.0;
+const MAX_TOUCH_MOVEMENT_SPEED: f32 = 100.0;
+const TOUCH_EASING_FACTOR: f32 = 1.5;
+
 #[derive(Resource, Default, Debug, Copy, Clone)]
 pub enum CursorPosition {
     #[default]
@@ -46,35 +52,6 @@ impl TouchData {
             current_pos: start_pos,
             current_direction: None,
         }
-    }
-
-    pub fn update_position(&mut self, new_pos: Vec2) -> Option<Direction> {
-        self.current_pos = new_pos;
-        let delta = new_pos - self.start_pos;
-
-        // Minimum threshold for direction detection (in pixels)
-        const THRESHOLD: f32 = 20.0;
-
-        if delta.length() < THRESHOLD {
-            self.current_direction = None;
-            return None;
-        }
-
-        // Determine primary direction based on larger component
-        let direction = if delta.x.abs() > delta.y.abs() {
-            if delta.x > 0.0 {
-                Direction::Right
-            } else {
-                Direction::Left
-            }
-        } else if delta.y > 0.0 {
-            Direction::Down
-        } else {
-            Direction::Up
-        };
-
-        self.current_direction = Some(direction);
-        Some(direction)
     }
 }
 
@@ -178,6 +155,55 @@ pub fn process_simple_key_events(bindings: &mut Bindings, frame_events: &[Simple
     emitted_events
 }
 
+/// Calculates the primary direction from a 2D vector delta
+fn calculate_direction_from_delta(delta: Vec2) -> Direction {
+    if delta.x.abs() > delta.y.abs() {
+        if delta.x > 0.0 {
+            Direction::Right
+        } else {
+            Direction::Left
+        }
+    } else if delta.y > 0.0 {
+        Direction::Down
+    } else {
+        Direction::Up
+    }
+}
+
+/// Updates the touch reference position with easing
+///
+/// This slowly moves the start_pos towards the current_pos, with the speed
+/// decreasing as the distance gets smaller. The maximum movement speed is capped.
+/// Returns the delta vector and its length for reuse by the caller.
+fn update_touch_reference_position(touch_data: &mut TouchData, delta_time: f32) -> (Vec2, f32) {
+    // Calculate the vector from start to current position
+    let delta = touch_data.current_pos - touch_data.start_pos;
+    let distance = delta.length();
+
+    // If there's no significant distance, nothing to do
+    if distance < TOUCH_EASING_DISTANCE_THRESHOLD {
+        return (delta, distance);
+    }
+
+    // Calculate speed based on distance (slower as it gets closer)
+    // The easing function creates a curve where movement slows down as it approaches the target
+    let speed = (distance / TOUCH_EASING_FACTOR).min(MAX_TOUCH_MOVEMENT_SPEED);
+
+    // Calculate movement distance for this frame
+    let movement_amount = speed * delta_time;
+
+    // If the movement would overshoot, just set to target
+    if movement_amount >= distance {
+        touch_data.start_pos = touch_data.current_pos;
+    } else {
+        // Use direct vector scaling instead of normalization
+        let scale_factor = movement_amount / distance;
+        touch_data.start_pos += delta * scale_factor;
+    }
+
+    (delta, distance)
+}
+
 pub fn input_system(
     delta_time: Res<DeltaTime>,
     mut bindings: ResMut<Bindings>,
@@ -216,9 +242,7 @@ pub fn input_system(
 
                 // Handle mouse motion as touch motion for desktop testing
                 if let Some(ref mut touch_data) = touch_state.active_touch {
-                    if let Some(direction) = touch_data.update_position(Vec2::new(x as f32, y as f32)) {
-                        writer.write(GameEvent::Command(GameCommand::MovePlayer(direction)));
-                    }
+                    touch_data.current_pos = Vec2::new(x as f32, y as f32);
                 }
             }
             // Handle mouse events as touch for desktop testing
@@ -242,9 +266,7 @@ pub fn input_system(
                     if touch_data.finger_id == finger_id {
                         let screen_x = x * crate::constants::CANVAS_SIZE.x as f32;
                         let screen_y = y * crate::constants::CANVAS_SIZE.y as f32;
-                        if let Some(direction) = touch_data.update_position(Vec2::new(screen_x, screen_y)) {
-                            writer.write(GameEvent::Command(GameCommand::MovePlayer(direction)));
-                        }
+                        touch_data.current_pos = Vec2::new(screen_x, screen_y);
                     }
                 }
             }
@@ -281,6 +303,25 @@ pub fn input_system(
     let emitted = process_simple_key_events(&mut bindings, &simple_key_events);
     for event in emitted {
         writer.write(event);
+    }
+
+    // Update touch reference position with easing
+    if let Some(ref mut touch_data) = touch_state.active_touch {
+        // Apply easing to the reference position and get the delta for direction calculation
+        let (delta, distance) = update_touch_reference_position(touch_data, delta_time.0);
+
+        // Check for direction based on updated reference position
+        if distance >= TOUCH_DIRECTION_THRESHOLD {
+            let direction = calculate_direction_from_delta(delta);
+
+            // Only send command if direction has changed
+            if touch_data.current_direction != Some(direction) {
+                touch_data.current_direction = Some(direction);
+                writer.write(GameEvent::Command(GameCommand::MovePlayer(direction)));
+            }
+        } else if touch_data.current_direction.is_some() {
+            touch_data.current_direction = None;
+        }
     }
 
     if let (false, CursorPosition::Some { remaining_time, .. }) = (cursor_seen, &mut *cursor) {
