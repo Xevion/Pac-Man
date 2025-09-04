@@ -29,7 +29,7 @@ use bevy_ecs::event::EventRegistry;
 use bevy_ecs::observer::Trigger;
 use bevy_ecs::schedule::common_conditions::resource_changed;
 use bevy_ecs::schedule::{Condition, IntoScheduleConfigs, Schedule, SystemSet};
-use bevy_ecs::system::ResMut;
+use bevy_ecs::system::{Local, ResMut};
 use bevy_ecs::world::World;
 use glam::UVec2;
 use sdl2::event::EventType;
@@ -365,7 +365,11 @@ impl Game {
         schedule.add_systems((
             forced_dirty_system.run_if(resource_changed::<ScoreResource>.or(resource_changed::<StartupSequence>)),
             (
-                input_system,
+                input_system.run_if(|mut local: Local<u8>| {
+                    *local = local.wrapping_add(1u8);
+                    // run every nth frame
+                    *local % 2 == 0
+                }),
                 player_control_system,
                 player_movement_system,
                 startup_stage_system,

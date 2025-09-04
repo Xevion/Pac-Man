@@ -3,7 +3,7 @@ use bevy_ecs::{resource::Resource, system::System};
 use circular_buffer::CircularBuffer;
 use micromap::Map;
 use num_width::NumberWidth;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use smallvec::SmallVec;
 use std::fmt::Display;
 use std::time::Duration;
@@ -46,7 +46,7 @@ impl Display for SystemId {
     }
 }
 
-#[derive(Resource, Default, Debug)]
+#[derive(Resource, Debug)]
 pub struct SystemTimings {
     /// Map of system names to a queue of durations, using a circular buffer.
     ///
@@ -55,42 +55,54 @@ pub struct SystemTimings {
     ///
     /// Also, we use a micromap::Map as the number of systems is generally quite small.
     /// Just make sure to set the capacity appropriately, or it will panic.
-    pub timings: RwLock<Map<SystemId, Mutex<CircularBuffer<TIMING_WINDOW_SIZE, Duration>>, MAX_SYSTEMS>>,
+    ///
+    /// Pre-populated with all SystemId variants during initialization to avoid runtime allocations
+    /// and allow systems to have default zero timings when they don't submit data.
+    pub timings: Map<SystemId, Mutex<CircularBuffer<TIMING_WINDOW_SIZE, Duration>>, MAX_SYSTEMS>,
+}
+
+impl Default for SystemTimings {
+    fn default() -> Self {
+        let mut timings = Map::new();
+
+        // Pre-populate with all SystemId variants to avoid runtime allocations
+        // and provide default zero timings for systems that don't submit data
+        for id in SystemId::iter() {
+            timings.insert(id, Mutex::new(CircularBuffer::new()));
+        }
+
+        Self { timings }
+    }
 }
 
 impl SystemTimings {
     pub fn add_timing(&self, id: SystemId, duration: Duration) {
-        // acquire a upgradable read lock
-        let mut timings = self.timings.upgradable_read();
-
-        // happy path, the name is already in the map (no need to mutate the hashmap)
-        if timings.contains_key(&id) {
-            let queue = timings
-                .get(&id)
-                .expect("System name not found in map after contains_key check");
-            let mut queue = queue.lock();
-
-            queue.push_back(duration);
-            return;
-        }
-
-        // otherwise, acquire a write lock and insert a new queue
-        timings.with_upgraded(|timings| {
-            let queue = timings.entry(id).or_insert_with(|| Mutex::new(CircularBuffer::new()));
-            queue.lock().push_back(duration);
-        });
+        // Since all SystemId variants are pre-populated, we can use a simple read lock
+        let queue = self
+            .timings
+            .get(&id)
+            .expect("SystemId not found in pre-populated map - this is a bug");
+        queue.lock().push_back(duration);
     }
 
     pub fn get_stats(&self) -> Map<SystemId, (Duration, Duration), MAX_SYSTEMS> {
-        let timings = self.timings.read();
         let mut stats = Map::new();
 
-        for (id, queue) in timings.iter() {
-            if queue.lock().is_empty() {
+        // Iterate over all SystemId variants to ensure every system has an entry
+        for id in SystemId::iter() {
+            let queue = self
+                .timings
+                .get(&id)
+                .expect("SystemId not found in pre-populated map - this is a bug");
+
+            let queue_guard = queue.lock();
+            if queue_guard.is_empty() {
+                // Return zero timing for systems that haven't submitted any data
+                stats.insert(id, (Duration::ZERO, Duration::ZERO));
                 continue;
             }
 
-            let durations: Vec<f64> = queue.lock().iter().map(|d| d.as_secs_f64() * 1000.0).collect();
+            let durations: Vec<f64> = queue_guard.iter().map(|d| d.as_secs_f64() * 1000.0).collect();
             let count = durations.len() as f64;
 
             let sum: f64 = durations.iter().sum();
@@ -100,7 +112,7 @@ impl SystemTimings {
             let std_dev = variance.sqrt();
 
             stats.insert(
-                *id,
+                id,
                 (
                     Duration::from_secs_f64(mean / 1000.0),
                     Duration::from_secs_f64(std_dev / 1000.0),
@@ -113,8 +125,7 @@ impl SystemTimings {
 
     pub fn get_total_stats(&self) -> (Duration, Duration) {
         let duration_sums = {
-            let timings = self.timings.read();
-            timings
+            self.timings
                 .iter()
                 .map(|(_, queue)| queue.lock().iter().sum::<Duration>())
                 .collect::<Vec<_>>()
