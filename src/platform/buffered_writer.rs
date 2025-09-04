@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 //! Buffered writer for tracing logs that can store logs before console attachment.
 
 use parking_lot::Mutex;
