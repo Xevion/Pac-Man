@@ -12,6 +12,8 @@ use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
+use smallvec::SmallVec;
+use tracing::warn;
 
 #[derive(Resource, Default, Debug, Copy, Clone)]
 pub struct DebugState {
@@ -131,15 +133,27 @@ pub fn debug_render_system(
             };
 
             debug_canvas.set_draw_color(Color::GREEN);
-            for (collider, position) in colliders.iter() {
-                let pos = position.get_pixel_position(&map.graph).unwrap();
+            {
+                let rects = colliders
+                    .iter()
+                    .map(|(collider, position)| {
+                        let pos = position.get_pixel_position(&map.graph).unwrap();
 
-                // Transform position and size using common methods
-                let pos = (pos * scale).as_ivec2();
-                let size = (collider.size * scale) as u32;
+                        // Transform position and size using common methods
+                        let pos = (pos * scale).as_ivec2();
+                        let size = (collider.size * scale) as u32;
 
-                let rect = Rect::from_center(Point::from((pos.x, pos.y)), size, size);
-                debug_canvas.draw_rect(rect).unwrap();
+                        Rect::from_center(Point::from((pos.x, pos.y)), size, size)
+                    })
+                    .collect::<SmallVec<[Rect; 100]>>();
+                if rects.len() > rects.capacity() {
+                    warn!(
+                        capacity = rects.capacity(),
+                        count = rects.len(),
+                        "Collider rects capacity exceeded"
+                    );
+                }
+                debug_canvas.draw_rects(&rects).unwrap();
             }
 
             debug_canvas.set_draw_color(Color {
@@ -160,26 +174,38 @@ pub fn debug_render_system(
                     .unwrap();
             }
 
-            for (id, node) in map.graph.nodes().enumerate() {
-                let pos = node.position;
+            {
+                let rects: Vec<_> = map
+                    .graph
+                    .nodes()
+                    .enumerate()
+                    .filter_map(|(id, node)| {
+                        let pos = transform_position_with_offset(node.position, scale);
+                        let size = (2.0 * scale) as u32;
+                        let rect = Rect::new(pos.x - (size as i32 / 2), pos.y - (size as i32 / 2), size, size);
 
-                // Set color based on whether the node is the closest to the cursor
-                debug_canvas.set_draw_color(Color {
-                    a: f32_to_u8(if Some(id) == closest_node { 0.75 } else { 0.6 }),
-                    ..(if Some(id) == closest_node {
-                        Color::YELLOW
-                    } else {
-                        Color::BLUE
+                        // If the node is the one closest to the cursor, draw it immediately
+                        if closest_node == Some(id) {
+                            debug_canvas.set_draw_color(Color::YELLOW);
+                            debug_canvas.fill_rect(rect).unwrap();
+                            return None;
+                        }
+
+                        Some(rect)
                     })
-                });
+                    .collect();
 
-                // Transform position using common method
-                let pos = transform_position_with_offset(pos, scale);
-                let size = (2.0 * scale) as u32;
+                if rects.len() > rects.capacity() {
+                    warn!(
+                        capacity = rects.capacity(),
+                        count = rects.len(),
+                        "Node rects capacity exceeded"
+                    );
+                }
 
-                debug_canvas
-                    .fill_rect(Rect::new(pos.x - (size as i32 / 2), pos.y - (size as i32 / 2), size, size))
-                    .unwrap();
+                // Draw the non-closest nodes all at once in blue
+                debug_canvas.set_draw_color(Color::BLUE);
+                debug_canvas.fill_rects(&rects).unwrap();
             }
 
             // Render node ID if a node is highlighted

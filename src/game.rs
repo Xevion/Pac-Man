@@ -126,7 +126,7 @@ impl Game {
             EventType::Display,
             EventType::Window,
             EventType::MouseWheel,
-            EventType::MouseMotion,
+            // EventType::MouseMotion,
             EventType::MouseButtonDown,
             EventType::MouseButtonUp,
             EventType::MouseButtonDown,
