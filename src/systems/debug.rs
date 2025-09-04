@@ -1,7 +1,7 @@
 //! Debug rendering system
 use std::cmp::Ordering;
 
-use crate::constants::{BOARD_PIXEL_OFFSET, CANVAS_SIZE};
+use crate::constants::{self, BOARD_PIXEL_OFFSET};
 use crate::map::builder::Map;
 use crate::systems::{Collider, CursorPosition, NodeId, Position, SystemTimings};
 use crate::texture::ttf::{TtfAtlas, TtfRenderer};
@@ -215,9 +215,7 @@ pub fn debug_render_system(
     if !debug_state.enabled {
         return;
     }
-    let output = UVec2::from(canvas.output_size().unwrap()).as_vec2();
-    let logical = CANVAS_SIZE.as_vec2();
-    let scale = (output / logical).min_element();
+    let scale = constants::LARGE_SCALE as f32;
 
     // Create debug text renderer
     let text_renderer = TtfRenderer::new(1.0);

@@ -142,8 +142,6 @@ pub fn ghost_collision_system(
                         events.write(AudioEvent::PlayEat);
                     } else {
                         // Pac-Man dies (this would need a death system)
-                        // For now, just log it
-                        tracing::warn!("Pac-Man collided with ghost while not frightened!");
                     }
                 }
             }

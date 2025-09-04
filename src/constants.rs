@@ -49,6 +49,13 @@ pub const CANVAS_SIZE: UVec2 = UVec2::new(
     (BOARD_CELL_SIZE.y + BOARD_CELL_OFFSET.y) * CELL_SIZE,
 );
 
+pub const LARGE_SCALE: f32 = 2.6;
+
+pub const LARGE_CANVAS_SIZE: UVec2 = UVec2::new(
+    (((BOARD_CELL_SIZE.x + BOARD_CELL_OFFSET.x) * CELL_SIZE) as f32 * LARGE_SCALE) as u32,
+    (((BOARD_CELL_SIZE.y + BOARD_CELL_OFFSET.y) * CELL_SIZE) as f32 * LARGE_SCALE) as u32,
+);
+
 /// Collider size constants for different entity types
 pub mod collider {
     use super::CELL_SIZE;
