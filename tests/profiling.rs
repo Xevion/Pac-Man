@@ -14,6 +14,7 @@ fn test_timing_statistics() {
     timings.add_timing(SystemId::Blinking, Duration::from_millis(3));
     timings.add_timing(SystemId::Blinking, Duration::from_millis(2));
     timings.add_timing(SystemId::Blinking, Duration::from_millis(1));
+
     fn close_enough(a: Duration, b: Duration) -> bool {
         if a > b {
             a - b < Duration::from_micros(500) // 0.1ms
@@ -36,25 +37,8 @@ fn test_timing_statistics() {
         total_avg
     );
     assert!(
-        close_enough(total_std, Duration::from_millis(12)),
+        close_enough(total_std, Duration::from_millis(17)),
         "total_std: {:?}",
         total_std
     );
 }
-
-// #[test]
-// fn test_window_size_limit() {
-//     let timings = SystemTimings::default();
-
-//     // Add more than 90 timings to test window size limit
-//     for i in 0..100 {
-//         timings.add_timing("test_system", Duration::from_millis(i));
-//     }
-
-//     let stats = timings.get_stats();
-//     let (avg, _) = stats.get("test_system").unwrap();
-
-//     // Should only keep the last 90 values, so average should be around 55ms
-//     // (average of 10-99)
-//     assert!((avg.as_millis() as f64 - 55.0).abs() < 5.0);
-// }

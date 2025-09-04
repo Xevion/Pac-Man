@@ -7,8 +7,8 @@ use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
 use std::fmt::Display;
 use std::time::Duration;
-use strum::EnumCount;
-use strum_macros::{EnumCount, IntoStaticStr};
+use strum::{EnumCount, IntoEnumIterator};
+use strum_macros::{EnumCount, EnumIter, IntoStaticStr};
 use thousands::Separable;
 
 /// The maximum number of systems that can be profiled. Must not be exceeded, or it will panic.
@@ -16,7 +16,7 @@ const MAX_SYSTEMS: usize = SystemId::COUNT;
 /// The number of durations to keep in the circular buffer.
 const TIMING_WINDOW_SIZE: usize = 30;
 
-#[derive(EnumCount, IntoStaticStr, Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(EnumCount, EnumIter, IntoStaticStr, Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum SystemId {
     Input,
     PlayerControls,
@@ -96,7 +96,7 @@ impl SystemTimings {
             let sum: f64 = durations.iter().sum();
             let mean = sum / count;
 
-            let variance = durations.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / count;
+            let variance = durations.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (count - 1.0).max(1.0);
             let std_dev = variance.sqrt();
 
             stats.insert(
@@ -128,7 +128,7 @@ impl SystemTimings {
                 diff_secs * diff_secs
             })
             .sum::<f64>()
-            / duration_sums.len() as f64;
+            / (duration_sums.len() - 1).max(1) as f64;
         let std_dev_secs = variance.sqrt();
 
         (mean, Duration::from_secs_f64(std_dev_secs))
@@ -250,17 +250,22 @@ pub fn format_timing_display(
         })
         .collect::<SmallVec<[Entry; 12]>>();
 
-    let (max_name_width, max_avg_int_width, max_avg_decimal_width, max_std_int_width, max_std_decimal_width) = entries
-        .iter()
-        .fold((0, 0, 3, 0, 3), |(name_w, avg_int_w, avg_dec_w, std_int_w, std_dec_w), e| {
-            (
-                name_w.max(e.name.len()),
-                avg_int_w.max(e.avg_int.width() as usize),
-                avg_dec_w.max(e.avg_decimal.width() as usize),
-                std_int_w.max(e.std_int.width() as usize),
-                std_dec_w.max(e.std_decimal.width() as usize),
-            )
-        });
+    let (max_avg_int_width, max_avg_decimal_width, max_std_int_width, max_std_decimal_width) =
+        entries
+            .iter()
+            .fold((0, 3, 0, 3), |(avg_int_w, avg_dec_w, std_int_w, std_dec_w), e| {
+                (
+                    avg_int_w.max(e.avg_int.width() as usize),
+                    avg_dec_w.max(e.avg_decimal.width() as usize),
+                    std_int_w.max(e.std_int.width() as usize),
+                    std_dec_w.max(e.std_decimal.width() as usize),
+                )
+            });
+
+    let max_name_width = SystemId::iter()
+        .map(|id| id.to_string().len())
+        .max()
+        .expect("SystemId::iter() returned an empty iterator");
 
     entries.iter().map(|e| {
             format!(

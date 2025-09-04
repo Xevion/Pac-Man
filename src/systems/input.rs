@@ -138,14 +138,12 @@ pub fn input_system(
 
     // Warn if the smallvec was heap allocated due to exceeding stack capacity
     #[cfg(debug_assertions)]
-    {
-        if frame_events.len() > frame_events.capacity() {
-            tracing::warn!(
-                "More than {} events in a frame, consider adjusting stack capacity: {:?}",
-                frame_events.capacity(),
-                frame_events
-            );
-        }
+    if frame_events.len() > frame_events.capacity() {
+        tracing::warn!(
+            "More than {} events in a frame, consider adjusting stack capacity: {:?}",
+            frame_events.capacity(),
+            frame_events
+        );
     }
 
     // Handle non-keyboard events inline and build a simplified keyboard event stream.

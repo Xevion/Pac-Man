@@ -89,7 +89,7 @@ impl App {
             let start = Instant::now();
 
             let dt = self.last_tick.elapsed().as_secs_f32();
-            self.last_tick = Instant::now();
+            self.last_tick = start;
 
             let exit = self.game.tick(dt);
 

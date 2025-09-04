@@ -8,8 +8,8 @@ use glam::UVec2;
 ///
 /// Calculated as 1/60th of a second (≈16.67ms).
 ///
-/// Written out explicitly to satisfy const-eval constraints.
-pub const LOOP_TIME: Duration = Duration::from_nanos((1_000_000_000.0 / 60.0) as u64);
+/// Uses integer arithmetic to avoid floating-point precision loss.
+pub const LOOP_TIME: Duration = Duration::from_nanos(1_000_000_000 / 60);
 
 /// The size of each cell, in pixels.
 pub const CELL_SIZE: u32 = 8;
