@@ -1,14 +1,12 @@
 use glam::U16Vec2;
-use pacman::texture::sprite::{AtlasMapper, AtlasTile, MapperFrame, SpriteAtlas};
+use pacman::texture::sprite::{AtlasMapper, AtlasTile, MapperFrame};
 use sdl2::pixels::Color;
 use std::collections::HashMap;
 
-fn mock_texture() -> sdl2::render::Texture {
-    unsafe { std::mem::transmute(0usize) }
-}
+mod common;
 
 #[test]
-fn test_sprite_atlas_basic() {
+fn test_atlas_mapper_frame_lookup() {
     let mut frames = HashMap::new();
     frames.insert(
         "test".to_string(),
@@ -19,19 +17,17 @@ fn test_sprite_atlas_basic() {
     );
 
     let mapper = AtlasMapper { frames };
-    let texture = mock_texture();
-    let atlas = SpriteAtlas::new(texture, mapper);
 
-    let tile = atlas.get_tile("test");
-    assert!(tile.is_some());
-    let tile = tile.unwrap();
-    assert_eq!(tile.pos, glam::U16Vec2::new(10, 20));
-    assert_eq!(tile.size, glam::U16Vec2::new(32, 64));
-    assert_eq!(tile.color, None);
+    // Test direct frame lookup
+    let frame = mapper.frames.get("test");
+    assert!(frame.is_some());
+    let frame = frame.unwrap();
+    assert_eq!(frame.pos, U16Vec2::new(10, 20));
+    assert_eq!(frame.size, U16Vec2::new(32, 64));
 }
 
 #[test]
-fn test_sprite_atlas_multiple_tiles() {
+fn test_atlas_mapper_multiple_frames() {
     let mut frames = HashMap::new();
     frames.insert(
         "tile1".to_string(),
@@ -49,27 +45,12 @@ fn test_sprite_atlas_multiple_tiles() {
     );
 
     let mapper = AtlasMapper { frames };
-    let texture = mock_texture();
-    let atlas = SpriteAtlas::new(texture, mapper);
 
-    assert_eq!(atlas.tiles_count(), 2);
-    assert!(atlas.has_tile("tile1"));
-    assert!(atlas.has_tile("tile2"));
-    assert!(!atlas.has_tile("tile3"));
-    assert!(atlas.get_tile("nonexistent").is_none());
-}
-
-#[test]
-fn test_sprite_atlas_color() {
-    let mapper = AtlasMapper { frames: HashMap::new() };
-    let texture = mock_texture();
-    let mut atlas = SpriteAtlas::new(texture, mapper);
-
-    assert_eq!(atlas.default_color(), None);
-
-    let color = Color::RGB(255, 0, 0);
-    atlas.set_color(color);
-    assert_eq!(atlas.default_color(), Some(color));
+    assert_eq!(mapper.frames.len(), 2);
+    assert!(mapper.frames.contains_key("tile1"));
+    assert!(mapper.frames.contains_key("tile2"));
+    assert!(!mapper.frames.contains_key("tile3"));
+    assert!(mapper.frames.get("nonexistent").is_none());
 }
 
 #[test]

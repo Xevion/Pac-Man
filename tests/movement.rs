@@ -1,28 +1,8 @@
 use glam::Vec2;
 use pacman::map::direction::Direction;
-use pacman::map::graph::{Graph, Node};
 use pacman::systems::movement::{BufferedDirection, Position, Velocity};
 
-fn create_test_graph() -> Graph {
-    let mut graph = Graph::new();
-
-    // Add a few test nodes
-    let node0 = graph.add_node(Node {
-        position: Vec2::new(0.0, 0.0),
-    });
-    let node1 = graph.add_node(Node {
-        position: Vec2::new(16.0, 0.0),
-    });
-    let node2 = graph.add_node(Node {
-        position: Vec2::new(0.0, 16.0),
-    });
-
-    // Connect them
-    graph.connect(node0, node1, false, None, Direction::Right).unwrap();
-    graph.connect(node0, node2, false, None, Direction::Down).unwrap();
-
-    graph
-}
+mod common;
 
 #[test]
 fn test_position_is_at_node() {
@@ -127,7 +107,7 @@ fn test_position_tick_overshoot_with_overflow() {
 
 #[test]
 fn test_position_get_pixel_position_stopped() {
-    let graph = create_test_graph();
+    let graph = common::create_test_graph();
     let pos = Position::Stopped { node: 0 };
 
     let pixel_pos = pos.get_pixel_position(&graph).unwrap();
@@ -141,7 +121,7 @@ fn test_position_get_pixel_position_stopped() {
 
 #[test]
 fn test_position_get_pixel_position_moving() {
-    let graph = create_test_graph();
+    let graph = common::create_test_graph();
     let pos = Position::Moving {
         from: 0,
         to: 1,

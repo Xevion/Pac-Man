@@ -1,63 +1,17 @@
-use bevy_ecs::{entity::Entity, event::Events, system::RunSystemOnce, world::World};
-
+use bevy_ecs::{event::Events, system::RunSystemOnce};
 use pacman::{
     events::{GameCommand, GameEvent},
     map::{
-        builder::Map,
         direction::Direction,
         graph::{Edge, TraversalFlags},
     },
     systems::{
         can_traverse, player_control_system, player_movement_system, AudioState, BufferedDirection, DebugState, DeltaTime,
-        EntityType, GlobalState, MovementModifiers, PlayerControlled, Position, Velocity,
+        EntityType, GlobalState, Position, Velocity,
     },
 };
 
-// Test helper functions for ECS setup
-fn create_test_world() -> World {
-    let mut world = World::new();
-
-    // Add resources
-    world.insert_resource(GlobalState { exit: false });
-    world.insert_resource(DebugState::default());
-    world.insert_resource(AudioState::default());
-    world.insert_resource(DeltaTime(1.0 / 60.0)); // 60 FPS
-    world.insert_resource(Events::<GameEvent>::default());
-    world.insert_resource(Events::<pacman::error::GameError>::default());
-
-    // Create a simple test map with nodes and edges
-    let test_map = create_test_map();
-    world.insert_resource(test_map);
-
-    world
-}
-
-fn create_test_map() -> Map {
-    // Use the actual RAW_BOARD from constants.rs
-    use pacman::constants::RAW_BOARD;
-    Map::new(RAW_BOARD).expect("Failed to create test map")
-}
-
-fn spawn_test_player(world: &mut World) -> Entity {
-    world
-        .spawn((
-            PlayerControlled,
-            Position::Stopped { node: 0 },
-            Velocity {
-                speed: 1.0,
-                direction: Direction::Right,
-            },
-            BufferedDirection::None,
-            EntityType::Player,
-            MovementModifiers::default(),
-        ))
-        .id()
-}
-
-fn send_game_event(world: &mut World, command: GameCommand) {
-    let mut events = world.resource_mut::<Events<GameEvent>>();
-    events.send(GameEvent::Command(command));
-}
+mod common;
 
 #[test]
 fn test_can_traverse_player_on_all_edges() {
@@ -155,17 +109,13 @@ fn test_entity_type_traversal_flags() {
     assert_eq!(EntityType::PowerPellet.traversal_flags(), TraversalFlags::empty());
 }
 
-// ============================================================================
-// ECS System Tests
-// ============================================================================
-
 #[test]
 fn test_player_control_system_move_command() {
-    let mut world = create_test_world();
-    let _player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let _player = common::spawn_test_player(&mut world, 0);
 
     // Send move command
-    send_game_event(&mut world, GameCommand::MovePlayer(Direction::Up));
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::MovePlayer(Direction::Up)));
 
     // Run the system
     world
@@ -190,11 +140,11 @@ fn test_player_control_system_move_command() {
 
 #[test]
 fn test_player_control_system_exit_command() {
-    let mut world = create_test_world();
-    let _player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let _player = common::spawn_test_player(&mut world, 0);
 
     // Send exit command
-    send_game_event(&mut world, GameCommand::Exit);
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::Exit));
 
     // Run the system
     world
@@ -208,11 +158,11 @@ fn test_player_control_system_exit_command() {
 
 #[test]
 fn test_player_control_system_toggle_debug() {
-    let mut world = create_test_world();
-    let _player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let _player = common::spawn_test_player(&mut world, 0);
 
     // Send toggle debug command
-    send_game_event(&mut world, GameCommand::ToggleDebug);
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::ToggleDebug));
 
     // Run the system
     world
@@ -226,11 +176,11 @@ fn test_player_control_system_toggle_debug() {
 
 #[test]
 fn test_player_control_system_mute_audio() {
-    let mut world = create_test_world();
-    let _player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let _player = common::spawn_test_player(&mut world, 0);
 
     // Send mute audio command
-    send_game_event(&mut world, GameCommand::MuteAudio);
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::MuteAudio));
 
     // Run the system
     world
@@ -243,7 +193,7 @@ fn test_player_control_system_mute_audio() {
 
     // Send mute audio command again to unmute - need fresh events
     world.resource_mut::<Events<GameEvent>>().clear(); // Clear previous events
-    send_game_event(&mut world, GameCommand::MuteAudio);
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::MuteAudio));
     world
         .run_system_once(player_control_system)
         .expect("System should run successfully");
@@ -255,10 +205,10 @@ fn test_player_control_system_mute_audio() {
 
 #[test]
 fn test_player_control_system_no_player_entity() {
-    let mut world = create_test_world();
+    let mut world = common::create_test_world();
     // Don't spawn a player entity
 
-    send_game_event(&mut world, GameCommand::MovePlayer(Direction::Up));
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::MovePlayer(Direction::Up)));
 
     // Run the system - should write an error
     world
@@ -272,8 +222,8 @@ fn test_player_control_system_no_player_entity() {
 
 #[test]
 fn test_player_movement_system_buffered_direction_expires() {
-    let mut world = create_test_world();
-    let player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let player = common::spawn_test_player(&mut world, 0);
 
     // Set a buffered direction with short time
     world.entity_mut(player).insert(BufferedDirection::Some {
@@ -305,8 +255,8 @@ fn test_player_movement_system_buffered_direction_expires() {
 
 #[test]
 fn test_player_movement_system_start_moving_from_stopped() {
-    let mut world = create_test_world();
-    let _player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let _player = common::spawn_test_player(&mut world, 0);
 
     // Player starts at node 0, facing right (towards node 1)
     // Should start moving when system runs
@@ -330,8 +280,8 @@ fn test_player_movement_system_start_moving_from_stopped() {
 
 #[test]
 fn test_player_movement_system_buffered_direction_change() {
-    let mut world = create_test_world();
-    let player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let player = common::spawn_test_player(&mut world, 0);
 
     // Set a buffered direction to go down (towards node 2)
     world.entity_mut(player).insert(BufferedDirection::Some {
@@ -361,8 +311,8 @@ fn test_player_movement_system_buffered_direction_change() {
 
 #[test]
 fn test_player_movement_system_no_valid_edge() {
-    let mut world = create_test_world();
-    let player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let player = common::spawn_test_player(&mut world, 0);
 
     // Set velocity to direction with no edge
     world.entity_mut(player).insert(Velocity {
@@ -386,8 +336,8 @@ fn test_player_movement_system_no_valid_edge() {
 
 #[test]
 fn test_player_movement_system_continue_moving() {
-    let mut world = create_test_world();
-    let player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let player = common::spawn_test_player(&mut world, 0);
 
     // Set player to already be moving
     world.entity_mut(player).insert(Position::Moving {
@@ -414,17 +364,13 @@ fn test_player_movement_system_continue_moving() {
     }
 }
 
-// ============================================================================
-// Integration Tests
-// ============================================================================
-
 #[test]
 fn test_full_player_input_to_movement_flow() {
-    let mut world = create_test_world();
-    let _player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let _player = common::spawn_test_player(&mut world, 0);
 
     // Send move command
-    send_game_event(&mut world, GameCommand::MovePlayer(Direction::Down));
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::MovePlayer(Direction::Down)));
 
     // Run control system to process input
     world
@@ -454,11 +400,11 @@ fn test_full_player_input_to_movement_flow() {
 
 #[test]
 fn test_buffered_direction_timing() {
-    let mut world = create_test_world();
-    let _player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let _player = common::spawn_test_player(&mut world, 0);
 
     // Send move command
-    send_game_event(&mut world, GameCommand::MovePlayer(Direction::Up));
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::MovePlayer(Direction::Up)));
     world
         .run_system_once(player_control_system)
         .expect("System should run successfully");
@@ -493,21 +439,21 @@ fn test_buffered_direction_timing() {
 
 #[test]
 fn test_multiple_rapid_direction_changes() {
-    let mut world = create_test_world();
-    let _player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let _player = common::spawn_test_player(&mut world, 0);
 
     // Send multiple rapid direction changes
-    send_game_event(&mut world, GameCommand::MovePlayer(Direction::Up));
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::MovePlayer(Direction::Up)));
     world
         .run_system_once(player_control_system)
         .expect("System should run successfully");
 
-    send_game_event(&mut world, GameCommand::MovePlayer(Direction::Down));
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::MovePlayer(Direction::Down)));
     world
         .run_system_once(player_control_system)
         .expect("System should run successfully");
 
-    send_game_event(&mut world, GameCommand::MovePlayer(Direction::Left));
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::MovePlayer(Direction::Left)));
     world
         .run_system_once(player_control_system)
         .expect("System should run successfully");
@@ -526,15 +472,15 @@ fn test_multiple_rapid_direction_changes() {
 
 #[test]
 fn test_player_state_persistence_across_systems() {
-    let mut world = create_test_world();
-    let _player = spawn_test_player(&mut world);
+    let mut world = common::create_test_world();
+    let _player = common::spawn_test_player(&mut world, 0);
 
     // Test that multiple commands can be processed - but need to handle events properly
     // Clear any existing events first
     world.resource_mut::<Events<GameEvent>>().clear();
 
     // Toggle debug mode
-    send_game_event(&mut world, GameCommand::ToggleDebug);
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::ToggleDebug));
     world
         .run_system_once(player_control_system)
         .expect("System should run successfully");
@@ -542,7 +488,7 @@ fn test_player_state_persistence_across_systems() {
 
     // Clear events and mute audio
     world.resource_mut::<Events<GameEvent>>().clear();
-    send_game_event(&mut world, GameCommand::MuteAudio);
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::MuteAudio));
     world
         .run_system_once(player_control_system)
         .expect("System should run successfully");
@@ -550,7 +496,7 @@ fn test_player_state_persistence_across_systems() {
 
     // Clear events and move player
     world.resource_mut::<Events<GameEvent>>().clear();
-    send_game_event(&mut world, GameCommand::MovePlayer(Direction::Down));
+    common::send_game_event(&mut world, GameEvent::Command(GameCommand::MovePlayer(Direction::Down)));
     world
         .run_system_once(player_control_system)
         .expect("System should run successfully");

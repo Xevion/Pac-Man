@@ -1,19 +1,10 @@
-use glam::U16Vec2;
 use pacman::texture::blinking::BlinkingTexture;
-use pacman::texture::sprite::AtlasTile;
-use sdl2::pixels::Color;
 
-fn mock_atlas_tile(id: u32) -> AtlasTile {
-    AtlasTile {
-        pos: U16Vec2::new(0, 0),
-        size: U16Vec2::new(16, 16),
-        color: Some(Color::RGB(id as u8, 0, 0)),
-    }
-}
+mod common;
 
 #[test]
 fn test_blinking_texture() {
-    let tile = mock_atlas_tile(1);
+    let tile = common::mock_atlas_tile(1);
     let mut texture = BlinkingTexture::new(tile, 0.5);
 
     assert!(texture.is_on());
@@ -30,7 +21,7 @@ fn test_blinking_texture() {
 
 #[test]
 fn test_blinking_texture_partial_duration() {
-    let tile = mock_atlas_tile(1);
+    let tile = common::mock_atlas_tile(1);
     let mut texture = BlinkingTexture::new(tile, 0.5);
 
     texture.tick(0.625);
@@ -40,7 +31,7 @@ fn test_blinking_texture_partial_duration() {
 
 #[test]
 fn test_blinking_texture_negative_time() {
-    let tile = mock_atlas_tile(1);
+    let tile = common::mock_atlas_tile(1);
     let mut texture = BlinkingTexture::new(tile, 0.5);
 
     texture.tick(-0.1);

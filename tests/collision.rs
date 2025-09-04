@@ -1,73 +1,7 @@
-use bevy_ecs::{entity::Entity, event::Events, system::RunSystemOnce, world::World};
+use bevy_ecs::system::RunSystemOnce;
+use pacman::systems::{check_collision, collision_system, Collider, EntityType, GhostState, Position};
 
-use pacman::{
-    error::GameError,
-    events::GameEvent,
-    map::builder::Map,
-    systems::{
-        check_collision, collision_system, Collider, EntityType, Ghost, GhostCollider, ItemCollider, NodeId, PacmanCollider,
-        Position,
-    },
-};
-
-fn create_test_world() -> World {
-    let mut world = World::new();
-
-    // Add required resources
-    world.insert_resource(Events::<GameEvent>::default());
-    world.insert_resource(Events::<GameError>::default());
-
-    // Add a minimal test map
-    world.insert_resource(create_test_map());
-
-    world
-}
-
-fn create_test_map() -> Map {
-    use pacman::constants::RAW_BOARD;
-    Map::new(RAW_BOARD).expect("Failed to create test map")
-}
-
-fn spawn_test_pacman(world: &mut World) -> Entity {
-    world
-        .spawn((Position::Stopped { node: 0 }, Collider { size: 10.0 }, PacmanCollider))
-        .id()
-}
-
-fn spawn_test_item(world: &mut World) -> Entity {
-    world
-        .spawn((
-            Position::Stopped { node: 0 },
-            Collider { size: 8.0 },
-            ItemCollider,
-            EntityType::Pellet,
-        ))
-        .id()
-}
-
-fn spawn_test_ghost(world: &mut World) -> Entity {
-    world
-        .spawn((
-            Position::Stopped { node: 0 },
-            Collider { size: 12.0 },
-            GhostCollider,
-            Ghost::Blinky,
-            EntityType::Ghost,
-        ))
-        .id()
-}
-
-fn spawn_test_ghost_at_node(world: &mut World, node: usize) -> Entity {
-    world
-        .spawn((
-            Position::Stopped { node: node as NodeId },
-            Collider { size: 12.0 },
-            GhostCollider,
-            Ghost::Blinky,
-            EntityType::Ghost,
-        ))
-        .id()
-}
+mod common;
 
 #[test]
 fn test_collider_collision_detection() {
@@ -81,7 +15,7 @@ fn test_collider_collision_detection() {
 
 #[test]
 fn test_check_collision_helper() {
-    let map = create_test_map();
+    let map = common::create_test_map();
     let pos1 = Position::Stopped { node: 0 };
     let pos2 = Position::Stopped { node: 0 }; // Same position
     let collider1 = Collider { size: 10.0 };
@@ -101,9 +35,9 @@ fn test_check_collision_helper() {
 
 #[test]
 fn test_collision_system_pacman_item() {
-    let mut world = create_test_world();
-    let _pacman = spawn_test_pacman(&mut world);
-    let _item = spawn_test_item(&mut world);
+    let mut world = common::create_test_world();
+    let _pacman = common::spawn_test_pacman(&mut world, 0);
+    let _item = common::spawn_test_item(&mut world, 0, EntityType::Pellet);
 
     // Run collision system - should not panic
     world
@@ -113,9 +47,9 @@ fn test_collision_system_pacman_item() {
 
 #[test]
 fn test_collision_system_pacman_ghost() {
-    let mut world = create_test_world();
-    let _pacman = spawn_test_pacman(&mut world);
-    let _ghost = spawn_test_ghost(&mut world);
+    let mut world = common::create_test_world();
+    let _pacman = common::spawn_test_pacman(&mut world, 0);
+    let _ghost = common::spawn_test_ghost(&mut world, 0, GhostState::Normal);
 
     // Run collision system - should not panic
     world
@@ -125,9 +59,9 @@ fn test_collision_system_pacman_ghost() {
 
 #[test]
 fn test_collision_system_no_collision() {
-    let mut world = create_test_world();
-    let _pacman = spawn_test_pacman(&mut world);
-    let _ghost = spawn_test_ghost_at_node(&mut world, 1); // Different node
+    let mut world = common::create_test_world();
+    let _pacman = common::spawn_test_pacman(&mut world, 0);
+    let _ghost = common::spawn_test_ghost(&mut world, 1, GhostState::Normal); // Different node
 
     // Run collision system - should not panic
     world
@@ -137,10 +71,10 @@ fn test_collision_system_no_collision() {
 
 #[test]
 fn test_collision_system_multiple_entities() {
-    let mut world = create_test_world();
-    let _pacman = spawn_test_pacman(&mut world);
-    let _item = spawn_test_item(&mut world);
-    let _ghost = spawn_test_ghost(&mut world);
+    let mut world = common::create_test_world();
+    let _pacman = common::spawn_test_pacman(&mut world, 0);
+    let _item = common::spawn_test_item(&mut world, 0, EntityType::Pellet);
+    let _ghost = common::spawn_test_ghost(&mut world, 0, GhostState::Normal);
 
     // Run collision system - should not panic
     world

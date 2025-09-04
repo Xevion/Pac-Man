@@ -1,13 +1,7 @@
-use bevy_ecs::{entity::Entity, event::Events, system::RunSystemOnce, world::World};
+use bevy_ecs::{entity::Entity, system::RunSystemOnce};
+use pacman::systems::{is_valid_item_collision, item_system, EntityType, GhostState, Position, ScoreResource};
 
-use pacman::{
-    events::GameEvent,
-    map::builder::Map,
-    systems::{
-        is_valid_item_collision, item_system, AudioEvent, AudioState, EntityType, Ghost, GhostCollider, GhostState, ItemCollider,
-        PacmanCollider, Position, ScoreResource,
-    },
-};
+mod common;
 
 #[test]
 fn test_calculate_score_for_item() {
@@ -44,62 +38,14 @@ fn test_is_valid_item_collision() {
     assert!(!is_valid_item_collision(EntityType::Player, EntityType::Player));
 }
 
-fn create_test_world() -> World {
-    let mut world = World::new();
-
-    // Add required resources
-    world.insert_resource(ScoreResource(0));
-    world.insert_resource(AudioState::default());
-    world.insert_resource(Events::<GameEvent>::default());
-    world.insert_resource(Events::<AudioEvent>::default());
-    world.insert_resource(Events::<pacman::error::GameError>::default());
-
-    // Add a minimal test map
-    world.insert_resource(create_test_map());
-
-    world
-}
-
-fn create_test_map() -> Map {
-    use pacman::constants::RAW_BOARD;
-    Map::new(RAW_BOARD).expect("Failed to create test map")
-}
-
-fn spawn_test_pacman(world: &mut World) -> Entity {
-    world
-        .spawn((Position::Stopped { node: 0 }, EntityType::Player, PacmanCollider))
-        .id()
-}
-
-fn spawn_test_item(world: &mut World, item_type: EntityType) -> Entity {
-    world.spawn((Position::Stopped { node: 1 }, item_type, ItemCollider)).id()
-}
-
-fn spawn_test_ghost(world: &mut World, ghost_state: GhostState) -> Entity {
-    world
-        .spawn((
-            Position::Stopped { node: 2 },
-            Ghost::Blinky,
-            EntityType::Ghost,
-            GhostCollider,
-            ghost_state,
-        ))
-        .id()
-}
-
-fn send_collision_event(world: &mut World, entity1: Entity, entity2: Entity) {
-    let mut events = world.resource_mut::<Events<GameEvent>>();
-    events.send(GameEvent::Collision(entity1, entity2));
-}
-
 #[test]
 fn test_item_system_pellet_collection() {
-    let mut world = create_test_world();
-    let pacman = spawn_test_pacman(&mut world);
-    let pellet = spawn_test_item(&mut world, EntityType::Pellet);
+    let mut world = common::create_test_world();
+    let pacman = common::spawn_test_pacman(&mut world, 0);
+    let pellet = common::spawn_test_item(&mut world, 1, EntityType::Pellet);
 
     // Send collision event
-    send_collision_event(&mut world, pacman, pellet);
+    common::send_collision_event(&mut world, pacman, pellet);
 
     // Run the item system
     world.run_system_once(item_system).expect("System should run successfully");
@@ -119,11 +65,11 @@ fn test_item_system_pellet_collection() {
 
 #[test]
 fn test_item_system_power_pellet_collection() {
-    let mut world = create_test_world();
-    let pacman = spawn_test_pacman(&mut world);
-    let power_pellet = spawn_test_item(&mut world, EntityType::PowerPellet);
+    let mut world = common::create_test_world();
+    let pacman = common::spawn_test_pacman(&mut world, 0);
+    let power_pellet = common::spawn_test_item(&mut world, 1, EntityType::PowerPellet);
 
-    send_collision_event(&mut world, pacman, power_pellet);
+    common::send_collision_event(&mut world, pacman, power_pellet);
 
     world.run_system_once(item_system).expect("System should run successfully");
 
@@ -142,16 +88,16 @@ fn test_item_system_power_pellet_collection() {
 
 #[test]
 fn test_item_system_multiple_collections() {
-    let mut world = create_test_world();
-    let pacman = spawn_test_pacman(&mut world);
-    let pellet1 = spawn_test_item(&mut world, EntityType::Pellet);
-    let pellet2 = spawn_test_item(&mut world, EntityType::Pellet);
-    let power_pellet = spawn_test_item(&mut world, EntityType::PowerPellet);
+    let mut world = common::create_test_world();
+    let pacman = common::spawn_test_pacman(&mut world, 0);
+    let pellet1 = common::spawn_test_item(&mut world, 1, EntityType::Pellet);
+    let pellet2 = common::spawn_test_item(&mut world, 2, EntityType::Pellet);
+    let power_pellet = common::spawn_test_item(&mut world, 3, EntityType::PowerPellet);
 
     // Send multiple collision events
-    send_collision_event(&mut world, pacman, pellet1);
-    send_collision_event(&mut world, pacman, pellet2);
-    send_collision_event(&mut world, pacman, power_pellet);
+    common::send_collision_event(&mut world, pacman, pellet1);
+    common::send_collision_event(&mut world, pacman, pellet2);
+    common::send_collision_event(&mut world, pacman, power_pellet);
 
     world.run_system_once(item_system).expect("System should run successfully");
 
@@ -176,8 +122,8 @@ fn test_item_system_multiple_collections() {
 
 #[test]
 fn test_item_system_ignores_non_item_collisions() {
-    let mut world = create_test_world();
-    let pacman = spawn_test_pacman(&mut world);
+    let mut world = common::create_test_world();
+    let pacman = common::spawn_test_pacman(&mut world, 0);
 
     // Create a ghost entity (not an item)
     let ghost = world.spawn((Position::Stopped { node: 2 }, EntityType::Ghost)).id();
@@ -186,7 +132,7 @@ fn test_item_system_ignores_non_item_collisions() {
     let initial_score = world.resource::<ScoreResource>().0;
 
     // Send collision event between pacman and ghost
-    send_collision_event(&mut world, pacman, ghost);
+    common::send_collision_event(&mut world, pacman, ghost);
 
     world.run_system_once(item_system).expect("System should run successfully");
 
@@ -205,9 +151,9 @@ fn test_item_system_ignores_non_item_collisions() {
 
 #[test]
 fn test_item_system_no_collision_events() {
-    let mut world = create_test_world();
-    let _pacman = spawn_test_pacman(&mut world);
-    let _pellet = spawn_test_item(&mut world, EntityType::Pellet);
+    let mut world = common::create_test_world();
+    let _pacman = common::spawn_test_pacman(&mut world, 0);
+    let _pellet = common::spawn_test_item(&mut world, 1, EntityType::Pellet);
 
     let initial_score = world.resource::<ScoreResource>().0;
 
@@ -227,13 +173,13 @@ fn test_item_system_no_collision_events() {
 
 #[test]
 fn test_item_system_collision_with_missing_entity() {
-    let mut world = create_test_world();
-    let pacman = spawn_test_pacman(&mut world);
+    let mut world = common::create_test_world();
+    let pacman = common::spawn_test_pacman(&mut world, 0);
 
     // Create a fake entity ID that doesn't exist
     let fake_entity = Entity::from_raw(999);
 
-    send_collision_event(&mut world, pacman, fake_entity);
+    common::send_collision_event(&mut world, pacman, fake_entity);
 
     // System should handle gracefully and not crash
     world
@@ -247,15 +193,15 @@ fn test_item_system_collision_with_missing_entity() {
 
 #[test]
 fn test_item_system_preserves_existing_score() {
-    let mut world = create_test_world();
+    let mut world = common::create_test_world();
 
     // Set initial score
     world.insert_resource(ScoreResource(100));
 
-    let pacman = spawn_test_pacman(&mut world);
-    let pellet = spawn_test_item(&mut world, EntityType::Pellet);
+    let pacman = common::spawn_test_pacman(&mut world, 0);
+    let pellet = common::spawn_test_item(&mut world, 1, EntityType::Pellet);
 
-    send_collision_event(&mut world, pacman, pellet);
+    common::send_collision_event(&mut world, pacman, pellet);
 
     world.run_system_once(item_system).expect("System should run successfully");
 
@@ -266,17 +212,17 @@ fn test_item_system_preserves_existing_score() {
 
 #[test]
 fn test_power_pellet_does_not_affect_ghosts_in_eyes_state() {
-    let mut world = create_test_world();
-    let pacman = spawn_test_pacman(&mut world);
-    let power_pellet = spawn_test_item(&mut world, EntityType::PowerPellet);
+    let mut world = common::create_test_world();
+    let pacman = common::spawn_test_pacman(&mut world, 0);
+    let power_pellet = common::spawn_test_item(&mut world, 1, EntityType::PowerPellet);
 
     // Spawn a ghost in Eyes state (returning to ghost house)
-    let eyes_ghost = spawn_test_ghost(&mut world, GhostState::Eyes);
+    let eyes_ghost = common::spawn_test_ghost(&mut world, 2, GhostState::Eyes);
 
     // Spawn a ghost in Normal state
-    let normal_ghost = spawn_test_ghost(&mut world, GhostState::Normal);
+    let normal_ghost = common::spawn_test_ghost(&mut world, 3, GhostState::Normal);
 
-    send_collision_event(&mut world, pacman, power_pellet);
+    common::send_collision_event(&mut world, pacman, power_pellet);
 
     world.run_system_once(item_system).expect("System should run successfully");
 

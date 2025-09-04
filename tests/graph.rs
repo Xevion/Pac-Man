@@ -1,23 +1,7 @@
 use pacman::map::direction::Direction;
 use pacman::map::graph::{Graph, Node, TraversalFlags};
 
-fn create_test_graph() -> Graph {
-    let mut graph = Graph::new();
-    let node1 = graph.add_node(Node {
-        position: glam::Vec2::new(0.0, 0.0),
-    });
-    let node2 = graph.add_node(Node {
-        position: glam::Vec2::new(16.0, 0.0),
-    });
-    let node3 = graph.add_node(Node {
-        position: glam::Vec2::new(0.0, 16.0),
-    });
-
-    graph.connect(node1, node2, false, None, Direction::Right).unwrap();
-    graph.connect(node1, node3, false, None, Direction::Down).unwrap();
-
-    graph
-}
+mod common;
 
 #[test]
 fn test_graph_basic_operations() {
@@ -124,14 +108,14 @@ fn should_error_on_negative_edge_distance() {
 
 #[test]
 fn should_error_on_duplicate_edge_without_replace() {
-    let mut graph = create_test_graph();
+    let mut graph = common::create_test_graph();
     let result = graph.add_edge(0, 1, false, None, Direction::Right, TraversalFlags::ALL);
     assert!(result.is_err());
 }
 
 #[test]
 fn should_allow_replacing_an_edge() {
-    let mut graph = create_test_graph();
+    let mut graph = common::create_test_graph();
     let result = graph.add_edge(0, 1, true, Some(42.0), Direction::Right, TraversalFlags::ALL);
     assert!(result.is_ok());
 
@@ -141,7 +125,7 @@ fn should_allow_replacing_an_edge() {
 
 #[test]
 fn should_find_edge_between_nodes() {
-    let graph = create_test_graph();
+    let graph = common::create_test_graph();
     let edge = graph.find_edge(0, 1);
     assert!(edge.is_some());
     assert_eq!(edge.unwrap().target, 1);

@@ -1,8 +1,8 @@
 use pacman::texture::{sprite::SpriteAtlas, text::TextTexture};
 
-use crate::common::create_atlas;
-
 mod common;
+
+use common::create_atlas;
 
 /// Helper function to get all characters that should be in the atlas
 fn get_all_chars() -> String {
