@@ -6,8 +6,13 @@ use bevy_ecs::{
     system::{NonSendMut, Res, ResMut},
 };
 use glam::Vec2;
-use sdl2::{event::Event, keyboard::Keycode, EventPump};
+use sdl2::{
+    event::{Event, WindowEvent},
+    keyboard::Keycode,
+    EventPump,
+};
 use smallvec::{smallvec, SmallVec};
+use tracing::{debug, info};
 
 use crate::systems::components::DeltaTime;
 use crate::{
@@ -293,7 +298,15 @@ pub fn input_system(
                     simple_key_events.push(SimpleKeyEvent::KeyUp(key));
                 }
             }
-            Event::RenderTargetsReset { .. } | Event::Window { .. } => {
+            Event::Window { win_event, .. } => match win_event {
+                WindowEvent::Resized(w, h) => {
+                    info!("Window resized to {}x{}", w, h);
+                }
+                _ => {
+                    debug!("Window event: {:?}", win_event);
+                }
+            },
+            Event::RenderTargetsReset { .. } => {
                 // No-op
             }
             _ => {

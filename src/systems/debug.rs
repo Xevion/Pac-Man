@@ -7,7 +7,7 @@ use crate::systems::{Collider, CursorPosition, NodeId, Position, SystemTimings};
 use crate::texture::ttf::{TtfAtlas, TtfRenderer};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{Query, Res};
-use glam::{IVec2, UVec2, Vec2};
+use glam::{IVec2, Vec2};
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::{Canvas, Texture};
@@ -215,8 +215,6 @@ pub fn debug_render_system(
     if !debug_state.enabled {
         return;
     }
-    let scale = constants::LARGE_SCALE as f32;
-
     // Create debug text renderer
     let text_renderer = TtfRenderer::new(1.0);
 
@@ -249,8 +247,8 @@ pub fn debug_render_system(
                 let pos = position.get_pixel_position(&map.graph).unwrap();
 
                 // Transform position and size using common methods
-                let pos = (pos * scale).as_ivec2();
-                let size = (collider.size * scale) as u32;
+                let pos = (pos * constants::LARGE_SCALE).as_ivec2();
+                let size = (collider.size * constants::LARGE_SCALE) as u32;
 
                 Rect::from_center(Point::from((pos.x, pos.y)), size, size)
             })
@@ -280,8 +278,8 @@ pub fn debug_render_system(
             .nodes()
             .enumerate()
             .filter_map(|(id, node)| {
-                let pos = transform_position_with_offset(node.position, scale);
-                let size = (2.0 * scale) as u32;
+                let pos = transform_position_with_offset(node.position, constants::LARGE_SCALE);
+                let size = (2.0 * constants::LARGE_SCALE) as u32;
                 let rect = Rect::new(pos.x - (size as i32 / 2), pos.y - (size as i32 / 2), size, size);
 
                 // If the node is the one closest to the cursor, draw it immediately
@@ -311,7 +309,7 @@ pub fn debug_render_system(
     // Render node ID if a node is highlighted
     if let Some(closest_node_id) = closest_node {
         let node = map.graph.get_node(closest_node_id as NodeId).unwrap();
-        let pos = transform_position_with_offset(node.position, scale);
+        let pos = transform_position_with_offset(node.position, constants::LARGE_SCALE);
 
         let node_id_text = closest_node_id.to_string();
         let text_pos = Vec2::new((pos.x + 10) as f32, (pos.y - 5) as f32);
@@ -323,7 +321,7 @@ pub fn debug_render_system(
                 &node_id_text,
                 text_pos,
                 Color {
-                    a: f32_to_u8(0.4),
+                    a: f32_to_u8(0.9),
                     ..Color::WHITE
                 },
             )
