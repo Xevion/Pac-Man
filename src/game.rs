@@ -13,6 +13,7 @@ use crate::systems::blinking::Blinking;
 use crate::systems::components::{GhostAnimation, GhostState, LastAnimationState};
 use crate::systems::movement::{BufferedDirection, Position, Velocity};
 use crate::systems::profiling::SystemId;
+use crate::systems::render::touch_ui_render_system;
 use crate::systems::render::RenderDirty;
 use crate::systems::{
     self, combined_render_system, ghost_collision_system, present_system, Hidden, LinearAnimation, MovementModifiers, NodeId,
@@ -108,9 +109,9 @@ impl Game {
             EventType::ControllerTouchpadDown,
             EventType::ControllerTouchpadMotion,
             EventType::ControllerTouchpadUp,
-            EventType::FingerDown,
-            EventType::FingerUp,
-            EventType::FingerMotion,
+            // EventType::FingerDown,  // Enable for touch controls
+            // EventType::FingerUp,    // Enable for touch controls
+            // EventType::FingerMotion, // Enable for touch controls
             EventType::DollarGesture,
             EventType::DollarRecord,
             EventType::MultiGesture,
@@ -130,9 +131,8 @@ impl Game {
             EventType::Window,
             EventType::MouseWheel,
             // EventType::MouseMotion,
-            EventType::MouseButtonDown,
-            EventType::MouseButtonUp,
-            EventType::MouseButtonDown,
+            // EventType::MouseButtonDown,  // Enable for desktop touch testing
+            // EventType::MouseButtonUp,    // Enable for desktop touch testing
             EventType::AppDidEnterBackground,
             EventType::AppWillEnterForeground,
             EventType::AppWillEnterBackground,
@@ -317,6 +317,7 @@ impl Game {
         world.insert_resource(DebugState::default());
         world.insert_resource(AudioState::default());
         world.insert_resource(CursorPosition::default());
+        world.insert_resource(systems::input::TouchState::default());
         world.insert_resource(StartupSequence::new(
             constants::startup::STARTUP_FRAMES,
             constants::startup::STARTUP_TICKS_PER_FRAME,
@@ -388,6 +389,7 @@ impl Game {
                 dirty_render_system,
                 combined_render_system,
                 hud_render_system,
+                touch_ui_render_system,
                 present_system,
             )
                 .chain(),

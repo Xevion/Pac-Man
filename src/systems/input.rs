@@ -25,6 +25,59 @@ pub enum CursorPosition {
     },
 }
 
+#[derive(Resource, Default, Debug)]
+pub struct TouchState {
+    pub active_touch: Option<TouchData>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TouchData {
+    pub finger_id: i64,
+    pub start_pos: Vec2,
+    pub current_pos: Vec2,
+    pub current_direction: Option<Direction>,
+}
+
+impl TouchData {
+    pub fn new(finger_id: i64, start_pos: Vec2) -> Self {
+        Self {
+            finger_id,
+            start_pos,
+            current_pos: start_pos,
+            current_direction: None,
+        }
+    }
+
+    pub fn update_position(&mut self, new_pos: Vec2) -> Option<Direction> {
+        self.current_pos = new_pos;
+        let delta = new_pos - self.start_pos;
+
+        // Minimum threshold for direction detection (in pixels)
+        const THRESHOLD: f32 = 20.0;
+
+        if delta.length() < THRESHOLD {
+            self.current_direction = None;
+            return None;
+        }
+
+        // Determine primary direction based on larger component
+        let direction = if delta.x.abs() > delta.y.abs() {
+            if delta.x > 0.0 {
+                Direction::Right
+            } else {
+                Direction::Left
+            }
+        } else if delta.y > 0.0 {
+            Direction::Down
+        } else {
+            Direction::Up
+        };
+
+        self.current_direction = Some(direction);
+        Some(direction)
+    }
+}
+
 #[derive(Resource, Debug, Clone)]
 pub struct Bindings {
     key_bindings: HashMap<Keycode, GameCommand>,
@@ -131,6 +184,7 @@ pub fn input_system(
     mut writer: EventWriter<GameEvent>,
     mut pump: NonSendMut<EventPump>,
     mut cursor: ResMut<CursorPosition>,
+    mut touch_state: ResMut<TouchState>,
 ) {
     let mut cursor_seen = false;
     // Collect all events for this frame.
@@ -159,6 +213,47 @@ pub fn input_system(
                     remaining_time: 0.20,
                 };
                 cursor_seen = true;
+
+                // Handle mouse motion as touch motion for desktop testing
+                if let Some(ref mut touch_data) = touch_state.active_touch {
+                    if let Some(direction) = touch_data.update_position(Vec2::new(x as f32, y as f32)) {
+                        writer.write(GameEvent::Command(GameCommand::MovePlayer(direction)));
+                    }
+                }
+            }
+            // Handle mouse events as touch for desktop testing
+            Event::MouseButtonDown { x, y, .. } => {
+                let pos = Vec2::new(x as f32, y as f32);
+                touch_state.active_touch = Some(TouchData::new(0, pos)); // Use ID 0 for mouse
+            }
+            Event::MouseButtonUp { .. } => {
+                touch_state.active_touch = None;
+            }
+            // Handle actual touch events for mobile
+            Event::FingerDown { finger_id, x, y, .. } => {
+                // Convert normalized coordinates (0.0-1.0) to screen coordinates
+                let screen_x = x * crate::constants::CANVAS_SIZE.x as f32;
+                let screen_y = y * crate::constants::CANVAS_SIZE.y as f32;
+                let pos = Vec2::new(screen_x, screen_y);
+                touch_state.active_touch = Some(TouchData::new(finger_id, pos));
+            }
+            Event::FingerMotion { finger_id, x, y, .. } => {
+                if let Some(ref mut touch_data) = touch_state.active_touch {
+                    if touch_data.finger_id == finger_id {
+                        let screen_x = x * crate::constants::CANVAS_SIZE.x as f32;
+                        let screen_y = y * crate::constants::CANVAS_SIZE.y as f32;
+                        if let Some(direction) = touch_data.update_position(Vec2::new(screen_x, screen_y)) {
+                            writer.write(GameEvent::Command(GameCommand::MovePlayer(direction)));
+                        }
+                    }
+                }
+            }
+            Event::FingerUp { finger_id, .. } => {
+                if let Some(ref touch_data) = touch_state.active_touch {
+                    if touch_data.finger_id == finger_id {
+                        touch_state.active_touch = None;
+                    }
+                }
             }
             Event::KeyDown { keycode, repeat, .. } => {
                 if let Some(key) = keycode {
