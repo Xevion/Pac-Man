@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 //! Buffered tracing setup for handling logs before console attachment.
 
 use crate::platform::buffered_writer::BufferedWriter;
