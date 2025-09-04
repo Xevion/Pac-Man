@@ -2,8 +2,9 @@ use crate::constants::CANVAS_SIZE;
 use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
 use crate::systems::{
-    DebugState, DebugTextureResource, DeltaTime, DirectionalAnimation, LinearAnimation, Position, Renderable, ScoreResource,
-    StartupSequence, Velocity,
+    debug_render_system, BatchedLinesResource, Collider, CursorPosition, DebugState, DebugTextureResource, DeltaTime,
+    DirectionalAnimation, LinearAnimation, Position, Renderable, ScoreResource, StartupSequence, SystemId, SystemTimings,
+    TtfAtlasResource, Velocity,
 };
 use crate::texture::sprite::SpriteAtlas;
 use crate::texture::text::TextTexture;
@@ -18,12 +19,20 @@ use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Canvas, Texture};
 use sdl2::video::Window;
+use std::time::Instant;
 
 #[derive(Resource, Default)]
 pub struct RenderDirty(pub bool);
 
 #[derive(Component)]
 pub struct Hidden;
+
+/// Enum to identify which texture is being rendered to in the combined render system
+#[derive(Debug, Clone, Copy)]
+enum RenderTarget {
+    Backbuffer,
+    Debug,
+}
 
 #[allow(clippy::type_complexity)]
 pub fn dirty_render_system(
@@ -172,59 +181,138 @@ pub fn hud_render_system(
 
 #[allow(clippy::too_many_arguments)]
 pub fn render_system(
+    canvas: &mut Canvas<Window>,
+    map_texture: &NonSendMut<MapTextureResource>,
+    atlas: &mut SpriteAtlas,
+    map: &Res<Map>,
+    dirty: &Res<RenderDirty>,
+    renderables: &Query<(Entity, &Renderable, &Position), Without<Hidden>>,
+    errors: &mut EventWriter<GameError>,
+) {
+    if !dirty.0 {
+        return;
+    }
+
+    // Clear the backbuffer
+    canvas.set_draw_color(sdl2::pixels::Color::BLACK);
+    canvas.clear();
+
+    // Copy the pre-rendered map texture to the backbuffer
+    if let Err(e) = canvas.copy(&map_texture.0, None, None) {
+        errors.write(TextureError::RenderFailed(e.to_string()).into());
+    }
+
+    // Render all entities to the backbuffer
+    for (_, renderable, position) in renderables
+        .iter()
+        .sort_by_key::<(Entity, &Renderable, &Position), _>(|(_, renderable, _)| renderable.layer)
+        .rev()
+    {
+        let pos = position.get_pixel_position(&map.graph);
+        match pos {
+            Ok(pos) => {
+                let dest = Rect::from_center(
+                    Point::from((pos.x as i32, pos.y as i32)),
+                    renderable.sprite.size.x as u32,
+                    renderable.sprite.size.y as u32,
+                );
+
+                renderable
+                    .sprite
+                    .render(canvas, atlas, dest)
+                    .err()
+                    .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
+            }
+            Err(e) => {
+                errors.write(e);
+            }
+        }
+    }
+}
+
+/// Combined render system that renders to both backbuffer and debug textures in a single
+/// with_multiple_texture_canvas call for reduced overhead
+#[allow(clippy::too_many_arguments)]
+pub fn combined_render_system(
     mut canvas: NonSendMut<&mut Canvas<Window>>,
     map_texture: NonSendMut<MapTextureResource>,
     mut backbuffer: NonSendMut<BackbufferResource>,
+    mut debug_texture: NonSendMut<DebugTextureResource>,
     mut atlas: NonSendMut<SpriteAtlas>,
+    mut ttf_atlas: NonSendMut<TtfAtlasResource>,
+    batched_lines: Res<BatchedLinesResource>,
+    debug_state: Res<DebugState>,
+    timings: Res<SystemTimings>,
     map: Res<Map>,
     dirty: Res<RenderDirty>,
     renderables: Query<(Entity, &Renderable, &Position), Without<Hidden>>,
+    colliders: Query<(&Collider, &Position)>,
+    cursor: Res<CursorPosition>,
     mut errors: EventWriter<GameError>,
 ) {
     if !dirty.0 {
         return;
     }
-    // Render to backbuffer
-    canvas
-        .with_texture_canvas(&mut backbuffer.0, |backbuffer_canvas| {
-            // Clear the backbuffer
-            backbuffer_canvas.set_draw_color(sdl2::pixels::Color::BLACK);
-            backbuffer_canvas.clear();
 
-            // Copy the pre-rendered map texture to the backbuffer
-            if let Err(e) = backbuffer_canvas.copy(&map_texture.0, None, None) {
-                errors.write(TextureError::RenderFailed(e.to_string()).into());
+    // Prepare textures and render targets
+    let textures = [
+        (&mut backbuffer.0, RenderTarget::Backbuffer),
+        (&mut debug_texture.0, RenderTarget::Debug),
+    ];
+
+    // Record timing for each system independently
+    let mut render_duration = None;
+    let mut debug_render_duration = None;
+
+    let result = canvas.with_multiple_texture_canvas(textures.iter(), |texture_canvas, render_target| match render_target {
+        RenderTarget::Backbuffer => {
+            let start_time = Instant::now();
+
+            render_system(
+                texture_canvas,
+                &map_texture,
+                &mut atlas,
+                &map,
+                &dirty,
+                &renderables,
+                &mut errors,
+            );
+
+            render_duration = Some(start_time.elapsed());
+        }
+        RenderTarget::Debug => {
+            if !debug_state.enabled {
+                return;
             }
 
-            // Render all entities to the backbuffer
-            for (_, renderable, position) in renderables
-                .iter()
-                .sort_by_key::<(Entity, &Renderable, &Position), _>(|(_, renderable, _)| renderable.layer)
-                .rev()
-            {
-                let pos = position.get_pixel_position(&map.graph);
-                match pos {
-                    Ok(pos) => {
-                        let dest = Rect::from_center(
-                            Point::from((pos.x as i32, pos.y as i32)),
-                            renderable.sprite.size.x as u32,
-                            renderable.sprite.size.y as u32,
-                        );
+            let start_time = Instant::now();
 
-                        renderable
-                            .sprite
-                            .render(backbuffer_canvas, &mut atlas, dest)
-                            .err()
-                            .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
-                    }
-                    Err(e) => {
-                        errors.write(e);
-                    }
-                }
-            }
-        })
-        .err()
-        .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
+            debug_render_system(
+                texture_canvas,
+                &mut ttf_atlas,
+                &batched_lines,
+                &debug_state,
+                &timings,
+                &map,
+                &colliders,
+                &cursor,
+            );
+
+            debug_render_duration = Some(start_time.elapsed());
+        }
+    });
+
+    if let Err(e) = result {
+        errors.write(TextureError::RenderFailed(e.to_string()).into());
+    }
+
+    // Record timings for each system independently
+    if let Some(duration) = render_duration {
+        timings.add_timing(SystemId::Render, duration);
+    }
+    if let Some(duration) = debug_render_duration {
+        timings.add_timing(SystemId::DebugRender, duration);
+    }
 }
 
 pub fn present_system(

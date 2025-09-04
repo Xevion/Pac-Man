@@ -14,14 +14,16 @@ use crate::systems::components::{GhostAnimation, GhostState, LastAnimationState}
 use crate::systems::movement::{BufferedDirection, Position, Velocity};
 use crate::systems::profiling::SystemId;
 use crate::systems::render::RenderDirty;
-use crate::systems::{self, ghost_collision_system, present_system, Hidden, LinearAnimation, MovementModifiers, NodeId};
 use crate::systems::{
-    audio_system, blinking_system, collision_system, debug_render_system, directional_render_system, dirty_render_system,
-    eaten_ghost_system, ghost_movement_system, ghost_state_system, hud_render_system, item_system, linear_render_system, profile,
-    render_system, AudioEvent, AudioResource, AudioState, BackbufferResource, Collider, DebugState, DebugTextureResource,
-    DeltaTime, DirectionalAnimation, EntityType, Frozen, Ghost, GhostAnimations, GhostBundle, GhostCollider, GlobalState,
-    ItemBundle, ItemCollider, MapTextureResource, PacmanCollider, PlayerBundle, PlayerControlled, Renderable, ScoreResource,
-    StartupSequence, SystemTimings,
+    self, combined_render_system, ghost_collision_system, present_system, Hidden, LinearAnimation, MovementModifiers, NodeId,
+};
+use crate::systems::{
+    audio_system, blinking_system, collision_system, directional_render_system, dirty_render_system, eaten_ghost_system,
+    ghost_movement_system, ghost_state_system, hud_render_system, item_system, linear_render_system, profile, AudioEvent,
+    AudioResource, AudioState, BackbufferResource, Collider, DebugState, DebugTextureResource, DeltaTime, DirectionalAnimation,
+    EntityType, Frozen, Ghost, GhostAnimations, GhostBundle, GhostCollider, GlobalState, ItemBundle, ItemCollider,
+    MapTextureResource, PacmanCollider, PlayerBundle, PlayerControlled, Renderable, ScoreResource, StartupSequence,
+    SystemTimings,
 };
 use crate::texture::animated::{DirectionalTiles, TileSequence};
 use crate::texture::sprite::AtlasTile;
@@ -352,9 +354,7 @@ impl Game {
         let directional_render_system = profile(SystemId::DirectionalRender, directional_render_system);
         let linear_render_system = profile(SystemId::LinearRender, linear_render_system);
         let dirty_render_system = profile(SystemId::DirtyRender, dirty_render_system);
-        let render_system = profile(SystemId::Render, render_system);
         let hud_render_system = profile(SystemId::HudRender, hud_render_system);
-        let debug_render_system = profile(SystemId::DebugRender, debug_render_system);
         let present_system = profile(SystemId::Present, present_system);
         let unified_ghost_state_system = profile(SystemId::GhostStateAnimation, ghost_state_system);
 
@@ -386,9 +386,8 @@ impl Game {
                 directional_render_system,
                 linear_render_system,
                 dirty_render_system,
-                render_system,
+                combined_render_system,
                 hud_render_system,
-                debug_render_system,
                 present_system,
             )
                 .chain(),

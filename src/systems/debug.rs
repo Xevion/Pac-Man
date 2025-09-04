@@ -6,7 +6,7 @@ use crate::map::builder::Map;
 use crate::systems::{Collider, CursorPosition, NodeId, Position, SystemTimings};
 use crate::texture::ttf::{TtfAtlas, TtfRenderer};
 use bevy_ecs::resource::Resource;
-use bevy_ecs::system::{NonSendMut, Query, Res};
+use bevy_ecs::system::{Query, Res};
 use glam::{IVec2, UVec2, Vec2};
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
@@ -203,15 +203,14 @@ fn render_timing_display(
 
 #[allow(clippy::too_many_arguments)]
 pub fn debug_render_system(
-    mut canvas: NonSendMut<&mut Canvas<Window>>,
-    mut debug_texture: NonSendMut<DebugTextureResource>,
-    mut ttf_atlas: NonSendMut<TtfAtlasResource>,
-    batched_lines: Res<BatchedLinesResource>,
-    debug_state: Res<DebugState>,
-    timings: Res<SystemTimings>,
-    map: Res<Map>,
-    colliders: Query<(&Collider, &Position)>,
-    cursor: Res<CursorPosition>,
+    canvas: &mut Canvas<Window>,
+    ttf_atlas: &mut TtfAtlasResource,
+    batched_lines: &Res<BatchedLinesResource>,
+    debug_state: &Res<DebugState>,
+    timings: &Res<SystemTimings>,
+    map: &Res<Map>,
+    colliders: &Query<(&Collider, &Position)>,
+    cursor: &Res<CursorPosition>,
 ) {
     if !debug_state.enabled {
         return;
@@ -222,121 +221,116 @@ pub fn debug_render_system(
     // Create debug text renderer
     let text_renderer = TtfRenderer::new(1.0);
 
-    let cursor_world_pos = match *cursor {
+    let cursor_world_pos = match &**cursor {
         CursorPosition::None => None,
         CursorPosition::Some { position, .. } => Some(position - BOARD_PIXEL_OFFSET.as_vec2()),
     };
 
-    // Draw debug info on the high-resolution debug texture
-    canvas
-        .with_texture_canvas(&mut debug_texture.0, |debug_canvas| {
-            // Clear the debug canvas
-            debug_canvas.set_draw_color(Color::RGBA(0, 0, 0, 0));
-            debug_canvas.clear();
+    // Clear the debug canvas
+    canvas.set_draw_color(Color::RGBA(0, 0, 0, 0));
+    canvas.clear();
 
-            // Find the closest node to the cursor
-            let closest_node = if let Some(cursor_world_pos) = cursor_world_pos {
-                map.graph
-                    .nodes()
-                    .map(|node| node.position.distance(cursor_world_pos))
-                    .enumerate()
-                    .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Less))
-                    .map(|(id, _)| id)
-            } else {
-                None
-            };
+    // Find the closest node to the cursor
+    let closest_node = if let Some(cursor_world_pos) = cursor_world_pos {
+        map.graph
+            .nodes()
+            .map(|node| node.position.distance(cursor_world_pos))
+            .enumerate()
+            .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Less))
+            .map(|(id, _)| id)
+    } else {
+        None
+    };
 
-            debug_canvas.set_draw_color(Color::GREEN);
-            {
-                let rects = colliders
-                    .iter()
-                    .map(|(collider, position)| {
-                        let pos = position.get_pixel_position(&map.graph).unwrap();
+    canvas.set_draw_color(Color::GREEN);
+    {
+        let rects = colliders
+            .iter()
+            .map(|(collider, position)| {
+                let pos = position.get_pixel_position(&map.graph).unwrap();
 
-                        // Transform position and size using common methods
-                        let pos = (pos * scale).as_ivec2();
-                        let size = (collider.size * scale) as u32;
+                // Transform position and size using common methods
+                let pos = (pos * scale).as_ivec2();
+                let size = (collider.size * scale) as u32;
 
-                        Rect::from_center(Point::from((pos.x, pos.y)), size, size)
-                    })
-                    .collect::<SmallVec<[Rect; 100]>>();
-                if rects.len() > rects.capacity() {
-                    warn!(
-                        capacity = rects.capacity(),
-                        count = rects.len(),
-                        "Collider rects capacity exceeded"
-                    );
-                }
-                debug_canvas.draw_rects(&rects).unwrap();
-            }
+                Rect::from_center(Point::from((pos.x, pos.y)), size, size)
+            })
+            .collect::<SmallVec<[Rect; 100]>>();
+        if rects.len() > rects.capacity() {
+            warn!(
+                capacity = rects.capacity(),
+                count = rects.len(),
+                "Collider rects capacity exceeded"
+            );
+        }
+        canvas.draw_rects(&rects).unwrap();
+    }
 
-            debug_canvas.set_draw_color(Color {
-                a: f32_to_u8(0.6),
-                ..Color::RED
-            });
-            debug_canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
+    canvas.set_draw_color(Color {
+        a: f32_to_u8(0.6),
+        ..Color::RED
+    });
+    canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
 
-            // Use cached batched line segments
-            batched_lines.render(debug_canvas);
+    // Use cached batched line segments
+    batched_lines.render(canvas);
 
-            {
-                let rects: Vec<_> = map
-                    .graph
-                    .nodes()
-                    .enumerate()
-                    .filter_map(|(id, node)| {
-                        let pos = transform_position_with_offset(node.position, scale);
-                        let size = (2.0 * scale) as u32;
-                        let rect = Rect::new(pos.x - (size as i32 / 2), pos.y - (size as i32 / 2), size, size);
-
-                        // If the node is the one closest to the cursor, draw it immediately
-                        if closest_node == Some(id) {
-                            debug_canvas.set_draw_color(Color::YELLOW);
-                            debug_canvas.fill_rect(rect).unwrap();
-                            return None;
-                        }
-
-                        Some(rect)
-                    })
-                    .collect();
-
-                if rects.len() > rects.capacity() {
-                    warn!(
-                        capacity = rects.capacity(),
-                        count = rects.len(),
-                        "Node rects capacity exceeded"
-                    );
-                }
-
-                // Draw the non-closest nodes all at once in blue
-                debug_canvas.set_draw_color(Color::BLUE);
-                debug_canvas.fill_rects(&rects).unwrap();
-            }
-
-            // Render node ID if a node is highlighted
-            if let Some(closest_node_id) = closest_node {
-                let node = map.graph.get_node(closest_node_id as NodeId).unwrap();
+    {
+        let rects: Vec<_> = map
+            .graph
+            .nodes()
+            .enumerate()
+            .filter_map(|(id, node)| {
                 let pos = transform_position_with_offset(node.position, scale);
+                let size = (2.0 * scale) as u32;
+                let rect = Rect::new(pos.x - (size as i32 / 2), pos.y - (size as i32 / 2), size, size);
 
-                let node_id_text = closest_node_id.to_string();
-                let text_pos = Vec2::new((pos.x + 10) as f32, (pos.y - 5) as f32);
+                // If the node is the one closest to the cursor, draw it immediately
+                if closest_node == Some(id) {
+                    canvas.set_draw_color(Color::YELLOW);
+                    canvas.fill_rect(rect).unwrap();
+                    return None;
+                }
 
-                text_renderer
-                    .render_text(
-                        debug_canvas,
-                        &mut ttf_atlas.0,
-                        &node_id_text,
-                        text_pos,
-                        Color {
-                            a: f32_to_u8(0.4),
-                            ..Color::WHITE
-                        },
-                    )
-                    .unwrap();
-            }
+                Some(rect)
+            })
+            .collect();
 
-            // Render timing information in the top-left corner
-            render_timing_display(debug_canvas, &timings, &text_renderer, &mut ttf_atlas.0);
-        })
-        .unwrap();
+        if rects.len() > rects.capacity() {
+            warn!(
+                capacity = rects.capacity(),
+                count = rects.len(),
+                "Node rects capacity exceeded"
+            );
+        }
+
+        // Draw the non-closest nodes all at once in blue
+        canvas.set_draw_color(Color::BLUE);
+        canvas.fill_rects(&rects).unwrap();
+    }
+
+    // Render node ID if a node is highlighted
+    if let Some(closest_node_id) = closest_node {
+        let node = map.graph.get_node(closest_node_id as NodeId).unwrap();
+        let pos = transform_position_with_offset(node.position, scale);
+
+        let node_id_text = closest_node_id.to_string();
+        let text_pos = Vec2::new((pos.x + 10) as f32, (pos.y - 5) as f32);
+
+        text_renderer
+            .render_text(
+                canvas,
+                &mut ttf_atlas.0,
+                &node_id_text,
+                text_pos,
+                Color {
+                    a: f32_to_u8(0.4),
+                    ..Color::WHITE
+                },
+            )
+            .unwrap();
+    }
+
+    // Render timing information in the top-left corner
+    render_timing_display(canvas, timings, &text_renderer, &mut ttf_atlas.0);
 }
