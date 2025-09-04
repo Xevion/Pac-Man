@@ -2,7 +2,7 @@
 #![windows_subsystem = "windows"]
 
 use crate::{app::App, constants::LOOP_TIME};
-use tracing::{debug, info, warn};
+use tracing::info;
 
 mod app;
 mod asset;
@@ -22,19 +22,9 @@ mod texture;
 /// This function initializes SDL, the window, the game state, and then enters
 /// the main game loop.
 pub fn main() {
-    if platform::requires_console() {
-        // Setup buffered tracing subscriber that will buffer logs until console is ready
-        let switchable_writer = platform::tracing_buffer::setup_switchable_subscriber();
-
-        // Initialize platform-specific console
-        platform::init_console().expect("Could not initialize console");
-
-        // Now that console is initialized, flush buffered logs and switch to direct output
-        debug!("Switching to direct logging mode and flushing buffer...");
-        if let Err(error) = switchable_writer.switch_to_direct_mode() {
-            warn!("Failed to flush buffered logs to console: {error:?}");
-        }
-    }
+    // On Windows, this connects output streams to the console dynamically
+    // On Emscripten, this connects the subscriber to the browser console
+    platform::init_console().expect("Could not initialize console");
 
     let mut app = App::new().expect("Could not create app");
 

@@ -20,8 +20,12 @@ pub fn sleep(duration: Duration, focused: bool) {
 pub fn init_console() -> Result<(), PlatformError> {
     #[cfg(windows)]
     {
+        use crate::platform::tracing_buffer::setup_switchable_subscriber;
         use tracing::{debug, info};
         use windows::Win32::System::Console::GetConsoleWindow;
+
+        // Setup buffered tracing subscriber that will buffer logs until console is ready
+        let switchable_writer = setup_switchable_subscriber();
 
         // Check if we already have a console window
         if unsafe { !GetConsoleWindow().0.is_null() } {
@@ -40,13 +44,17 @@ pub fn init_console() -> Result<(), PlatformError> {
             attach_to_parent_console()?;
             info!("Successfully attached to parent console");
         }
+
+        // Now that console is initialized, flush buffered logs and switch to direct output
+        debug!("Switching to direct logging mode and flushing buffer...");
+        if let Err(error) = switchable_writer.switch_to_direct_mode() {
+            use tracing::warn;
+
+            warn!("Failed to flush buffered logs to console: {error:?}");
+        }
     }
 
     Ok(())
-}
-
-pub fn requires_console() -> bool {
-    cfg!(windows)
 }
 
 pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {

@@ -293,6 +293,9 @@ pub fn input_system(
                     simple_key_events.push(SimpleKeyEvent::KeyUp(key));
                 }
             }
+            Event::RenderTargetsReset { .. } | Event::Window { .. } => {
+                // No-op
+            }
             _ => {
                 tracing::warn!("Unhandled event, consider disabling: {:?}", event);
             }
