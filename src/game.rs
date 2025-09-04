@@ -159,7 +159,7 @@ impl Game {
         // Create debug texture at output resolution for crisp debug rendering
         let output_size = canvas.output_size().unwrap();
         let mut debug_texture = texture_creator
-            .create_texture_target(None, output_size.0, output_size.1)
+            .create_texture_target(Some(sdl2::pixels::PixelFormatEnum::ARGB8888), output_size.0, output_size.1)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
         // Debug texture is copied over the backbuffer, it requires transparency abilities

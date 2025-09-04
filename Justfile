@@ -41,4 +41,4 @@ samply:
 
 # Build the project for Emscripten
 web:
-    bun run web.build.ts
+    bun run web.build.ts; caddy file-server --root dist

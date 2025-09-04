@@ -29,6 +29,7 @@ pub fn requires_console() -> bool {
     false
 }
 
+#[allow(dead_code)]
 pub fn get_canvas_size() -> Option<(u32, u32)> {
     let mut width = 0.0;
     let mut height = 0.0;
