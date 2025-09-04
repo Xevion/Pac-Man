@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use crate::error::{GameError, GameResult};
@@ -5,7 +6,10 @@ use crate::error::{GameError, GameResult};
 use crate::constants::{CANVAS_SIZE, LOOP_TIME, SCALE};
 use crate::game::Game;
 use crate::platform;
+use sdl2::pixels::PixelFormatEnum;
+use sdl2::render::RendererInfo;
 use sdl2::{AudioSubsystem, Sdl};
+use tracing::debug;
 
 /// Main application wrapper that manages SDL initialization, window lifecycle, and the game loop.
 ///
@@ -50,15 +54,51 @@ impl App {
             .build()
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
+        #[derive(Debug)]
+        struct DriverDetail {
+            info: RendererInfo,
+            index: usize,
+        }
+
+        let drivers: HashMap<&'static str, DriverDetail> = sdl2::render::drivers()
+            .enumerate()
+            .map(|(index, d)| (d.name, DriverDetail { info: d, index }))
+            .collect::<HashMap<_, _>>();
+
+        let get_driver =
+            |name: &'static str| -> Option<u32> { drivers.get(name.to_lowercase().as_str()).map(|d| d.index as u32) };
+
+        {
+            let mut names = drivers.keys().collect::<Vec<_>>();
+            names.sort_by_key(|k| get_driver(k));
+            debug!("Drivers: {names:?}")
+        }
+
+        // Count the number of times each pixel format is supported by each driver
+        let pixel_format_counts: HashMap<PixelFormatEnum, usize> = drivers
+            .values()
+            .flat_map(|d| d.info.texture_formats.iter())
+            .fold(HashMap::new(), |mut counts, format| {
+                *counts.entry(*format).or_insert(0) += 1;
+                counts
+            });
+
+        debug!("Pixel format counts: {pixel_format_counts:?}");
+
+        let index = get_driver("direct3d");
+        debug!("Driver index: {index:?}");
+
         let mut canvas = window
             .into_canvas()
             .accelerated()
+            // .index(index)
             .build()
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
         canvas
             .set_logical_size(CANVAS_SIZE.x, CANVAS_SIZE.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
+        debug!("Renderer: {:?}", canvas.info());
 
         let texture_creator = canvas.texture_creator();
 
