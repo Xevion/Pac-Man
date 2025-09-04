@@ -13,6 +13,7 @@ use sdl2::rect::{Point, Rect};
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 use smallvec::SmallVec;
+use std::collections::{HashMap, HashSet};
 use tracing::warn;
 
 #[derive(Resource, Default, Debug, Copy, Clone)]
@@ -29,6 +30,118 @@ pub struct DebugTextureResource(pub Texture);
 
 /// Resource to hold the TTF text atlas
 pub struct TtfAtlasResource(pub TtfAtlas);
+
+/// Resource to hold pre-computed batched line segments
+#[derive(Resource, Default, Debug, Clone)]
+pub struct BatchedLinesResource {
+    horizontal_lines: Vec<(i32, i32, i32)>, // (y, x_start, x_end)
+    vertical_lines: Vec<(i32, i32, i32)>,   // (x, y_start, y_end)
+}
+
+impl BatchedLinesResource {
+    /// Computes and caches batched line segments for the map graph
+    pub fn new(map: &Map, scale: f32) -> Self {
+        let mut horizontal_segments: HashMap<i32, Vec<(i32, i32)>> = HashMap::new();
+        let mut vertical_segments: HashMap<i32, Vec<(i32, i32)>> = HashMap::new();
+        let mut processed_edges: HashSet<(u16, u16)> = HashSet::new();
+
+        // Process all edges and group them by axis
+        for (start_node_id, edge) in map.graph.edges() {
+            // Acquire a stable key for the edge (from < to)
+            let edge_key = (start_node_id.min(edge.target), start_node_id.max(edge.target));
+
+            // Skip if we've already processed this edge in the reverse direction
+            if processed_edges.contains(&edge_key) {
+                continue;
+            }
+            processed_edges.insert(edge_key);
+
+            let start_pos = map.graph.get_node(start_node_id).unwrap().position;
+            let end_pos = map.graph.get_node(edge.target).unwrap().position;
+
+            let start = transform_position_with_offset(start_pos, scale);
+            let end = transform_position_with_offset(end_pos, scale);
+
+            // Determine if this is a horizontal or vertical line
+            if (start.y - end.y).abs() < 2 {
+                // Horizontal line (allowing for slight vertical variance)
+                let y = start.y;
+                let x_min = start.x.min(end.x);
+                let x_max = start.x.max(end.x);
+                horizontal_segments.entry(y).or_default().push((x_min, x_max));
+            } else if (start.x - end.x).abs() < 2 {
+                // Vertical line (allowing for slight horizontal variance)
+                let x = start.x;
+                let y_min = start.y.min(end.y);
+                let y_max = start.y.max(end.y);
+                vertical_segments.entry(x).or_default().push((y_min, y_max));
+            }
+        }
+
+        /// Merges overlapping or adjacent segments into continuous lines
+        fn merge_segments(segments: Vec<(i32, i32)>) -> Vec<(i32, i32)> {
+            if segments.is_empty() {
+                return Vec::new();
+            }
+
+            let mut merged = Vec::new();
+            let mut current_start = segments[0].0;
+            let mut current_end = segments[0].1;
+
+            for &(start, end) in segments.iter().skip(1) {
+                if start <= current_end + 1 {
+                    // Adjacent or overlapping
+                    current_end = current_end.max(end);
+                } else {
+                    merged.push((current_start, current_end));
+                    current_start = start;
+                    current_end = end;
+                }
+            }
+
+            merged.push((current_start, current_end));
+            merged
+        }
+
+        // Convert to flat vectors for fast iteration during rendering
+        let horizontal_lines = horizontal_segments
+            .into_iter()
+            .flat_map(|(y, mut segments)| {
+                segments.sort_unstable_by_key(|(start, _)| *start);
+                let merged = merge_segments(segments);
+                merged.into_iter().map(move |(x_start, x_end)| (y, x_start, x_end))
+            })
+            .collect::<Vec<_>>();
+
+        let vertical_lines = vertical_segments
+            .into_iter()
+            .flat_map(|(x, mut segments)| {
+                segments.sort_unstable_by_key(|(start, _)| *start);
+                let merged = merge_segments(segments);
+                merged.into_iter().map(move |(y_start, y_end)| (x, y_start, y_end))
+            })
+            .collect::<Vec<_>>();
+
+        Self {
+            horizontal_lines,
+            vertical_lines,
+        }
+    }
+
+    pub fn render(&self, canvas: &mut Canvas<Window>) {
+        // Render horizontal lines
+        for &(y, x_start, x_end) in &self.horizontal_lines {
+            let points = [Point::new(x_start, y), Point::new(x_end, y)];
+            let _ = canvas.draw_lines(&points[..]);
+        }
+
+        // Render vertical lines
+        for &(x, y_start, y_end) in &self.vertical_lines {
+            let points = [Point::new(x, y_start), Point::new(x, y_end)];
+            let _ = canvas.draw_lines(&points[..]);
+        }
+    }
+}
 
 /// Transforms a position from logical canvas coordinates to output canvas coordinates (with board offset)
 fn transform_position_with_offset(pos: Vec2, scale: f32) -> IVec2 {
@@ -93,6 +206,7 @@ pub fn debug_render_system(
     mut canvas: NonSendMut<&mut Canvas<Window>>,
     mut debug_texture: NonSendMut<DebugTextureResource>,
     mut ttf_atlas: NonSendMut<TtfAtlasResource>,
+    batched_lines: Res<BatchedLinesResource>,
     debug_state: Res<DebugState>,
     timings: Res<SystemTimings>,
     map: Res<Map>,
@@ -157,22 +271,13 @@ pub fn debug_render_system(
             }
 
             debug_canvas.set_draw_color(Color {
-                a: f32_to_u8(0.4),
+                a: f32_to_u8(0.6),
                 ..Color::RED
             });
             debug_canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
-            for (start_node, end_node) in map.graph.edges() {
-                let start_node_model = map.graph.get_node(start_node).unwrap();
-                let end_node = map.graph.get_node(end_node.target).unwrap().position;
 
-                // Transform positions using common method
-                let start = transform_position_with_offset(start_node_model.position, scale);
-                let end = transform_position_with_offset(end_node, scale);
-
-                debug_canvas
-                    .draw_line(Point::from((start.x, start.y)), Point::from((end.x, end.y)))
-                    .unwrap();
-            }
+            // Use cached batched line segments
+            batched_lines.render(debug_canvas);
 
             {
                 let rects: Vec<_> = map
