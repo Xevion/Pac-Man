@@ -2,6 +2,7 @@
 
 //! Buffered tracing setup for handling logs before console attachment.
 
+use crate::formatter::CustomFormatter;
 use crate::platform::buffered_writer::BufferedWriter;
 use std::io;
 use tracing::{debug, Level};
@@ -90,6 +91,7 @@ pub fn setup_switchable_subscriber() -> SwitchableWriter {
     let _subscriber = tracing_subscriber::fmt()
         .with_ansi(cfg!(not(target_os = "emscripten")))
         .with_max_level(Level::DEBUG)
+        .event_format(CustomFormatter)
         .with_writer(make_writer)
         .finish()
         .with(ErrorLayer::default());
