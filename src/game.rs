@@ -12,11 +12,12 @@ use crate::map::direction::Direction;
 use crate::systems::blinking::Blinking;
 use crate::systems::components::{GhostAnimation, GhostState, LastAnimationState};
 use crate::systems::movement::{BufferedDirection, Position, Velocity};
-use crate::systems::profiling::SystemId;
+use crate::systems::profiling::{SystemId, Timing};
 use crate::systems::render::touch_ui_render_system;
 use crate::systems::render::RenderDirty;
 use crate::systems::{
     self, combined_render_system, ghost_collision_system, present_system, Hidden, LinearAnimation, MovementModifiers, NodeId,
+    TouchState,
 };
 use crate::systems::{
     audio_system, blinking_system, collision_system, directional_render_system, dirty_render_system, eaten_ghost_system,
@@ -369,13 +370,14 @@ impl Game {
         world.insert_resource(GlobalState { exit: false });
         world.insert_resource(ScoreResource(0));
         world.insert_resource(SystemTimings::default());
+        world.insert_resource(Timing::default());
         world.insert_resource(Bindings::default());
         world.insert_resource(DeltaTime(0f32));
         world.insert_resource(RenderDirty::default());
         world.insert_resource(DebugState::default());
         world.insert_resource(AudioState::default());
         world.insert_resource(CursorPosition::default());
-        world.insert_resource(systems::input::TouchState::default());
+        world.insert_resource(TouchState::default());
         world.insert_resource(StartupSequence::new(
             constants::startup::STARTUP_FRAMES,
             constants::startup::STARTUP_TICKS_PER_FRAME,
@@ -633,14 +635,20 @@ impl Game {
     pub fn tick(&mut self, dt: f32) -> bool {
         self.world.insert_resource(DeltaTime(dt));
 
+        // Note: We don't need to read the current tick here since we increment it after running systems
+
         // Measure total frame time including all systems
         let start = std::time::Instant::now();
         self.schedule.run(&mut self.world);
         let total_duration = start.elapsed();
 
-        // Record the total timing
-        if let Some(timings) = self.world.get_resource::<systems::profiling::SystemTimings>() {
-            timings.add_total_timing(total_duration);
+        // Increment tick counter and record the total timing
+        if let (Some(timings), Some(timing)) = (
+            self.world.get_resource::<systems::profiling::SystemTimings>(),
+            self.world.get_resource::<Timing>(),
+        ) {
+            let new_tick = timing.increment_tick();
+            timings.add_total_timing(total_duration, new_tick);
         }
 
         let state = self

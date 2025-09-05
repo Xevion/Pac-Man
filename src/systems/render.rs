@@ -317,6 +317,7 @@ pub fn combined_render_system(
     batched_lines: Res<BatchedLinesResource>,
     debug_state: Res<DebugState>,
     timings: Res<SystemTimings>,
+    timing: Res<crate::systems::profiling::Timing>,
     map: Res<Map>,
     dirty: Res<RenderDirty>,
     renderables: Query<(Entity, &Renderable, &Position), Without<Hidden>>,
@@ -367,6 +368,7 @@ pub fn combined_render_system(
                 &batched_lines,
                 &debug_state,
                 &timings,
+                &timing,
                 &map,
                 &colliders,
                 &cursor,
@@ -381,11 +383,13 @@ pub fn combined_render_system(
     }
 
     // Record timings for each system independently
+    let current_tick = timing.get_current_tick();
+
     if let Some(duration) = render_duration {
-        timings.add_timing(SystemId::Render, duration);
+        timings.add_timing(SystemId::Render, duration, current_tick);
     }
     if let Some(duration) = debug_render_duration {
-        timings.add_timing(SystemId::DebugRender, duration);
+        timings.add_timing(SystemId::DebugRender, duration, current_tick);
     }
 }
 

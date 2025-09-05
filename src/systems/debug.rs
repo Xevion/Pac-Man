@@ -152,11 +152,12 @@ fn transform_position_with_offset(pos: Vec2, scale: f32) -> IVec2 {
 fn render_timing_display(
     canvas: &mut Canvas<Window>,
     timings: &SystemTimings,
+    current_tick: u64,
     text_renderer: &TtfRenderer,
     atlas: &mut TtfAtlas,
 ) {
     // Format timing information using the formatting module
-    let lines = timings.format_timing_display();
+    let lines = timings.format_timing_display(current_tick);
     let line_height = text_renderer.text_height(atlas) as i32 + 2; // Add 2px line spacing
     let padding = 10;
 
@@ -208,6 +209,7 @@ pub fn debug_render_system(
     batched_lines: &Res<BatchedLinesResource>,
     debug_state: &Res<DebugState>,
     timings: &Res<SystemTimings>,
+    timing: &Res<crate::systems::profiling::Timing>,
     map: &Res<Map>,
     colliders: &Query<(&Collider, &Position)>,
     cursor: &Res<CursorPosition>,
@@ -329,5 +331,8 @@ pub fn debug_render_system(
     }
 
     // Render timing information in the top-left corner
-    render_timing_display(canvas, timings, &text_renderer, &mut ttf_atlas.0);
+    // Use previous tick since current tick is incomplete (frame is still running)
+    let current_tick = timing.get_current_tick();
+    let previous_tick = current_tick.saturating_sub(1);
+    render_timing_display(canvas, timings, previous_tick, &text_renderer, &mut ttf_atlas.0);
 }
