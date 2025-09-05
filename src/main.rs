@@ -11,6 +11,7 @@ mod constants;
 
 mod error;
 mod events;
+mod formatter;
 mod game;
 mod map;
 mod platform;

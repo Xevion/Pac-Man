@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 use crate::error::{GameError, GameResult};
 
 use crate::constants::{CANVAS_SIZE, LOOP_TIME, SCALE};
+use crate::formatter;
 use crate::game::Game;
 use crate::platform;
 use sdl2::pixels::PixelFormatEnum;
@@ -130,6 +131,9 @@ impl App {
 
             let dt = self.last_tick.elapsed().as_secs_f32();
             self.last_tick = start;
+
+            // Increment the global tick counter for tracing
+            formatter::increment_tick();
 
             let exit = self.game.tick(dt);
 

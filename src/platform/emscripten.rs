@@ -2,6 +2,7 @@
 
 use crate::asset::Asset;
 use crate::error::{AssetError, PlatformError};
+use crate::formatter::CustomFormatter;
 use rand::{rngs::SmallRng, SeedableRng};
 use sdl2::rwops::RWops;
 use std::borrow::Cow;
@@ -33,8 +34,7 @@ pub fn init_console() -> Result<(), PlatformError> {
             fmt::layer()
                 .with_writer(|| EmscriptenConsoleWriter)
                 .with_ansi(false)
-                .without_time()
-                .with_target(false),
+                .event_format(CustomFormatter),
         )
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug")));
 

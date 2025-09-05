@@ -6,6 +6,7 @@ pub mod audio;
 pub mod constants;
 pub mod error;
 pub mod events;
+pub mod formatter;
 pub mod game;
 pub mod map;
 pub mod platform;
