@@ -40,15 +40,8 @@ fn test_timing_statistics() {
         assert_close!(*std_dev, Duration::from_millis(2), "PlayerControls standard deviation timing");
     }
 
-    {
-        let (total_avg, total_std) = timings.get_total_stats();
-        assert_close!(total_avg, Duration::from_millis(2), "Total average timing across all systems");
-        assert_close!(
-            total_std,
-            Duration::from_millis(7),
-            "Total standard deviation timing across all systems"
-        );
-    }
+    // Note: get_total_stats() was removed as we now use the Total system directly
+    // This test now focuses on individual system statistics
 }
 
 #[test]
@@ -69,9 +62,9 @@ fn test_default_zero_timing_for_unused_systems() {
     assert_close!(*avg, Duration::from_millis(5), "System with data should have correct timing");
     assert_close!(*std_dev, Duration::ZERO, "Single measurement should have zero std dev");
 
-    // Verify that all other systems have zero timing
+    // Verify that all other systems have zero timing (excluding Total which is special)
     for id in SystemId::iter() {
-        if id != SystemId::PlayerControls {
+        if id != SystemId::PlayerControls && id != SystemId::Total {
             let (avg, std_dev) = stats.get(&id).unwrap();
             assert_close!(
                 *avg,
@@ -107,4 +100,25 @@ fn test_pre_populated_timing_entries() {
             id
         );
     }
+}
+
+#[test]
+fn test_total_system_timing() {
+    let timings = SystemTimings::default();
+
+    // Add some timing data to the Total system
+    timings.add_total_timing(Duration::from_millis(16));
+    timings.add_total_timing(Duration::from_millis(18));
+    timings.add_total_timing(Duration::from_millis(14));
+
+    let stats = timings.get_stats();
+    let (avg, std_dev) = stats.get(&SystemId::Total).unwrap();
+
+    // Should have 16ms average (16+18+14)/3 = 16ms
+    assert_close!(*avg, Duration::from_millis(16), "Total system average timing");
+    // Should have some standard deviation
+    assert!(
+        *std_dev > Duration::ZERO,
+        "Total system should have non-zero std dev with multiple measurements"
+    );
 }

@@ -18,6 +18,7 @@ const TIMING_WINDOW_SIZE: usize = 30;
 
 #[derive(EnumCount, EnumIter, IntoStaticStr, Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum SystemId {
+    Total,
     Input,
     PlayerControls,
     Ghost,
@@ -85,6 +86,11 @@ impl SystemTimings {
         queue.lock().push_back(duration);
     }
 
+    /// Add timing for the Total system (total frame time including scheduler.run)
+    pub fn add_total_timing(&self, duration: Duration) {
+        self.add_timing(SystemId::Total, duration);
+    }
+
     pub fn get_stats(&self) -> Map<SystemId, (Duration, Duration), MAX_SYSTEMS> {
         let mut stats = Map::new();
 
@@ -123,47 +129,30 @@ impl SystemTimings {
         stats
     }
 
-    pub fn get_total_stats(&self) -> (Duration, Duration) {
-        let duration_sums = {
-            self.timings
-                .iter()
-                .map(|(_, queue)| queue.lock().iter().sum::<Duration>())
-                .collect::<Vec<_>>()
-        };
-
-        let mean = duration_sums.iter().sum::<Duration>() / duration_sums.len() as u32;
-        let variance = duration_sums
-            .iter()
-            .map(|x| {
-                let diff_secs = x.as_secs_f64() - mean.as_secs_f64();
-                diff_secs * diff_secs
-            })
-            .sum::<f64>()
-            / (duration_sums.len() - 1).max(1) as f64;
-        let std_dev_secs = variance.sqrt();
-
-        (mean, Duration::from_secs_f64(std_dev_secs))
-    }
-
     pub fn format_timing_display(&self) -> SmallVec<[String; SystemId::COUNT]> {
         let stats = self.get_stats();
-        let (total_avg, total_std) = self.get_total_stats();
+
+        // Get the Total system metrics instead of averaging all systems
+        let (total_avg, total_std) = stats
+            .get(&SystemId::Total)
+            .copied()
+            .unwrap_or((Duration::ZERO, Duration::ZERO));
 
         let effective_fps = match 1.0 / total_avg.as_secs_f64() {
-            f if f > 100.0 => (f as u32).separate_with_commas(),
+            f if f > 100.0 => format!("{:>5} FPS", (f as u32).separate_with_commas()),
             f if f < 10.0 => format!("{:.1} FPS", f),
-            f => format!("{:.0} FPS", f),
+            f => format!("{:5.0} FPS", f),
         };
 
         // Collect timing data for formatting
         let mut timing_data = vec![(effective_fps, total_avg, total_std)];
 
-        // Sort the stats by average duration
-        let mut sorted_stats: Vec<_> = stats.iter().collect();
+        // Sort the stats by average duration, excluding the Total system
+        let mut sorted_stats: Vec<_> = stats.iter().filter(|(id, _)| **id != SystemId::Total).collect();
         sorted_stats.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
 
-        // Add the top 5 most expensive systems
-        for (name, (avg, std_dev)) in sorted_stats.iter().take(7) {
+        // Add the top 7 most expensive systems (excluding Total)
+        for (name, (avg, std_dev)) in sorted_stats.iter().take(9) {
             timing_data.push((name.to_string(), *avg, *std_dev));
         }
 
