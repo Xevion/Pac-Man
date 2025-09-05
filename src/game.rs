@@ -659,8 +659,15 @@ impl Game {
     pub fn tick(&mut self, dt: f32) -> bool {
         self.world.insert_resource(DeltaTime(dt));
 
-        // Run all systems
+        // Measure total frame time including all systems
+        let start = std::time::Instant::now();
         self.schedule.run(&mut self.world);
+        let total_duration = start.elapsed();
+
+        // Record the total timing
+        if let Some(timings) = self.world.get_resource::<systems::profiling::SystemTimings>() {
+            timings.add_total_timing(total_duration);
+        }
 
         let state = self
             .world
