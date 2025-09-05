@@ -1,8 +1,6 @@
 //! Platform abstraction layer for cross-platform functionality.
 
 #[cfg(not(target_os = "emscripten"))]
-pub mod buffered_writer;
-#[cfg(not(target_os = "emscripten"))]
 mod desktop;
 #[cfg(not(target_os = "emscripten"))]
 pub mod tracing_buffer;
