@@ -4,9 +4,9 @@ use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use time::macros::format_description;
 use time::{format_description::FormatItem, OffsetDateTime};
-use tracing::{Event, Subscriber};
+use tracing::{Event, Level, Subscriber};
 use tracing_subscriber::fmt::format::Writer;
-use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
+use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields};
 use tracing_subscriber::registry::LookupSpan;
 
 /// Global atomic counter for tracking game ticks
@@ -25,15 +25,7 @@ const TIMESTAMP_FORMAT: &[FormatItem<'static>] = format_description!("[hour]:[mi
 
 /// A custom formatter that includes both timestamp and tick counter in hexadecimal
 ///
-/// This formatter provides:
-/// - High-precision timestamps (HH:MM:SS.mmm on Emscripten, HH:MM:SS.mmmmm otherwise)
-/// - Hexadecimal tick counter for frame correlation
-/// - Standard log level and target information
-///
-/// Performance considerations:
-/// - Timestamp format is cached at compile time
-/// - Tick counter access is atomic and very fast
-/// - Combined formatting operations for efficiency
+/// Re-implementation of the Full formatter to add a tick counter and timestamp.
 pub struct CustomFormatter;
 
 impl<S, N> FormatEvent<S, N> for CustomFormatter
@@ -42,32 +34,106 @@ where
     N: for<'a> FormatFields<'a> + 'static,
 {
     fn format_event(&self, ctx: &FmtContext<'_, S, N>, mut writer: Writer<'_>, event: &Event<'_>) -> fmt::Result {
-        // Format timestamp using cached format description
+        let meta = event.metadata();
+
+        // 1) Timestamp (dimmed when ANSI)
         let now = OffsetDateTime::now_utc();
         let formatted_time = now.format(&TIMESTAMP_FORMAT).map_err(|e| {
-            // Preserve the original error information for debugging
             eprintln!("Failed to format timestamp: {}", e);
             fmt::Error
         })?;
+        write_dimmed(&mut writer, formatted_time)?;
+        writer.write_char(' ')?;
 
-        // Get tick count and format everything together
-        let tick_count = get_tick_count();
-        let metadata = event.metadata();
+        // 2) Tick counter, dim when ANSI
+        let tick_count = get_tick_count() & TICK_DISPLAY_MASK;
+        if writer.has_ansi_escapes() {
+            write!(writer, "\x1b[2m0x{:04X}\x1b[0m ", tick_count)?;
+        } else {
+            write!(writer, "0x{:04X} ", tick_count)?;
+        }
 
-        // Combined formatting: timestamp, tick counter, level, and target in one write
-        write!(
-            writer,
-            "{} 0x{:04X} {:5} {}: ",
-            formatted_time,
-            tick_count & TICK_DISPLAY_MASK,
-            metadata.level(),
-            metadata.target()
-        )?;
+        // 3) Colored 5-char level like Full
+        write_colored_level(&mut writer, meta.level())?;
+        writer.write_char(' ')?;
 
-        // Format the fields (the actual log message)
-        ctx.field_format().format_fields(writer.by_ref(), event)?;
+        // 4) Span scope chain (bold names, fields in braces, dimmed ':')
+        if let Some(scope) = ctx.event_scope() {
+            let mut saw_any = false;
+            for span in scope.from_root() {
+                write_bold(&mut writer, span.metadata().name())?;
+                saw_any = true;
+                let ext = span.extensions();
+                if let Some(fields) = &ext.get::<FormattedFields<N>>() {
+                    if !fields.is_empty() {
+                        write_bold(&mut writer, "{")?;
+                        write!(writer, "{}", fields)?;
+                        write_bold(&mut writer, "}")?;
+                    }
+                }
+                if writer.has_ansi_escapes() {
+                    write!(writer, "\x1b[2m:\x1b[0m")?;
+                } else {
+                    writer.write_char(':')?;
+                }
+            }
+            if saw_any {
+                writer.write_char(' ')?;
+            }
+        }
 
+        // 5) Target (dimmed), then a space
+        if writer.has_ansi_escapes() {
+            write!(writer, "\x1b[2m{}\x1b[0m\x1b[2m:\x1b[0m ", meta.target())?;
+        } else {
+            write!(writer, "{}: ", meta.target())?;
+        }
+
+        // 6) Event fields
+        ctx.format_fields(writer.by_ref(), event)?;
+
+        // 7) Newline
         writeln!(writer)
+    }
+}
+
+/// Write the verbosity level with the same coloring/alignment as the Full formatter.
+fn write_colored_level(writer: &mut Writer<'_>, level: &Level) -> fmt::Result {
+    if writer.has_ansi_escapes() {
+        // Basic ANSI color sequences; reset with \x1b[0m
+        let (color, text) = match *level {
+            Level::TRACE => ("\x1b[35m", "TRACE"), // purple
+            Level::DEBUG => ("\x1b[34m", "DEBUG"), // blue
+            Level::INFO => ("\x1b[32m", " INFO"),  // green, note leading space
+            Level::WARN => ("\x1b[33m", " WARN"),  // yellow, note leading space
+            Level::ERROR => ("\x1b[31m", "ERROR"), // red
+        };
+        write!(writer, "{}{}\x1b[0m", color, text)
+    } else {
+        // Right-pad to width 5 like Full's non-ANSI mode
+        match *level {
+            Level::TRACE => write!(writer, "{:>5}", "TRACE"),
+            Level::DEBUG => write!(writer, "{:>5}", "DEBUG"),
+            Level::INFO => write!(writer, "{:>5}", " INFO"),
+            Level::WARN => write!(writer, "{:>5}", " WARN"),
+            Level::ERROR => write!(writer, "{:>5}", "ERROR"),
+        }
+    }
+}
+
+fn write_dimmed(writer: &mut Writer<'_>, s: impl fmt::Display) -> fmt::Result {
+    if writer.has_ansi_escapes() {
+        write!(writer, "\x1b[2m{}\x1b[0m", s)
+    } else {
+        write!(writer, "{}", s)
+    }
+}
+
+fn write_bold(writer: &mut Writer<'_>, s: impl fmt::Display) -> fmt::Result {
+    if writer.has_ansi_escapes() {
+        write!(writer, "\x1b[1m{}\x1b[0m", s)
+    } else {
+        write!(writer, "{}", s)
     }
 }
 
