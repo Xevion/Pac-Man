@@ -12,7 +12,6 @@ use sdl2::{
     EventPump,
 };
 use smallvec::{smallvec, SmallVec};
-use tracing::{debug, info};
 
 use crate::systems::components::DeltaTime;
 use crate::{
@@ -300,15 +299,10 @@ pub fn input_system(
             }
             Event::Window { win_event, .. } => match win_event {
                 WindowEvent::Resized(w, h) => {
-                    info!("Window resized to {}x{}", w, h);
+                    tracing::info!("Window resized to {}x{}", w, h);
                 }
-                _ => {
-                    debug!("Window event: {:?}", win_event);
-                }
+                _ => {}
             },
-            Event::RenderTargetsReset { .. } => {
-                // No-op
-            }
             _ => {
                 tracing::warn!("Unhandled event, consider disabling: {:?}", event);
             }
