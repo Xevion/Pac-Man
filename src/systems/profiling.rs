@@ -102,28 +102,36 @@ impl SystemTimings {
                 .expect("SystemId not found in pre-populated map - this is a bug");
 
             let queue_guard = queue.lock();
-            if queue_guard.is_empty() {
-                // Return zero timing for systems that haven't submitted any data
-                stats.insert(id, (Duration::ZERO, Duration::ZERO));
-                continue;
+            // Welford's algorithm for a single-pass mean and variance calculation.
+
+            let mut sample_count = 0.0;
+            let mut running_mean = 0.0;
+            let mut sum_squared_diff = 0.0;
+
+            for duration in queue_guard.iter() {
+                let duration_secs = duration.as_secs_f64();
+                sample_count += 1.0;
+                let diff_from_mean = duration_secs - running_mean;
+                running_mean += diff_from_mean / sample_count;
+                let diff_from_new_mean = duration_secs - running_mean;
+                sum_squared_diff += diff_from_mean * diff_from_new_mean;
             }
 
-            let durations: Vec<f64> = queue_guard.iter().map(|d| d.as_secs_f64() * 1000.0).collect();
-            let count = durations.len() as f64;
-
-            let sum: f64 = durations.iter().sum();
-            let mean = sum / count;
-
-            let variance = durations.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (count - 1.0).max(1.0);
-            let std_dev = variance.sqrt();
-
-            stats.insert(
-                id,
+            let (average, standard_deviation) = if sample_count > 0.0 {
+                let variance = if sample_count > 1.0 {
+                    sum_squared_diff / (sample_count - 1.0)
+                } else {
+                    0.0
+                };
                 (
-                    Duration::from_secs_f64(mean / 1000.0),
-                    Duration::from_secs_f64(std_dev / 1000.0),
-                ),
-            );
+                    Duration::from_secs_f64(running_mean),
+                    Duration::from_secs_f64(variance.sqrt()),
+                )
+            } else {
+                (Duration::ZERO, Duration::ZERO)
+            };
+
+            stats.insert(id, (average, standard_deviation));
         }
 
         stats
