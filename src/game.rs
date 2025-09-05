@@ -91,7 +91,53 @@ impl Game {
         texture_creator: TextureCreator<WindowContext>,
         mut event_pump: EventPump,
     ) -> GameResult<Game> {
-        // Disable uninteresting events
+        Self::disable_sdl_events(&mut event_pump);
+
+        let ttf_context = Box::leak(Box::new(sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?));
+
+        let (backbuffer, mut map_texture, debug_texture, ttf_atlas) =
+            Self::setup_textures_and_fonts(&mut canvas, &texture_creator, ttf_context)?;
+
+        let audio = crate::audio::Audio::new();
+
+        let (mut atlas, map_tiles) = Self::load_atlas_and_map_tiles(&texture_creator)?;
+        canvas
+            .with_texture_canvas(&mut map_texture, |map_canvas| {
+                MapRenderer::render_map(map_canvas, &mut atlas, &map_tiles);
+            })
+            .map_err(|e| GameError::Sdl(e.to_string()))?;
+
+        let map = Map::new(constants::RAW_BOARD)?;
+
+        let (player_animation, player_start_sprite) = Self::create_player_animations(&atlas)?;
+        let player_bundle = Self::create_player_bundle(&map, player_animation, player_start_sprite);
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+
+        Self::setup_ecs(&mut world);
+        Self::insert_resources(
+            &mut world,
+            map,
+            audio,
+            atlas,
+            event_pump,
+            canvas,
+            backbuffer,
+            map_texture,
+            debug_texture,
+            ttf_atlas,
+        )?;
+        Self::configure_schedule(&mut schedule);
+
+        world.spawn(player_bundle).insert((Frozen, Hidden));
+        Self::spawn_ghosts(&mut world)?;
+        Self::spawn_items(&mut world)?;
+
+        Ok(Game { world, schedule })
+    }
+
+    fn disable_sdl_events(event_pump: &mut EventPump) {
         for event_type in [
             EventType::JoyAxisMotion,
             EventType::JoyBallMotion,
@@ -109,9 +155,6 @@ impl Game {
             EventType::ControllerTouchpadDown,
             EventType::ControllerTouchpadMotion,
             EventType::ControllerTouchpadUp,
-            // EventType::FingerDown,  // Enable for touch controls
-            // EventType::FingerUp,    // Enable for touch controls
-            // EventType::FingerMotion, // Enable for touch controls
             EventType::DollarGesture,
             EventType::DollarRecord,
             EventType::MultiGesture,
@@ -128,11 +171,7 @@ impl Game {
             EventType::TextInput,
             EventType::TextEditing,
             EventType::Display,
-            // EventType::Window,
             EventType::MouseWheel,
-            // EventType::MouseMotion,
-            // EventType::MouseButtonDown,  // Enable for desktop touch testing
-            // EventType::MouseButtonUp,    // Enable for desktop touch testing
             EventType::AppDidEnterBackground,
             EventType::AppWillEnterForeground,
             EventType::AppWillEnterBackground,
@@ -144,8 +183,18 @@ impl Game {
         ] {
             event_pump.disable_event(event_type);
         }
+    }
 
-        let ttf_context = Box::leak(Box::new(sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?));
+    fn setup_textures_and_fonts(
+        canvas: &mut Canvas<Window>,
+        texture_creator: &TextureCreator<WindowContext>,
+        ttf_context: &'static sdl2::ttf::Sdl2TtfContext,
+    ) -> GameResult<(
+        sdl2::render::Texture,
+        sdl2::render::Texture,
+        sdl2::render::Texture,
+        crate::texture::ttf::TtfAtlas,
+    )> {
         let mut backbuffer = texture_creator
             .create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
@@ -156,31 +205,26 @@ impl Game {
             .map_err(|e| GameError::Sdl(e.to_string()))?;
         map_texture.set_scale_mode(ScaleMode::Nearest);
 
-        // Create debug texture at output resolution for crisp debug rendering
         let output_size = constants::LARGE_CANVAS_SIZE;
         let mut debug_texture = texture_creator
             .create_texture_target(Some(sdl2::pixels::PixelFormatEnum::ARGB8888), output_size.x, output_size.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
-
-        // Debug texture is copied over the backbuffer, it requires transparency abilities
         debug_texture.set_blend_mode(BlendMode::Blend);
         debug_texture.set_scale_mode(ScaleMode::Nearest);
 
-        // Create debug text atlas for efficient debug rendering
         let font_data: &'static [u8] = get_asset_bytes(Asset::Font)?.to_vec().leak();
         let font_asset = RWops::from_bytes(font_data).map_err(|_| GameError::Sdl("Failed to load font".to_string()))?;
         let debug_font = ttf_context
             .load_font_from_rwops(font_asset, constants::ui::DEBUG_FONT_SIZE)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
-        let mut ttf_atlas = crate::texture::ttf::TtfAtlas::new(&texture_creator, &debug_font)?;
-        // Populate the atlas with actual character data
-        ttf_atlas.populate_atlas(&mut canvas, &texture_creator, &debug_font)?;
+        let mut ttf_atlas = crate::texture::ttf::TtfAtlas::new(texture_creator, &debug_font)?;
+        ttf_atlas.populate_atlas(canvas, texture_creator, &debug_font)?;
 
-        // Initialize audio system
-        let audio = crate::audio::Audio::new();
+        Ok((backbuffer, map_texture, debug_texture, ttf_atlas))
+    }
 
-        // Load atlas and create map texture
+    fn load_atlas_and_map_tiles(texture_creator: &TextureCreator<WindowContext>) -> GameResult<(SpriteAtlas, Vec<AtlasTile>)> {
         let atlas_bytes = get_asset_bytes(Asset::AtlasImage)?;
         let atlas_texture = texture_creator.load_texture_bytes(&atlas_bytes).map_err(|e| {
             if e.to_string().contains("format") || e.to_string().contains("unsupported") {
@@ -195,9 +239,8 @@ impl Game {
         let atlas_mapper = AtlasMapper {
             frames: ATLAS_FRAMES.into_iter().map(|(k, v)| (k.to_string(), *v)).collect(),
         };
-        let mut atlas = SpriteAtlas::new(atlas_texture, atlas_mapper);
+        let atlas = SpriteAtlas::new(atlas_texture, atlas_mapper);
 
-        // Create map tiles
         let mut map_tiles = Vec::with_capacity(35);
         for i in 0..35 {
             let tile_name = GameSprite::Maze(MazeSprite::Tile(i)).to_path();
@@ -205,53 +248,35 @@ impl Game {
             map_tiles.push(tile);
         }
 
-        // Render map to texture
-        canvas
-            .with_texture_canvas(&mut map_texture, |map_canvas| {
-                MapRenderer::render_map(map_canvas, &mut atlas, &map_tiles);
-            })
-            .map_err(|e| GameError::Sdl(e.to_string()))?;
+        Ok((atlas, map_tiles))
+    }
 
-        let map = Map::new(constants::RAW_BOARD)?;
-
-        // Create directional animated textures for Pac-Man
+    fn create_player_animations(atlas: &SpriteAtlas) -> GameResult<(DirectionalAnimation, AtlasTile)> {
         let up_moving_tiles = [
-            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Up, 0)).to_path())?,
-            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Up, 1)).to_path())?,
-            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Up, 0)).to_path())?,
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Up, 1)).to_path())?,
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
         ];
         let down_moving_tiles = [
-            SpriteAtlas::get_tile(
-                &atlas,
-                &GameSprite::Pacman(PacmanSprite::Moving(Direction::Down, 0)).to_path(),
-            )?,
-            SpriteAtlas::get_tile(
-                &atlas,
-                &GameSprite::Pacman(PacmanSprite::Moving(Direction::Down, 1)).to_path(),
-            )?,
-            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Down, 0)).to_path())?,
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Down, 1)).to_path())?,
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
         ];
         let left_moving_tiles = [
-            SpriteAtlas::get_tile(
-                &atlas,
-                &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 0)).to_path(),
-            )?,
-            SpriteAtlas::get_tile(
-                &atlas,
-                &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path(),
-            )?,
-            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 0)).to_path())?,
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path())?,
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
         ];
         let right_moving_tiles = [
             SpriteAtlas::get_tile(
-                &atlas,
+                atlas,
                 &GameSprite::Pacman(PacmanSprite::Moving(Direction::Right, 0)).to_path(),
             )?,
             SpriteAtlas::get_tile(
-                &atlas,
+                atlas,
                 &GameSprite::Pacman(PacmanSprite::Moving(Direction::Right, 1)).to_path(),
             )?,
-            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
         ];
 
         let moving_tiles = DirectionalTiles::new(
@@ -262,17 +287,13 @@ impl Game {
         );
 
         let up_stopped_tile =
-            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Up, 1)).to_path())?;
-        let down_stopped_tile = SpriteAtlas::get_tile(
-            &atlas,
-            &GameSprite::Pacman(PacmanSprite::Moving(Direction::Down, 1)).to_path(),
-        )?;
-        let left_stopped_tile = SpriteAtlas::get_tile(
-            &atlas,
-            &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path(),
-        )?;
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Up, 1)).to_path())?;
+        let down_stopped_tile =
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Down, 1)).to_path())?;
+        let left_stopped_tile =
+            SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path())?;
         let right_stopped_tile = SpriteAtlas::get_tile(
-            &atlas,
+            atlas,
             &GameSprite::Pacman(PacmanSprite::Moving(Direction::Right, 1)).to_path(),
         )?;
 
@@ -283,7 +304,14 @@ impl Game {
             TileSequence::new(&[right_stopped_tile]),
         );
 
-        let player = PlayerBundle {
+        let player_animation = DirectionalAnimation::new(moving_tiles, stopped_tiles, 5);
+        let player_start_sprite = SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?;
+
+        Ok((player_animation, player_start_sprite))
+    }
+
+    fn create_player_bundle(map: &Map, player_animation: DirectionalAnimation, player_start_sprite: AtlasTile) -> PlayerBundle {
+        PlayerBundle {
             player: PlayerControlled,
             position: Position::Stopped {
                 node: map.start_positions.pacman,
@@ -295,26 +323,49 @@ impl Game {
             movement_modifiers: MovementModifiers::default(),
             buffered_direction: BufferedDirection::None,
             sprite: Renderable {
-                sprite: SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
+                sprite: player_start_sprite,
                 layer: 0,
             },
-            directional_animation: DirectionalAnimation::new(moving_tiles, stopped_tiles, 5),
+            directional_animation: player_animation,
             entity_type: EntityType::Player,
             collider: Collider {
                 size: constants::collider::PLAYER_GHOST_SIZE,
             },
             pacman_collider: PacmanCollider,
-        };
+        }
+    }
 
-        let mut world = World::default();
-        let mut schedule = Schedule::default();
+    fn setup_ecs(world: &mut World) {
+        EventRegistry::register_event::<GameError>(world);
+        EventRegistry::register_event::<GameEvent>(world);
+        EventRegistry::register_event::<AudioEvent>(world);
 
-        EventRegistry::register_event::<GameError>(&mut world);
-        EventRegistry::register_event::<GameEvent>(&mut world);
-        EventRegistry::register_event::<AudioEvent>(&mut world);
+        world.add_observer(
+            |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| {
+                if matches!(*event, GameEvent::Command(GameCommand::Exit)) {
+                    state.exit = true;
+                }
+            },
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn insert_resources(
+        world: &mut World,
+        map: Map,
+        audio: crate::audio::Audio,
+        atlas: SpriteAtlas,
+        event_pump: EventPump,
+        canvas: Canvas<Window>,
+        backbuffer: sdl2::render::Texture,
+        map_texture: sdl2::render::Texture,
+        debug_texture: sdl2::render::Texture,
+        ttf_atlas: crate::texture::ttf::TtfAtlas,
+    ) -> GameResult<()> {
+        world.insert_non_send_resource(atlas);
+        world.insert_resource(Self::create_ghost_animations(world.non_send_resource::<SpriteAtlas>())?);
 
         world.insert_resource(BatchedLinesResource::new(&map, constants::LARGE_SCALE));
-        world.insert_resource(Self::create_ghost_animations(&atlas)?);
         world.insert_resource(map);
         world.insert_resource(GlobalState { exit: false });
         world.insert_resource(ScoreResource(0));
@@ -331,7 +382,6 @@ impl Game {
             constants::startup::STARTUP_TICKS_PER_FRAME,
         ));
 
-        world.insert_non_send_resource(atlas);
         world.insert_non_send_resource(event_pump);
         world.insert_non_send_resource::<&mut Canvas<Window>>(Box::leak(Box::new(canvas)));
         world.insert_non_send_resource(BackbufferResource(backbuffer));
@@ -339,15 +389,10 @@ impl Game {
         world.insert_non_send_resource(DebugTextureResource(debug_texture));
         world.insert_non_send_resource(TtfAtlasResource(ttf_atlas));
         world.insert_non_send_resource(AudioResource(audio));
+        Ok(())
+    }
 
-        world.add_observer(
-            |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| {
-                if matches!(*event, GameEvent::Command(GameCommand::Exit)) {
-                    state.exit = true;
-                }
-            },
-        );
-
+    fn configure_schedule(schedule: &mut Schedule) {
         let input_system = profile(SystemId::Input, systems::input::input_system);
         let player_control_system = profile(SystemId::PlayerControls, systems::player_control_system);
         let player_movement_system = profile(SystemId::PlayerMovement, systems::player_movement_system);
@@ -402,13 +447,9 @@ impl Game {
             )
                 .chain(),
         ));
+    }
 
-        // Spawn player and attach initial state bundle
-        world.spawn(player).insert((Frozen, Hidden));
-
-        // Spawn ghosts
-        Self::spawn_ghosts(&mut world)?;
-
+    fn spawn_items(world: &mut World) -> GameResult<()> {
         let pellet_sprite = SpriteAtlas::get_tile(
             world.non_send_resource::<SpriteAtlas>(),
             &GameSprite::Maze(MazeSprite::Pellet).to_path(),
@@ -418,7 +459,6 @@ impl Game {
             &GameSprite::Maze(MazeSprite::Energizer).to_path(),
         )?;
 
-        // Build a list of item entities to spawn from the map
         let nodes: Vec<(NodeId, EntityType, AtlasTile, f32)> = world
             .resource::<Map>()
             .iter_nodes()
@@ -434,7 +474,6 @@ impl Game {
             })
             .collect();
 
-        // Construct and spawn the item entities
         for (id, item_type, sprite, size) in nodes {
             let mut item = world.spawn(ItemBundle {
                 position: Position::Stopped { node: id },
@@ -444,13 +483,11 @@ impl Game {
                 item_collider: ItemCollider,
             });
 
-            // Make power pellets blink
             if item_type == EntityType::PowerPellet {
                 item.insert((Frozen, Blinking::new(constants::ui::POWER_PELLET_BLINK_RATE)));
             }
         }
-
-        Ok(Game { world, schedule })
+        Ok(())
     }
 
     /// Creates and spawns all four ghosts with unique AI personalities and directional animations.

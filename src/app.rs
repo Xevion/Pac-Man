@@ -41,7 +41,6 @@ impl App {
         let sdl_context = sdl2::init().map_err(|e| GameError::Sdl(e.to_string()))?;
         let video_subsystem = sdl_context.video().map_err(|e| GameError::Sdl(e.to_string()))?;
         let audio_subsystem = sdl_context.audio().map_err(|e| GameError::Sdl(e.to_string()))?;
-        // TTF context is initialized within Game::new where it is leaked for font usage
         let event_pump = sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
 
         let window = video_subsystem
