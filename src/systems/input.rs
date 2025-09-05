@@ -297,14 +297,15 @@ pub fn input_system(
                     simple_key_events.push(SimpleKeyEvent::KeyUp(key));
                 }
             }
-            Event::Window { win_event, .. } => match win_event {
-                WindowEvent::Resized(w, h) => {
-                    tracing::info!("Window resized to {}x{}", w, h);
+            Event::Window { win_event, .. } => {
+                if let WindowEvent::Resized(w, h) = win_event {
+                    tracing::info!(width = w, height = h, event = ?win_event, "Window Resized");
                 }
-                _ => {}
-            },
+            }
+            // Despite disabling this event, it's still received, so we ignore it explicitly.
+            Event::RenderTargetsReset { .. } => {}
             _ => {
-                tracing::warn!("Unhandled event, consider disabling: {:?}", event);
+                tracing::warn!(event = ?event, "Unhandled Event");
             }
         }
     }
