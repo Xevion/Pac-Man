@@ -22,18 +22,18 @@ macro_rules! assert_close {
 fn test_timing_statistics() {
     let timings = SystemTimings::default();
 
-    // 10ms average, 2ms std dev
-    timings.add_timing(SystemId::PlayerControls, Duration::from_millis(10));
-    timings.add_timing(SystemId::PlayerControls, Duration::from_millis(12));
-    timings.add_timing(SystemId::PlayerControls, Duration::from_millis(8));
+    // Add consecutive timing measurements (no skipped ticks to avoid zero padding)
+    timings.add_timing(SystemId::PlayerControls, Duration::from_millis(10), 1);
+    timings.add_timing(SystemId::PlayerControls, Duration::from_millis(12), 2);
+    timings.add_timing(SystemId::PlayerControls, Duration::from_millis(8), 3);
 
-    // 2ms average, 1ms std dev
-    timings.add_timing(SystemId::Blinking, Duration::from_millis(3));
-    timings.add_timing(SystemId::Blinking, Duration::from_millis(2));
-    timings.add_timing(SystemId::Blinking, Duration::from_millis(1));
+    // Add consecutive timing measurements for another system
+    timings.add_timing(SystemId::Blinking, Duration::from_millis(3), 1);
+    timings.add_timing(SystemId::Blinking, Duration::from_millis(2), 2);
+    timings.add_timing(SystemId::Blinking, Duration::from_millis(1), 3);
 
     {
-        let stats = timings.get_stats();
+        let stats = timings.get_stats(3);
         let (avg, std_dev) = stats.get(&SystemId::PlayerControls).unwrap();
 
         assert_close!(*avg, Duration::from_millis(10), "PlayerControls average timing");
@@ -49,9 +49,9 @@ fn test_default_zero_timing_for_unused_systems() {
     let timings = SystemTimings::default();
 
     // Add timing data for only one system
-    timings.add_timing(SystemId::PlayerControls, Duration::from_millis(5));
+    timings.add_timing(SystemId::PlayerControls, Duration::from_millis(5), 1);
 
-    let stats = timings.get_stats();
+    let stats = timings.get_stats(1);
 
     // Verify all SystemId variants are present in the stats
     let expected_count = SystemId::iter().count();
@@ -86,12 +86,13 @@ fn test_pre_populated_timing_entries() {
 
     // Verify that we can add timing to any SystemId without panicking
     // (this would fail with the old implementation if the entry didn't exist)
+    // Use the same tick for all systems to avoid zero-padding
     for id in SystemId::iter() {
-        timings.add_timing(id, Duration::from_nanos(1));
+        timings.add_timing(id, Duration::from_nanos(1), 1);
     }
 
     // Verify all systems now have non-zero timing
-    let stats = timings.get_stats();
+    let stats = timings.get_stats(1);
     for id in SystemId::iter() {
         let (avg, _) = stats.get(&id).unwrap();
         assert!(
@@ -107,11 +108,11 @@ fn test_total_system_timing() {
     let timings = SystemTimings::default();
 
     // Add some timing data to the Total system
-    timings.add_total_timing(Duration::from_millis(16));
-    timings.add_total_timing(Duration::from_millis(18));
-    timings.add_total_timing(Duration::from_millis(14));
+    timings.add_total_timing(Duration::from_millis(16), 1);
+    timings.add_total_timing(Duration::from_millis(18), 2);
+    timings.add_total_timing(Duration::from_millis(14), 3);
 
-    let stats = timings.get_stats();
+    let stats = timings.get_stats(3);
     let (avg, std_dev) = stats.get(&SystemId::Total).unwrap();
 
     // Should have 16ms average (16+18+14)/3 = 16ms
