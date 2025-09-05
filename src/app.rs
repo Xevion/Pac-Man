@@ -13,10 +13,6 @@ use sdl2::{AudioSubsystem, Sdl};
 use tracing::debug;
 
 /// Main application wrapper that manages SDL initialization, window lifecycle, and the game loop.
-///
-/// Handles platform-specific setup, maintains consistent frame timing, and delegates
-/// game logic to the contained `Game` instance. The app manages focus state to
-/// optimize CPU usage when the window loses focus.
 pub struct App {
     pub game: Game,
     last_tick: Instant,
@@ -29,16 +25,13 @@ pub struct App {
 impl App {
     /// Initializes SDL subsystems, creates the game window, and sets up the game state.
     ///
-    /// Performs comprehensive initialization including video/audio subsystems,
-    /// window creation with proper scaling, and canvas configuration. All SDL
-    /// resources are leaked to maintain 'static lifetimes required by the game architecture.
-    ///
     /// # Errors
     ///
     /// Returns `GameError::Sdl` if any SDL initialization step fails, or propagates
     /// errors from `Game::new()` during game state setup.
     pub fn new() -> GameResult<Self> {
         let sdl_context = sdl2::init().map_err(|e| GameError::Sdl(e.to_string()))?;
+        let ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
         let video_subsystem = sdl_context.video().map_err(|e| GameError::Sdl(e.to_string()))?;
         let audio_subsystem = sdl_context.audio().map_err(|e| GameError::Sdl(e.to_string()))?;
         let event_pump = sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
@@ -102,8 +95,7 @@ impl App {
 
         let texture_creator = canvas.texture_creator();
 
-        let game = Game::new(canvas, texture_creator, event_pump)?;
-        // game.audio.set_mute(cfg!(debug_assertions));
+        let game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
 
         Ok(App {
             game,

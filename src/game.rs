@@ -88,12 +88,11 @@ impl Game {
     /// errors, or entity initialization issues.
     pub fn new(
         mut canvas: Canvas<Window>,
+        ttf_context: sdl2::ttf::Sdl2TtfContext,
         texture_creator: TextureCreator<WindowContext>,
         mut event_pump: EventPump,
     ) -> GameResult<Game> {
         Self::disable_sdl_events(&mut event_pump);
-
-        let ttf_context = Box::leak(Box::new(sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?));
 
         let (backbuffer, mut map_texture, debug_texture, ttf_atlas) =
             Self::setup_textures_and_fonts(&mut canvas, &texture_creator, ttf_context)?;
@@ -188,7 +187,7 @@ impl Game {
     fn setup_textures_and_fonts(
         canvas: &mut Canvas<Window>,
         texture_creator: &TextureCreator<WindowContext>,
-        ttf_context: &'static sdl2::ttf::Sdl2TtfContext,
+        ttf_context: sdl2::ttf::Sdl2TtfContext,
     ) -> GameResult<(
         sdl2::render::Texture,
         sdl2::render::Texture,
