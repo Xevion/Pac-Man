@@ -20,7 +20,8 @@ pub struct MapperFrame {
     pub size: U16Vec2,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+/// A single tile within a sprite atlas, defined by its position and size.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct AtlasTile {
     pub pos: U16Vec2,
     pub size: U16Vec2,
@@ -89,9 +90,11 @@ pub struct SpriteAtlas {
 
 impl SpriteAtlas {
     pub fn new(texture: Texture, mapper: AtlasMapper) -> Self {
+        let tiles = mapper.frames.into_iter().collect();
+
         Self {
             texture,
-            tiles: mapper.frames,
+            tiles,
             default_color: None,
             last_modulation: None,
         }
@@ -103,11 +106,15 @@ impl SpriteAtlas {
     /// for the named sprite, or `None` if the sprite name is not found in the
     /// atlas. The returned tile can be used for immediate rendering or stored
     /// for repeated use in animations and entity sprites.
-    pub fn get_tile(&self, name: &str) -> Option<AtlasTile> {
-        self.tiles.get(name).map(|frame| AtlasTile {
+    pub fn get_tile(&self, name: &str) -> Result<AtlasTile, TextureError> {
+        let frame = self
+            .tiles
+            .get(name)
+            .ok_or_else(|| TextureError::AtlasTileNotFound(name.to_string()))?;
+        Ok(AtlasTile {
             pos: frame.pos,
             size: frame.size,
-            color: None,
+            color: self.default_color,
         })
     }
 

@@ -60,10 +60,7 @@ use sdl2::pixels::Color;
 use sdl2::render::{Canvas, RenderTarget};
 use std::collections::HashMap;
 
-use crate::{
-    error::{GameError, TextureError},
-    texture::sprite::{AtlasTile, SpriteAtlas},
-};
+use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 
 /// Converts a character to its tile name in the atlas.
 fn char_to_tile_name(c: char) -> Option<String> {
@@ -122,9 +119,7 @@ impl TextTexture {
         }
 
         if let Some(tile_name) = char_to_tile_name(c) {
-            let tile = atlas
-                .get_tile(&tile_name)
-                .ok_or(GameError::Texture(TextureError::AtlasTileNotFound(tile_name)))?;
+            let tile = atlas.get_tile(&tile_name)?;
             self.char_map.insert(c, tile);
             Ok(self.char_map.get(&c))
         } else {

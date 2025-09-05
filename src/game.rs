@@ -5,7 +5,7 @@ include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 use std::collections::HashMap;
 
 use crate::constants::{self, animation, MapTile, CANVAS_SIZE};
-use crate::error::{GameError, GameResult, TextureError};
+use crate::error::{GameError, GameResult};
 use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
@@ -28,6 +28,7 @@ use crate::systems::{
 };
 use crate::texture::animated::{DirectionalTiles, TileSequence};
 use crate::texture::sprite::AtlasTile;
+use crate::texture::sprites::{FrightenedColor, GameSprite, GhostSprite, MazeSprite, PacmanSprite};
 use bevy_ecs::event::EventRegistry;
 use bevy_ecs::observer::Trigger;
 use bevy_ecs::schedule::common_conditions::resource_changed;
@@ -199,8 +200,8 @@ impl Game {
         // Create map tiles
         let mut map_tiles = Vec::with_capacity(35);
         for i in 0..35 {
-            let tile_name = format!("maze/tiles/{}.png", i);
-            let tile = atlas.get_tile(&tile_name).unwrap();
+            let tile_name = GameSprite::Maze(MazeSprite::Tile(i)).to_path();
+            let tile = atlas.get_tile(&tile_name)?;
             map_tiles.push(tile);
         }
 
@@ -215,36 +216,42 @@ impl Game {
 
         // Create directional animated textures for Pac-Man
         let up_moving_tiles = [
-            SpriteAtlas::get_tile(&atlas, "pacman/up_a.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/up_a.png".to_string())))?,
-            SpriteAtlas::get_tile(&atlas, "pacman/up_b.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/up_b.png".to_string())))?,
-            SpriteAtlas::get_tile(&atlas, "pacman/full.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
+            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Up, 0)).to_path())?,
+            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Up, 1)).to_path())?,
+            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
         ];
         let down_moving_tiles = [
-            SpriteAtlas::get_tile(&atlas, "pacman/down_a.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/down_a.png".to_string())))?,
-            SpriteAtlas::get_tile(&atlas, "pacman/down_b.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/down_b.png".to_string())))?,
-            SpriteAtlas::get_tile(&atlas, "pacman/full.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
+            SpriteAtlas::get_tile(
+                &atlas,
+                &GameSprite::Pacman(PacmanSprite::Moving(Direction::Down, 0)).to_path(),
+            )?,
+            SpriteAtlas::get_tile(
+                &atlas,
+                &GameSprite::Pacman(PacmanSprite::Moving(Direction::Down, 1)).to_path(),
+            )?,
+            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
         ];
         let left_moving_tiles = [
-            SpriteAtlas::get_tile(&atlas, "pacman/left_a.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/left_a.png".to_string())))?,
-            SpriteAtlas::get_tile(&atlas, "pacman/left_b.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/left_b.png".to_string())))?,
-            SpriteAtlas::get_tile(&atlas, "pacman/full.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
+            SpriteAtlas::get_tile(
+                &atlas,
+                &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 0)).to_path(),
+            )?,
+            SpriteAtlas::get_tile(
+                &atlas,
+                &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path(),
+            )?,
+            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
         ];
         let right_moving_tiles = [
-            SpriteAtlas::get_tile(&atlas, "pacman/right_a.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/right_a.png".to_string())))?,
-            SpriteAtlas::get_tile(&atlas, "pacman/right_b.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/right_b.png".to_string())))?,
-            SpriteAtlas::get_tile(&atlas, "pacman/full.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
+            SpriteAtlas::get_tile(
+                &atlas,
+                &GameSprite::Pacman(PacmanSprite::Moving(Direction::Right, 0)).to_path(),
+            )?,
+            SpriteAtlas::get_tile(
+                &atlas,
+                &GameSprite::Pacman(PacmanSprite::Moving(Direction::Right, 1)).to_path(),
+            )?,
+            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
         ];
 
         let moving_tiles = DirectionalTiles::new(
@@ -254,14 +261,20 @@ impl Game {
             TileSequence::new(&right_moving_tiles),
         );
 
-        let up_stopped_tile = SpriteAtlas::get_tile(&atlas, "pacman/up_b.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/up_b.png".to_string())))?;
-        let down_stopped_tile = SpriteAtlas::get_tile(&atlas, "pacman/down_b.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/down_b.png".to_string())))?;
-        let left_stopped_tile = SpriteAtlas::get_tile(&atlas, "pacman/left_b.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/left_b.png".to_string())))?;
-        let right_stopped_tile = SpriteAtlas::get_tile(&atlas, "pacman/right_b.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/right_b.png".to_string())))?;
+        let up_stopped_tile =
+            SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Up, 1)).to_path())?;
+        let down_stopped_tile = SpriteAtlas::get_tile(
+            &atlas,
+            &GameSprite::Pacman(PacmanSprite::Moving(Direction::Down, 1)).to_path(),
+        )?;
+        let left_stopped_tile = SpriteAtlas::get_tile(
+            &atlas,
+            &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path(),
+        )?;
+        let right_stopped_tile = SpriteAtlas::get_tile(
+            &atlas,
+            &GameSprite::Pacman(PacmanSprite::Moving(Direction::Right, 1)).to_path(),
+        )?;
 
         let stopped_tiles = DirectionalTiles::new(
             TileSequence::new(&[up_stopped_tile]),
@@ -282,8 +295,7 @@ impl Game {
             movement_modifiers: MovementModifiers::default(),
             buffered_direction: BufferedDirection::None,
             sprite: Renderable {
-                sprite: SpriteAtlas::get_tile(&atlas, "pacman/full.png")
-                    .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("pacman/full.png".to_string())))?,
+                sprite: SpriteAtlas::get_tile(&atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
                 layer: 0,
             },
             directional_animation: DirectionalAnimation::new(moving_tiles, stopped_tiles, 5),
@@ -397,10 +409,14 @@ impl Game {
         // Spawn ghosts
         Self::spawn_ghosts(&mut world)?;
 
-        let pellet_sprite = SpriteAtlas::get_tile(world.non_send_resource::<SpriteAtlas>(), "maze/pellet.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("maze/pellet.png".to_string())))?;
-        let energizer_sprite = SpriteAtlas::get_tile(world.non_send_resource::<SpriteAtlas>(), "maze/energizer.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("maze/energizer.png".to_string())))?;
+        let pellet_sprite = SpriteAtlas::get_tile(
+            world.non_send_resource::<SpriteAtlas>(),
+            &GameSprite::Maze(MazeSprite::Pellet).to_path(),
+        )?;
+        let energizer_sprite = SpriteAtlas::get_tile(
+            world.non_send_resource::<SpriteAtlas>(),
+            &GameSprite::Maze(MazeSprite::Energizer).to_path(),
+        )?;
 
         // Build a list of item entities to spawn from the map
         let nodes: Vec<(NodeId, EntityType, AtlasTile, f32)> = world
@@ -460,6 +476,7 @@ impl Game {
             let ghost = {
                 let animations = *world.resource::<GhostAnimations>().get_normal(&ghost_type).unwrap();
                 let atlas = world.non_send_resource::<SpriteAtlas>();
+                let sprite_path = GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Left, 0)).to_path();
 
                 GhostBundle {
                     ghost: ghost_type,
@@ -469,14 +486,7 @@ impl Game {
                         direction: Direction::Left,
                     },
                     sprite: Renderable {
-                        sprite: SpriteAtlas::get_tile(atlas, &format!("ghost/{}/left_a.png", ghost_type.as_str())).ok_or_else(
-                            || {
-                                GameError::Texture(TextureError::AtlasTileNotFound(format!(
-                                    "ghost/{}/left_a.png",
-                                    ghost_type.as_str()
-                                )))
-                            },
-                        )?,
+                        sprite: SpriteAtlas::get_tile(atlas, &sprite_path)?,
                         layer: 0,
                     },
                     directional_animation: animations,
@@ -498,18 +508,10 @@ impl Game {
 
     fn create_ghost_animations(atlas: &SpriteAtlas) -> GameResult<GhostAnimations> {
         // Eaten (eyes) animations - single tile per direction
-        let up_eye = atlas
-            .get_tile("ghost/eyes/up.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/eyes/up.png".to_string())))?;
-        let down_eye = atlas
-            .get_tile("ghost/eyes/down.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/eyes/down.png".to_string())))?;
-        let left_eye = atlas
-            .get_tile("ghost/eyes/left.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/eyes/left.png".to_string())))?;
-        let right_eye = atlas
-            .get_tile("ghost/eyes/right.png")
-            .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/eyes/right.png".to_string())))?;
+        let up_eye = atlas.get_tile(&GameSprite::Ghost(GhostSprite::Eyes(Direction::Up)).to_path())?;
+        let down_eye = atlas.get_tile(&GameSprite::Ghost(GhostSprite::Eyes(Direction::Down)).to_path())?;
+        let left_eye = atlas.get_tile(&GameSprite::Ghost(GhostSprite::Eyes(Direction::Left)).to_path())?;
+        let right_eye = atlas.get_tile(&GameSprite::Ghost(GhostSprite::Eyes(Direction::Right)).to_path())?;
 
         let eyes_tiles = DirectionalTiles::new(
             TileSequence::new(&[up_eye]),
@@ -524,76 +526,20 @@ impl Game {
         for ghost_type in [Ghost::Blinky, Ghost::Pinky, Ghost::Inky, Ghost::Clyde] {
             // Normal animations - create directional tiles for each direction
             let up_tiles = [
-                atlas
-                    .get_tile(&format!("ghost/{}/up_a.png", ghost_type.as_str()))
-                    .ok_or_else(|| {
-                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
-                            "ghost/{}/up_a.png",
-                            ghost_type.as_str()
-                        )))
-                    })?,
-                atlas
-                    .get_tile(&format!("ghost/{}/up_b.png", ghost_type.as_str()))
-                    .ok_or_else(|| {
-                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
-                            "ghost/{}/up_b.png",
-                            ghost_type.as_str()
-                        )))
-                    })?,
+                atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Up, 0)).to_path())?,
+                atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Up, 1)).to_path())?,
             ];
             let down_tiles = [
-                atlas
-                    .get_tile(&format!("ghost/{}/down_a.png", ghost_type.as_str()))
-                    .ok_or_else(|| {
-                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
-                            "ghost/{}/down_a.png",
-                            ghost_type.as_str()
-                        )))
-                    })?,
-                atlas
-                    .get_tile(&format!("ghost/{}/down_b.png", ghost_type.as_str()))
-                    .ok_or_else(|| {
-                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
-                            "ghost/{}/down_b.png",
-                            ghost_type.as_str()
-                        )))
-                    })?,
+                atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Down, 0)).to_path())?,
+                atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Down, 1)).to_path())?,
             ];
             let left_tiles = [
-                atlas
-                    .get_tile(&format!("ghost/{}/left_a.png", ghost_type.as_str()))
-                    .ok_or_else(|| {
-                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
-                            "ghost/{}/left_a.png",
-                            ghost_type.as_str()
-                        )))
-                    })?,
-                atlas
-                    .get_tile(&format!("ghost/{}/left_b.png", ghost_type.as_str()))
-                    .ok_or_else(|| {
-                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
-                            "ghost/{}/left_b.png",
-                            ghost_type.as_str()
-                        )))
-                    })?,
+                atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Left, 0)).to_path())?,
+                atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Left, 1)).to_path())?,
             ];
             let right_tiles = [
-                atlas
-                    .get_tile(&format!("ghost/{}/right_a.png", ghost_type.as_str()))
-                    .ok_or_else(|| {
-                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
-                            "ghost/{}/right_a.png",
-                            ghost_type.as_str()
-                        )))
-                    })?,
-                atlas
-                    .get_tile(&format!("ghost/{}/right_b.png", ghost_type.as_str()))
-                    .ok_or_else(|| {
-                        GameError::Texture(TextureError::AtlasTileNotFound(format!(
-                            "ghost/{}/right_b.png",
-                            ghost_type.as_str()
-                        )))
-                    })?,
+                atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Right, 0)).to_path())?,
+                atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Right, 1)).to_path())?,
             ];
 
             let normal_moving = DirectionalTiles::new(
@@ -609,18 +555,14 @@ impl Game {
 
         let (frightened, frightened_flashing) = {
             // Load frightened animation tiles (same for all ghosts)
-            let frightened_blue_a = atlas
-                .get_tile("ghost/frightened/blue_a.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/frightened/blue_a.png".to_string())))?;
-            let frightened_blue_b = atlas
-                .get_tile("ghost/frightened/blue_b.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/frightened/blue_b.png".to_string())))?;
-            let frightened_white_a = atlas
-                .get_tile("ghost/frightened/white_a.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/frightened/white_a.png".to_string())))?;
-            let frightened_white_b = atlas
-                .get_tile("ghost/frightened/white_b.png")
-                .ok_or_else(|| GameError::Texture(TextureError::AtlasTileNotFound("ghost/frightened/white_b.png".to_string())))?;
+            let frightened_blue_a =
+                atlas.get_tile(&GameSprite::Ghost(GhostSprite::Frightened(FrightenedColor::Blue, 0)).to_path())?;
+            let frightened_blue_b =
+                atlas.get_tile(&GameSprite::Ghost(GhostSprite::Frightened(FrightenedColor::Blue, 1)).to_path())?;
+            let frightened_white_a =
+                atlas.get_tile(&GameSprite::Ghost(GhostSprite::Frightened(FrightenedColor::White, 0)).to_path())?;
+            let frightened_white_b =
+                atlas.get_tile(&GameSprite::Ghost(GhostSprite::Frightened(FrightenedColor::White, 1)).to_path())?;
 
             (
                 LinearAnimation::new(
