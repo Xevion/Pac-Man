@@ -34,7 +34,6 @@ use bevy_ecs::schedule::common_conditions::resource_changed;
 use bevy_ecs::schedule::{Condition, IntoScheduleConfigs, Schedule, SystemSet};
 use bevy_ecs::system::{Local, ResMut};
 use bevy_ecs::world::World;
-use glam::UVec2;
 use sdl2::event::EventType;
 use sdl2::image::LoadTexture;
 use sdl2::render::{BlendMode, Canvas, ScaleMode, TextureCreator};
@@ -302,10 +301,7 @@ impl Game {
         EventRegistry::register_event::<GameEvent>(&mut world);
         EventRegistry::register_event::<AudioEvent>(&mut world);
 
-        let scale =
-            (UVec2::from(canvas.output_size().unwrap()).as_vec2() / UVec2::from(canvas.logical_size()).as_vec2()).min_element();
-
-        world.insert_resource(BatchedLinesResource::new(&map, scale));
+        world.insert_resource(BatchedLinesResource::new(&map, constants::LARGE_SCALE));
         world.insert_resource(Self::create_ghost_animations(&atlas)?);
         world.insert_resource(map);
         world.insert_resource(GlobalState { exit: false });
