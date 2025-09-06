@@ -65,6 +65,7 @@ pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
         Asset::Wav4 => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/waka/4.ogg"))),
         Asset::AtlasImage => Ok(Cow::Borrowed(include_bytes!("../../assets/game/atlas.png"))),
         Asset::Font => Ok(Cow::Borrowed(include_bytes!("../../assets/game/TerminalVector.ttf"))),
+        Asset::DeathSound => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman_death.wav"))),
     }
 }
 

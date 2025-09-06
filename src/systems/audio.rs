@@ -26,6 +26,10 @@ pub struct AudioState {
 pub enum AudioEvent {
     /// Play the "eat" sound when Pac-Man consumes a pellet
     PlayEat,
+    /// Play the death sound
+    PlayDeath,
+    /// Stop all currently playing sounds
+    StopAll,
 }
 
 /// Non-send resource wrapper for SDL2 audio system
@@ -57,6 +61,16 @@ pub fn audio_system(
                     // Update the sound index for cycling through sounds
                     audio_state.sound_index = (audio_state.sound_index + 1) % 4;
                     // 4 eat sounds available
+                }
+            }
+            AudioEvent::PlayDeath => {
+                if !audio.0.is_disabled() && !audio_state.muted {
+                    audio.0.death();
+                }
+            }
+            AudioEvent::StopAll => {
+                if !audio.0.is_disabled() {
+                    audio.0.stop_all();
                 }
             }
         }

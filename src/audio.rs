@@ -16,6 +16,7 @@ const SOUND_ASSETS: [Asset; 4] = [Asset::Wav1, Asset::Wav2, Asset::Wav3, Asset::
 pub struct Audio {
     _mixer_context: Option<mixer::Sdl2MixerContext>,
     sounds: Vec<Chunk>,
+    death_sound: Option<Chunk>,
     next_sound_index: usize,
     muted: bool,
     disabled: bool,
@@ -44,6 +45,7 @@ impl Audio {
             return Self {
                 _mixer_context: None,
                 sounds: Vec::new(),
+                death_sound: None,
                 next_sound_index: 0,
                 muted: false,
                 disabled: true,
@@ -65,6 +67,7 @@ impl Audio {
                 return Self {
                     _mixer_context: None,
                     sounds: Vec::new(),
+                    death_sound: None,
                     next_sound_index: 0,
                     muted: false,
                     disabled: true,
@@ -93,12 +96,33 @@ impl Audio {
             }
         }
 
+        let death_sound = match get_asset_bytes(Asset::DeathSound) {
+            Ok(data) => match RWops::from_bytes(&data) {
+                Ok(rwops) => match rwops.load_wav() {
+                    Ok(chunk) => Some(chunk),
+                    Err(e) => {
+                        tracing::warn!("Failed to load death sound from asset API: {}", e);
+                        None
+                    }
+                },
+                Err(e) => {
+                    tracing::warn!("Failed to create RWops for death sound: {}", e);
+                    None
+                }
+            },
+            Err(e) => {
+                tracing::warn!("Failed to load death sound asset: {}", e);
+                None
+            }
+        };
+
         // If no sounds loaded successfully, disable audio
-        if sounds.is_empty() {
+        if sounds.is_empty() && death_sound.is_none() {
             tracing::warn!("No sounds loaded successfully. Audio will be disabled.");
             return Self {
                 _mixer_context: Some(mixer_context),
                 sounds: Vec::new(),
+                death_sound: None,
                 next_sound_index: 0,
                 muted: false,
                 disabled: true,
@@ -108,6 +132,7 @@ impl Audio {
         Audio {
             _mixer_context: Some(mixer_context),
             sounds,
+            death_sound,
             next_sound_index: 0,
             muted: false,
             disabled: false,
@@ -136,6 +161,24 @@ impl Audio {
             }
         }
         self.next_sound_index = (self.next_sound_index + 1) % self.sounds.len();
+    }
+
+    /// Plays the death sound effect.
+    pub fn death(&mut self) {
+        if self.disabled || self.muted {
+            return;
+        }
+
+        if let Some(chunk) = &self.death_sound {
+            mixer::Channel::all().play(chunk, 0).ok();
+        }
+    }
+
+    /// Halts all currently playing audio channels.
+    pub fn stop_all(&mut self) {
+        if !self.disabled {
+            mixer::Channel::all().halt();
+        }
     }
 
     /// Instantly mutes or unmutes all audio channels by adjusting their volume.

@@ -19,6 +19,8 @@ pub enum Asset {
     AtlasImage,
     /// Terminal Vector font for text rendering (TerminalVector.ttf)
     Font,
+    /// Sound effect for Pac-Man's death
+    DeathSound,
 }
 
 impl Asset {
@@ -37,6 +39,7 @@ impl Asset {
             Wav4 => "sound/waka/4.ogg",
             AtlasImage => "atlas.png",
             Font => "TerminalVector.ttf",
+            DeathSound => "sound/pacman_death.wav",
         }
     }
 }
