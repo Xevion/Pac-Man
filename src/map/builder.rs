@@ -359,12 +359,7 @@ impl Map {
                             + IVec2::from(Direction::Left.as_ivec2()).as_vec2() * (CELL_SIZE as f32 * 2.0),
                     },
                 )
-                .map_err(|e| {
-                    MapError::InvalidConfig(format!(
-                        "Failed to connect left tunnel entrance to left tunnel hidden node: {}",
-                        e
-                    ))
-                })?
+                .expect("Failed to connect left tunnel entrance to left tunnel hidden node")
         };
 
         // Create the right tunnel nodes
@@ -384,12 +379,7 @@ impl Map {
                             + IVec2::from(Direction::Right.as_ivec2()).as_vec2() * (CELL_SIZE as f32 * 2.0),
                     },
                 )
-                .map_err(|e| {
-                    MapError::InvalidConfig(format!(
-                        "Failed to connect right tunnel entrance to right tunnel hidden node: {}",
-                        e
-                    ))
-                })?
+                .expect("Failed to connect right tunnel entrance to right tunnel hidden node")
         };
 
         // Connect the left tunnel hidden node to the right tunnel hidden node
@@ -401,12 +391,7 @@ impl Map {
                 Some(0.0),
                 Direction::Left,
             )
-            .map_err(|e| {
-                MapError::InvalidConfig(format!(
-                    "Failed to connect left tunnel hidden node to right tunnel hidden node: {}",
-                    e
-                ))
-            })?;
+            .expect("Failed to connect left tunnel hidden node to right tunnel hidden node");
 
         Ok(())
     }

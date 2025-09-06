@@ -1,16 +1,15 @@
-use pacman::error::GameResult;
+use pacman::error::{GameError, GameResult};
 use pacman::game::Game;
-use sdl2;
+use speculoos::prelude::*;
 
 mod common;
 
 use common::setup_sdl;
 
-/// Test that runs the game for 30 seconds at 60 FPS without sleep
 #[test]
 fn test_game_30_seconds_60fps() -> GameResult<()> {
-    let (canvas, texture_creator, _sdl_context) = setup_sdl().map_err(|e| pacman::error::GameError::Sdl(e))?;
-    let ttf_context = sdl2::ttf::init().map_err(|e| pacman::error::GameError::Sdl(e.to_string()))?;
+    let (canvas, texture_creator, _sdl_context) = setup_sdl().map_err(GameError::Sdl)?;
+    let ttf_context = sdl2::ttf::init().map_err(GameError::Sdl)?;
     let event_pump = _sdl_context
         .event_pump()
         .map_err(|e| pacman::error::GameError::Sdl(e.to_string()))?;
@@ -43,8 +42,8 @@ fn test_game_30_seconds_60fps() -> GameResult<()> {
 /// Test that runs the game for 30 seconds with variable frame timing
 #[test]
 fn test_game_30_seconds_variable_timing() -> GameResult<()> {
-    let (canvas, texture_creator, _sdl_context) = setup_sdl().map_err(|e| pacman::error::GameError::Sdl(e))?;
-    let ttf_context = sdl2::ttf::init().map_err(|e| pacman::error::GameError::Sdl(e.to_string()))?;
+    let (canvas, texture_creator, _sdl_context) = setup_sdl().map_err(GameError::Sdl)?;
+    let ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
     let event_pump = _sdl_context
         .event_pump()
         .map_err(|e| pacman::error::GameError::Sdl(e.to_string()))?;
@@ -75,11 +74,6 @@ fn test_game_30_seconds_variable_timing() -> GameResult<()> {
         frame_count += 1;
     }
 
-    assert!(
-        total_time >= target_time,
-        "Should have run for at least {} seconds, but ran for {}s",
-        target_time,
-        total_time
-    );
+    assert_that(&total_time).is_greater_than_or_equal_to(target_time);
     Ok(())
 }
