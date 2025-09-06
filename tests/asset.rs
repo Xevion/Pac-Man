@@ -15,11 +15,3 @@ fn all_asset_paths_exist() {
         assert_that(&metadata.len()).is_greater_than(1024);
     }
 }
-
-#[test]
-fn asset_paths_are_non_empty() {
-    for asset in Asset::iter() {
-        let path = asset.path();
-        assert_that(&path.is_empty()).is_false();
-    }
-}
