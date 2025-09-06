@@ -1,4 +1,5 @@
 use pacman::systems::profiling::{SystemId, SystemTimings};
+use speculoos::prelude::*;
 use std::time::Duration;
 use strum::IntoEnumIterator;
 
@@ -6,15 +7,7 @@ macro_rules! assert_close {
     ($actual:expr, $expected:expr, $concern:expr) => {
         let tolerance = Duration::from_micros(500);
         let diff = $actual.abs_diff($expected);
-        assert!(
-            diff < tolerance,
-            "Expected {expected:?} ± {tolerance:.0?}, got {actual:?}, off by {diff:?} ({concern})",
-            concern = $concern,
-            expected = $expected,
-            actual = $actual,
-            tolerance = tolerance,
-            diff = diff
-        );
+        assert_that(&(diff < tolerance)).is_true();
     };
 }
 
@@ -55,7 +48,7 @@ fn test_default_zero_timing_for_unused_systems() {
 
     // Verify all SystemId variants are present in the stats
     let expected_count = SystemId::iter().count();
-    assert_eq!(stats.len(), expected_count, "All SystemId variants should be in stats");
+    assert_that(&stats.len()).is_equal_to(expected_count);
 
     // Verify that the system with data has non-zero timing
     let (avg, std_dev) = stats.get(&SystemId::PlayerControls).unwrap();
@@ -95,11 +88,7 @@ fn test_pre_populated_timing_entries() {
     let stats = timings.get_stats(1);
     for id in SystemId::iter() {
         let (avg, _) = stats.get(&id).unwrap();
-        assert!(
-            *avg > Duration::ZERO,
-            "System {:?} should have non-zero timing after add_timing",
-            id
-        );
+        assert_that(&(*avg > Duration::ZERO)).is_true();
     }
 }
 
@@ -118,8 +107,5 @@ fn test_total_system_timing() {
     // Should have 16ms average (16+18+14)/3 = 16ms
     assert_close!(*avg, Duration::from_millis(16), "Total system average timing");
     // Should have some standard deviation
-    assert!(
-        *std_dev > Duration::ZERO,
-        "Total system should have non-zero std dev with multiple measurements"
-    );
+    assert_that(&(*std_dev > Duration::ZERO)).is_true();
 }

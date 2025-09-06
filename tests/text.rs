@@ -1,4 +1,5 @@
 use pacman::texture::{sprite::SpriteAtlas, text::TextTexture};
+use speculoos::prelude::*;
 
 mod common;
 
@@ -16,22 +17,16 @@ fn get_all_chars() -> String {
 /// Helper function to check if a character is in the atlas and char_map
 fn check_char(text_texture: &mut TextTexture, atlas: &mut SpriteAtlas, c: char) {
     // Check that the character is not in the char_map yet
-    assert!(
-        !text_texture.get_char_map().contains_key(&c),
-        "Character {c} should not yet be in char_map"
-    );
+    assert_that(&text_texture.get_char_map().contains_key(&c)).is_false();
 
     // Get the tile from the atlas, which caches the tile in the char_map
     let tile = text_texture.get_tile(c, atlas);
 
-    assert!(tile.is_ok(), "Failed to get tile for character {c}");
-    assert!(tile.unwrap().is_some(), "Tile for character {c} not found in atlas");
+    assert_that(&tile.is_ok()).is_true();
+    assert_that(&tile.unwrap().is_some()).is_true();
 
     // Check that the tile is now cached in the char_map
-    assert!(
-        text_texture.get_char_map().contains_key(&c),
-        "Tile for character {c} was not cached in char_map"
-    );
+    assert_that(&text_texture.get_char_map().contains_key(&c)).is_true();
 }
 
 #[test]
@@ -74,8 +69,8 @@ fn test_text_width() -> Result<(), String> {
         let width = text_texture.text_width(&string);
         let height = text_texture.text_height();
 
-        assert!(width > 0, "Width for string {string} should be greater than 0");
-        assert!(height > 0, "Height for string {string} should be greater than 0");
+        assert_that(&(width > 0)).is_true();
+        assert_that(&(height > 0)).is_true();
     }
 
     Ok(())
@@ -88,22 +83,22 @@ fn test_text_scale() -> Result<(), String> {
 
     let mut text_texture = TextTexture::new(0.5);
 
-    assert_eq!(text_texture.scale(), 0.5);
-    assert_eq!(text_texture.text_height(), 4);
-    assert_eq!(text_texture.text_width(""), 0);
-    assert_eq!(text_texture.text_width(string), base_width / 2);
+    assert_that(&text_texture.scale()).is_equal_to(0.5);
+    assert_that(&text_texture.text_height()).is_equal_to(4);
+    assert_that(&text_texture.text_width("")).is_equal_to(0);
+    assert_that(&text_texture.text_width(string)).is_equal_to(base_width / 2);
 
     text_texture.set_scale(2.0);
-    assert_eq!(text_texture.scale(), 2.0);
-    assert_eq!(text_texture.text_height(), 16);
-    assert_eq!(text_texture.text_width(string), base_width * 2);
-    assert_eq!(text_texture.text_width(""), 0);
+    assert_that(&text_texture.scale()).is_equal_to(2.0);
+    assert_that(&text_texture.text_height()).is_equal_to(16);
+    assert_that(&text_texture.text_width(string)).is_equal_to(base_width * 2);
+    assert_that(&text_texture.text_width("")).is_equal_to(0);
 
     text_texture.set_scale(1.0);
-    assert_eq!(text_texture.scale(), 1.0);
-    assert_eq!(text_texture.text_height(), 8);
-    assert_eq!(text_texture.text_width(string), base_width);
-    assert_eq!(text_texture.text_width(""), 0);
+    assert_that(&text_texture.scale()).is_equal_to(1.0);
+    assert_that(&text_texture.text_height()).is_equal_to(8);
+    assert_that(&text_texture.text_width(string)).is_equal_to(base_width);
+    assert_that(&text_texture.text_width("")).is_equal_to(0);
 
     Ok(())
 }
@@ -113,17 +108,17 @@ fn test_text_color() -> Result<(), String> {
     let mut text_texture = TextTexture::new(1.0);
 
     // Test default color (should be None initially)
-    assert_eq!(text_texture.color(), None);
+    assert_that(&text_texture.color()).is_equal_to(None);
 
     // Test setting color
     let test_color = sdl2::pixels::Color::YELLOW;
     text_texture.set_color(test_color);
-    assert_eq!(text_texture.color(), Some(test_color));
+    assert_that(&text_texture.color()).is_equal_to(Some(test_color));
 
     // Test changing color
     let new_color = sdl2::pixels::Color::RED;
     text_texture.set_color(new_color);
-    assert_eq!(text_texture.color(), Some(new_color));
+    assert_that(&text_texture.color()).is_equal_to(Some(new_color));
 
     Ok(())
 }
