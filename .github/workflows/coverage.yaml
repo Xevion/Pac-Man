@@ -49,8 +49,9 @@ jobs:
           just coverage-codecov
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./codecov.json
           disable_search: true
+          verbose: true
