@@ -11,7 +11,7 @@ binary_extension := if os() == "windows" { ".exe" } else { "" }
 # !!! --remap-path-prefix prevents the absolute path from being used in the generated report
 
 # Generate HTML report (for humans, source line inspection)
-html: coverage
+html: coverage-lcov
     cargo llvm-cov report \
     --remap-path-prefix \
     --ignore-filename-regex "{{ coverage_exclude_pattern }}" \
@@ -19,18 +19,28 @@ html: coverage
     --open
 
 # Display report (for humans)
-report-coverage: coverage
+report-coverage: coverage-lcov
     cargo llvm-cov report \
     --remap-path-prefix \
     --ignore-filename-regex "{{ coverage_exclude_pattern }}"
 
-# Run & generate report (for CI)
-coverage:
+# Run & generate LCOV report (as base report)
+coverage-lcov:
     cargo llvm-cov \
     --lcov \
     --remap-path-prefix \
     --ignore-filename-regex "{{ coverage_exclude_pattern }}" \
     --output-path lcov.info \
+    --profile coverage \
+    --no-fail-fast nextest
+
+# Run & generate Codecov report (for CI)
+coverage-codecov:
+    cargo llvm-cov \
+    --codecov \
+    --remap-path-prefix \
+    --ignore-filename-regex "{{ coverage_exclude_pattern }}" \
+    --output-path codecov.json \
     --profile coverage \
     --no-fail-fast nextest
 
