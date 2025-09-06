@@ -20,10 +20,10 @@ use crate::{
 };
 
 // Touch input constants
-const TOUCH_DIRECTION_THRESHOLD: f32 = 10.0;
-const TOUCH_EASING_DISTANCE_THRESHOLD: f32 = 1.0;
-const MAX_TOUCH_MOVEMENT_SPEED: f32 = 100.0;
-const TOUCH_EASING_FACTOR: f32 = 1.5;
+pub const TOUCH_DIRECTION_THRESHOLD: f32 = 10.0;
+pub const TOUCH_EASING_DISTANCE_THRESHOLD: f32 = 1.0;
+pub const MAX_TOUCH_MOVEMENT_SPEED: f32 = 100.0;
+pub const TOUCH_EASING_FACTOR: f32 = 1.5;
 
 #[derive(Resource, Default, Debug, Copy, Clone)]
 pub enum CursorPosition {
@@ -35,7 +35,7 @@ pub enum CursorPosition {
     },
 }
 
-#[derive(Resource, Default, Debug)]
+#[derive(Resource, Default, Debug, Clone)]
 pub struct TouchState {
     pub active_touch: Option<TouchData>,
 }
@@ -160,7 +160,7 @@ pub fn process_simple_key_events(bindings: &mut Bindings, frame_events: &[Simple
 }
 
 /// Calculates the primary direction from a 2D vector delta
-fn calculate_direction_from_delta(delta: Vec2) -> Direction {
+pub fn calculate_direction_from_delta(delta: Vec2) -> Direction {
     if delta.x.abs() > delta.y.abs() {
         if delta.x > 0.0 {
             Direction::Right
@@ -179,7 +179,7 @@ fn calculate_direction_from_delta(delta: Vec2) -> Direction {
 /// This slowly moves the start_pos towards the current_pos, with the speed
 /// decreasing as the distance gets smaller. The maximum movement speed is capped.
 /// Returns the delta vector and its length for reuse by the caller.
-fn update_touch_reference_position(touch_data: &mut TouchData, delta_time: f32) -> (Vec2, f32) {
+pub fn update_touch_reference_position(touch_data: &mut TouchData, delta_time: f32) -> (Vec2, f32) {
     // Calculate the vector from start to current position
     let delta = touch_data.current_pos - touch_data.start_pos;
     let distance = delta.length();
@@ -219,16 +219,6 @@ pub fn input_system(
     let mut cursor_seen = false;
     // Collect all events for this frame.
     let frame_events: SmallVec<[Event; 3]> = pump.poll_iter().collect();
-
-    // Warn if the smallvec was heap allocated due to exceeding stack capacity
-    #[cfg(debug_assertions)]
-    if frame_events.len() > frame_events.capacity() {
-        tracing::warn!(
-            "More than {} events in a frame, consider adjusting stack capacity: {:?}",
-            frame_events.capacity(),
-            frame_events
-        );
-    }
 
     // Handle non-keyboard events inline and build a simplified keyboard event stream.
     let mut simple_key_events: SmallVec<[SimpleKeyEvent; 3]> = smallvec![];

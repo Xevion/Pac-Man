@@ -20,6 +20,6 @@ fn all_asset_paths_exist() {
 fn asset_paths_are_non_empty() {
     for asset in Asset::iter() {
         let path = asset.path();
-        assert!(!path.is_empty(), "Asset path for {:?} should not be empty", asset);
+        assert_that(&path.is_empty()).is_false();
     }
 }
