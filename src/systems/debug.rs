@@ -1,6 +1,5 @@
 //! Debug rendering system
-use std::cmp::Ordering;
-
+#[cfg_attr(coverage_nightly, feature(coverage_attribute))]
 use crate::constants::{self, BOARD_PIXEL_OFFSET};
 use crate::map::builder::Map;
 use crate::systems::{Collider, CursorPosition, NodeId, Position, SystemTimings};
@@ -13,6 +12,7 @@ use sdl2::rect::{Point, Rect};
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 use smallvec::SmallVec;
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use tracing::warn;
 
@@ -149,6 +149,7 @@ fn transform_position_with_offset(pos: Vec2, scale: f32) -> IVec2 {
 }
 
 /// Renders timing information in the top-left corner of the screen using the debug text atlas
+#[cfg_attr(coverage_nightly, coverage(off))]
 fn render_timing_display(
     canvas: &mut Canvas<Window>,
     timings: &SystemTimings,
@@ -203,6 +204,7 @@ fn render_timing_display(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[cfg_attr(coverage_nightly, coverage(off))]
 pub fn debug_render_system(
     canvas: &mut Canvas<Window>,
     ttf_atlas: &mut TtfAtlasResource,

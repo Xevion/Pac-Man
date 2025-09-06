@@ -1,3 +1,6 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+#![cfg_attr(coverage_nightly, coverage(off))]
+
 use circular_buffer::CircularBuffer;
 use pacman::constants::CANVAS_SIZE;
 use sdl2::event::Event;

@@ -4,7 +4,7 @@ on: ["push", "pull_request"]
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_TOOLCHAIN: 1.86.0
+  RUST_TOOLCHAIN: nightly
 
 jobs:
   coverage:
@@ -46,12 +46,11 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          just coverage-codecov
+          just coverage-lcov
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
+      - name: Coveralls upload
+        uses: coverallsapp/github-action@v2
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./codecov.json
-          disable_search: true
-          verbose: true
+          github-token: ${{ secrets.COVERALLS_REPO_TOKEN }}
+          path-to-lcov: lcov.info
+          debug: true

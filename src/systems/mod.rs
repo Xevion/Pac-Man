@@ -3,17 +3,21 @@
 //! This module contains all the ECS-related logic, including components, systems,
 //! and resources.
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 pub mod audio;
 pub mod blinking;
 pub mod collision;
 pub mod components;
+#[cfg_attr(coverage_nightly, coverage(off))]
 pub mod debug;
 pub mod ghost;
 pub mod input;
 pub mod item;
 pub mod movement;
 pub mod player;
+#[cfg_attr(coverage_nightly, coverage(off))]
 pub mod profiling;
+#[cfg_attr(coverage_nightly, coverage(off))]
 pub mod render;
 pub mod stage;
 
