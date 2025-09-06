@@ -319,7 +319,7 @@ pub fn input_system(
     // Update touch reference position with easing
     if let Some(ref mut touch_data) = touch_state.active_touch {
         // Apply easing to the reference position and get the delta for direction calculation
-        let (delta, distance) = update_touch_reference_position(touch_data, delta_time.0);
+        let (delta, distance) = update_touch_reference_position(touch_data, delta_time.seconds);
 
         // Check for direction based on updated reference position
         if distance >= TOUCH_DIRECTION_THRESHOLD {
@@ -336,7 +336,7 @@ pub fn input_system(
     }
 
     if let (false, CursorPosition::Some { remaining_time, .. }) = (cursor_seen, &mut *cursor) {
-        *remaining_time -= delta_time.0;
+        *remaining_time -= delta_time.seconds;
         if *remaining_time <= 0.0 {
             *cursor = CursorPosition::None;
         }

@@ -85,7 +85,10 @@ pub fn create_test_world() -> World {
     world.insert_resource(AudioState::default());
     world.insert_resource(GlobalState { exit: false });
     world.insert_resource(DebugState::default());
-    world.insert_resource(DeltaTime(1.0 / 60.0)); // 60 FPS
+    world.insert_resource(DeltaTime {
+        seconds: 1.0 / 60.0,
+        ticks: 1,
+    }); // 60 FPS
     world.insert_resource(create_test_map());
 
     world

@@ -55,7 +55,7 @@ pub fn directional_render_system(
     dt: Res<DeltaTime>,
     mut query: Query<(&Position, &Velocity, &mut DirectionalAnimation, &mut Renderable)>,
 ) {
-    let ticks = (dt.0 * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
+    let ticks = (dt.seconds * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
 
     for (position, velocity, mut anim, mut renderable) in query.iter_mut() {
         let stopped = matches!(position, Position::Stopped { .. });
@@ -90,7 +90,7 @@ pub fn directional_render_system(
 ///
 /// This system handles entities that use LinearAnimation component for simple frame cycling.
 pub fn linear_render_system(dt: Res<DeltaTime>, mut query: Query<(&mut LinearAnimation, &mut Renderable)>) {
-    let ticks = (dt.0 * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
+    let ticks = (dt.seconds * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
 
     for (mut anim, mut renderable) in query.iter_mut() {
         // Tick animation

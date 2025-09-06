@@ -12,20 +12,24 @@ use crate::systems::{
 
 #[derive(Component, Debug)]
 pub struct Blinking {
-    pub timer: f32,
-    pub interval: f32,
+    pub tick_timer: u32,
+    pub interval_ticks: u32,
 }
 
 impl Blinking {
-    pub fn new(interval: f32) -> Self {
-        Self { timer: 0.0, interval }
+    pub fn new(interval_ticks: u32) -> Self {
+        Self {
+            tick_timer: 0,
+            interval_ticks,
+        }
     }
 }
 
 /// Updates blinking entities by toggling their visibility at regular intervals.
 ///
 /// This system manages entities that have both `Blinking` and `Renderable` components,
-/// accumulating time and toggling visibility when the specified interval is reached.
+/// accumulating ticks and toggling visibility when the specified interval is reached.
+/// Uses integer arithmetic for deterministic behavior.
 #[allow(clippy::type_complexity)]
 pub fn blinking_system(
     mut commands: Commands,
@@ -42,22 +46,40 @@ pub fn blinking_system(
             continue;
         }
 
-        // Increase the timer by the delta time
-        blinking.timer += time.0;
+        // Increase the timer by the delta ticks
+        blinking.tick_timer += time.ticks;
 
-        // If the timer is less than the interval, there's nothing to do yet
-        if blinking.timer < blinking.interval {
+        // Handle zero interval case (immediate toggling)
+        if blinking.interval_ticks == 0 {
+            if time.ticks > 0 {
+                if hidden {
+                    commands.entity(entity).remove::<Hidden>();
+                } else {
+                    commands.entity(entity).insert(Hidden);
+                }
+            }
             continue;
         }
 
-        // Subtract the interval (allows for the timer to retain partial interval progress)
-        blinking.timer -= blinking.interval;
+        // Calculate how many complete intervals have passed
+        let complete_intervals = blinking.tick_timer / blinking.interval_ticks;
 
-        // Toggle the Hidden component
-        if hidden {
-            commands.entity(entity).remove::<Hidden>();
-        } else {
-            commands.entity(entity).insert(Hidden);
+        // If no complete intervals have passed, there's nothing to do yet
+        if complete_intervals == 0 {
+            continue;
+        }
+
+        // Update the timer to the remainder after complete intervals
+        blinking.tick_timer %= blinking.interval_ticks;
+
+        // Toggle the Hidden component for each complete interval
+        // Since toggling twice is a no-op, we only need to toggle if the count is odd
+        if complete_intervals % 2 == 1 {
+            if hidden {
+                commands.entity(entity).remove::<Hidden>();
+            } else {
+                commands.entity(entity).insert(Hidden);
+            }
         }
     }
 }
