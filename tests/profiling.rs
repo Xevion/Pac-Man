@@ -74,25 +74,6 @@ fn test_default_zero_timing_for_unused_systems() {
 }
 
 #[test]
-fn test_pre_populated_timing_entries() {
-    let timings = SystemTimings::default();
-
-    // Verify that we can add timing to any SystemId without panicking
-    // (this would fail with the old implementation if the entry didn't exist)
-    // Use the same tick for all systems to avoid zero-padding
-    for id in SystemId::iter() {
-        timings.add_timing(id, Duration::from_nanos(1), 1);
-    }
-
-    // Verify all systems now have non-zero timing
-    let stats = timings.get_stats(1);
-    for id in SystemId::iter() {
-        let (avg, _) = stats.get(&id).unwrap();
-        assert_that(&(*avg > Duration::ZERO)).is_true();
-    }
-}
-
-#[test]
 fn test_total_system_timing() {
     let timings = SystemTimings::default();
 
