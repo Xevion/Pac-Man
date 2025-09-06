@@ -62,6 +62,7 @@ libc = "0.2.175"  # TODO: Describe why this is required.
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
+speculoos = "0.13.0"
 
 [build-dependencies]
 phf = { version = "0.13.1", features = ["macros"] }

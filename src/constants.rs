@@ -72,8 +72,8 @@ pub mod collider {
 pub mod ui {
     /// Debug font size in points
     pub const DEBUG_FONT_SIZE: u16 = 12;
-    /// Power pellet blink rate in seconds
-    pub const POWER_PELLET_BLINK_RATE: f32 = 0.2;
+    /// Power pellet blink rate in ticks (at 60 FPS, 12 ticks = 0.2 seconds)
+    pub const POWER_PELLET_BLINK_RATE: u32 = 12;
 }
 
 /// Map tile types that define gameplay behavior and collision properties.

@@ -25,7 +25,7 @@ pub fn ghost_movement_system(
     mut ghosts: Query<(&Ghost, &mut Velocity, &mut Position), Without<Frozen>>,
 ) {
     for (_ghost, mut velocity, mut position) in ghosts.iter_mut() {
-        let mut distance = velocity.speed * 60.0 * delta_time.0;
+        let mut distance = velocity.speed * 60.0 * delta_time.seconds;
         loop {
             match *position {
                 Position::Stopped { node: current_node } => {
@@ -111,7 +111,7 @@ pub fn eaten_ghost_system(
                 }
             }
             Position::Moving { to, .. } => {
-                let distance = velocity.speed * 60.0 * delta_time.0;
+                let distance = velocity.speed * 60.0 * delta_time.seconds;
                 if let Some(_overflow) = position.tick(distance) {
                     // Reached target node, check if we're at ghost house center
                     if to == ghost_house_center {

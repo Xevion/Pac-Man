@@ -162,7 +162,35 @@ pub struct GlobalState {
 pub struct ScoreResource(pub u32);
 
 #[derive(Resource)]
-pub struct DeltaTime(pub f32);
+pub struct DeltaTime {
+    /// Floating-point delta time in seconds
+    pub seconds: f32,
+    /// Integer tick delta (usually 1, but can be different for testing)
+    pub ticks: u32,
+}
+
+#[allow(dead_code)]
+impl DeltaTime {
+    /// Creates a new DeltaTime from a floating-point delta time in seconds
+    ///
+    /// While this method exists as a helper, it does not mean that seconds and ticks are interchangeable.
+    pub fn from_seconds(seconds: f32) -> Self {
+        Self {
+            seconds,
+            ticks: (seconds * 60.0).round() as u32,
+        }
+    }
+
+    /// Creates a new DeltaTime from an integer tick delta
+    ///
+    /// While this method exists as a helper, it does not mean that seconds and ticks are interchangeable.
+    pub fn from_ticks(ticks: u32) -> Self {
+        Self {
+            seconds: ticks as f32 / 60.0,
+            ticks,
+        }
+    }
+}
 
 /// Movement modifiers that can affect Pac-Man's speed or handling.
 #[derive(Component, Debug, Clone, Copy)]

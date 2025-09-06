@@ -232,7 +232,7 @@ fn test_player_movement_system_buffered_direction_expires() {
     });
 
     // Set delta time to expire the buffered direction
-    world.insert_resource(DeltaTime(0.02));
+    world.insert_resource(DeltaTime::from_seconds(0.02));
 
     // Run the system
     world
@@ -410,7 +410,7 @@ fn test_buffered_direction_timing() {
         .expect("System should run successfully");
 
     // Run movement system multiple times with small delta times
-    world.insert_resource(DeltaTime(0.1)); // 0.1 seconds
+    world.insert_resource(DeltaTime::from_seconds(0.1)); // 0.1 seconds
 
     // First run - buffered direction should still be active
     world
@@ -428,7 +428,7 @@ fn test_buffered_direction_timing() {
     }
 
     // Run again to fully expire the buffered direction
-    world.insert_resource(DeltaTime(0.2)); // Total 0.3 seconds, should expire
+    world.insert_resource(DeltaTime::from_seconds(0.2)); // Total 0.3 seconds, should expire
     world
         .run_system_once(player_movement_system)
         .expect("System should run successfully");

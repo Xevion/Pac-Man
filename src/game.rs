@@ -372,7 +372,7 @@ impl Game {
         world.insert_resource(SystemTimings::default());
         world.insert_resource(Timing::default());
         world.insert_resource(Bindings::default());
-        world.insert_resource(DeltaTime(0f32));
+        world.insert_resource(DeltaTime { seconds: 0.0, ticks: 0 });
         world.insert_resource(RenderDirty::default());
         world.insert_resource(DebugState::default());
         world.insert_resource(AudioState::default());
@@ -633,7 +633,7 @@ impl Game {
     ///
     /// `true` if the game should terminate (exit command received), `false` to continue
     pub fn tick(&mut self, dt: f32) -> bool {
-        self.world.insert_resource(DeltaTime(dt));
+        self.world.insert_resource(DeltaTime { seconds: dt, ticks: 1 });
 
         // Note: We don't need to read the current tick here since we increment it after running systems
 

@@ -99,12 +99,12 @@ pub fn player_movement_system(
             } else {
                 *buffered_direction = BufferedDirection::Some {
                     direction,
-                    remaining_time: remaining_time - delta_time.0,
+                    remaining_time: remaining_time - delta_time.seconds,
                 };
             }
         }
 
-        let mut distance = velocity.speed * modifiers.speed_multiplier * 60.0 * delta_time.0;
+        let mut distance = velocity.speed * modifiers.speed_multiplier * 60.0 * delta_time.seconds;
 
         loop {
             match *position {
