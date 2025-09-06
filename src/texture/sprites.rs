@@ -15,6 +15,8 @@ pub enum PacmanSprite {
     Moving(Direction, u8),
     /// The full, closed-mouth Pac-Man sprite.
     Full,
+    /// A single frame of the dying animation.
+    Dying(u8),
 }
 
 /// Represents the color of a frightened ghost.
@@ -60,45 +62,50 @@ impl GameSprite {
     /// This path corresponds to the filename in the texture atlas JSON file.
     pub fn to_path(self) -> String {
         match self {
-            GameSprite::Pacman(sprite) => match sprite {
-                PacmanSprite::Moving(dir, frame) => {
-                    let frame_char = match frame {
-                        0 => 'a',
-                        1 => 'b',
-                        _ => panic!("Invalid animation frame"),
-                    };
-                    format!("pacman/{}_{}.png", dir.as_ref().to_lowercase(), frame_char)
+            GameSprite::Pacman(PacmanSprite::Moving(dir, frame)) => format!(
+                "pacman/{}_{}.png",
+                dir.as_ref(),
+                match frame {
+                    0 => "a",
+                    1 => "b",
+                    _ => panic!("Invalid animation frame"),
                 }
-                PacmanSprite::Full => "pacman/full.png".to_string(),
-            },
-            GameSprite::Ghost(sprite) => match sprite {
-                GhostSprite::Normal(ghost, dir, frame) => {
-                    let frame_char = match frame {
-                        0 => 'a',
-                        1 => 'b',
-                        _ => panic!("Invalid animation frame"),
-                    };
-                    format!("ghost/{}/{}_{}.png", ghost.as_str(), dir.as_ref().to_lowercase(), frame_char)
-                }
-                GhostSprite::Frightened(color, frame) => {
-                    let frame_char = match frame {
-                        0 => 'a',
-                        1 => 'b',
-                        _ => panic!("Invalid animation frame"),
-                    };
-                    let color_str = match color {
-                        FrightenedColor::Blue => "blue",
-                        FrightenedColor::White => "white",
-                    };
-                    format!("ghost/frightened/{}_{}.png", color_str, frame_char)
-                }
-                GhostSprite::Eyes(dir) => format!("ghost/eyes/{}.png", dir.as_ref().to_lowercase()),
-            },
-            GameSprite::Maze(sprite) => match sprite {
-                MazeSprite::Tile(index) => format!("maze/tiles/{}.png", index),
-                MazeSprite::Pellet => "maze/pellet.png".to_string(),
-                MazeSprite::Energizer => "maze/energizer.png".to_string(),
-            },
+            ),
+            GameSprite::Pacman(PacmanSprite::Full) => "pacman/full.png".to_string(),
+            GameSprite::Pacman(PacmanSprite::Dying(frame)) => format!("pacman/death/{}.png", frame),
+
+            // Ghost sprites
+            GameSprite::Ghost(GhostSprite::Normal(ghost_type, dir, frame)) => {
+                let frame_char = match frame {
+                    0 => 'a',
+                    1 => 'b',
+                    _ => panic!("Invalid animation frame"),
+                };
+                format!(
+                    "ghost/{}/{}_{}.png",
+                    ghost_type.as_str(),
+                    dir.as_ref().to_lowercase(),
+                    frame_char
+                )
+            }
+            GameSprite::Ghost(GhostSprite::Frightened(color, frame)) => {
+                let frame_char = match frame {
+                    0 => 'a',
+                    1 => 'b',
+                    _ => panic!("Invalid animation frame"),
+                };
+                let color_str = match color {
+                    FrightenedColor::Blue => "blue",
+                    FrightenedColor::White => "white",
+                };
+                format!("ghost/frightened/{}_{}.png", color_str, frame_char)
+            }
+            GameSprite::Ghost(GhostSprite::Eyes(dir)) => format!("ghost/eyes/{}.png", dir.as_ref().to_lowercase()),
+
+            // Maze sprites
+            GameSprite::Maze(MazeSprite::Tile(index)) => format!("maze/tiles/{}.png", index),
+            GameSprite::Maze(MazeSprite::Pellet) => "maze/pellet.png".to_string(),
+            GameSprite::Maze(MazeSprite::Energizer) => "maze/energizer.png".to_string(),
         }
     }
 }
