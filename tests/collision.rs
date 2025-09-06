@@ -1,5 +1,6 @@
 use bevy_ecs::system::RunSystemOnce;
 use pacman::systems::{check_collision, collision_system, Collider, EntityType, GhostState, Position};
+use speculoos::prelude::*;
 
 mod common;
 
@@ -9,8 +10,8 @@ fn test_collider_collision_detection() {
     let collider2 = Collider { size: 8.0 };
 
     // Test collision detection
-    assert!(collider1.collides_with(collider2.size, 5.0)); // Should collide (distance < 9.0)
-    assert!(!collider1.collides_with(collider2.size, 15.0)); // Should not collide (distance > 9.0)
+    assert_that(&collider1.collides_with(collider2.size, 5.0)).is_true(); // Should collide (distance < 9.0)
+    assert_that(&collider1.collides_with(collider2.size, 15.0)).is_false(); // Should not collide (distance > 9.0)
 }
 
 #[test]
@@ -23,13 +24,13 @@ fn test_check_collision_helper() {
 
     // Test collision at same position
     let result = check_collision(&pos1, &collider1, &pos2, &collider2, &map);
-    assert!(result.is_ok());
-    assert!(result.unwrap()); // Should collide at same position
+    assert_that(&result.is_ok()).is_true();
+    assert_that(&result.unwrap()).is_true(); // Should collide at same position
 
     // Test collision at different positions
     let pos3 = Position::Stopped { node: 1 }; // Different position
     let result = check_collision(&pos1, &collider1, &pos3, &collider2, &map);
-    assert!(result.is_ok());
+    assert_that(&result.is_ok()).is_true();
     // May or may not collide depending on actual node positions
 }
 

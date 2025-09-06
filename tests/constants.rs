@@ -1,35 +1,24 @@
 use pacman::constants::*;
+use speculoos::prelude::*;
 
 #[test]
 fn test_raw_board_structure() {
     // Test board dimensions match expected size
-    assert_eq!(RAW_BOARD.len(), BOARD_CELL_SIZE.y as usize);
+    assert_that(&RAW_BOARD.len()).is_equal_to(BOARD_CELL_SIZE.y as usize);
     for row in RAW_BOARD.iter() {
-        assert_eq!(row.len(), BOARD_CELL_SIZE.x as usize);
+        assert_that(&row.len()).is_equal_to(BOARD_CELL_SIZE.x as usize);
     }
 
     // Test boundaries are properly walled
-    assert!(RAW_BOARD[0].chars().all(|c| c == '#'));
-    assert!(RAW_BOARD[RAW_BOARD.len() - 1].chars().all(|c| c == '#'));
+    assert_that(&RAW_BOARD[0].chars().all(|c| c == '#')).is_true();
+    assert_that(&RAW_BOARD[RAW_BOARD.len() - 1].chars().all(|c| c == '#')).is_true();
 }
 
 #[test]
 fn test_raw_board_contains_required_elements() {
     // Test that essential game elements are present
-    assert!(
-        RAW_BOARD.iter().any(|row| row.contains('X')),
-        "Board should contain Pac-Man start position"
-    );
-    assert!(
-        RAW_BOARD.iter().any(|row| row.contains("==")),
-        "Board should contain ghost house door"
-    );
-    assert!(
-        RAW_BOARD.iter().any(|row| row.chars().any(|c| c == 'T')),
-        "Board should contain tunnel entrances"
-    );
-    assert!(
-        RAW_BOARD.iter().any(|row| row.chars().any(|c| c == 'o')),
-        "Board should contain power pellets"
-    );
+    assert_that(&RAW_BOARD.iter().any(|row| row.contains('X'))).is_true();
+    assert_that(&RAW_BOARD.iter().any(|row| row.contains("=="))).is_true();
+    assert_that(&RAW_BOARD.iter().any(|row| row.chars().any(|c| c == 'T'))).is_true();
+    assert_that(&RAW_BOARD.iter().any(|row| row.chars().any(|c| c == 'o'))).is_true();
 }
