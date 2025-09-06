@@ -1,0 +1,17 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 70%
+    patch:
+      default:
+        informational: true
+
+ignore:
+  - "src/(?:bin|platform))/.+\\.rs"
+  - "src/(?:app|events|formatter)\\.rs"
+
+comment:
+  layout: "reach,diff,flags,files,footer"
+  behavior: default
+  require_changes: false
