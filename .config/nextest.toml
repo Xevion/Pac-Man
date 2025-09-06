@@ -3,3 +3,10 @@ fail-fast = false
 
 [profile.coverage]
 status-level = "none"
+
+[[profile.default.overrides]]
+filter = 'test(pacman::game::)'
+test-group = 'serial'
+
+[test-groups]
+serial = { max-threads = 1 }
