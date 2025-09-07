@@ -12,6 +12,13 @@ repos:
       - id: forbid-submodules
       - id: mixed-line-ending
 
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.2.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: []
+
   - repo: local
     hooks:
       - id: cargo-fmt
@@ -20,15 +27,31 @@ repos:
         language: system
         types: [rust]
         pass_filenames: false
+
       - id: cargo-check
         name: cargo check
         entry: cargo check --all-targets
         language: system
         types_or: [rust, cargo, cargo-lock]
         pass_filenames: false
+
       - id: cargo-check-wasm
         name: cargo check for wasm32-unknown-emscripten
         entry: cargo check --all-targets --target=wasm32-unknown-emscripten
         language: system
         types_or: [rust, cargo, cargo-lock]
         pass_filenames: false
+
+      - id: bump-version
+        name: bump version based on commit message
+        entry: python scripts/bump-version.py
+        language: system
+        stages: [commit-msg]
+        always_run: true
+
+      - id: tag-version
+        name: tag version based on commit message
+        entry: python scripts/tag-version.py
+        language: system
+        stages: [post-commit]
+        always_run: true
