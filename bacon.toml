@@ -28,16 +28,18 @@ need_stdout = false
 
 [jobs.test]
 command = [
-    "cargo", "nextest", "run",
-    "--hide-progress-bar", "--failure-output", "final"
+    "cargo",
+    "nextest",
+    "run",
+    "--hide-progress-bar",
+    "--failure-output",
+    "final",
 ]
 need_stdout = true
 analyzer = "nextest"
 
 [jobs.coverage]
-command = [
-    "just", "report-coverage"
-]
+command = ["just", "report-coverage"]
 need_stdout = true
 ignored_lines = [
     "info:",
@@ -54,7 +56,7 @@ ignored_lines = [
     "\\s*Finished.+in \\d+",
     "\\s*Summary\\s+\\[",
     "\\s*Blocking",
-    "Finished report saved to"
+    "Finished report saved to",
 ]
 on_change_strategy = "wait_then_restart"
 
@@ -66,17 +68,21 @@ need_stdout = false
 [jobs.doc-open]
 command = ["cargo", "doc", "--no-deps", "--open"]
 need_stdout = false
-on_success = "back" # so that we don't open the browser at each change
+on_success = "back"                               # so that we don't open the browser at each change
 
 [jobs.run]
-command = [
-    "cargo", "run",
-]
+command = ["cargo", "run"]
 need_stdout = true
 allow_warnings = true
 background = false
 on_change_strategy = "kill_then_restart"
 # kill = ["pkill", "-TERM", "-P"]'
+
+[jobs.precommit]
+command = ["pre-commit", "run", "--all-files"]
+need_stdout = true
+background = false
+on_change_strategy = "kill_then_restart"
 
 [keybindings]
 c = "job:clippy"
@@ -84,3 +90,4 @@ alt-c = "job:check"
 ctrl-alt-c = "job:check-all"
 shift-c = "job:clippy-all"
 f = "job:coverage"
+p = "job:precommit"
