@@ -15,7 +15,7 @@ use bevy_ecs::{
     event::{EventReader, EventWriter},
     query::{With, Without},
     resource::Resource,
-    system::{Commands, NonSendMut, Query, Res, ResMut},
+    system::{Commands, NonSendMut, Query, Res, ResMut, Single},
 };
 
 #[derive(Resource, Clone)]
@@ -122,7 +122,7 @@ pub fn stage_system(
     mut audio_events: EventWriter<AudioEvent>,
     mut stage_event_reader: EventReader<StageTransition>,
     mut blinking_query: Query<Entity, With<Blinking>>,
-    mut player_query: Query<(Entity, &mut Position), With<PlayerControlled>>,
+    player: Single<(Entity, &mut Position), With<PlayerControlled>>,
     mut ghost_query: Query<(Entity, &Ghost, &mut Position), (With<GhostCollider>, Without<PlayerControlled>)>,
     atlas: NonSendMut<SpriteAtlas>,
 ) {
@@ -132,11 +132,7 @@ pub fn stage_system(
     // Handle stage transition requests before normal ticking
     for event in stage_event_reader.read() {
         let StageTransition::GhostEatenPause { ghost_entity } = *event;
-        let pac_node = player_query
-            .single_mut()
-            .ok()
-            .map(|(_, pos)| pos.current_node())
-            .unwrap_or(map.start_positions.pacman);
+        let pac_node = player.1.current_node();
 
         debug!(ghost_entity = ?ghost_entity, node = pac_node, "Ghost eaten, entering pause state");
         new_state = Some(GameStage::GhostEatenPause {
@@ -240,18 +236,13 @@ pub fn stage_system(
     match (old_state, new_state) {
         (GameStage::Playing, GameStage::GhostEatenPause { ghost_entity, node, .. }) => {
             // Freeze the player & ghosts
-            for entity in player_query
-                .iter_mut()
-                .map(|(e, _)| e)
-                .chain(ghost_query.iter_mut().map(|(e, _, _)| e))
-            {
+            commands.entity(player.0).insert(Frozen);
+            for (entity, _, _) in ghost_query.iter_mut() {
                 commands.entity(entity).insert(Frozen);
             }
 
             // Hide the player & eaten ghost
-            for (player_entity, _) in player_query.iter_mut() {
-                commands.entity(player_entity).insert(Hidden);
-            }
+            commands.entity(player.0).insert(Hidden);
             commands.entity(ghost_entity).insert(Hidden);
 
             // Spawn bonus points entity at Pac-Man's position
@@ -275,11 +266,8 @@ pub fn stage_system(
         }
         (GameStage::GhostEatenPause { ghost_entity, .. }, GameStage::Playing) => {
             // Unfreeze and reveal the player & all ghosts
-            for entity in player_query
-                .iter_mut()
-                .map(|(e, _)| e)
-                .chain(ghost_query.iter_mut().map(|(e, _, _)| e))
-            {
+            commands.entity(player.0).remove::<(Frozen, Hidden)>();
+            for (entity, _, _) in ghost_query.iter_mut() {
                 commands.entity(entity).remove::<(Frozen, Hidden)>();
             }
 
@@ -288,11 +276,8 @@ pub fn stage_system(
         }
         (GameStage::Playing, GameStage::PlayerDying(DyingSequence::Frozen { .. })) => {
             // Freeze the player & ghosts
-            for entity in player_query
-                .iter_mut()
-                .map(|(e, _)| e)
-                .chain(ghost_query.iter_mut().map(|(e, _, _)| e))
-            {
+            commands.entity(player.0).insert(Frozen);
+            for (entity, _, _) in ghost_query.iter_mut() {
                 commands.entity(entity).insert(Frozen);
             }
         }
@@ -303,38 +288,31 @@ pub fn stage_system(
             }
 
             // Start Pac-Man's death animation
-            if let Ok((player_entity, _)) = player_query.single_mut() {
-                commands
-                    .entity(player_entity)
-                    .insert((Dying, player_death_animation.0.clone()));
-            }
+            commands.entity(player.0).insert((Dying, player_death_animation.0.clone()));
 
             // Play the death sound
             audio_events.write(AudioEvent::PlayDeath);
         }
         (GameStage::PlayerDying(DyingSequence::Animating { .. }), GameStage::PlayerDying(DyingSequence::Hidden { .. })) => {
             // Hide the player
-            if let Ok((player_entity, _)) = player_query.single_mut() {
-                commands.entity(player_entity).insert(Hidden);
-            }
+            commands.entity(player.0).insert(Hidden);
         }
         (_, GameStage::LevelRestarting) => {
-            if let Ok((player_entity, mut pos)) = player_query.single_mut() {
-                *pos = Position::Stopped {
-                    node: map.start_positions.pacman,
-                };
+            let (player_entity, mut pos) = player.into_inner();
+            *pos = Position::Stopped {
+                node: map.start_positions.pacman,
+            };
 
-                // Freeze the blinking, force them to be visible (if they were hidden by blinking)
-                for entity in blinking_query.iter_mut() {
-                    commands.entity(entity).insert(Frozen).remove::<Hidden>();
-                }
-
-                // Reset the player animation
-                commands
-                    .entity(player_entity)
-                    .remove::<(Frozen, Dying, LinearAnimation, Looping)>()
-                    .insert(player_animation.0.clone());
+            // Freeze the blinking, force them to be visible (if they were hidden by blinking)
+            for entity in blinking_query.iter_mut() {
+                commands.entity(entity).insert(Frozen).remove::<Hidden>();
             }
+
+            // Reset the player animation
+            commands
+                .entity(player_entity)
+                .remove::<(Frozen, Dying, LinearAnimation, Looping)>()
+                .insert(player_animation.0.clone());
 
             // Reset ghost positions and state
             for (ghost_entity, ghost, mut ghost_pos) in ghost_query.iter_mut() {
@@ -354,22 +332,18 @@ pub fn stage_system(
         }
         (_, GameStage::Starting(StartupSequence::CharactersVisible { .. })) => {
             // Unhide the player & ghosts
-            for entity in player_query
-                .iter_mut()
-                .map(|(e, _)| e)
-                .chain(ghost_query.iter_mut().map(|(e, _, _)| e))
-            {
+            commands.entity(player.0).remove::<Hidden>();
+            for (entity, _, _) in ghost_query.iter_mut() {
                 commands.entity(entity).remove::<Hidden>();
             }
         }
         (GameStage::Starting(StartupSequence::CharactersVisible { .. }), GameStage::Playing) => {
             // Unfreeze the player & ghosts & blinking
-            for entity in player_query
-                .iter_mut()
-                .map(|(e, _)| e)
-                .chain(ghost_query.iter_mut().map(|(e, _, _)| e))
-                .chain(blinking_query.iter_mut())
-            {
+            commands.entity(player.0).remove::<Frozen>();
+            for (entity, _, _) in ghost_query.iter_mut() {
+                commands.entity(entity).remove::<Frozen>();
+            }
+            for entity in blinking_query.iter_mut() {
                 commands.entity(entity).remove::<Frozen>();
             }
         }

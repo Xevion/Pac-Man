@@ -1,12 +1,11 @@
 use bevy_ecs::{
-    event::{EventReader, EventWriter},
+    event::EventReader,
     query::{With, Without},
-    system::{Query, Res, ResMut},
+    system::{Query, Res, ResMut, Single},
 };
 use tracing::trace;
 
 use crate::{
-    error::GameError,
     events::{GameCommand, GameEvent},
     map::{builder::Map, graph::Edge},
     systems::{
@@ -33,31 +32,21 @@ pub fn player_control_system(
     mut state: ResMut<GlobalState>,
     mut debug_state: ResMut<DebugState>,
     mut audio_state: ResMut<AudioState>,
-    mut players: Query<&mut BufferedDirection, (With<PlayerControlled>, Without<Frozen>)>,
-    mut errors: EventWriter<GameError>,
+    mut player: Option<Single<&mut BufferedDirection, (With<PlayerControlled>, Without<Frozen>)>>,
 ) {
     // Handle events
     for event in events.read() {
         if let GameEvent::Command(command) = event {
             match command {
                 GameCommand::MovePlayer(direction) => {
-                    // Get the player's movable component (ensuring there is only one player)
-                    let mut buffered_direction = match players.single_mut() {
-                        Ok(tuple) => tuple,
-                        Err(e) => {
-                            errors.write(GameError::InvalidState(format!(
-                                "No/multiple entities queried for player system: {}",
-                                e
-                            )));
-                            return;
-                        }
-                    };
-
-                    trace!(direction = ?*direction, "Player direction buffered for movement");
-                    *buffered_direction = BufferedDirection::Some {
-                        direction: *direction,
-                        remaining_time: 0.25,
-                    };
+                    // Only handle movement if there's an unfrozen player
+                    if let Some(player_single) = player.as_mut() {
+                        trace!(direction = ?*direction, "Player direction buffered for movement");
+                        ***player_single = BufferedDirection::Some {
+                            direction: *direction,
+                            remaining_time: 0.25,
+                        };
+                    }
                 }
                 GameCommand::Exit => {
                     state.exit = true;
@@ -168,24 +157,23 @@ pub fn player_movement_system(
 }
 
 /// Applies tunnel slowdown based on the current node tile
-pub fn player_tunnel_slowdown_system(map: Res<Map>, mut q: Query<(&Position, &mut MovementModifiers), With<PlayerControlled>>) {
-    if let Ok((position, mut modifiers)) = q.single_mut() {
-        let node = position.current_node();
-        let in_tunnel = map
-            .tile_at_node(node)
-            .map(|t| t == crate::constants::MapTile::Tunnel)
-            .unwrap_or(false);
+pub fn player_tunnel_slowdown_system(map: Res<Map>, player: Single<(&Position, &mut MovementModifiers), With<PlayerControlled>>) {
+    let (position, mut modifiers) = player.into_inner();
+    let node = position.current_node();
+    let in_tunnel = map
+        .tile_at_node(node)
+        .map(|t| t == crate::constants::MapTile::Tunnel)
+        .unwrap_or(false);
 
-        if modifiers.tunnel_slowdown_active != in_tunnel {
-            trace!(
-                node,
-                in_tunnel,
-                speed_multiplier = if in_tunnel { 0.6 } else { 1.0 },
-                "Player tunnel slowdown state changed"
-            );
-        }
-
-        modifiers.tunnel_slowdown_active = in_tunnel;
-        modifiers.speed_multiplier = if in_tunnel { 0.6 } else { 1.0 };
+    if modifiers.tunnel_slowdown_active != in_tunnel {
+        trace!(
+            node,
+            in_tunnel,
+            speed_multiplier = if in_tunnel { 0.6 } else { 1.0 },
+            "Player tunnel slowdown state changed"
+        );
     }
+
+    modifiers.tunnel_slowdown_active = in_tunnel;
+    modifiers.speed_multiplier = if in_tunnel { 0.6 } else { 1.0 };
 }

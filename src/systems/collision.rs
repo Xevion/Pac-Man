@@ -3,7 +3,7 @@ use bevy_ecs::{
     entity::Entity,
     event::{EventReader, EventWriter},
     query::With,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, Res, ResMut, Single},
 };
 use tracing::{debug, trace, warn};
 
@@ -123,7 +123,7 @@ pub fn ghost_collision_system(
     mut stage_events: EventWriter<StageTransition>,
     mut score: ResMut<ScoreResource>,
     mut game_state: ResMut<GameStage>,
-    pacman_query: Query<Entity, With<PlayerControlled>>,
+    player: Single<Entity, With<PlayerControlled>>,
     ghost_query: Query<(Entity, &Ghost), With<GhostCollider>>,
     mut ghost_state_query: Query<&mut GhostState>,
     mut events: EventWriter<AudioEvent>,
@@ -131,9 +131,9 @@ pub fn ghost_collision_system(
     for event in collision_events.read() {
         if let GameEvent::Collision(entity1, entity2) = event {
             // Check if one is Pacman and the other is a ghost
-            let (pacman_entity, ghost_entity) = if pacman_query.get(*entity1).is_ok() && ghost_query.get(*entity2).is_ok() {
+            let (pacman_entity, ghost_entity) = if *entity1 == *player && ghost_query.get(*entity2).is_ok() {
                 (*entity1, *entity2)
-            } else if pacman_query.get(*entity2).is_ok() && ghost_query.get(*entity1).is_ok() {
+            } else if *entity2 == *player && ghost_query.get(*entity1).is_ok() {
                 (*entity2, *entity1)
             } else {
                 continue;

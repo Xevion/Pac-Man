@@ -214,11 +214,9 @@ fn test_player_control_system_no_player_entity() {
     // Run the system - should write an error
     world
         .run_system_once(player_control_system)
-        .expect("System should run successfully");
+        .expect("System should run successfully even with no player entity");
 
-    // Check that an error was written (we can't easily check Events without manual management,
-    // so for this test we just verify the system ran without panicking)
-    // In a real implementation, you might expose error checking through the ECS world
+    // The system should run successfully and simply ignore movement commands when there's no player
 }
 
 #[test]
