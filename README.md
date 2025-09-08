@@ -4,11 +4,12 @@
 
 # Pac-Man
 
-[![A project just for fun, no really!][badge-justforfunnoreally]][justforfunnoreally] ![Built with Rust][badge-built-with-rust] [![Build Status][badge-build]][build] [![Tests Status][badge-test]][test] [![If you're seeing this, Coveralls.io is broken again and it's not my fault.][badge-coverage]][coverage] [![Online Demo][badge-online-demo]][demo]
+[![A project just for fun, no really!][badge-justforfunnoreally]][justforfunnoreally] ![Built with Rust][badge-built-with-rust] [![Build Status][badge-build]][build] [![Tests Status][badge-test]][test] [![Checks Status][badge-checks]][checks] [![If you're seeing this, Coveralls.io is broken again and it's not my fault.][badge-coverage]][coverage] [![Online Demo][badge-online-demo]][demo]
 
 [badge-built-with-rust]: https://img.shields.io/badge/Built_with-Rust-blue?logo=rust
 [badge-justforfunnoreally]: https://img.shields.io/badge/justforfunnoreally-dev-9ff
 [badge-test]: https://github.com/Xevion/Pac-Man/actions/workflows/tests.yaml/badge.svg
+[badge-checks]: https://github.com/Xevion/Pac-Man/actions/workflows/checks.yaml/badge.svg
 [badge-build]: https://github.com/Xevion/Pac-Man/actions/workflows/build.yaml/badge.svg
 [badge-coverage]: https://coveralls.io/repos/github/Xevion/Pac-Man/badge.svg?branch=master
 [badge-online-demo]: https://img.shields.io/badge/Online%20Demo-Click%20Me!-brightgreen
@@ -16,6 +17,7 @@
 [justforfunnoreally]: https://justforfunnoreally.dev
 [build]: https://github.com/Xevion/Pac-Man/actions/workflows/build.yaml
 [test]: https://github.com/Xevion/Pac-Man/actions/workflows/tests.yaml
+[checks]: https://github.com/Xevion/Pac-Man/actions/workflows/checks.yaml
 [coverage]: https://coveralls.io/github/Xevion/Pac-Man?branch=master
 [demo]: https://xevion.github.io/Pac-Man/
 
