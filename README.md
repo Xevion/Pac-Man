@@ -1,19 +1,23 @@
+<div align="center">
+  <img src="assets/repo/banner.png" alt="Pac-Man Banner Screenshot">
+</div>
+
 # Pac-Man
 
-[![Tests Status][badge-test]][test] [![A project just for fun, no really!][badge-justforfunnoreally]][justforfunnoreally] [![Build Status][badge-build]][build] [![If you're seeing this, Coveralls.io is broken again and it's not my fault.][badge-coverage]][coverage] [![Online Demo][badge-online-demo]][demo] [![Last Commit][badge-last-commit]][commits]
+[![A project just for fun, no really!][badge-justforfunnoreally]][justforfunnoreally] ![Built with Rust][badge-built-with-rust] [![Build Status][badge-build]][build] [![Tests Status][badge-test]][test] [![If you're seeing this, Coveralls.io is broken again and it's not my fault.][badge-coverage]][coverage] [![Online Demo][badge-online-demo]][demo]
 
+[badge-built-with-rust]: https://img.shields.io/badge/Built_with-Rust-blue?logo=rust
 [badge-justforfunnoreally]: https://img.shields.io/badge/justforfunnoreally-dev-9ff
 [badge-test]: https://github.com/Xevion/Pac-Man/actions/workflows/tests.yaml/badge.svg
 [badge-build]: https://github.com/Xevion/Pac-Man/actions/workflows/build.yaml/badge.svg
 [badge-coverage]: https://coveralls.io/repos/github/Xevion/Pac-Man/badge.svg?branch=master
-[badge-online-demo]: https://img.shields.io/badge/GitHub%20Pages-Demo-brightgreen
-[badge-last-commit]: https://img.shields.io/github/last-commit/Xevion/Pac-Man
+[badge-online-demo]: https://img.shields.io/badge/Online%20Demo-Click%20Me!-brightgreen
+[banner-image]: assets/repo/banner.png
 [justforfunnoreally]: https://justforfunnoreally.dev
 [build]: https://github.com/Xevion/Pac-Man/actions/workflows/build.yaml
 [test]: https://github.com/Xevion/Pac-Man/actions/workflows/tests.yaml
 [coverage]: https://coveralls.io/github/Xevion/Pac-Man?branch=master
 [demo]: https://xevion.github.io/Pac-Man/
-[commits]: https://github.com/Xevion/Pac-Man/commits/master
 
 A faithful recreation of the classic Pac-Man arcade game, written in Rust.
 
@@ -30,6 +34,30 @@ The game includes all the original features you'd expect from Pac-Man:
 
 This cross-platform implementation is built with SDL2 for graphics, audio, and input handling. It can run on Windows, Linux, macOS, even web browsers via WebAssembly.
 
+## Quick Start
+
+The easiest way to play is to visit the [online demo][demo]. It is more or less identical to the desktop experience at this time.
+
+While I do plan to have desktop builds released automatically, the game is still a work in progress, and I'm not quite ready to start uploading releases.
+
+However, every commit has build artifacts, so you can grab the [latest build artifacts][build-workflow] if available.
+
+## Screenshots
+
+<div align="center">
+  <img src="assets/repo/screenshots/0.png" alt="Screenshot 0 - Starting Game">
+  <p><em>Starting a new game</em></p>
+
+  <img src="assets/repo/screenshots/1.png" alt="Screenshot 1 - Eating Dots">
+  <p><em>Pac-Man collecting dots and avoiding ghosts</em></p>
+
+  <img src="assets/repo/screenshots/2.png" alt="Screenshot 2 - Game Over">
+  <p><em>Game over screen after losing all lives</em></p>
+
+  <img src="assets/repo/screenshots/3.png" alt="Screenshot 3 - Debug Mode">
+  <p><em>Debug mode showing hitboxes, node graph, and performance details.</em></p>
+</div>
+
 ## Why?
 
 [Just for fun.][justforfunnoreally] And because I wanted to learn more about Rust, inter-operability with C, and compiling to WebAssembly.
@@ -43,29 +71,11 @@ I wanted to hit a lot of goals and features, making it a 'perfect' project that 
 - Performant, low memory, CPU and GPU usage.
 - Online demo, playable in a browser, built automatically with GitHub Actions.
 
-## Experimental Ideas
+If you're curious about the journey of this project, you can read the [story](STORY.md) file. Eventually, I will be using this as the basis for some sort of blog post or more official page, but for now, I'm keeping it within the repository as a simple file.
 
-- Debug tooling
-  - Game state visualization
-  - Game speed controls + pausing
-  - Log tracing
-  - Performance details
-- Customized Themes & Colors
-  - Color-blind friendly
-- Perfected Ghost Algorithms
-- More than 4 ghosts
-- Custom Level Generation
-  - Multi-map tunnelling
-- Online Scoreboard
-  - An online axum server with a simple database and OAuth2 authentication.
-  - Integrates with GitHub, Discord, and Google OAuth2 to acquire an email identifier & avatar.
-    - Avatars are optional for score submission and can be disabled, instead using a blank avatar.
-    - Avatars are downscaled to a low resolution pixellated image to maintain the 8-bit aesthetic.
-    - A custom name is used for the score submission, which is checked for potential abusive language.
-      - A max length of 14 characters, and a min length of 3 characters.
-      - Names are checked for potential abusive language via an external API.
-  - The client implementation should require zero configuration, environment variables, or special secrets.
-    - It simply defaults to the pacman server API, or can be overriden manually.
+## Roadmap
+
+You can read the [roadmap](ROADMAP.md) file for more details on the project's goals and future plans.
 
 ## Build Notes
 
@@ -87,3 +97,18 @@ Since this project is still in progress, I'm only going to cover non-obvious bui
     - `caddy file-server --root dist` (install with `[sudo apt|brew|choco] install caddy` or [a dozen other ways](https://caddyserver.com/docs/install))
 - `web.build.ts` auto installs dependencies, but you may need to pass `-i` or `--install=fallback|force` to install missing packages. My guess is that if you have some packages installed, it won't install any missing ones. If you have no packages installed, it will install all of them.
   - If you want to have TypeScript resolution for development, you can manually install the dependencies with `bun install` in the `assets/site` folder.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a pull request or open an issue.
+
+- The code is not exactly stable or bulletproof, but it is functional and has a lot of tests.
+- I am not actively looking for contributors, but I will review pull requests and merge them if they are useful.
+- If you have any ideas, please feel free to submit an issue.
+- If you have any private issues, security concerns, or anything sensitive, you can email me at [xevion@xevion.dev](mailto:xevion@xevion.dev).
+
+## License
+
+This project is licensed under the GPLv3 license. See the [LICENSE](LICENSE) file for details.
+
+[build-workflow]: https://github.com/Xevion/Pac-Man/actions/workflows/build.yaml
