@@ -46,7 +46,7 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          just coverage-lcov
+          just coverage
 
       - name: Coveralls upload
         uses: coverallsapp/github-action@v2

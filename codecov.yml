@@ -1,3 +1,0 @@
-ignore:
-  - "src/(?:bin|platform))/.+\\.rs"
-  - "src/(?:app|events|formatter)\\.rs"
