@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 
 use crate::error::GameError;
-use crate::events::GameEvent;
+use crate::events::{GameEvent, StageTransition};
 use crate::map::builder::Map;
 use crate::systems::{
     components::GhostState, movement::Position, AudioEvent, DyingSequence, Frozen, GameStage, Ghost, PlayerControlled,
@@ -117,6 +117,7 @@ pub fn collision_system(
 pub fn ghost_collision_system(
     mut commands: Commands,
     mut collision_events: EventReader<GameEvent>,
+    mut stage_events: EventWriter<StageTransition>,
     mut score: ResMut<ScoreResource>,
     mut game_state: ResMut<GameStage>,
     pacman_query: Query<Entity, With<PlayerControlled>>,
@@ -137,15 +138,16 @@ pub fn ghost_collision_system(
 
             // Check if the ghost is frightened
             if let Ok((ghost_ent, _ghost_type)) = ghost_query.get(ghost_entity) {
-                if let Ok(mut ghost_state) = ghost_state_query.get_mut(ghost_ent) {
+                if let Ok(ghost_state) = ghost_state_query.get_mut(ghost_ent) {
                     // Check if ghost is in frightened state
                     if matches!(*ghost_state, GhostState::Frightened { .. }) {
                         // Pac-Man eats the ghost
                         // Add score (200 points per ghost eaten)
                         score.0 += 200;
 
-                        // Set ghost state to Eyes
-                        *ghost_state = GhostState::Eyes;
+                        // Enter short pause to show bonus points, hide ghost, then set Eyes after pause
+                        // Request transition via event so stage_system can process it
+                        stage_events.write(StageTransition::GhostEatenPause { ghost_entity: ghost_ent });
 
                         // Play eat sound
                         events.write(AudioEvent::PlayEat);

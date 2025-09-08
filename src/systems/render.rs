@@ -200,6 +200,7 @@ pub fn touch_ui_render_system(
 }
 
 /// Renders the HUD (score, lives, etc.) on top of the game.
+#[allow(clippy::too_many_arguments)]
 pub fn hud_render_system(
     mut backbuffer: NonSendMut<BackbufferResource>,
     mut canvas: NonSendMut<&mut Canvas<Window>>,

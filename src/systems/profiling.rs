@@ -157,6 +157,7 @@ pub enum SystemId {
     Stage,
     GhostStateAnimation,
     EatenGhost,
+    TimeToLive,
 }
 
 impl Display for SystemId {

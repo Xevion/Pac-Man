@@ -6,16 +6,16 @@ use std::collections::HashMap;
 
 use crate::constants::{self, animation, MapTile, CANVAS_SIZE};
 use crate::error::{GameError, GameResult};
-use crate::events::GameEvent;
+use crate::events::{GameEvent, StageTransition};
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::systems::{
     self, audio_system, blinking_system, collision_system, combined_render_system, directional_render_system,
     dirty_render_system, eaten_ghost_system, ghost_collision_system, ghost_movement_system, ghost_state_system,
-    hud_render_system, item_system, linear_render_system, present_system, profile, touch_ui_render_system, AudioEvent,
-    AudioResource, AudioState, BackbufferResource, Blinking, BufferedDirection, Collider, DebugState, DebugTextureResource,
-    DeltaTime, DirectionalAnimation, EntityType, Frozen, GameStage, Ghost, GhostAnimation, GhostAnimations, GhostBundle,
-    GhostCollider, GhostState, GlobalState, Hidden, ItemBundle, ItemCollider, LastAnimationState, LinearAnimation,
+    hud_render_system, item_system, linear_render_system, present_system, profile, time_to_live_system, touch_ui_render_system,
+    AudioEvent, AudioResource, AudioState, BackbufferResource, Blinking, BufferedDirection, Collider, DebugState,
+    DebugTextureResource, DeltaTime, DirectionalAnimation, EntityType, Frozen, GameStage, Ghost, GhostAnimation, GhostAnimations,
+    GhostBundle, GhostCollider, GhostState, GlobalState, Hidden, ItemBundle, ItemCollider, LastAnimationState, LinearAnimation,
     MapTextureResource, MovementModifiers, NodeId, PacmanCollider, PlayerAnimation, PlayerBundle, PlayerControlled,
     PlayerDeathAnimation, PlayerLives, Position, RenderDirty, Renderable, ScoreResource, StartupSequence, SystemId,
     SystemTimings, Timing, TouchState, Velocity,
@@ -350,6 +350,7 @@ impl Game {
         EventRegistry::register_event::<GameError>(world);
         EventRegistry::register_event::<GameEvent>(world);
         EventRegistry::register_event::<AudioEvent>(world);
+        EventRegistry::register_event::<StageTransition>(world);
 
         world.add_observer(
             |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| {
@@ -383,7 +384,6 @@ impl Game {
         world.insert_resource(BatchedLinesResource::new(&map, constants::LARGE_SCALE));
         world.insert_resource(map);
         world.insert_resource(GlobalState { exit: false });
-        world.insert_resource(GameStage::default());
         world.insert_resource(PlayerLives::default());
         world.insert_resource(ScoreResource(0));
         world.insert_resource(SystemTimings::default());
@@ -430,6 +430,7 @@ impl Game {
         // let death_sequence_system = profile(SystemId::DeathSequence, death_sequence_system);
         // let game_over_system = profile(SystemId::GameOver, systems::game_over_system);
         let eaten_ghost_system = profile(SystemId::EatenGhost, eaten_ghost_system);
+        let time_to_live_system = profile(SystemId::TimeToLive, time_to_live_system);
 
         let forced_dirty_system = |mut dirty: ResMut<RenderDirty>| {
             dirty.0 = true;
@@ -463,6 +464,7 @@ impl Game {
         schedule.add_systems((blinking_system, directional_render_system, linear_render_system).in_set(RenderSet::Animation));
 
         schedule.add_systems((
+            time_to_live_system,
             stage_system,
             input_systems,
             gameplay_systems,

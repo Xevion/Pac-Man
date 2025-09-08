@@ -40,3 +40,9 @@ impl From<GameCommand> for GameEvent {
         GameEvent::Command(command)
     }
 }
+
+/// Data for requesting stage transitions; processed centrally in stage_system
+#[derive(Event, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StageTransition {
+    GhostEatenPause { ghost_entity: Entity },
+}
