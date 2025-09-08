@@ -2,7 +2,7 @@ use crate::map::builder::Map;
 use crate::systems::input::TouchState;
 use crate::systems::{
     debug_render_system, BatchedLinesResource, Collider, CursorPosition, DebugState, DebugTextureResource, DeltaTime,
-    DirectionalAnimation, Dying, Frozen, GameStage, LinearAnimation, Looping, Position, Renderable, ScoreResource,
+    DirectionalAnimation, Dying, Frozen, GameStage, LinearAnimation, Looping, PlayerLives, Position, Renderable, ScoreResource,
     StartupSequence, SystemId, SystemTimings, TtfAtlasResource, Velocity,
 };
 use crate::texture::sprite::SpriteAtlas;
@@ -204,6 +204,7 @@ pub fn hud_render_system(
     mut backbuffer: NonSendMut<BackbufferResource>,
     mut canvas: NonSendMut<&mut Canvas<Window>>,
     mut atlas: NonSendMut<SpriteAtlas>,
+    player_lives: Res<PlayerLives>,
     score: Res<ScoreResource>,
     stage: Res<GameStage>,
     mut errors: EventWriter<GameError>,
@@ -212,7 +213,7 @@ pub fn hud_render_system(
         let mut text_renderer = TextTexture::new(1.0);
 
         // Render lives and high score text in white
-        let lives = 3; // TODO: Get from actual lives resource
+        let lives = player_lives.0;
         let lives_text = format!("{lives}UP   HIGH SCORE   ");
         let lives_position = glam::UVec2::new(4 + 8 * 3, 2); // x_offset + lives_offset * 8, y_offset
 

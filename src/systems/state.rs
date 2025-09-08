@@ -78,7 +78,7 @@ pub struct PlayerLives(pub u8);
 
 impl Default for PlayerLives {
     fn default() -> Self {
-        Self(1)
+        Self(3)
     }
 }
 
