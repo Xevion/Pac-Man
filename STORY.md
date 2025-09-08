@@ -31,7 +31,7 @@ WebAssembly.
 The problem is that much of this work was done for pure-Rust applications - and SDL is C++.
 This requires a C++ WebAssembly compiler such as Emscripten; and it's a pain to get working.
 
-Luckily though, someone else has done this before, and they fully documented it - [RuggRouge][ruggrouge].
+Luckily though, someone else has done this before, and they fully documented it - [RuggRouge][ruggrogue].
 
 - Built with Rust
 - Uses SDL2
@@ -92,7 +92,7 @@ This was weird, and honestly, I'm confused as to why the 2-year old sample code 
 
 After a bit of time, I noted that the `Instant` times were printing with only the whole seconds changing, and the nanoseconds were always 0.
 
-```
+```rust
 Instant { tv_sec: 0, tv_nsec: 0 }
 Instant { tv_sec: 1, tv_nsec: 0 }
 Instant { tv_sec: 2, tv_nsec: 0 }
@@ -357,7 +357,7 @@ Doing so required a full re-work of the animation and texture system, and I ende
 
 So, I ended up using `unsafe` to forcibly cast the lifetimes to `'static`, which was a bit of a gamble, but given that they essentially behave as `'static` in practice, there wasn't much risk as I see it. I might re-look into my understanding of lifetimes and this in the future, but for the time being, it's a good solution that makes the codebase far easier to work with.
 
-## Cross-platform Builds
+## Implementing Cross-platform Builds for Pac-Man
 
 Since the original `rust-sdl2-emscripten` demo project had cross-platform builds, I was ready to get it working for this project. For the most part, it wasn't hard, things tended to click into place, but unfortunately, the `emscripten` os target and somehow, the `linux` os target were both failing.
 
