@@ -13,13 +13,13 @@ use crate::map::direction::Direction;
 use crate::systems::{
     self, audio_system, blinking_system, collision_system, combined_render_system, directional_render_system,
     dirty_render_system, eaten_ghost_system, ghost_collision_system, ghost_movement_system, ghost_state_system,
-    hud_render_system, item_system, linear_render_system, present_system, profile, time_to_live_system, touch_ui_render_system,
-    AudioEvent, AudioResource, AudioState, BackbufferResource, Blinking, BufferedDirection, Collider, DebugState,
-    DebugTextureResource, DeltaTime, DirectionalAnimation, EntityType, Frozen, GameStage, Ghost, GhostAnimation, GhostAnimations,
-    GhostBundle, GhostCollider, GhostState, GlobalState, Hidden, ItemBundle, ItemCollider, LastAnimationState, LinearAnimation,
-    MapTextureResource, MovementModifiers, NodeId, PacmanCollider, PlayerAnimation, PlayerBundle, PlayerControlled,
-    PlayerDeathAnimation, PlayerLives, Position, RenderDirty, Renderable, ScoreResource, StartupSequence, SystemId,
-    SystemTimings, Timing, TouchState, Velocity,
+    hud_render_system, item_system, linear_render_system, player_life_sprite_system, present_system, profile,
+    time_to_live_system, touch_ui_render_system, AudioEvent, AudioResource, AudioState, BackbufferResource, Blinking,
+    BufferedDirection, Collider, DebugState, DebugTextureResource, DeltaTime, DirectionalAnimation, EntityType, Frozen,
+    GameStage, Ghost, GhostAnimation, GhostAnimations, GhostBundle, GhostCollider, GhostState, GlobalState, Hidden, ItemBundle,
+    ItemCollider, LastAnimationState, LinearAnimation, MapTextureResource, MovementModifiers, NodeId, PacmanCollider,
+    PlayerAnimation, PlayerBundle, PlayerControlled, PlayerDeathAnimation, PlayerLives, Position, RenderDirty, Renderable,
+    ScoreResource, StartupSequence, SystemId, SystemTimings, Timing, TouchState, Velocity,
 };
 
 use crate::texture::animated::{DirectionalTiles, TileSequence};
@@ -449,10 +449,9 @@ impl Game {
         let linear_render_system = profile(SystemId::LinearRender, linear_render_system);
         let dirty_render_system = profile(SystemId::DirtyRender, dirty_render_system);
         let hud_render_system = profile(SystemId::HudRender, hud_render_system);
+        let player_life_sprite_system = profile(SystemId::HudRender, player_life_sprite_system);
         let present_system = profile(SystemId::Present, present_system);
         let unified_ghost_state_system = profile(SystemId::GhostStateAnimation, ghost_state_system);
-        // let death_sequence_system = profile(SystemId::DeathSequence, death_sequence_system);
-        // let game_over_system = profile(SystemId::GameOver, systems::game_over_system);
         let eaten_ghost_system = profile(SystemId::EatenGhost, eaten_ghost_system);
         let time_to_live_system = profile(SystemId::TimeToLive, time_to_live_system);
 
@@ -460,10 +459,8 @@ impl Game {
             dirty.0 = true;
         };
 
-        schedule.add_systems(
-            forced_dirty_system
-                .run_if(|score: Res<ScoreResource>, stage: Res<GameStage>| score.is_changed() || stage.is_changed()),
-        );
+        schedule.add_systems((forced_dirty_system
+            .run_if(|score: Res<ScoreResource>, stage: Res<GameStage>| score.is_changed() || stage.is_changed()),));
 
         // Input system should always run to prevent SDL event pump from blocking
         let input_systems = (
@@ -496,6 +493,7 @@ impl Game {
                 dirty_render_system,
                 combined_render_system,
                 hud_render_system,
+                player_life_sprite_system,
                 touch_ui_render_system,
                 present_system,
             )

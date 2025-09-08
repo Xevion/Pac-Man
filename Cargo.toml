@@ -1,6 +1,6 @@
 [package]
 name = "pacman"
-version = "0.78.1"
+version = "0.78.2"
 authors = ["Xevion"]
 edition = "2021"
 rust-version = "1.86.0"

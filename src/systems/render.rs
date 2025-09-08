@@ -3,8 +3,8 @@ use crate::map::direction::Direction;
 use crate::systems::input::TouchState;
 use crate::systems::{
     debug_render_system, BatchedLinesResource, Collider, CursorPosition, DebugState, DebugTextureResource, DeltaTime,
-    DirectionalAnimation, Dying, Frozen, GameStage, LinearAnimation, Looping, PlayerLives, Position, Renderable, ScoreResource,
-    StartupSequence, SystemId, SystemTimings, TtfAtlasResource, Velocity,
+    DirectionalAnimation, Dying, Frozen, GameStage, LinearAnimation, Looping, PlayerLife, PlayerLives, Position, Renderable,
+    ScoreResource, StartupSequence, SystemId, SystemTimings, TtfAtlasResource, Velocity,
 };
 use crate::texture::sprite::SpriteAtlas;
 use crate::texture::sprites::{GameSprite, PacmanSprite};
@@ -19,7 +19,8 @@ use bevy_ecs::event::EventWriter;
 use bevy_ecs::query::{Changed, Has, Or, With, Without};
 use bevy_ecs::removal_detection::RemovedComponents;
 use bevy_ecs::resource::Resource;
-use bevy_ecs::system::{NonSendMut, Query, Res, ResMut};
+use bevy_ecs::system::{Commands, NonSendMut, Query, Res, ResMut};
+use glam::Vec2;
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Canvas, Texture};
@@ -126,6 +127,84 @@ pub fn linear_render_system(
     }
 }
 
+/// System that manages player life sprite entities.
+/// Spawns and despawns life sprite entities based on changes to PlayerLives resource.
+/// Each life sprite is positioned based on its index (0, 1, 2, etc. from left to right).
+pub fn player_life_sprite_system(
+    mut commands: Commands,
+    atlas: NonSendMut<SpriteAtlas>,
+    current_life_sprites: Query<(Entity, &PlayerLife)>,
+    player_lives: Res<PlayerLives>,
+    mut errors: EventWriter<GameError>,
+) {
+    let displayed_lives = player_lives.0.saturating_sub(1);
+
+    // Get current life sprite entities, sorted by index
+    let mut current_sprites: Vec<_> = current_life_sprites.iter().collect();
+    current_sprites.sort_by_key(|(_, life)| life.index);
+    let current_count = current_sprites.len() as u8;
+
+    // Calculate the difference
+    let diff = (displayed_lives as i8) - (current_count as i8);
+
+    if diff > 0 {
+        // Spawn new life sprites
+        let life_sprite = match atlas.get_tile(&GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path()) {
+            Ok(sprite) => sprite,
+            Err(e) => {
+                errors.write(e.into());
+                return;
+            }
+        };
+
+        for i in 0..diff.abs() {
+            let position = calculate_life_sprite_position(i as u32);
+
+            commands.spawn((
+                PlayerLife { index: i as u32 },
+                Renderable {
+                    sprite: life_sprite,
+                    layer: 255, // High layer to render on top
+                },
+                PixelPosition {
+                    pixel_position: position,
+                },
+            ));
+        }
+    } else if diff < 0 {
+        // Remove excess life sprites (highest indices first)
+        let to_remove = diff.abs() as usize;
+        let sprites_to_remove: Vec<_> = current_sprites
+            .iter()
+            .rev() // Start from highest index
+            .take(to_remove as usize)
+            .map(|(entity, _)| *entity)
+            .collect();
+
+        for entity in sprites_to_remove {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+/// Component for Renderables to store an exact pixel position
+#[derive(Component)]
+pub struct PixelPosition {
+    pub pixel_position: Vec2,
+}
+
+/// Calculates the pixel position for a life sprite based on its index
+fn calculate_life_sprite_position(index: u32) -> Vec2 {
+    let start_x = CELL_SIZE * 2; // 2 cells from left
+    let start_y = CANVAS_SIZE.y - BOARD_BOTTOM_PIXEL_OFFSET.y + (CELL_SIZE / 2) + 1; // In bottom area
+    let sprite_spacing = CELL_SIZE + CELL_SIZE / 2; // 1.5 cells between sprites
+
+    let x = start_x + ((index as f32) * (sprite_spacing as f32 * 1.5)).round() as u32;
+    let y = start_y - CELL_SIZE / 2;
+
+    Vec2::new((x + CELL_SIZE) as f32, (y + CELL_SIZE) as f32)
+}
+
 /// A non-send resource for the map texture. This just wraps the texture with a type so it can be differentiated when exposed as a resource.
 pub struct MapTextureResource(pub Texture);
 
@@ -211,7 +290,6 @@ pub fn hud_render_system(
     mut backbuffer: NonSendMut<BackbufferResource>,
     mut canvas: NonSendMut<&mut Canvas<Window>>,
     mut atlas: NonSendMut<SpriteAtlas>,
-    player_lives: Res<PlayerLives>,
     score: Res<ScoreResource>,
     stage: Res<GameStage>,
     mut errors: EventWriter<GameError>,
@@ -225,35 +303,6 @@ pub fn hud_render_system(
 
         if let Err(e) = text_renderer.render(canvas, &mut atlas, lives_text, lives_position) {
             errors.write(TextureError::RenderFailed(format!("Failed to render lives text: {}", e)).into());
-        }
-
-        // Render Pac-Man life sprites in bottom left
-        let lives = player_lives.0;
-        let life_sprite_path = &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path();
-
-        // Get the sprite from the atlas for life display
-        match atlas.get_tile(life_sprite_path) {
-            Ok(life_sprite) => {
-                let start_x = CELL_SIZE * 2; // 2 cells from left
-                let start_y = CANVAS_SIZE.y - BOARD_BOTTOM_PIXEL_OFFSET.y + (CELL_SIZE / 2) + 1; // In bottom area
-                let sprite_spacing = CELL_SIZE + CELL_SIZE / 2; // 1.5 cells between sprites
-
-                // Render one sprite for each remaining life (lives - 1, since current life isn't shown)
-                let sprites_to_show = if lives > 0 { lives - 1 } else { 0 };
-                for i in 0..sprites_to_show {
-                    let x = start_x + ((i as f32) * (sprite_spacing as f32 * 1.5)).round() as u32;
-                    let y = start_y - CELL_SIZE / 2;
-
-                    let dest = sdl2::rect::Rect::new(x as i32, y as i32, life_sprite.size.x as u32, life_sprite.size.y as u32);
-
-                    if let Err(e) = life_sprite.render(canvas, &mut atlas, dest) {
-                        errors.write(TextureError::RenderFailed(format!("Failed to render life sprite: {}", e)).into());
-                    }
-                }
-            }
-            Err(e) => {
-                errors.write(e.into());
-            }
         }
 
         // Render score text
@@ -318,7 +367,10 @@ pub fn render_system(
     atlas: &mut SpriteAtlas,
     map: &Res<Map>,
     dirty: &Res<RenderDirty>,
-    renderables: &Query<(Entity, &Renderable, &Position), Without<Hidden>>,
+    renderables: &Query<
+        (Entity, &Renderable, Option<&Position>, Option<&PixelPosition>),
+        (Without<Hidden>, Or<(With<Position>, With<PixelPosition>)>),
+    >,
     errors: &mut EventWriter<GameError>,
 ) {
     if !dirty.0 {
@@ -335,12 +387,21 @@ pub fn render_system(
     }
 
     // Render all entities to the backbuffer
-    for (_, renderable, position) in renderables
+    for (_entity, renderable, position, pixel_position) in renderables
         .iter()
-        .sort_by_key::<(Entity, &Renderable, &Position), _>(|(_, renderable, _)| renderable.layer)
+        .sort_by_key::<(Entity, &Renderable, Option<&Position>, Option<&PixelPosition>), _>(|(_, renderable, _, _)| {
+            renderable.layer
+        })
         .rev()
     {
-        let pos = position.get_pixel_position(&map.graph);
+        let pos = if let Some(position) = position {
+            position.get_pixel_position(&map.graph)
+        } else {
+            Ok(pixel_position
+                .expect("Pixel position should be present via query filtering, but got None on both")
+                .pixel_position)
+        };
+
         match pos {
             Ok(pos) => {
                 let dest = Rect::from_center(
@@ -378,7 +439,10 @@ pub fn combined_render_system(
     timing: Res<crate::systems::profiling::Timing>,
     map: Res<Map>,
     dirty: Res<RenderDirty>,
-    renderables: Query<(Entity, &Renderable, &Position), Without<Hidden>>,
+    renderables: Query<
+        (Entity, &Renderable, Option<&Position>, Option<&PixelPosition>),
+        (Without<Hidden>, Or<(With<Position>, With<PixelPosition>)>),
+    >,
     colliders: Query<(&Collider, &Position)>,
     cursor: Res<CursorPosition>,
     mut errors: EventWriter<GameError>,
