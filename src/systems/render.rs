@@ -1,18 +1,20 @@
-use crate::constants::CANVAS_SIZE;
-use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
 use crate::systems::input::TouchState;
 use crate::systems::{
     debug_render_system, BatchedLinesResource, Collider, CursorPosition, DebugState, DebugTextureResource, DeltaTime,
-    DirectionalAnimation, LinearAnimation, Position, Renderable, ScoreResource, StartupSequence, SystemId, SystemTimings,
-    TtfAtlasResource, Velocity,
+    DirectionalAnimation, Dying, Frozen, GameStage, LinearAnimation, Looping, Position, Renderable, ScoreResource,
+    StartupSequence, SystemId, SystemTimings, TtfAtlasResource, Velocity,
 };
 use crate::texture::sprite::SpriteAtlas;
 use crate::texture::text::TextTexture;
+use crate::{
+    constants::CANVAS_SIZE,
+    error::{GameError, TextureError},
+};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
-use bevy_ecs::query::{Changed, Or, Without};
+use bevy_ecs::query::{Changed, Has, Or, With, Without};
 use bevy_ecs::removal_detection::RemovedComponents;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{NonSendMut, Query, Res, ResMut};
@@ -53,7 +55,7 @@ pub fn dirty_render_system(
 /// All directions share the same frame timing to ensure perfect synchronization.
 pub fn directional_render_system(
     dt: Res<DeltaTime>,
-    mut query: Query<(&Position, &Velocity, &mut DirectionalAnimation, &mut Renderable)>,
+    mut query: Query<(&Position, &Velocity, &mut DirectionalAnimation, &mut Renderable), Without<Frozen>>,
 ) {
     let ticks = (dt.seconds * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
 
@@ -86,26 +88,35 @@ pub fn directional_render_system(
     }
 }
 
-/// Updates linear animated entities (used for non-directional animations like frightened ghosts).
-///
-/// This system handles entities that use LinearAnimation component for simple frame cycling.
-pub fn linear_render_system(dt: Res<DeltaTime>, mut query: Query<(&mut LinearAnimation, &mut Renderable)>) {
-    let ticks = (dt.seconds * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
-
-    for (mut anim, mut renderable) in query.iter_mut() {
-        // Tick animation
-        anim.time_bank += ticks;
-        while anim.time_bank >= anim.frame_duration {
-            anim.time_bank -= anim.frame_duration;
-            anim.current_frame += 1;
+/// System that updates `Renderable` sprites for entities with `LinearAnimation`.
+#[allow(clippy::type_complexity)]
+pub fn linear_render_system(
+    dt: Res<DeltaTime>,
+    mut query: Query<(&mut LinearAnimation, &mut Renderable, Has<Looping>), Or<(Without<Frozen>, With<Dying>)>>,
+) {
+    for (mut anim, mut renderable, looping) in query.iter_mut() {
+        if anim.finished {
+            continue;
         }
 
-        if !anim.tiles.is_empty() {
-            let new_tile = anim.tiles.get_tile(anim.current_frame);
-            if renderable.sprite != new_tile {
-                renderable.sprite = new_tile;
-            }
+        anim.time_bank += dt.ticks as u16;
+        let frames_to_advance = (anim.time_bank / anim.frame_duration) as usize;
+
+        if frames_to_advance == 0 {
+            continue;
         }
+
+        let total_frames = anim.tiles.len();
+
+        if !looping && anim.current_frame + frames_to_advance >= total_frames {
+            anim.finished = true;
+            anim.current_frame = total_frames - 1;
+        } else {
+            anim.current_frame += frames_to_advance;
+        }
+
+        anim.time_bank %= anim.frame_duration;
+        renderable.sprite = anim.tiles.get_tile(anim.current_frame);
     }
 }
 
@@ -194,7 +205,7 @@ pub fn hud_render_system(
     mut canvas: NonSendMut<&mut Canvas<Window>>,
     mut atlas: NonSendMut<SpriteAtlas>,
     score: Res<ScoreResource>,
-    startup: Res<StartupSequence>,
+    stage: Res<GameStage>,
     mut errors: EventWriter<GameError>,
 ) {
     let _ = canvas.with_texture_canvas(&mut backbuffer.0, |canvas| {
@@ -226,10 +237,21 @@ pub fn hud_render_system(
             errors.write(TextureError::RenderFailed(format!("Failed to render high score text: {}", e)).into());
         }
 
+        // Render GAME OVER text
+        if matches!(*stage, GameStage::GameOver) {
+            let game_over_text = "GAME  OVER";
+            let game_over_width = text_renderer.text_width(game_over_text);
+            let game_over_position = glam::UVec2::new((CANVAS_SIZE.x - game_over_width) / 2, 160);
+            if let Err(e) = text_renderer.render_with_color(canvas, &mut atlas, game_over_text, game_over_position, Color::RED) {
+                errors.write(TextureError::RenderFailed(format!("Failed to render GAME OVER text: {}", e)).into());
+            }
+        }
+
         // Render text based on StartupSequence stage
         if matches!(
-            *startup,
-            StartupSequence::TextOnly { .. } | StartupSequence::CharactersVisible { .. }
+            *stage,
+            GameStage::Starting(StartupSequence::TextOnly { .. })
+                | GameStage::Starting(StartupSequence::CharactersVisible { .. })
         ) {
             let ready_text = "READY!";
             let ready_width = text_renderer.text_width(ready_text);
@@ -238,7 +260,7 @@ pub fn hud_render_system(
                 errors.write(TextureError::RenderFailed(format!("Failed to render READY text: {}", e)).into());
             }
 
-            if matches!(*startup, StartupSequence::TextOnly { .. }) {
+            if matches!(*stage, GameStage::Starting(StartupSequence::TextOnly { .. })) {
                 let player_one_text = "PLAYER ONE";
                 let player_one_width = text_renderer.text_width(player_one_text);
                 let player_one_position = glam::UVec2::new((CANVAS_SIZE.x - player_one_width) / 2, 113);

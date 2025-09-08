@@ -1,25 +1,25 @@
-//! The Entity-Component-System (ECS) module.
-//!
-//! This module contains all the ECS-related logic, including components, systems,
-//! and resources.
+//! This module contains all the systems in the game.
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 pub mod audio;
+#[cfg_attr(coverage_nightly, coverage(off))]
+pub mod debug;
+#[cfg_attr(coverage_nightly, coverage(off))]
+pub mod profiling;
+#[cfg_attr(coverage_nightly, coverage(off))]
+pub mod render;
+
 pub mod blinking;
 pub mod collision;
 pub mod components;
-#[cfg_attr(coverage_nightly, coverage(off))]
-pub mod debug;
 pub mod ghost;
 pub mod input;
 pub mod item;
 pub mod movement;
 pub mod player;
-#[cfg_attr(coverage_nightly, coverage(off))]
-pub mod profiling;
-#[cfg_attr(coverage_nightly, coverage(off))]
-pub mod render;
-pub mod stage;
+pub mod state;
+
+// Re-export all the modules. Do not fine-tune the exports.
 
 pub use self::audio::*;
 pub use self::blinking::*;
@@ -33,4 +33,4 @@ pub use self::movement::*;
 pub use self::player::*;
 pub use self::profiling::*;
 pub use self::render::*;
-pub use self::stage::*;
+pub use self::state::*;

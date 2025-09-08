@@ -9,32 +9,26 @@ use crate::error::{GameError, GameResult};
 use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
-use crate::systems::blinking::Blinking;
-use crate::systems::components::{GhostAnimation, GhostState, LastAnimationState};
-use crate::systems::movement::{BufferedDirection, Position, Velocity};
-use crate::systems::profiling::{SystemId, Timing};
-use crate::systems::render::touch_ui_render_system;
-use crate::systems::render::RenderDirty;
 use crate::systems::{
-    self, combined_render_system, ghost_collision_system, present_system, Hidden, LinearAnimation, MovementModifiers, NodeId,
-    TouchState,
+    self, audio_system, blinking_system, collision_system, combined_render_system, directional_render_system,
+    dirty_render_system, eaten_ghost_system, ghost_collision_system, ghost_movement_system, ghost_state_system,
+    hud_render_system, item_system, linear_render_system, present_system, profile, touch_ui_render_system, AudioEvent,
+    AudioResource, AudioState, BackbufferResource, Blinking, BufferedDirection, Collider, DebugState, DebugTextureResource,
+    DeltaTime, DirectionalAnimation, EntityType, Frozen, GameStage, Ghost, GhostAnimation, GhostAnimations, GhostBundle,
+    GhostCollider, GhostState, GlobalState, Hidden, ItemBundle, ItemCollider, LastAnimationState, LinearAnimation,
+    MapTextureResource, MovementModifiers, NodeId, PacmanCollider, PlayerAnimation, PlayerBundle, PlayerControlled,
+    PlayerDeathAnimation, PlayerLives, Position, RenderDirty, Renderable, ScoreResource, StartupSequence, SystemId,
+    SystemTimings, Timing, TouchState, Velocity,
 };
-use crate::systems::{
-    audio_system, blinking_system, collision_system, directional_render_system, dirty_render_system, eaten_ghost_system,
-    ghost_movement_system, ghost_state_system, hud_render_system, item_system, linear_render_system, profile, AudioEvent,
-    AudioResource, AudioState, BackbufferResource, Collider, DebugState, DebugTextureResource, DeltaTime, DirectionalAnimation,
-    EntityType, Frozen, Ghost, GhostAnimations, GhostBundle, GhostCollider, GlobalState, ItemBundle, ItemCollider,
-    MapTextureResource, PacmanCollider, PlayerBundle, PlayerControlled, Renderable, ScoreResource, StartupSequence,
-    SystemTimings,
-};
+
 use crate::texture::animated::{DirectionalTiles, TileSequence};
 use crate::texture::sprite::AtlasTile;
 use crate::texture::sprites::{FrightenedColor, GameSprite, GhostSprite, MazeSprite, PacmanSprite};
+use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::event::EventRegistry;
 use bevy_ecs::observer::Trigger;
-use bevy_ecs::schedule::common_conditions::resource_changed;
-use bevy_ecs::schedule::{Condition, IntoScheduleConfigs, Schedule, SystemSet};
-use bevy_ecs::system::{Local, ResMut};
+use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule, SystemSet};
+use bevy_ecs::system::{Local, Res, ResMut};
 use bevy_ecs::world::World;
 use sdl2::event::EventType;
 use sdl2::image::LoadTexture;
@@ -54,7 +48,9 @@ use crate::{
 
 /// System set for all rendering systems to ensure they run after gameplay logic
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct RenderSet;
+enum RenderSet {
+    Animation,
+}
 
 /// Core game state manager built on the Bevy ECS architecture.
 ///
@@ -112,6 +108,8 @@ impl Game {
         let (player_animation, player_start_sprite) = Self::create_player_animations(&atlas)?;
         let player_bundle = Self::create_player_bundle(&map, player_animation, player_start_sprite);
 
+        let death_animation = Self::create_death_animation(&atlas)?;
+
         let mut world = World::default();
         let mut schedule = Schedule::default();
 
@@ -127,6 +125,7 @@ impl Game {
             map_texture,
             debug_texture,
             ttf_atlas,
+            death_animation,
         )?;
         Self::configure_schedule(&mut schedule);
 
@@ -310,6 +309,18 @@ impl Game {
         Ok((player_animation, player_start_sprite))
     }
 
+    fn create_death_animation(atlas: &SpriteAtlas) -> GameResult<LinearAnimation> {
+        let mut death_tiles = Vec::new();
+        for i in 0..=10 {
+            // Assuming death animation has 11 frames named pacman/die_0, pacman/die_1, etc.
+            let tile = atlas.get_tile(&GameSprite::Pacman(PacmanSprite::Dying(i)).to_path())?;
+            death_tiles.push(tile);
+        }
+
+        let tile_sequence = TileSequence::new(&death_tiles);
+        Ok(LinearAnimation::new(tile_sequence, 8)) // 8 ticks per frame, non-looping
+    }
+
     fn create_player_bundle(map: &Map, player_animation: DirectionalAnimation, player_start_sprite: AtlasTile) -> PlayerBundle {
         PlayerBundle {
             player: PlayerControlled,
@@ -361,13 +372,19 @@ impl Game {
         map_texture: sdl2::render::Texture,
         debug_texture: sdl2::render::Texture,
         ttf_atlas: crate::texture::ttf::TtfAtlas,
+        death_animation: LinearAnimation,
     ) -> GameResult<()> {
         world.insert_non_send_resource(atlas);
         world.insert_resource(Self::create_ghost_animations(world.non_send_resource::<SpriteAtlas>())?);
+        let player_animation = Self::create_player_animations(world.non_send_resource::<SpriteAtlas>())?.0;
+        world.insert_resource(PlayerAnimation(player_animation));
+        world.insert_resource(PlayerDeathAnimation(death_animation));
 
         world.insert_resource(BatchedLinesResource::new(&map, constants::LARGE_SCALE));
         world.insert_resource(map);
         world.insert_resource(GlobalState { exit: false });
+        world.insert_resource(GameStage::default());
+        world.insert_resource(PlayerLives::default());
         world.insert_resource(ScoreResource(0));
         world.insert_resource(SystemTimings::default());
         world.insert_resource(Timing::default());
@@ -378,10 +395,9 @@ impl Game {
         world.insert_resource(AudioState::default());
         world.insert_resource(CursorPosition::default());
         world.insert_resource(TouchState::default());
-        world.insert_resource(StartupSequence::new(
-            constants::startup::STARTUP_FRAMES,
-            constants::startup::STARTUP_TICKS_PER_FRAME,
-        ));
+        world.insert_resource(GameStage::Starting(StartupSequence::TextOnly {
+            remaining_ticks: constants::startup::STARTUP_FRAMES,
+        }));
 
         world.insert_non_send_resource(event_pump);
         world.insert_non_send_resource::<&mut Canvas<Window>>(Box::leak(Box::new(canvas)));
@@ -394,15 +410,14 @@ impl Game {
     }
 
     fn configure_schedule(schedule: &mut Schedule) {
+        let stage_system = profile(SystemId::Stage, systems::stage_system);
         let input_system = profile(SystemId::Input, systems::input::input_system);
         let player_control_system = profile(SystemId::PlayerControls, systems::player_control_system);
         let player_movement_system = profile(SystemId::PlayerMovement, systems::player_movement_system);
-        let startup_stage_system = profile(SystemId::Stage, systems::startup_stage_system);
         let player_tunnel_slowdown_system = profile(SystemId::PlayerMovement, systems::player::player_tunnel_slowdown_system);
         let ghost_movement_system = profile(SystemId::Ghost, ghost_movement_system);
         let collision_system = profile(SystemId::Collision, collision_system);
         let ghost_collision_system = profile(SystemId::GhostCollision, ghost_collision_system);
-
         let item_system = profile(SystemId::Item, item_system);
         let audio_system = profile(SystemId::Audio, audio_system);
         let blinking_system = profile(SystemId::Blinking, blinking_system);
@@ -412,41 +427,55 @@ impl Game {
         let hud_render_system = profile(SystemId::HudRender, hud_render_system);
         let present_system = profile(SystemId::Present, present_system);
         let unified_ghost_state_system = profile(SystemId::GhostStateAnimation, ghost_state_system);
+        // let death_sequence_system = profile(SystemId::DeathSequence, death_sequence_system);
+        // let game_over_system = profile(SystemId::GameOver, systems::game_over_system);
+        let eaten_ghost_system = profile(SystemId::EatenGhost, eaten_ghost_system);
 
         let forced_dirty_system = |mut dirty: ResMut<RenderDirty>| {
             dirty.0 = true;
         };
 
-        schedule.add_systems((
-            forced_dirty_system.run_if(resource_changed::<ScoreResource>.or(resource_changed::<StartupSequence>)),
-            (
-                input_system.run_if(|mut local: Local<u8>| {
-                    *local = local.wrapping_add(1u8);
-                    // run every nth frame
-                    *local % 2 == 0
-                }),
-                player_control_system,
-                player_movement_system,
-                startup_stage_system,
-            )
-                .chain(),
-            player_tunnel_slowdown_system,
-            ghost_movement_system,
-            profile(SystemId::EatenGhost, eaten_ghost_system),
-            unified_ghost_state_system,
+        schedule.add_systems(
+            forced_dirty_system
+                .run_if(|score: Res<ScoreResource>, stage: Res<GameStage>| score.is_changed() || stage.is_changed()),
+        );
+
+        // Input system should always run to prevent SDL event pump from blocking
+        let input_systems = (
+            input_system.run_if(|mut local: Local<u8>| {
+                *local = local.wrapping_add(1u8);
+                // run every nth frame
+                *local % 2 == 0
+            }),
+            player_control_system,
+        )
+            .chain();
+
+        let gameplay_systems = (
+            (player_movement_system, player_tunnel_slowdown_system, ghost_movement_system).chain(),
+            eaten_ghost_system,
             (collision_system, ghost_collision_system, item_system).chain(),
-            audio_system,
-            blinking_system,
+            unified_ghost_state_system,
+        )
+            .chain()
+            .run_if(|game_state: Res<GameStage>| matches!(*game_state, GameStage::Playing));
+
+        schedule.add_systems((blinking_system, directional_render_system, linear_render_system).in_set(RenderSet::Animation));
+
+        schedule.add_systems((
+            stage_system,
+            input_systems,
+            gameplay_systems,
             (
-                directional_render_system,
-                linear_render_system,
                 dirty_render_system,
                 combined_render_system,
                 hud_render_system,
                 touch_ui_render_system,
                 present_system,
             )
-                .chain(),
+                .chain()
+                .after(RenderSet::Animation),
+            audio_system,
         ));
     }
 
@@ -512,7 +541,7 @@ impl Game {
         for (ghost_type, start_node) in ghost_start_positions {
             // Create the ghost bundle in a separate scope to manage borrows
             let ghost = {
-                let animations = *world.resource::<GhostAnimations>().get_normal(&ghost_type).unwrap();
+                let animations = world.resource::<GhostAnimations>().get_normal(&ghost_type).unwrap().clone();
                 let atlas = world.non_send_resource::<SpriteAtlas>();
                 let sprite_path = GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Left, 0)).to_path();
 
@@ -557,7 +586,7 @@ impl Game {
             TileSequence::new(&[left_eye]),
             TileSequence::new(&[right_eye]),
         );
-        let eyes = DirectionalAnimation::new(eyes_tiles, eyes_tiles, animation::GHOST_EATEN_SPEED);
+        let eyes = DirectionalAnimation::new(eyes_tiles.clone(), eyes_tiles, animation::GHOST_EATEN_SPEED);
 
         let mut animations = HashMap::new();
 
@@ -586,7 +615,7 @@ impl Game {
                 TileSequence::new(&left_tiles),
                 TileSequence::new(&right_tiles),
             );
-            let normal = DirectionalAnimation::new(normal_moving, normal_moving, animation::GHOST_NORMAL_SPEED);
+            let normal = DirectionalAnimation::new(normal_moving.clone(), normal_moving, animation::GHOST_NORMAL_SPEED);
 
             animations.insert(ghost_type, normal);
         }
@@ -658,68 +687,4 @@ impl Game {
 
         state.exit
     }
-
-    // /// Renders pathfinding debug lines from each ghost to Pac-Man.
-    // ///
-    // /// Each ghost's path is drawn in its respective color with a small offset
-    // /// to prevent overlapping lines.
-    // fn render_pathfinding_debug<T: sdl2::render::RenderTarget>(&self, canvas: &mut Canvas<T>) -> GameResult<()> {
-    //     let pacman_node = self.state.pacman.current_node_id();
-
-    //     for ghost in self.state.ghosts.iter() {
-    //         if let Ok(path) = ghost.calculate_path_to_target(&self.state.map.graph, pacman_node) {
-    //             if path.len() < 2 {
-    //                 continue; // Skip if path is too short
-    //             }
-
-    //             // Set the ghost's color
-    //             canvas.set_draw_color(ghost.debug_color());
-
-    //             // Calculate offset based on ghost index to prevent overlapping lines
-    //             // let offset = (i as f32) * 2.0 - 3.0; // Offset range: -3.0 to 3.0
-
-    //             // Calculate a consistent offset direction for the entire path
-    //             // let first_node = self.map.graph.get_node(path[0]).unwrap();
-    //             // let last_node = self.map.graph.get_node(path[path.len() - 1]).unwrap();
-
-    //             // Use the overall direction from start to end to determine the perpendicular offset
-    //             let offset = match ghost.ghost_type {
-    //                 GhostType::Blinky => glam::Vec2::new(0.25, 0.5),
-    //                 GhostType::Pinky => glam::Vec2::new(-0.25, -0.25),
-    //                 GhostType::Inky => glam::Vec2::new(0.5, -0.5),
-    //                 GhostType::Clyde => glam::Vec2::new(-0.5, 0.25),
-    //             } * 5.0;
-
-    //             // Calculate offset positions for all nodes using the same perpendicular direction
-    //             let mut offset_positions = Vec::new();
-    //             for &node_id in &path {
-    //                 let node = self
-    //                     .state
-    //                     .map
-    //                     .graph
-    //                     .get_node(node_id)
-    //                     .ok_or(crate::error::EntityError::NodeNotFound(node_id))?;
-    //                 let pos = node.position + crate::constants::BOARD_PIXEL_OFFSET.as_vec2();
-    //                 offset_positions.push(pos + offset);
-    //             }
-
-    //             // Draw lines between the offset positions
-    //             for window in offset_positions.windows(2) {
-    //                 if let (Some(from), Some(to)) = (window.first(), window.get(1)) {
-    //                     // Skip if the distance is too far (used for preventing lines between tunnel portals)
-    //                     if from.distance_squared(*to) > (crate::constants::CELL_SIZE * 16).pow(2) as f32 {
-    //                         continue;
-    //                     }
-
-    //                     // Draw the line
-    //                     canvas
-    //                         .draw_line((from.x as i32, from.y as i32), (to.x as i32, to.y as i32))
-    //                         .map_err(|e| crate::error::GameError::Sdl(e.to_string()))?;
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     Ok(())
-    // }
 }

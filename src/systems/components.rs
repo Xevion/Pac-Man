@@ -101,7 +101,7 @@ pub struct Renderable {
 }
 
 /// Directional animation component with shared timing across all directions
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone)]
 pub struct DirectionalAnimation {
     pub moving_tiles: DirectionalTiles,
     pub stopped_tiles: DirectionalTiles,
@@ -123,13 +123,18 @@ impl DirectionalAnimation {
     }
 }
 
+/// Tag component to mark animations that should loop when they reach the end
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Looping;
+
 /// Linear animation component for non-directional animations (frightened ghosts)
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Resource, Clone)]
 pub struct LinearAnimation {
     pub tiles: TileSequence,
     pub current_frame: usize,
     pub time_bank: u16,
     pub frame_duration: u16,
+    pub finished: bool,
 }
 
 impl LinearAnimation {
@@ -140,6 +145,7 @@ impl LinearAnimation {
             current_frame: 0,
             time_bank: 0,
             frame_duration,
+            finished: false,
         }
     }
 }
@@ -217,6 +223,11 @@ pub struct Frozen;
 /// Tag component for eaten ghosts
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Eaten;
+
+/// Tag component for Pac-Man during his death animation.
+/// This is mainly because the Frozen tag would stop both movement and animation, while the Dying tag can signal that the animation should continue despite being frozen.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Dying;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub enum GhostState {

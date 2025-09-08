@@ -1,53 +1,45 @@
-use crate::map::direction::Direction;
-use crate::texture::sprite::AtlasTile;
+use glam::U16Vec2;
 
-/// Fixed-size tile sequence that avoids heap allocation
-#[derive(Clone, Copy, Debug)]
+use crate::{map::direction::Direction, texture::sprite::AtlasTile};
+
+/// A sequence of tiles for animation, backed by a vector.
+#[derive(Debug, Clone)]
 pub struct TileSequence {
-    tiles: [AtlasTile; 4], // Fixed array, max 4 frames
-    count: usize,          // Actual number of frames used
+    tiles: Vec<AtlasTile>,
 }
 
 impl TileSequence {
-    /// Creates a new tile sequence from a slice of tiles
+    /// Creates a new tile sequence from a slice of tiles.
     pub fn new(tiles: &[AtlasTile]) -> Self {
-        let mut tile_array = [AtlasTile {
-            pos: glam::U16Vec2::ZERO,
-            size: glam::U16Vec2::ZERO,
-            color: None,
-        }; 4];
-
-        let count = tiles.len().min(4);
-        tile_array[..count].copy_from_slice(&tiles[..count]);
-
-        Self {
-            tiles: tile_array,
-            count,
-        }
+        Self { tiles: tiles.to_vec() }
     }
 
     /// Returns the tile at the given frame index, wrapping if necessary
     pub fn get_tile(&self, frame: usize) -> AtlasTile {
-        if self.count == 0 {
-            // Return a default empty tile if no tiles
-            AtlasTile {
-                pos: glam::U16Vec2::ZERO,
-                size: glam::U16Vec2::ZERO,
+        if self.tiles.is_empty() {
+            // Return a default or handle the error appropriately
+            // For now, let's return a default tile, assuming it's a sensible default
+            return AtlasTile {
+                pos: U16Vec2::ZERO,
+                size: U16Vec2::ZERO,
                 color: None,
-            }
-        } else {
-            self.tiles[frame % self.count]
+            };
         }
+        self.tiles[frame % self.tiles.len()]
     }
 
-    /// Returns true if this sequence has no tiles
+    pub fn len(&self) -> usize {
+        self.tiles.len()
+    }
+
+    /// Checks if the sequence contains any tiles.
     pub fn is_empty(&self) -> bool {
-        self.count == 0
+        self.tiles.is_empty()
     }
 }
 
-/// Type-safe directional tile storage with named fields
-#[derive(Clone, Copy, Debug)]
+/// A collection of tile sequences for each cardinal direction.
+#[derive(Debug, Clone)]
 pub struct DirectionalTiles {
     pub up: TileSequence,
     pub down: TileSequence,

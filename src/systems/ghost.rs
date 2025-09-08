@@ -1,5 +1,7 @@
 use crate::platform;
-use crate::systems::components::{DirectionalAnimation, Frozen, GhostAnimation, GhostState, LastAnimationState, LinearAnimation};
+use crate::systems::components::{
+    DirectionalAnimation, Frozen, GhostAnimation, GhostState, LastAnimationState, LinearAnimation, Looping,
+};
 use crate::{
     map::{
         builder::Map,
@@ -194,22 +196,26 @@ pub fn ghost_state_system(
         if last_animation_state.0 != current_animation_state {
             match current_animation_state {
                 GhostAnimation::Frightened { flash } => {
-                    // Remove DirectionalAnimation, add LinearAnimation
+                    // Remove DirectionalAnimation, add LinearAnimation with Looping component
                     commands
                         .entity(entity)
                         .remove::<DirectionalAnimation>()
-                        .insert(*animations.frightened(flash));
+                        .insert(animations.frightened(flash).clone())
+                        .insert(Looping);
                 }
                 GhostAnimation::Normal => {
-                    // Remove LinearAnimation, add DirectionalAnimation
+                    // Remove LinearAnimation and Looping, add DirectionalAnimation
                     commands
                         .entity(entity)
-                        .remove::<LinearAnimation>()
-                        .insert(*animations.get_normal(ghost_type).unwrap());
+                        .remove::<(LinearAnimation, Looping)>()
+                        .insert(animations.get_normal(ghost_type).unwrap().clone());
                 }
                 GhostAnimation::Eyes => {
-                    // Remove LinearAnimation, add DirectionalAnimation (eyes animation)
-                    commands.entity(entity).remove::<LinearAnimation>().insert(*animations.eyes());
+                    // Remove LinearAnimation and Looping, add DirectionalAnimation (eyes animation)
+                    commands
+                        .entity(entity)
+                        .remove::<(LinearAnimation, Looping)>()
+                        .insert(animations.eyes().clone());
                 }
             }
             last_animation_state.0 = current_animation_state;

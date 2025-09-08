@@ -132,8 +132,6 @@ pub const RAW_BOARD: [&str; BOARD_CELL_SIZE.y as usize] = [
 pub mod startup {
     /// Number of frames for the startup sequence (3 seconds at 60 FPS)
     pub const STARTUP_FRAMES: u32 = 60 * 3;
-    /// Number of ticks per frame during startup
-    pub const STARTUP_TICKS_PER_FRAME: u32 = 60;
 }
 
 /// Game mechanics constants

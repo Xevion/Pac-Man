@@ -1,15 +1,20 @@
-use bevy_ecs::component::Component;
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::{EventReader, EventWriter};
-use bevy_ecs::query::With;
-use bevy_ecs::system::{Query, Res, ResMut};
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    event::{EventReader, EventWriter},
+    query::With,
+    system::{Commands, Query, Res, ResMut},
+};
 
 use crate::error::GameError;
 use crate::events::GameEvent;
 use crate::map::builder::Map;
-use crate::systems::movement::Position;
-use crate::systems::{AudioEvent, Ghost, GhostState, PlayerControlled, ScoreResource};
+use crate::systems::{
+    components::GhostState, movement::Position, AudioEvent, DyingSequence, Frozen, GameStage, Ghost, PlayerControlled,
+    ScoreResource,
+};
 
+/// A component for defining the collision area of an entity.
 #[derive(Component)]
 pub struct Collider {
     pub size: f32,
@@ -62,6 +67,7 @@ pub fn check_collision(
 ///
 /// Also detects collisions between Pac-Man and ghosts for gameplay mechanics like
 /// power pellet effects, ghost eating, and player death.
+#[allow(clippy::too_many_arguments)]
 pub fn collision_system(
     map: Res<Map>,
     pacman_query: Query<(Entity, &Position, &Collider), With<PacmanCollider>>,
@@ -107,10 +113,13 @@ pub fn collision_system(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn ghost_collision_system(
+    mut commands: Commands,
     mut collision_events: EventReader<GameEvent>,
     mut score: ResMut<ScoreResource>,
-    pacman_query: Query<(), With<PlayerControlled>>,
+    mut game_state: ResMut<GameStage>,
+    pacman_query: Query<Entity, With<PlayerControlled>>,
     ghost_query: Query<(Entity, &Ghost), With<GhostCollider>>,
     mut ghost_state_query: Query<&mut GhostState>,
     mut events: EventWriter<AudioEvent>,
@@ -118,7 +127,7 @@ pub fn ghost_collision_system(
     for event in collision_events.read() {
         if let GameEvent::Collision(entity1, entity2) = event {
             // Check if one is Pacman and the other is a ghost
-            let (_pacman_entity, ghost_entity) = if pacman_query.get(*entity1).is_ok() && ghost_query.get(*entity2).is_ok() {
+            let (pacman_entity, ghost_entity) = if pacman_query.get(*entity1).is_ok() && ghost_query.get(*entity2).is_ok() {
                 (*entity1, *entity2)
             } else if pacman_query.get(*entity2).is_ok() && ghost_query.get(*entity1).is_ok() {
                 (*entity2, *entity1)
@@ -140,8 +149,12 @@ pub fn ghost_collision_system(
 
                         // Play eat sound
                         events.write(AudioEvent::PlayEat);
-                    } else {
-                        // Pac-Man dies (this would need a death system)
+                    } else if matches!(*ghost_state, GhostState::Normal) {
+                        // Pac-Man dies
+                        *game_state = GameStage::PlayerDying(DyingSequence::Frozen { remaining_ticks: 60 });
+                        commands.entity(pacman_entity).insert(Frozen);
+                        commands.entity(ghost_entity).insert(Frozen);
+                        events.write(AudioEvent::StopAll);
                     }
                 }
             }
