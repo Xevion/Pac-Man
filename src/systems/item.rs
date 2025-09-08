@@ -4,6 +4,7 @@ use bevy_ecs::{
     query::With,
     system::{Commands, Query, ResMut},
 };
+use tracing::{debug, trace};
 
 use crate::{
     constants::animation::FRIGHTENED_FLASH_START_TICKS,
@@ -45,6 +46,7 @@ pub fn item_system(
             // Get the item type and update score
             if let Ok((item_ent, entity_type)) = item_query.get(item_entity) {
                 if let Some(score_value) = entity_type.score_value() {
+                    trace!(item_entity = ?item_ent, item_type = ?entity_type, score_value, new_score = score.0 + score_value, "Item collected by player");
                     score.0 += score_value;
 
                     // Remove the collected item
@@ -59,13 +61,17 @@ pub fn item_system(
                     if *entity_type == EntityType::PowerPellet {
                         // Convert seconds to frames (assumes 60 FPS)
                         let total_ticks = 60 * 5; // 5 seconds total
+                        debug!(duration_ticks = total_ticks, "Power pellet collected, frightening ghosts");
 
                         // Set all ghosts to frightened state, except those in Eyes state
+                        let mut frightened_count = 0;
                         for mut ghost_state in ghost_query.iter_mut() {
                             if !matches!(*ghost_state, GhostState::Eyes) {
                                 *ghost_state = GhostState::new_frightened(total_ticks, FRIGHTENED_FLASH_START_TICKS);
+                                frightened_count += 1;
                             }
                         }
+                        debug!(frightened_count, "Ghosts set to frightened state");
                     }
                 }
             }

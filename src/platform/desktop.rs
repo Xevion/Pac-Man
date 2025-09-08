@@ -21,7 +21,7 @@ pub fn init_console() -> Result<(), PlatformError> {
     #[cfg(windows)]
     {
         use crate::platform::tracing_buffer::setup_switchable_subscriber;
-        use tracing::{debug, info};
+        use tracing::{debug, info, trace};
         use windows::Win32::System::Console::GetConsoleWindow;
 
         // Setup buffered tracing subscriber that will buffer logs until console is ready
@@ -32,13 +32,13 @@ pub fn init_console() -> Result<(), PlatformError> {
             debug!("Already have a console window");
             return Ok(());
         } else {
-            debug!("No existing console window found");
+            trace!("No existing console window found");
         }
 
         if let Some(file_type) = is_output_setup()? {
-            debug!(r#type = file_type, "Existing output detected");
+            trace!(r#type = file_type, "Existing output detected");
         } else {
-            debug!("No existing output detected");
+            trace!("No existing output detected");
 
             // Try to attach to parent console for direct cargo run
             attach_to_parent_console()?;
@@ -46,7 +46,7 @@ pub fn init_console() -> Result<(), PlatformError> {
         }
 
         // Now that console is initialized, flush buffered logs and switch to direct output
-        debug!("Switching to direct logging mode and flushing buffer...");
+        trace!("Switching to direct logging mode and flushing buffer...");
         if let Err(error) = switchable_writer.switch_to_direct_mode() {
             use tracing::warn;
 
@@ -79,7 +79,7 @@ pub fn rng() -> ThreadRng {
 /// Windows-only
 #[cfg(windows)]
 fn is_output_setup() -> Result<Option<&'static str>, PlatformError> {
-    use tracing::{debug, warn};
+    use tracing::{trace, warn};
 
     use windows::Win32::Storage::FileSystem::{
         GetFileType, FILE_TYPE_CHAR, FILE_TYPE_DISK, FILE_TYPE_PIPE, FILE_TYPE_REMOTE, FILE_TYPE_UNKNOWN,
@@ -114,7 +114,7 @@ fn is_output_setup() -> Result<Option<&'static str>, PlatformError> {
         }
     };
 
-    debug!("File type: {file_type:?}, well known: {well_known}");
+    trace!("File type: {file_type:?}, well known: {well_known}");
 
     // If it's anything recognizable and valid, assume that a parent process has setup an output stream
     Ok(well_known.then_some(file_type))

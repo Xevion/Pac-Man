@@ -44,7 +44,11 @@ pub fn dirty_render_system(
     removed_hidden: RemovedComponents<Hidden>,
     removed_renderables: RemovedComponents<Renderable>,
 ) {
-    if !changed.is_empty() || !removed_hidden.is_empty() || !removed_renderables.is_empty() {
+    let changed_count = changed.iter().count();
+    let removed_hidden_count = removed_hidden.len();
+    let removed_renderables_count = removed_renderables.len();
+
+    if changed_count > 0 || removed_hidden_count > 0 || removed_renderables_count > 0 {
         dirty.0 = true;
     }
 }

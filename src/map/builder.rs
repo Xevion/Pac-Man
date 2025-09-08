@@ -56,11 +56,17 @@ impl Map {
     /// This function will panic if the board layout contains unknown characters or if
     /// the house door is not defined by exactly two '=' characters.
     pub fn new(raw_board: [&str; BOARD_CELL_SIZE.y as usize]) -> GameResult<Map> {
+        debug!("Starting map construction from character layout");
         let parsed_map = MapTileParser::parse_board(raw_board)?;
 
         let map = parsed_map.tiles;
         let house_door = parsed_map.house_door;
         let tunnel_ends = parsed_map.tunnel_ends;
+        debug!(
+            house_door_count = house_door.len(),
+            tunnel_ends_count = tunnel_ends.len(),
+            "Parsed map special locations"
+        );
 
         let mut graph = Graph::new();
         let mut grid_to_node = HashMap::new();
@@ -157,8 +163,10 @@ impl Map {
         };
 
         // Build tunnel connections
+        debug!("Building tunnel connections");
         Self::build_tunnels(&mut graph, &grid_to_node, &tunnel_ends)?;
 
+        debug!(node_count = graph.nodes().count(), "Map construction completed successfully");
         Ok(Map {
             graph,
             grid_to_node,

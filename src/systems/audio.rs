@@ -9,6 +9,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{NonSendMut, ResMut},
 };
+use tracing::{debug, trace};
 
 use crate::{audio::Audio, error::GameError};
 
@@ -49,6 +50,7 @@ pub fn audio_system(
 ) {
     // Set mute state if it has changed
     if audio.0.is_muted() != audio_state.muted {
+        debug!(muted = audio_state.muted, "Audio mute state changed");
         audio.0.set_mute(audio_state.muted);
     }
 
@@ -57,20 +59,37 @@ pub fn audio_system(
         match event {
             AudioEvent::PlayEat => {
                 if !audio.0.is_disabled() && !audio_state.muted {
+                    trace!(sound_index = audio_state.sound_index, "Playing eat sound");
                     audio.0.eat();
                     // Update the sound index for cycling through sounds
                     audio_state.sound_index = (audio_state.sound_index + 1) % 4;
                     // 4 eat sounds available
+                } else {
+                    debug!(
+                        disabled = audio.0.is_disabled(),
+                        muted = audio_state.muted,
+                        "Skipping eat sound due to audio state"
+                    );
                 }
             }
             AudioEvent::PlayDeath => {
                 if !audio.0.is_disabled() && !audio_state.muted {
+                    trace!("Playing death sound");
                     audio.0.death();
+                } else {
+                    debug!(
+                        disabled = audio.0.is_disabled(),
+                        muted = audio_state.muted,
+                        "Skipping death sound due to audio state"
+                    );
                 }
             }
             AudioEvent::StopAll => {
                 if !audio.0.is_disabled() {
+                    debug!("Stopping all audio");
                     audio.0.stop_all();
+                } else {
+                    debug!("Audio disabled, ignoring stop all request");
                 }
             }
         }

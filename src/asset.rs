@@ -48,6 +48,7 @@ mod imp {
     use super::*;
     use crate::error::AssetError;
     use crate::platform;
+    use tracing::trace;
 
     /// Loads asset bytes using the appropriate platform-specific method.
     ///
@@ -61,7 +62,13 @@ mod imp {
     /// Returns `AssetError::NotFound` if the asset file cannot be located (Emscripten only),
     /// or `AssetError::Io` for filesystem I/O failures.
     pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
-        platform::get_asset_bytes(asset)
+        trace!(asset = ?asset, path = asset.path(), "Loading game asset");
+        let result = platform::get_asset_bytes(asset);
+        match &result {
+            Ok(bytes) => trace!(asset = ?asset, size_bytes = bytes.len(), "Asset loaded successfully"),
+            Err(e) => trace!(asset = ?asset, error = ?e, "Asset loading failed"),
+        }
+        result
     }
 }
 

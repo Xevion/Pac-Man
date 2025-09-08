@@ -3,6 +3,7 @@
 include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 
 use std::collections::HashMap;
+use tracing::{debug, info, trace, warn};
 
 use crate::constants::{self, animation, MapTile, CANVAS_SIZE};
 use crate::error::{GameError, GameResult};
@@ -89,31 +90,45 @@ impl Game {
         texture_creator: TextureCreator<WindowContext>,
         mut event_pump: EventPump,
     ) -> GameResult<Game> {
+        info!("Starting game initialization");
+
+        debug!("Disabling unnecessary SDL events");
         Self::disable_sdl_events(&mut event_pump);
 
+        debug!("Setting up textures and fonts");
         let (backbuffer, mut map_texture, debug_texture, ttf_atlas) =
             Self::setup_textures_and_fonts(&mut canvas, &texture_creator, ttf_context)?;
 
+        debug!("Initializing audio subsystem");
         let audio = crate::audio::Audio::new();
 
+        debug!("Loading sprite atlas and map tiles");
         let (mut atlas, map_tiles) = Self::load_atlas_and_map_tiles(&texture_creator)?;
+        debug!("Rendering static map to texture cache");
         canvas
             .with_texture_canvas(&mut map_texture, |map_canvas| {
                 MapRenderer::render_map(map_canvas, &mut atlas, &map_tiles);
             })
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
+        debug!("Building navigation graph from map layout");
         let map = Map::new(constants::RAW_BOARD)?;
 
+        debug!("Creating player animations and bundle");
         let (player_animation, player_start_sprite) = Self::create_player_animations(&atlas)?;
         let player_bundle = Self::create_player_bundle(&map, player_animation, player_start_sprite);
 
+        debug!("Creating death animation sequence");
         let death_animation = Self::create_death_animation(&atlas)?;
 
+        debug!("Initializing ECS world and system schedule");
         let mut world = World::default();
         let mut schedule = Schedule::default();
 
+        debug!("Setting up ECS event registry and observers");
         Self::setup_ecs(&mut world);
+
+        debug!("Inserting resources into ECS world");
         Self::insert_resources(
             &mut world,
             map,
@@ -127,12 +142,18 @@ impl Game {
             ttf_atlas,
             death_animation,
         )?;
+
+        debug!("Configuring system execution schedule");
         Self::configure_schedule(&mut schedule);
 
+        debug!("Spawning player entity");
         world.spawn(player_bundle).insert((Frozen, Hidden));
+
+        info!("Spawning game entities");
         Self::spawn_ghosts(&mut world)?;
         Self::spawn_items(&mut world)?;
 
+        info!("Game initialization completed successfully");
         Ok(Game { world, schedule })
     }
 
@@ -224,6 +245,7 @@ impl Game {
     }
 
     fn load_atlas_and_map_tiles(texture_creator: &TextureCreator<WindowContext>) -> GameResult<(SpriteAtlas, Vec<AtlasTile>)> {
+        trace!("Loading atlas image from embedded assets");
         let atlas_bytes = get_asset_bytes(Asset::AtlasImage)?;
         let atlas_texture = texture_creator.load_texture_bytes(&atlas_bytes).map_err(|e| {
             if e.to_string().contains("format") || e.to_string().contains("unsupported") {
@@ -235,11 +257,13 @@ impl Game {
             }
         })?;
 
+        debug!(frame_count = ATLAS_FRAMES.len(), "Creating sprite atlas from texture");
         let atlas_mapper = AtlasMapper {
             frames: ATLAS_FRAMES.into_iter().map(|(k, v)| (k.to_string(), *v)).collect(),
         };
         let atlas = SpriteAtlas::new(atlas_texture, atlas_mapper);
 
+        trace!("Extracting map tile sprites from atlas");
         let mut map_tiles = Vec::with_capacity(35);
         for i in 0..35 {
             let tile_name = GameSprite::Maze(MazeSprite::Tile(i)).to_path();
@@ -482,6 +506,7 @@ impl Game {
     }
 
     fn spawn_items(world: &mut World) -> GameResult<()> {
+        trace!("Loading item sprites from atlas");
         let pellet_sprite = SpriteAtlas::get_tile(
             world.non_send_resource::<SpriteAtlas>(),
             &GameSprite::Maze(MazeSprite::Pellet).to_path(),
@@ -506,6 +531,12 @@ impl Game {
             })
             .collect();
 
+        info!(
+            pellet_count = nodes.iter().filter(|(_, t, _, _)| *t == EntityType::Pellet).count(),
+            power_pellet_count = nodes.iter().filter(|(_, t, _, _)| *t == EntityType::PowerPellet).count(),
+            "Spawning collectible items"
+        );
+
         for (id, item_type, sprite, size) in nodes {
             let mut item = world.spawn(ItemBundle {
                 position: Position::Stopped { node: id },
@@ -529,6 +560,7 @@ impl Game {
     /// Returns `GameError::Texture` if any ghost sprite cannot be found in the atlas,
     /// typically indicating missing or misnamed sprite files.
     fn spawn_ghosts(world: &mut World) -> GameResult<()> {
+        trace!("Spawning ghost entities with AI personalities");
         // Extract the data we need first to avoid borrow conflicts
         let ghost_start_positions = {
             let map = world.resource::<Map>();
@@ -569,9 +601,11 @@ impl Game {
                 }
             };
 
-            world.spawn(ghost).insert((Frozen, Hidden));
+            let entity = world.spawn(ghost).insert((Frozen, Hidden)).id();
+            trace!(ghost = ?ghost_type, entity = ?entity, start_node, "Spawned ghost entity");
         }
 
+        info!("All ghost entities spawned successfully");
         Ok(())
     }
 
@@ -680,6 +714,17 @@ impl Game {
         ) {
             let new_tick = timing.increment_tick();
             timings.add_total_timing(total_duration, new_tick);
+
+            // Log performance warnings for slow frames
+            if total_duration.as_millis() > 20 {
+                // Warn if frame takes more than 20ms
+                warn!(
+                    duration_ms = total_duration.as_millis(),
+                    frame_dt = ?std::time::Duration::from_secs_f32(dt),
+                    tick = new_tick,
+                    "Frame took longer than expected"
+                );
+            }
         }
 
         let state = self

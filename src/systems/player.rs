@@ -3,6 +3,7 @@ use bevy_ecs::{
     query::{With, Without},
     system::{Query, Res, ResMut},
 };
+use tracing::trace;
 
 use crate::{
     error::GameError,
@@ -52,6 +53,7 @@ pub fn player_control_system(
                         }
                     };
 
+                    trace!(direction = ?*direction, "Player direction buffered for movement");
                     *buffered_direction = BufferedDirection::Some {
                         direction: *direction,
                         remaining_time: 0.25,
@@ -86,6 +88,7 @@ pub fn player_movement_system(
         (&MovementModifiers, &mut Position, &mut Velocity, &mut BufferedDirection),
         (With<PlayerControlled>, Without<Frozen>),
     >,
+    mut last_stopped_node: bevy_ecs::system::Local<Option<crate::systems::movement::NodeId>>,
 ) {
     for (modifiers, mut position, mut velocity, mut buffered_direction) in entities.iter_mut() {
         // Decrement the buffered direction remaining time
@@ -95,6 +98,7 @@ pub fn player_movement_system(
         } = *buffered_direction
         {
             if remaining_time <= 0.0 {
+                trace!("Buffered direction expired");
                 *buffered_direction = BufferedDirection::None;
             } else {
                 *buffered_direction = BufferedDirection::Some {
@@ -115,6 +119,8 @@ pub fn player_movement_system(
                         if let Some(edge) = map.graph.find_edge_in_direction(position.current_node(), direction) {
                             // If there is an edge in that direction (and it's traversable), start moving towards it and consume the buffered direction.
                             if can_traverse(EntityType::Player, edge) {
+                                trace!(from = position.current_node(), to = edge.target, direction = ?direction, "Player started moving using buffered direction");
+                                *last_stopped_node = None; // Reset stopped state when starting to move
                                 velocity.direction = edge.direction;
                                 *position = Position::Moving {
                                     from: position.current_node(),
@@ -129,6 +135,8 @@ pub fn player_movement_system(
                     // If there is no buffered direction (or it's not yet valid), continue in the current direction.
                     if let Some(edge) = map.graph.find_edge_in_direction(position.current_node(), velocity.direction) {
                         if can_traverse(EntityType::Player, edge) {
+                            trace!(from = position.current_node(), to = edge.target, direction = ?velocity.direction, "Player continued in current direction");
+                            *last_stopped_node = None; // Reset stopped state when starting to move
                             velocity.direction = edge.direction;
                             *position = Position::Moving {
                                 from: position.current_node(),
@@ -138,6 +146,11 @@ pub fn player_movement_system(
                         }
                     } else {
                         // No edge in our current direction either, erase the buffered direction and stop.
+                        let current_node = position.current_node();
+                        if *last_stopped_node != Some(current_node) {
+                            trace!(node = current_node, direction = ?velocity.direction, "Player stopped - no valid edge in current direction");
+                            *last_stopped_node = Some(current_node);
+                        }
                         *buffered_direction = BufferedDirection::None;
                         break;
                     }
@@ -162,6 +175,16 @@ pub fn player_tunnel_slowdown_system(map: Res<Map>, mut q: Query<(&Position, &mu
             .tile_at_node(node)
             .map(|t| t == crate::constants::MapTile::Tunnel)
             .unwrap_or(false);
+
+        if modifiers.tunnel_slowdown_active != in_tunnel {
+            trace!(
+                node,
+                in_tunnel,
+                speed_multiplier = if in_tunnel { 0.6 } else { 1.0 },
+                "Player tunnel slowdown state changed"
+            );
+        }
+
         modifiers.tunnel_slowdown_active = in_tunnel;
         modifiers.speed_multiplier = if in_tunnel { 0.6 } else { 1.0 };
     }

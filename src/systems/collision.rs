@@ -5,6 +5,7 @@ use bevy_ecs::{
     query::With,
     system::{Commands, Query, Res, ResMut},
 };
+use tracing::{debug, trace, warn};
 
 use crate::error::GameError;
 use crate::events::{GameEvent, StageTransition};
@@ -82,6 +83,7 @@ pub fn collision_system(
             match check_collision(pacman_pos, pacman_collider, item_pos, item_collider, &map) {
                 Ok(colliding) => {
                     if colliding {
+                        trace!(pacman_entity = ?pacman_entity, item_entity = ?item_entity, "Item collision detected");
                         events.write(GameEvent::Collision(pacman_entity, item_entity));
                     }
                 }
@@ -99,6 +101,7 @@ pub fn collision_system(
             match check_collision(pacman_pos, pacman_collider, ghost_pos, ghost_collider, &map) {
                 Ok(colliding) => {
                     if colliding {
+                        trace!(pacman_entity = ?pacman_entity, ghost_entity = ?ghost_entity, "Ghost collision detected");
                         events.write(GameEvent::Collision(pacman_entity, ghost_entity));
                     }
                 }
@@ -143,6 +146,7 @@ pub fn ghost_collision_system(
                     if matches!(*ghost_state, GhostState::Frightened { .. }) {
                         // Pac-Man eats the ghost
                         // Add score (200 points per ghost eaten)
+                        debug!(ghost_entity = ?ghost_ent, score_added = 200, new_score = score.0 + 200, "Pacman ate frightened ghost");
                         score.0 += 200;
 
                         // Enter short pause to show bonus points, hide ghost, then set Eyes after pause
@@ -153,10 +157,13 @@ pub fn ghost_collision_system(
                         events.write(AudioEvent::PlayEat);
                     } else if matches!(*ghost_state, GhostState::Normal) {
                         // Pac-Man dies
+                        warn!(ghost_entity = ?ghost_ent, "Pacman hit by normal ghost, player dies");
                         *game_state = GameStage::PlayerDying(DyingSequence::Frozen { remaining_ticks: 60 });
                         commands.entity(pacman_entity).insert(Frozen);
                         commands.entity(ghost_entity).insert(Frozen);
                         events.write(AudioEvent::StopAll);
+                    } else {
+                        trace!(ghost_state = ?*ghost_state, "Ghost collision ignored due to state");
                     }
                 }
             }

@@ -4,6 +4,7 @@ use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, RenderTarget, Texture};
 use std::collections::HashMap;
+use tracing::debug;
 
 use crate::error::TextureError;
 
@@ -90,8 +91,10 @@ pub struct SpriteAtlas {
 
 impl SpriteAtlas {
     pub fn new(texture: Texture, mapper: AtlasMapper) -> Self {
+        let tile_count = mapper.frames.len();
         let tiles = mapper.frames.into_iter().collect();
 
+        debug!(tile_count, "Created sprite atlas");
         Self {
             texture,
             tiles,
@@ -107,10 +110,10 @@ impl SpriteAtlas {
     /// atlas. The returned tile can be used for immediate rendering or stored
     /// for repeated use in animations and entity sprites.
     pub fn get_tile(&self, name: &str) -> Result<AtlasTile, TextureError> {
-        let frame = self
-            .tiles
-            .get(name)
-            .ok_or_else(|| TextureError::AtlasTileNotFound(name.to_string()))?;
+        let frame = self.tiles.get(name).ok_or_else(|| {
+            debug!(tile_name = name, "Atlas tile not found");
+            TextureError::AtlasTileNotFound(name.to_string())
+        })?;
         Ok(AtlasTile {
             pos: frame.pos,
             size: frame.size,

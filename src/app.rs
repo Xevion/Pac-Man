@@ -10,7 +10,7 @@ use crate::platform;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::render::RendererInfo;
 use sdl2::{AudioSubsystem, Sdl};
-use tracing::debug;
+use tracing::{debug, info, trace};
 
 /// Main application wrapper that manages SDL initialization, window lifecycle, and the game loop.
 pub struct App {
@@ -30,12 +30,20 @@ impl App {
     /// Returns `GameError::Sdl` if any SDL initialization step fails, or propagates
     /// errors from `Game::new()` during game state setup.
     pub fn new() -> GameResult<Self> {
+        info!("Initializing SDL2 application");
         let sdl_context = sdl2::init().map_err(|e| GameError::Sdl(e.to_string()))?;
+        debug!("Initializing SDL2 subsystems");
         let ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
         let video_subsystem = sdl_context.video().map_err(|e| GameError::Sdl(e.to_string()))?;
         let audio_subsystem = sdl_context.audio().map_err(|e| GameError::Sdl(e.to_string()))?;
         let event_pump = sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
 
+        trace!(
+            width = (CANVAS_SIZE.x as f32 * SCALE).round() as u32,
+            height = (CANVAS_SIZE.y as f32 * SCALE).round() as u32,
+            scale = SCALE,
+            "Creating game window"
+        );
         let window = video_subsystem
             .window(
                 "Pac-Man",
@@ -64,7 +72,7 @@ impl App {
         {
             let mut names = drivers.keys().collect::<Vec<_>>();
             names.sort_by_key(|k| get_driver(k));
-            debug!("Drivers: {names:?}")
+            trace!("Drivers: {names:?}")
         }
 
         // Count the number of times each pixel format is supported by each driver
@@ -76,11 +84,12 @@ impl App {
                 counts
             });
 
-        debug!("Pixel format counts: {pixel_format_counts:?}");
+        trace!(pixel_format_counts = ?pixel_format_counts, "Available pixel formats per driver");
 
         let index = get_driver("direct3d");
-        debug!("Driver index: {index:?}");
+        trace!(driver_index = ?index, "Selected graphics driver");
 
+        trace!("Creating hardware-accelerated canvas");
         let mut canvas = window
             .into_canvas()
             .accelerated()
@@ -88,15 +97,23 @@ impl App {
             .build()
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
+        trace!(
+            logical_width = CANVAS_SIZE.x,
+            logical_height = CANVAS_SIZE.y,
+            "Setting canvas logical size"
+        );
         canvas
             .set_logical_size(CANVAS_SIZE.x, CANVAS_SIZE.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
-        debug!("Renderer: {:?}", canvas.info());
+        debug!(renderer_info = ?canvas.info(), "Canvas renderer initialized");
 
+        trace!("Creating texture factory");
         let texture_creator = canvas.texture_creator();
 
+        info!("Starting game initialization");
         let game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
 
+        info!("Application initialization completed successfully");
         Ok(App {
             game,
             focused: true,

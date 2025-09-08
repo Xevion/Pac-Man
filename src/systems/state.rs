@@ -1,4 +1,5 @@
 use std::mem::discriminant;
+use tracing::{debug, info, warn};
 
 use crate::events::StageTransition;
 use crate::{
@@ -137,6 +138,7 @@ pub fn stage_system(
             .map(|(_, pos)| pos.current_node())
             .unwrap_or(map.start_positions.pacman);
 
+        debug!(ghost_entity = ?ghost_entity, node = pac_node, "Ghost eaten, entering pause state");
         new_state = Some(GameStage::GhostEatenPause {
             remaining_ticks: 30,
             ghost_entity,
@@ -152,6 +154,7 @@ pub fn stage_system(
                         remaining_ticks: remaining_ticks - 1,
                     })
                 } else {
+                    debug!("Transitioning from text-only to characters visible startup stage");
                     GameStage::Starting(StartupSequence::CharactersVisible { remaining_ticks: 60 })
                 }
             }
@@ -161,6 +164,7 @@ pub fn stage_system(
                         remaining_ticks: remaining_ticks - 1,
                     })
                 } else {
+                    info!("Startup sequence completed, beginning gameplay");
                     GameStage::Playing
                 }
             }
@@ -178,6 +182,7 @@ pub fn stage_system(
                     node,
                 }
             } else {
+                debug!("Ghost eaten pause ended, resuming gameplay");
                 GameStage::Playing
             }
         }
@@ -190,6 +195,7 @@ pub fn stage_system(
                 } else {
                     let death_animation = &player_death_animation.0;
                     let remaining_ticks = (death_animation.tiles.len() * death_animation.frame_duration as usize) as u32;
+                    debug!(animation_frames = remaining_ticks, "Starting player death animation");
                     GameStage::PlayerDying(DyingSequence::Animating { remaining_ticks })
                 }
             }
@@ -211,14 +217,19 @@ pub fn stage_system(
                     player_lives.0 = player_lives.0.saturating_sub(1);
 
                     if player_lives.0 > 0 {
+                        info!(remaining_lives = player_lives.0, "Player died, restarting level");
                         GameStage::LevelRestarting
                     } else {
+                        warn!("All lives lost, game over");
                         GameStage::GameOver
                     }
                 }
             }
         },
-        GameStage::LevelRestarting => GameStage::Starting(StartupSequence::CharactersVisible { remaining_ticks: 60 }),
+        GameStage::LevelRestarting => {
+            debug!("Level restart complete, returning to startup sequence");
+            GameStage::Starting(StartupSequence::CharactersVisible { remaining_ticks: 60 })
+        }
         GameStage::GameOver => GameStage::GameOver,
     };
 

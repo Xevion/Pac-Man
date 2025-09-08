@@ -13,6 +13,7 @@ use crate::{
         movement::{Position, Velocity},
     },
 };
+use tracing::{debug, trace, warn};
 
 use crate::systems::GhostAnimations;
 use bevy_ecs::query::Without;
@@ -45,8 +46,10 @@ pub fn ghost_movement_system(
 
                     let new_edge: Edge = if non_opposite_options.is_empty() {
                         if let Some(edge) = intersection.get(opposite) {
+                            trace!(node = current_node, ghost = ?_ghost, direction = ?opposite, "Ghost forced to reverse direction");
                             edge
                         } else {
+                            warn!(node = current_node, ghost = ?_ghost, "Ghost stuck with no available directions");
                             break;
                         }
                     } else {
@@ -118,6 +121,7 @@ pub fn eaten_ghost_system(
                     // Reached target node, check if we're at ghost house center
                     if to == ghost_house_center {
                         // Respawn the ghost - set state back to normal
+                        debug!(ghost = ?ghost_type, "Eaten ghost reached ghost house, respawning as normal");
                         *ghost_state = GhostState::Normal;
                         // Reset to stopped at ghost house center
                         *position = Position::Stopped {
@@ -194,6 +198,7 @@ pub fn ghost_state_system(
         // Only update animation if the animation state actually changed
         let current_animation_state = ghost_state.animation_state();
         if last_animation_state.0 != current_animation_state {
+            trace!(ghost = ?ghost_type, old_state = ?last_animation_state.0, new_state = ?current_animation_state, "Ghost animation state changed");
             match current_animation_state {
                 GhostAnimation::Frightened { flash } => {
                     // Remove DirectionalAnimation, add LinearAnimation with Looping component
@@ -212,6 +217,7 @@ pub fn ghost_state_system(
                 }
                 GhostAnimation::Eyes => {
                     // Remove LinearAnimation and Looping, add DirectionalAnimation (eyes animation)
+                    trace!(ghost = ?ghost_type, "Switching to eyes animation for eaten ghost");
                     commands
                         .entity(entity)
                         .remove::<(LinearAnimation, Looping)>()
