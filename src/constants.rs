@@ -25,11 +25,24 @@ pub const SCALE: f32 = 2.6;
 /// screen for score display, player lives, and other UI elements.
 pub const BOARD_CELL_OFFSET: UVec2 = UVec2::new(0, 3);
 
+/// Bottom HUD row offset to reserve space below the game board.
+///
+/// The 2-cell vertical offset (16 pixels) provides space at the bottom of the
+/// screen for displaying Pac-Man's lives (left) and fruit symbols (right).
+pub const BOARD_BOTTOM_CELL_OFFSET: UVec2 = UVec2::new(0, 2);
+
 /// Pixel-space equivalent of `BOARD_CELL_OFFSET` for rendering calculations.
 ///
 /// Automatically calculated from the cell offset to maintain consistency
 /// when the cell size changes. Used for positioning sprites and debug overlays.
 pub const BOARD_PIXEL_OFFSET: UVec2 = UVec2::new(BOARD_CELL_OFFSET.x * CELL_SIZE, BOARD_CELL_OFFSET.y * CELL_SIZE);
+
+/// Pixel-space equivalent of `BOARD_BOTTOM_CELL_OFFSET` for rendering calculations.
+///
+/// Automatically calculated from the cell offset to maintain consistency
+/// when the cell size changes. Used for positioning bottom HUD elements.
+pub const BOARD_BOTTOM_PIXEL_OFFSET: UVec2 =
+    UVec2::new(BOARD_BOTTOM_CELL_OFFSET.x * CELL_SIZE, BOARD_BOTTOM_CELL_OFFSET.y * CELL_SIZE);
 
 /// Animation timing constants for ghost state management
 pub mod animation {
@@ -45,15 +58,15 @@ pub mod animation {
 }
 /// The size of the canvas, in pixels.
 pub const CANVAS_SIZE: UVec2 = UVec2::new(
-    (BOARD_CELL_SIZE.x + BOARD_CELL_OFFSET.x) * CELL_SIZE,
-    (BOARD_CELL_SIZE.y + BOARD_CELL_OFFSET.y) * CELL_SIZE,
+    (BOARD_CELL_SIZE.x + BOARD_CELL_OFFSET.x + BOARD_BOTTOM_CELL_OFFSET.x) * CELL_SIZE,
+    (BOARD_CELL_SIZE.y + BOARD_CELL_OFFSET.y + BOARD_BOTTOM_CELL_OFFSET.y) * CELL_SIZE,
 );
 
 pub const LARGE_SCALE: f32 = 2.6;
 
 pub const LARGE_CANVAS_SIZE: UVec2 = UVec2::new(
-    (((BOARD_CELL_SIZE.x + BOARD_CELL_OFFSET.x) * CELL_SIZE) as f32 * LARGE_SCALE) as u32,
-    (((BOARD_CELL_SIZE.y + BOARD_CELL_OFFSET.y) * CELL_SIZE) as f32 * LARGE_SCALE) as u32,
+    (((BOARD_CELL_SIZE.x + BOARD_CELL_OFFSET.x + BOARD_BOTTOM_CELL_OFFSET.x) * CELL_SIZE) as f32 * LARGE_SCALE) as u32,
+    (((BOARD_CELL_SIZE.y + BOARD_CELL_OFFSET.y + BOARD_BOTTOM_CELL_OFFSET.y) * CELL_SIZE) as f32 * LARGE_SCALE) as u32,
 );
 
 /// Collider size constants for different entity types

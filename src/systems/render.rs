@@ -1,4 +1,5 @@
 use crate::map::builder::Map;
+use crate::map::direction::Direction;
 use crate::systems::input::TouchState;
 use crate::systems::{
     debug_render_system, BatchedLinesResource, Collider, CursorPosition, DebugState, DebugTextureResource, DeltaTime,
@@ -6,9 +7,10 @@ use crate::systems::{
     StartupSequence, SystemId, SystemTimings, TtfAtlasResource, Velocity,
 };
 use crate::texture::sprite::SpriteAtlas;
+use crate::texture::sprites::{GameSprite, PacmanSprite};
 use crate::texture::text::TextTexture;
 use crate::{
-    constants::CANVAS_SIZE,
+    constants::{BOARD_BOTTOM_PIXEL_OFFSET, CANVAS_SIZE, CELL_SIZE},
     error::{GameError, TextureError},
 };
 use bevy_ecs::component::Component;
@@ -218,12 +220,40 @@ pub fn hud_render_system(
         let mut text_renderer = TextTexture::new(1.0);
 
         // Render lives and high score text in white
-        let lives = player_lives.0;
-        let lives_text = format!("{lives}UP   HIGH SCORE   ");
+        let lives_text = "1UP   HIGH SCORE   ";
         let lives_position = glam::UVec2::new(4 + 8 * 3, 2); // x_offset + lives_offset * 8, y_offset
 
-        if let Err(e) = text_renderer.render(canvas, &mut atlas, &lives_text, lives_position) {
+        if let Err(e) = text_renderer.render(canvas, &mut atlas, lives_text, lives_position) {
             errors.write(TextureError::RenderFailed(format!("Failed to render lives text: {}", e)).into());
+        }
+
+        // Render Pac-Man life sprites in bottom left
+        let lives = player_lives.0;
+        let life_sprite_path = &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path();
+
+        // Get the sprite from the atlas for life display
+        match atlas.get_tile(life_sprite_path) {
+            Ok(life_sprite) => {
+                let start_x = CELL_SIZE * 2; // 2 cells from left
+                let start_y = CANVAS_SIZE.y - BOARD_BOTTOM_PIXEL_OFFSET.y + (CELL_SIZE / 2) + 1; // In bottom area
+                let sprite_spacing = CELL_SIZE + CELL_SIZE / 2; // 1.5 cells between sprites
+
+                // Render one sprite for each remaining life (lives - 1, since current life isn't shown)
+                let sprites_to_show = if lives > 0 { lives - 1 } else { 0 };
+                for i in 0..sprites_to_show {
+                    let x = start_x + ((i as f32) * (sprite_spacing as f32 * 1.5)).round() as u32;
+                    let y = start_y - CELL_SIZE / 2;
+
+                    let dest = sdl2::rect::Rect::new(x as i32, y as i32, life_sprite.size.x as u32, life_sprite.size.y as u32);
+
+                    if let Err(e) = life_sprite.render(canvas, &mut atlas, dest) {
+                        errors.write(TextureError::RenderFailed(format!("Failed to render life sprite: {}", e)).into());
+                    }
+                }
+            }
+            Err(e) => {
+                errors.write(e.into());
+            }
         }
 
         // Render score text
