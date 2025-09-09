@@ -3,9 +3,11 @@
 #[cfg(not(target_os = "emscripten"))]
 mod desktop;
 #[cfg(not(target_os = "emscripten"))]
-pub mod tracing_buffer;
-#[cfg(not(target_os = "emscripten"))]
 pub use desktop::*;
+
+/// Tracing buffer is only used on Windows.
+#[cfg(target_os = "windows")]
+pub mod tracing_buffer;
 
 #[cfg(target_os = "emscripten")]
 pub use emscripten::*;
