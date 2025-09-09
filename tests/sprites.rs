@@ -2,7 +2,7 @@
 use pacman::{
     game::ATLAS_FRAMES,
     map::direction::Direction,
-    systems::components::Ghost,
+    systems::Ghost,
     texture::sprites::{FrightenedColor, GameSprite, GhostSprite, MazeSprite, PacmanSprite},
 };
 

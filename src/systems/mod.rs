@@ -9,9 +9,10 @@ pub mod profiling;
 #[cfg_attr(coverage_nightly, coverage(off))]
 pub mod render;
 
+pub mod animation;
 pub mod blinking;
 pub mod collision;
-pub mod components;
+pub mod common;
 pub mod ghost;
 pub mod input;
 pub mod item;
@@ -22,10 +23,11 @@ pub mod state;
 
 // Re-export all the modules. Do not fine-tune the exports.
 
+pub use self::animation::*;
 pub use self::audio::*;
 pub use self::blinking::*;
 pub use self::collision::*;
-pub use self::components::*;
+pub use self::common::*;
 pub use self::debug::*;
 pub use self::ghost::*;
 pub use self::input::*;

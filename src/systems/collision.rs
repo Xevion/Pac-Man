@@ -7,13 +7,10 @@ use bevy_ecs::{
 };
 use tracing::{debug, trace, warn};
 
-use crate::error::GameError;
 use crate::events::{GameEvent, StageTransition};
 use crate::map::builder::Map;
-use crate::systems::{
-    components::GhostState, movement::Position, AudioEvent, DyingSequence, Frozen, GameStage, Ghost, PlayerControlled,
-    ScoreResource,
-};
+use crate::systems::{movement::Position, AudioEvent, DyingSequence, Frozen, GameStage, Ghost, PlayerControlled, ScoreResource};
+use crate::{error::GameError, systems::GhostState};
 
 /// A component for defining the collision area of an entity.
 #[derive(Component)]

@@ -42,8 +42,7 @@ use crate::{
     asset::{get_asset_bytes, Asset},
     events::GameCommand,
     map::render::MapRenderer,
-    systems::debug::{BatchedLinesResource, TtfAtlasResource},
-    systems::input::{Bindings, CursorPosition},
+    systems::{BatchedLinesResource, Bindings, CursorPosition, TtfAtlasResource},
     texture::sprite::{AtlasMapper, SpriteAtlas},
 };
 

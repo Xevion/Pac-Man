@@ -3,7 +3,7 @@ use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE};
 use crate::map::direction::Direction;
 use crate::map::graph::{Graph, Node, TraversalFlags};
 use crate::map::parser::MapTileParser;
-use crate::systems::movement::NodeId;
+use crate::systems::NodeId;
 use bevy_ecs::resource::Resource;
 use glam::{I8Vec2, IVec2, Vec2};
 use std::collections::{HashMap, VecDeque};

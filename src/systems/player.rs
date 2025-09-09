@@ -1,4 +1,5 @@
 use bevy_ecs::{
+    component::Component,
     event::EventReader,
     query::{With, Without},
     system::{Query, Res, ResMut, Single},
@@ -9,12 +10,16 @@ use crate::{
     events::{GameCommand, GameEvent},
     map::{builder::Map, graph::Edge},
     systems::{
-        components::{DeltaTime, EntityType, Frozen, GlobalState, MovementModifiers, PlayerControlled},
+        components::{DeltaTime, EntityType, Frozen, GlobalState, MovementModifiers},
         debug::DebugState,
         movement::{BufferedDirection, Position, Velocity},
         AudioState,
     },
 };
+
+/// A tag component for entities that are controlled by the player.
+#[derive(Default, Component)]
+pub struct PlayerControlled;
 
 pub fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
     let entity_flags = entity_type.traversal_flags();

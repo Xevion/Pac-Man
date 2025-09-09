@@ -1,12 +1,10 @@
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
-use crate::systems::input::TouchState;
 use crate::systems::{
-    debug_render_system, BatchedLinesResource, Collider, CursorPosition, DebugState, DebugTextureResource, DeltaTime,
-    DirectionalAnimation, Dying, Frozen, GameStage, LinearAnimation, Looping, PlayerLife, PlayerLives, Position, Renderable,
-    ScoreResource, StartupSequence, SystemId, SystemTimings, TtfAtlasResource, Velocity,
+    debug_render_system, BatchedLinesResource, Collider, CursorPosition, DebugState, DebugTextureResource, GameStage, PlayerLife,
+    PlayerLives, Position, ScoreResource, StartupSequence, SystemId, SystemTimings, TouchState, TtfAtlasResource,
 };
-use crate::texture::sprite::SpriteAtlas;
+use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 use crate::texture::sprites::{GameSprite, PacmanSprite};
 use crate::texture::text::TextTexture;
 use crate::{
@@ -16,7 +14,7 @@ use crate::{
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
-use bevy_ecs::query::{Changed, Has, Or, With, Without};
+use bevy_ecs::query::{Changed, Or, With, Without};
 use bevy_ecs::removal_detection::RemovedComponents;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{Commands, NonSendMut, Query, Res, ResMut};
@@ -26,6 +24,15 @@ use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Canvas, Texture};
 use sdl2::video::Window;
 use std::time::Instant;
+
+/// A component for entities that have a sprite, with a layer for ordering.
+///
+/// This is intended to be modified by other entities allowing animation.
+#[derive(Component)]
+pub struct Renderable {
+    pub sprite: AtlasTile,
+    pub layer: u8,
+}
 
 #[derive(Resource, Default)]
 pub struct RenderDirty(pub bool);
@@ -53,77 +60,6 @@ pub fn dirty_render_system(
 
     if changed_count > 0 || removed_hidden_count > 0 || removed_renderables_count > 0 {
         dirty.0 = true;
-    }
-}
-
-/// Updates directional animated entities with synchronized timing across directions.
-///
-/// This runs before the render system to update sprites based on current direction and movement state.
-/// All directions share the same frame timing to ensure perfect synchronization.
-pub fn directional_render_system(
-    dt: Res<DeltaTime>,
-    mut query: Query<(&Position, &Velocity, &mut DirectionalAnimation, &mut Renderable), Without<Frozen>>,
-) {
-    let ticks = (dt.seconds * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
-
-    for (position, velocity, mut anim, mut renderable) in query.iter_mut() {
-        let stopped = matches!(position, Position::Stopped { .. });
-
-        // Only tick animation when moving to preserve stopped frame
-        if !stopped {
-            // Tick shared animation state
-            anim.time_bank += ticks;
-            while anim.time_bank >= anim.frame_duration {
-                anim.time_bank -= anim.frame_duration;
-                anim.current_frame += 1;
-            }
-        }
-
-        // Get tiles for current direction and movement state
-        let tiles = if stopped {
-            anim.stopped_tiles.get(velocity.direction)
-        } else {
-            anim.moving_tiles.get(velocity.direction)
-        };
-
-        if !tiles.is_empty() {
-            let new_tile = tiles.get_tile(anim.current_frame);
-            if renderable.sprite != new_tile {
-                renderable.sprite = new_tile;
-            }
-        }
-    }
-}
-
-/// System that updates `Renderable` sprites for entities with `LinearAnimation`.
-#[allow(clippy::type_complexity)]
-pub fn linear_render_system(
-    dt: Res<DeltaTime>,
-    mut query: Query<(&mut LinearAnimation, &mut Renderable, Has<Looping>), Or<(Without<Frozen>, With<Dying>)>>,
-) {
-    for (mut anim, mut renderable, looping) in query.iter_mut() {
-        if anim.finished {
-            continue;
-        }
-
-        anim.time_bank += dt.ticks as u16;
-        let frames_to_advance = (anim.time_bank / anim.frame_duration) as usize;
-
-        if frames_to_advance == 0 {
-            continue;
-        }
-
-        let total_frames = anim.tiles.len();
-
-        if !looping && anim.current_frame + frames_to_advance >= total_frames {
-            anim.finished = true;
-            anim.current_frame = total_frames - 1;
-        } else {
-            anim.current_frame += frames_to_advance;
-        }
-
-        anim.time_bank %= anim.frame_duration;
-        renderable.sprite = anim.tiles.get_tile(anim.current_frame);
     }
 }
 

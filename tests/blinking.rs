@@ -1,9 +1,5 @@
 use bevy_ecs::{entity::Entity, system::RunSystemOnce, world::World};
-use pacman::systems::{
-    blinking::{blinking_system, Blinking},
-    components::{DeltaTime, Renderable},
-    Frozen, Hidden,
-};
+use pacman::systems::{blinking_system, Blinking, DeltaTime, Frozen, Hidden, Renderable};
 use speculoos::prelude::*;
 
 mod common;

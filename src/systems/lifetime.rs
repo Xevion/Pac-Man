@@ -4,7 +4,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 
-use crate::systems::components::DeltaTime;
+use crate::systems::DeltaTime;
 
 /// Component for entities that should be automatically deleted after a certain number of ticks
 #[derive(Component, Debug, Clone, Copy)]

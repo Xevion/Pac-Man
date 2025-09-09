@@ -13,7 +13,7 @@ use sdl2::{
 };
 use smallvec::{smallvec, SmallVec};
 
-use crate::systems::components::DeltaTime;
+use crate::systems::DeltaTime;
 use crate::{
     events::{GameCommand, GameEvent},
     map::direction::Direction,

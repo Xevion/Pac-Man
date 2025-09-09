@@ -1,7 +1,7 @@
+use std::collections::HashMap;
+
 use crate::platform;
-use crate::systems::components::{
-    DirectionalAnimation, Frozen, GhostAnimation, GhostState, LastAnimationState, LinearAnimation, Looping,
-};
+use crate::systems::{DirectionalAnimation, Frozen, LinearAnimation, Looping};
 use crate::{
     map::{
         builder::Map,
@@ -9,17 +9,200 @@ use crate::{
         graph::{Edge, TraversalFlags},
     },
     systems::{
-        components::{DeltaTime, Ghost},
+        components::DeltaTime,
         movement::{Position, Velocity},
     },
 };
+use bevy_ecs::component::Component;
+use bevy_ecs::resource::Resource;
 use tracing::{debug, trace, warn};
 
-use crate::systems::GhostAnimations;
 use bevy_ecs::query::Without;
 use bevy_ecs::system::{Commands, Query, Res};
 use rand::seq::IndexedRandom;
 use smallvec::SmallVec;
+
+/// Tag component for eaten ghosts
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Eaten;
+
+/// Tag component for Pac-Man during his death animation.
+/// This is mainly because the Frozen tag would stop both movement and animation, while the Dying tag can signal that the animation should continue despite being frozen.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Dying;
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Ghost {
+    Blinky,
+    Pinky,
+    Inky,
+    Clyde,
+}
+
+impl Ghost {
+    /// Returns the ghost type name for atlas lookups.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Ghost::Blinky => "blinky",
+            Ghost::Pinky => "pinky",
+            Ghost::Inky => "inky",
+            Ghost::Clyde => "clyde",
+        }
+    }
+
+    /// Returns the base movement speed for this ghost type.
+    pub fn base_speed(self) -> f32 {
+        match self {
+            Ghost::Blinky => 1.0,
+            Ghost::Pinky => 0.95,
+            Ghost::Inky => 0.9,
+            Ghost::Clyde => 0.85,
+        }
+    }
+
+    /// Returns the ghost's color for debug rendering.
+    #[allow(dead_code)]
+    pub fn debug_color(&self) -> sdl2::pixels::Color {
+        match self {
+            Ghost::Blinky => sdl2::pixels::Color::RGB(255, 0, 0),    // Red
+            Ghost::Pinky => sdl2::pixels::Color::RGB(255, 182, 255), // Pink
+            Ghost::Inky => sdl2::pixels::Color::RGB(0, 255, 255),    // Cyan
+            Ghost::Clyde => sdl2::pixels::Color::RGB(255, 182, 85),  // Orange
+        }
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+pub enum GhostState {
+    /// Normal ghost behavior - chasing Pac-Man
+    Normal,
+    /// Frightened state after power pellet - ghost can be eaten
+    Frightened {
+        remaining_ticks: u32,
+        flash: bool,
+        remaining_flash_ticks: u32,
+    },
+    /// Eyes state - ghost has been eaten and is returning to ghost house
+    Eyes,
+}
+
+impl GhostState {
+    /// Creates a new frightened state with the specified duration
+    pub fn new_frightened(total_ticks: u32, flash_start_ticks: u32) -> Self {
+        Self::Frightened {
+            remaining_ticks: total_ticks,
+            flash: false,
+            remaining_flash_ticks: flash_start_ticks, // Time until flashing starts
+        }
+    }
+
+    /// Ticks the ghost state, returning true if the state changed.
+    pub fn tick(&mut self) -> bool {
+        if let GhostState::Frightened {
+            remaining_ticks,
+            flash,
+            remaining_flash_ticks,
+        } = self
+        {
+            // Transition out of frightened state
+            if *remaining_ticks == 0 {
+                *self = GhostState::Normal;
+                return true;
+            }
+
+            *remaining_ticks -= 1;
+
+            if *remaining_flash_ticks > 0 {
+                *remaining_flash_ticks = remaining_flash_ticks.saturating_sub(1);
+                if *remaining_flash_ticks == 0 {
+                    *flash = true;
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Returns the appropriate animation state for this ghost state
+    pub fn animation_state(&self) -> GhostAnimation {
+        match self {
+            GhostState::Normal => GhostAnimation::Normal,
+            GhostState::Eyes => GhostAnimation::Eyes,
+            GhostState::Frightened { flash: false, .. } => GhostAnimation::Frightened { flash: false },
+            GhostState::Frightened { flash: true, .. } => GhostAnimation::Frightened { flash: true },
+        }
+    }
+}
+
+/// Enumeration of different ghost animation states.
+/// Note that this is used in micromap which has a fixed size based on the number of variants,
+/// so extending this should be done with caution, and will require updating the micromap's capacity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GhostAnimation {
+    /// Normal ghost appearance with directional movement animations
+    Normal,
+    /// Blue ghost appearance when vulnerable (power pellet active)
+    Frightened { flash: bool },
+    /// Eyes-only animation when ghost has been consumed by Pac-Man (Eaten state)
+    Eyes,
+}
+
+/// Global resource containing pre-loaded animation sets for all ghost types.
+///
+/// This resource is initialized once during game startup and provides O(1) access
+/// to animation sets for each ghost type. The animation system uses this resource
+/// to efficiently switch between different ghost states without runtime asset loading.
+///
+/// The HashMap is keyed by `Ghost` enum variants (Blinky, Pinky, Inky, Clyde) and
+/// contains the normal directional animation for each ghost type.
+#[derive(Resource)]
+pub struct GhostAnimations {
+    pub normal: HashMap<Ghost, DirectionalAnimation>,
+    pub eyes: DirectionalAnimation,
+    pub frightened: LinearAnimation,
+    pub frightened_flashing: LinearAnimation,
+}
+
+impl GhostAnimations {
+    /// Creates a new GhostAnimations resource with the provided data.
+    pub fn new(
+        normal: HashMap<Ghost, DirectionalAnimation>,
+        eyes: DirectionalAnimation,
+        frightened: LinearAnimation,
+        frightened_flashing: LinearAnimation,
+    ) -> Self {
+        Self {
+            normal,
+            eyes,
+            frightened,
+            frightened_flashing,
+        }
+    }
+
+    /// Gets the normal directional animation for the specified ghost type.
+    pub fn get_normal(&self, ghost_type: &Ghost) -> Option<&DirectionalAnimation> {
+        self.normal.get(ghost_type)
+    }
+
+    /// Gets the eyes animation (shared across all ghosts).
+    pub fn eyes(&self) -> &DirectionalAnimation {
+        &self.eyes
+    }
+
+    /// Gets the frightened animations (shared across all ghosts).
+    pub fn frightened(&self, flash: bool) -> &LinearAnimation {
+        if flash {
+            &self.frightened_flashing
+        } else {
+            &self.frightened
+        }
+    }
+}
 
 /// Autonomous ghost AI system implementing randomized movement with backtracking avoidance.
 pub fn ghost_movement_system(
@@ -184,6 +367,10 @@ fn find_direction_to_target(
 
     None
 }
+
+/// Component to track the last animation state for efficient change detection
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub struct LastAnimationState(pub GhostAnimation);
 
 /// Unified system that manages ghost state transitions and animations with component swapping
 pub fn ghost_state_system(
