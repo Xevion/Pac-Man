@@ -1,5 +1,5 @@
 use bevy_ecs::{entity::Entity, system::RunSystemOnce};
-use pacman::systems::{is_valid_item_collision, item_system, EntityType, GhostState, Position, ScoreResource};
+use pacman::systems::{item_system, EntityType, GhostState, Position, ScoreResource};
 use speculoos::prelude::*;
 
 mod common;
@@ -22,21 +22,6 @@ fn test_is_collectible_item() {
     // Non-collectible
     assert_that(&EntityType::Player.is_collectible()).is_false();
     assert_that(&EntityType::Ghost.is_collectible()).is_false();
-}
-
-#[test]
-fn test_is_valid_item_collision() {
-    // Player-item collisions should be valid
-    assert_that(&is_valid_item_collision(EntityType::Player, EntityType::Pellet)).is_true();
-    assert_that(&is_valid_item_collision(EntityType::Player, EntityType::PowerPellet)).is_true();
-    assert_that(&is_valid_item_collision(EntityType::Pellet, EntityType::Player)).is_true();
-    assert_that(&is_valid_item_collision(EntityType::PowerPellet, EntityType::Player)).is_true();
-
-    // Non-player-item collisions should be invalid
-    assert_that(&is_valid_item_collision(EntityType::Player, EntityType::Ghost)).is_false();
-    assert_that(&is_valid_item_collision(EntityType::Ghost, EntityType::Pellet)).is_false();
-    assert_that(&is_valid_item_collision(EntityType::Pellet, EntityType::PowerPellet)).is_false();
-    assert_that(&is_valid_item_collision(EntityType::Player, EntityType::Player)).is_false();
 }
 
 #[test]

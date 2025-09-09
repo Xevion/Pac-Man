@@ -1,5 +1,6 @@
 //! This module contains all the systems in the game.
 
+// These modules are excluded from coverage.
 #[cfg_attr(coverage_nightly, coverage(off))]
 pub mod audio;
 #[cfg_attr(coverage_nightly, coverage(off))]

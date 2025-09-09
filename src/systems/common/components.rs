@@ -1,6 +1,6 @@
 use bevy_ecs::{component::Component, resource::Resource};
 
-use crate::map::graph::TraversalFlags;
+use crate::{map::graph::TraversalFlags, systems::FruitType};
 
 /// A tag component denoting the type of entity.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -9,7 +9,8 @@ pub enum EntityType {
     Ghost,
     Pellet,
     PowerPellet,
-    Fruit(crate::texture::sprites::FruitSprite),
+    Fruit(FruitType),
+    Effect,
 }
 
 impl EntityType {

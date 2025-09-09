@@ -1,10 +1,12 @@
 // Note: This disables the console window on Windows. We manually re-attach to the parent terminal or process later on.
 #![windows_subsystem = "windows"]
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+#![cfg_attr(coverage_nightly, coverage(off))]
 
 use crate::{app::App, constants::LOOP_TIME};
 use tracing::info;
 
+// These modules are excluded from coverage.
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod app;
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -29,7 +31,6 @@ mod texture;
 ///
 /// This function initializes SDL, the window, the game state, and then enters
 /// the main game loop.
-#[cfg_attr(coverage_nightly, coverage(off))]
 pub fn main() {
     // On Windows, this connects output streams to the console dynamically
     // On Emscripten, this connects the subscriber to the browser console

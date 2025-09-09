@@ -14,7 +14,8 @@ use pacman::{
     },
     systems::{
         AudioEvent, AudioState, BufferedDirection, Collider, DebugState, DeltaTime, EntityType, Ghost, GhostCollider, GhostState,
-        GlobalState, ItemCollider, MovementModifiers, PacmanCollider, PlayerControlled, Position, ScoreResource, Velocity,
+        GlobalState, ItemCollider, MovementModifiers, PacmanCollider, PelletCount, PlayerControlled, Position, ScoreResource,
+        Velocity,
     },
     texture::sprite::{AtlasMapper, AtlasTile, SpriteAtlas},
 };
@@ -85,6 +86,7 @@ pub fn create_test_world() -> World {
     world.insert_resource(AudioState::default());
     world.insert_resource(GlobalState { exit: false });
     world.insert_resource(DebugState::default());
+    world.insert_resource(PelletCount(0));
     world.insert_resource(DeltaTime {
         seconds: 1.0 / 60.0,
         ticks: 1,

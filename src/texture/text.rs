@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 //! This module provides text rendering using the texture atlas.
 //!
 //! The TextTexture system renders text from the atlas using character mapping.
@@ -109,6 +107,7 @@ impl TextTexture {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_char_map(&self) -> &HashMap<char, AtlasTile> {
         &self.char_map
     }
@@ -165,26 +164,6 @@ impl TextTexture {
         }
 
         Ok(())
-    }
-
-    /// Sets the default color for text rendering.
-    pub fn set_color(&mut self, color: Color) {
-        self.default_color = Some(color);
-    }
-
-    /// Gets the current default color.
-    pub fn color(&self) -> Option<Color> {
-        self.default_color
-    }
-
-    /// Sets the scale for text rendering.
-    pub fn set_scale(&mut self, scale: f32) {
-        self.scale = scale;
-    }
-
-    /// Gets the current scale.
-    pub fn scale(&self) -> f32 {
-        self.scale
     }
 
     /// Calculates the width of a string in pixels at the current scale.

@@ -1,5 +1,4 @@
 //! Debug rendering system
-#[cfg_attr(coverage_nightly, feature(coverage_attribute))]
 use crate::constants::{self, BOARD_PIXEL_OFFSET};
 use crate::map::builder::Map;
 use crate::systems::{Collider, CursorPosition, NodeId, Position, SystemTimings};

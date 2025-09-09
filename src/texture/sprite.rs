@@ -58,19 +58,6 @@ impl AtlasTile {
         canvas.copy(&atlas.texture, src, dest).map_err(TextureError::RenderFailed)?;
         Ok(())
     }
-
-    /// Creates a new atlas tile.
-    #[allow(dead_code)]
-    pub fn new(pos: U16Vec2, size: U16Vec2, color: Option<Color>) -> Self {
-        Self { pos, size, color }
-    }
-
-    /// Sets the color of the tile.
-    #[allow(dead_code)]
-    pub fn with_color(mut self, color: Color) -> Self {
-        self.color = Some(color);
-        self
-    }
 }
 
 /// High-performance sprite atlas providing fast texture region lookups and rendering.
@@ -119,33 +106,5 @@ impl SpriteAtlas {
             size: frame.size,
             color: self.default_color,
         })
-    }
-
-    #[allow(dead_code)]
-    pub fn set_color(&mut self, color: Color) {
-        self.default_color = Some(color);
-    }
-
-    #[allow(dead_code)]
-    pub fn texture(&self) -> &Texture {
-        &self.texture
-    }
-
-    /// Returns the number of tiles in the atlas.
-    #[allow(dead_code)]
-    pub fn tiles_count(&self) -> usize {
-        self.tiles.len()
-    }
-
-    /// Returns true if the atlas has a tile with the given name.
-    #[allow(dead_code)]
-    pub fn has_tile(&self, name: &str) -> bool {
-        self.tiles.contains_key(name)
-    }
-
-    /// Returns the default color of the atlas.
-    #[allow(dead_code)]
-    pub fn default_color(&self) -> Option<Color> {
-        self.default_color
     }
 }

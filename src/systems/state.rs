@@ -2,20 +2,20 @@ use std::mem::discriminant;
 use tracing::{debug, info, warn};
 
 use crate::events::StageTransition;
+use crate::systems::SpawnTrigger;
 use crate::{
     map::builder::Map,
     systems::{
         AudioEvent, Blinking, DirectionalAnimation, Dying, Eaten, Frozen, Ghost, GhostCollider, GhostState, Hidden,
-        LinearAnimation, Looping, NodeId, PlayerControlled, Position, Renderable, TimeToLive,
+        LinearAnimation, Looping, NodeId, PlayerControlled, Position,
     },
-    texture::{animated::TileSequence, sprite::SpriteAtlas},
 };
 use bevy_ecs::{
     entity::Entity,
     event::{EventReader, EventWriter},
     query::{With, Without},
     resource::Resource,
-    system::{Commands, NonSendMut, Query, Res, ResMut, Single},
+    system::{Commands, Query, Res, ResMut, Single},
 };
 
 #[derive(Resource, Clone)]
@@ -92,24 +92,6 @@ impl Default for PlayerLives {
 }
 
 /// Handles startup sequence transitions and component management
-/// Maps sprite index to the corresponding effect sprite path
-fn sprite_index_to_path(index: u8) -> &'static str {
-    match index {
-        0 => "effects/100.png",
-        1 => "effects/200.png",
-        2 => "effects/300.png",
-        3 => "effects/400.png",
-        4 => "effects/700.png",
-        5 => "effects/800.png",
-        6 => "effects/1000.png",
-        7 => "effects/1600.png",
-        8 => "effects/2000.png",
-        9 => "effects/3000.png",
-        10 => "effects/5000.png",
-        _ => "effects/200.png", // fallback to index 1
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
 pub fn stage_system(
@@ -124,7 +106,6 @@ pub fn stage_system(
     mut blinking_query: Query<Entity, With<Blinking>>,
     player: Single<(Entity, &mut Position), With<PlayerControlled>>,
     mut ghost_query: Query<(Entity, &Ghost, &mut Position), (With<GhostCollider>, Without<PlayerControlled>)>,
-    atlas: NonSendMut<SpriteAtlas>,
 ) {
     let old_state = *game_state;
     let mut new_state: Option<GameStage> = None;
@@ -246,23 +227,12 @@ pub fn stage_system(
             commands.entity(ghost_entity).insert(Hidden);
 
             // Spawn bonus points entity at Pac-Man's position
-            let sprite_index = 1; // Index 1 = 200 points (default for ghost eating)
-            let sprite_path = sprite_index_to_path(sprite_index);
-
-            if let Ok(sprite_tile) = SpriteAtlas::get_tile(&atlas, sprite_path) {
-                let tile_sequence = TileSequence::single(sprite_tile);
-                let animation = LinearAnimation::new(tile_sequence, 1);
-
-                commands.spawn((
-                    Position::Stopped { node },
-                    Renderable {
-                        sprite: sprite_tile,
-                        layer: 2, // Above other entities
-                    },
-                    animation,
-                    TimeToLive::new(30),
-                ));
-            }
+            commands.trigger(SpawnTrigger::Bonus {
+                position: Position::Stopped { node },
+                // TODO: Doubling score value for each consecutive ghost eaten
+                value: 200,
+                ttl: 30,
+            });
         }
         (GameStage::GhostEatenPause { ghost_entity, .. }, GameStage::Playing) => {
             // Unfreeze and reveal the player & all ghosts

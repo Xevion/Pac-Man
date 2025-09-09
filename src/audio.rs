@@ -12,7 +12,6 @@ const SOUND_ASSETS: [Asset; 4] = [Asset::Wav1, Asset::Wav2, Asset::Wav3, Asset::
 /// This struct is responsible for initializing the audio device, loading sounds,
 /// and playing them. If audio fails to initialize, it will be disabled and all
 /// functions will silently do nothing.
-#[allow(dead_code)]
 pub struct Audio {
     _mixer_context: Option<mixer::Sdl2MixerContext>,
     sounds: Vec<Chunk>,
@@ -144,7 +143,6 @@ impl Audio {
     /// Automatically rotates through the four eating sound assets. The sound plays on channel 0 and the internal sound index
     /// advances to the next variant. Silently returns if audio is disabled, muted,
     /// or no sounds were loaded successfully.
-    #[allow(dead_code)]
     pub fn eat(&mut self) {
         if self.disabled || self.muted || self.sounds.is_empty() {
             return;
@@ -211,7 +209,6 @@ impl Audio {
     /// Audio can be disabled due to SDL2_mixer initialization failures, missing
     /// audio device, or failure to load any sound assets. When disabled, all
     /// audio operations become no-ops.
-    #[allow(dead_code)]
     pub fn is_disabled(&self) -> bool {
         self.disabled
     }

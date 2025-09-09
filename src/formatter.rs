@@ -150,11 +150,3 @@ pub fn increment_tick() {
 pub fn get_tick_count() -> u64 {
     TICK_COUNTER.load(Ordering::Relaxed)
 }
-
-/// Reset the tick counter to 0
-///
-/// This can be used for testing or when restarting the game
-#[allow(dead_code)]
-pub fn reset_tick_counter() {
-    TICK_COUNTER.store(0, Ordering::Relaxed);
-}

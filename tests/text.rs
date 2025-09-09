@@ -81,44 +81,20 @@ fn test_text_scale() -> Result<(), String> {
     let string = "ABCDEFG !-/\"";
     let base_width = (string.len() * 8) as u32;
 
-    let mut text_texture = TextTexture::new(0.5);
-
-    assert_that(&text_texture.scale()).is_equal_to(0.5);
+    let text_texture = TextTexture::new(0.5);
     assert_that(&text_texture.text_height()).is_equal_to(4);
     assert_that(&text_texture.text_width("")).is_equal_to(0);
     assert_that(&text_texture.text_width(string)).is_equal_to(base_width / 2);
 
-    text_texture.set_scale(2.0);
-    assert_that(&text_texture.scale()).is_equal_to(2.0);
+    let text_texture = TextTexture::new(2.0);
     assert_that(&text_texture.text_height()).is_equal_to(16);
     assert_that(&text_texture.text_width(string)).is_equal_to(base_width * 2);
     assert_that(&text_texture.text_width("")).is_equal_to(0);
 
-    text_texture.set_scale(1.0);
-    assert_that(&text_texture.scale()).is_equal_to(1.0);
+    let text_texture = TextTexture::new(1.0);
     assert_that(&text_texture.text_height()).is_equal_to(8);
     assert_that(&text_texture.text_width(string)).is_equal_to(base_width);
     assert_that(&text_texture.text_width("")).is_equal_to(0);
-
-    Ok(())
-}
-
-#[test]
-fn test_text_color() -> Result<(), String> {
-    let mut text_texture = TextTexture::new(1.0);
-
-    // Test default color (should be None initially)
-    assert_that(&text_texture.color()).is_equal_to(None);
-
-    // Test setting color
-    let test_color = sdl2::pixels::Color::YELLOW;
-    text_texture.set_color(test_color);
-    assert_that(&text_texture.color()).is_equal_to(Some(test_color));
-
-    // Test changing color
-    let new_color = sdl2::pixels::Color::RED;
-    text_texture.set_color(new_color);
-    assert_that(&text_texture.color()).is_equal_to(Some(new_color));
 
     Ok(())
 }

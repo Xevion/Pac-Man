@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 //! Cross-platform asset loading abstraction.
 //! On desktop, assets are embedded using include_bytes!; on Emscripten, assets are loaded from the filesystem.
 
@@ -62,7 +61,7 @@ mod imp {
     /// Returns `AssetError::NotFound` if the asset file cannot be located (Emscripten only),
     /// or `AssetError::Io` for filesystem I/O failures.
     pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
-        trace!(asset = ?asset, path = asset.path(), "Loading game asset");
+        trace!(asset = ?asset, "Loading game asset");
         let result = platform::get_asset_bytes(asset);
         match &result {
             Ok(bytes) => trace!(asset = ?asset, size_bytes = bytes.len(), "Asset loaded successfully"),

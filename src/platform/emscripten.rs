@@ -11,11 +11,8 @@ use std::io::{self, Read, Write};
 use std::time::Duration;
 
 // Emscripten FFI functions
-#[allow(dead_code)]
 extern "C" {
     fn emscripten_sleep(ms: u32);
-    fn emscripten_get_element_css_size(target: *const u8, width: *mut f64, height: *mut f64) -> i32;
-    // Standard C functions that Emscripten redirects to console
     fn printf(format: *const u8, ...) -> i32;
 }
 
@@ -63,20 +60,6 @@ impl Write for EmscriptenConsoleWriter {
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
-}
-
-#[allow(dead_code)]
-pub fn get_canvas_size() -> Option<(u32, u32)> {
-    let mut width = 0.0;
-    let mut height = 0.0;
-
-    unsafe {
-        emscripten_get_element_css_size(c"canvas".as_ptr().cast(), &mut width, &mut height);
-        if width == 0.0 || height == 0.0 {
-            return None;
-        }
-    }
-    Some((width as u32, height as u32))
 }
 
 pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {

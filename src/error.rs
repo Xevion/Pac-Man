@@ -46,6 +46,7 @@ pub enum AssetError {
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
 
+    // This error is only possible on Emscripten, as the assets are loaded from a 'filesystem' of sorts (while on Desktop, they are included in the binary at compile time)
     #[allow(dead_code)]
     #[error("Asset not found: {0}")]
     NotFound(String),
@@ -53,12 +54,9 @@ pub enum AssetError {
 
 /// Platform-specific errors.
 #[derive(thiserror::Error, Debug)]
-#[allow(dead_code)]
 pub enum PlatformError {
     #[error("Console initialization failed: {0}")]
     ConsoleInit(String),
-    #[error("Platform-specific error: {0}")]
-    Other(String),
 }
 
 /// Error type for map parsing operations.
@@ -110,55 +108,3 @@ pub enum MapError {
 
 /// Result type for game operations.
 pub type GameResult<T> = Result<T, GameError>;
-
-/// Helper trait for converting other error types to GameError.
-pub trait IntoGameError<T> {
-    #[allow(dead_code)]
-    fn into_game_error(self) -> GameResult<T>;
-}
-
-impl<T, E> IntoGameError<T> for Result<T, E>
-where
-    E: std::error::Error + Send + Sync + 'static,
-{
-    fn into_game_error(self) -> GameResult<T> {
-        self.map_err(|e| GameError::InvalidState(e.to_string()))
-    }
-}
-
-/// Helper trait for converting Option to GameResult with a custom error.
-pub trait OptionExt<T> {
-    #[allow(dead_code)]
-    fn ok_or_game_error<F>(self, f: F) -> GameResult<T>
-    where
-        F: FnOnce() -> GameError;
-}
-
-impl<T> OptionExt<T> for Option<T> {
-    fn ok_or_game_error<F>(self, f: F) -> GameResult<T>
-    where
-        F: FnOnce() -> GameError,
-    {
-        self.ok_or_else(f)
-    }
-}
-
-/// Helper trait for converting Result to GameResult with context.
-pub trait ResultExt<T, E> {
-    #[allow(dead_code)]
-    fn with_context<F>(self, f: F) -> GameResult<T>
-    where
-        F: FnOnce(&E) -> GameError;
-}
-
-impl<T, E> ResultExt<T, E> for Result<T, E>
-where
-    E: std::error::Error + Send + Sync + 'static,
-{
-    fn with_context<F>(self, f: F) -> GameResult<T>
-    where
-        F: FnOnce(&E) -> GameError,
-    {
-        self.map_err(|e| f(&e))
-    }
-}

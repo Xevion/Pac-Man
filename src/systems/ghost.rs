@@ -59,17 +59,6 @@ impl Ghost {
             Ghost::Clyde => 0.85,
         }
     }
-
-    /// Returns the ghost's color for debug rendering.
-    #[allow(dead_code)]
-    pub fn debug_color(&self) -> sdl2::pixels::Color {
-        match self {
-            Ghost::Blinky => sdl2::pixels::Color::RGB(255, 0, 0),    // Red
-            Ghost::Pinky => sdl2::pixels::Color::RGB(255, 182, 255), // Pink
-            Ghost::Inky => sdl2::pixels::Color::RGB(0, 255, 255),    // Cyan
-            Ghost::Clyde => sdl2::pixels::Color::RGB(255, 182, 85),  // Orange
-        }
-    }
 }
 
 #[derive(Component, Debug, Clone, Copy)]

@@ -5,7 +5,10 @@
 //! The `GameSprite` enum is the main entry point, and its `to_path` method
 //! generates the correct path for a given sprite in the texture atlas.
 
-use crate::{map::direction::Direction, systems::Ghost};
+use crate::{
+    map::direction::Direction,
+    systems::{FruitType, Ghost},
+};
 
 /// Represents the different sprites for Pac-Man.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -47,34 +50,10 @@ pub enum MazeSprite {
     Energizer,
 }
 
-/// Represents the different fruit sprites that can appear as bonus items.
+/// Represents the different effect sprites that can appear as bonus items.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[allow(dead_code)]
-pub enum FruitSprite {
-    Cherry,
-    Strawberry,
-    Orange,
-    Apple,
-    Melon,
-    Galaxian,
-    Bell,
-    Key,
-}
-
-impl FruitSprite {
-    /// Returns the score value for this fruit type.
-    pub fn score_value(self) -> u32 {
-        match self {
-            FruitSprite::Cherry => 100,
-            FruitSprite::Strawberry => 300,
-            FruitSprite::Orange => 500,
-            FruitSprite::Apple => 700,
-            FruitSprite::Melon => 1000,
-            FruitSprite::Galaxian => 2000,
-            FruitSprite::Bell => 3000,
-            FruitSprite::Key => 5000,
-        }
-    }
+pub enum EffectSprite {
+    Bonus(u32),
 }
 
 /// A top-level enum that encompasses all game sprites.
@@ -83,7 +62,8 @@ pub enum GameSprite {
     Pacman(PacmanSprite),
     Ghost(GhostSprite),
     Maze(MazeSprite),
-    Fruit(FruitSprite),
+    Fruit(FruitType),
+    Effect(EffectSprite),
 }
 
 impl GameSprite {
@@ -138,14 +118,16 @@ impl GameSprite {
             GameSprite::Maze(MazeSprite::Energizer) => "maze/energizer.png".to_string(),
 
             // Fruit sprites
-            GameSprite::Fruit(FruitSprite::Cherry) => "edible/cherry.png".to_string(),
-            GameSprite::Fruit(FruitSprite::Strawberry) => "edible/strawberry.png".to_string(),
-            GameSprite::Fruit(FruitSprite::Orange) => "edible/orange.png".to_string(),
-            GameSprite::Fruit(FruitSprite::Apple) => "edible/apple.png".to_string(),
-            GameSprite::Fruit(FruitSprite::Melon) => "edible/melon.png".to_string(),
-            GameSprite::Fruit(FruitSprite::Galaxian) => "edible/galaxian.png".to_string(),
-            GameSprite::Fruit(FruitSprite::Bell) => "edible/bell.png".to_string(),
-            GameSprite::Fruit(FruitSprite::Key) => "edible/key.png".to_string(),
+            GameSprite::Fruit(fruit) => format!("edible/{}.png", Into::<&'static str>::into(fruit)),
+
+            // Effect sprites
+            GameSprite::Effect(EffectSprite::Bonus(value)) => match value {
+                100 | 200 | 300 | 400 | 700 | 800 | 1000 | 2000 | 3000 | 5000 => format!("effects/{}.png", value),
+                _ => {
+                    tracing::warn!("Invalid bonus value: {}", value);
+                    "effects/100.png".to_string()
+                }
+            },
         }
     }
 }

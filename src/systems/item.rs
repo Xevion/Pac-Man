@@ -5,69 +5,71 @@ use bevy_ecs::{
     query::With,
     system::{Commands, NonSendMut, Query, Res, ResMut, Single},
 };
+use strum_macros::IntoStaticStr;
 use tracing::{debug, trace};
 
 use crate::{
-    constants::collider::FRUIT_SIZE,
+    constants,
     map::builder::Map,
-    systems::{common::bundles::ItemBundle, Collider, Position, Renderable},
-    texture::{sprite::SpriteAtlas, sprites::GameSprite},
+    systems::{common::bundles::ItemBundle, Collider, Position, Renderable, TimeToLive},
+    texture::{
+        sprite::SpriteAtlas,
+        sprites::{EffectSprite, GameSprite},
+    },
 };
 
 use crate::{
     constants::animation::FRIGHTENED_FLASH_START_TICKS,
     events::GameEvent,
     systems::common::components::EntityType,
-    systems::lifetime::TimeToLive,
-    systems::{AudioEvent, GhostCollider, GhostState, ItemCollider, LinearAnimation, PacmanCollider, ScoreResource},
-    texture::animated::TileSequence,
+    systems::{AudioEvent, GhostCollider, GhostState, ItemCollider, PacmanCollider, ScoreResource},
 };
 
 /// Tracks the number of pellets consumed by the player for fruit spawning mechanics.
 #[derive(bevy_ecs::resource::Resource, Debug, Default)]
 pub struct PelletCount(pub u32);
 
-/// Maps fruit score values to bonus sprite indices for displaying bonus points
-fn fruit_score_to_sprite_index(score: u32) -> u8 {
-    match score {
-        100 => 0,   // Cherry
-        300 => 2,   // Strawberry
-        500 => 3,   // Orange
-        700 => 4,   // Apple
-        1000 => 6,  // Melon
-        2000 => 8,  // Galaxian
-        3000 => 9,  // Bell
-        5000 => 10, // Key
-        _ => 0,     // Default to 100 points sprite
-    }
+/// Represents the different fruit sprites that can appear as bonus items.
+#[derive(IntoStaticStr, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[strum(serialize_all = "snake_case")]
+pub enum FruitType {
+    Cherry,
+    Strawberry,
+    Orange,
+    Apple,
+    Melon,
+    Galaxian,
+    Bell,
+    Key,
 }
 
-/// Maps sprite index to the corresponding effect sprite path (same as in state.rs)
-fn sprite_index_to_path(index: u8) -> &'static str {
-    match index {
-        0 => "effects/100.png",
-        1 => "effects/200.png",
-        2 => "effects/300.png",
-        3 => "effects/400.png",
-        4 => "effects/700.png",
-        5 => "effects/800.png",
-        6 => "effects/1000.png",
-        7 => "effects/1600.png",
-        8 => "effects/2000.png",
-        9 => "effects/3000.png",
-        10 => "effects/5000.png",
-        _ => "effects/100.png", // fallback to index 0
+impl FruitType {
+    /// Returns the score value for this fruit type.
+    pub fn score_value(self) -> u32 {
+        match self {
+            FruitType::Cherry => 100,
+            FruitType::Strawberry => 300,
+            FruitType::Orange => 500,
+            FruitType::Apple => 700,
+            FruitType::Melon => 1000,
+            FruitType::Galaxian => 2000,
+            FruitType::Bell => 3000,
+            FruitType::Key => 5000,
+        }
     }
-}
 
-/// Determines if a collision between two entity types should be handled by the item system.
-///
-/// Returns `true` if one entity is a player and the other is a collectible item.
-#[allow(dead_code)]
-pub fn is_valid_item_collision(entity1: EntityType, entity2: EntityType) -> bool {
-    match (entity1, entity2) {
-        (EntityType::Player, entity) | (entity, EntityType::Player) => entity.is_collectible(),
-        _ => false,
+    pub fn from_index(index: u8) -> Self {
+        match index {
+            0 => FruitType::Cherry,
+            1 => FruitType::Strawberry,
+            2 => FruitType::Orange,
+            3 => FruitType::Apple,
+            4 => FruitType::Melon,
+            5 => FruitType::Galaxian,
+            6 => FruitType::Bell,
+            7 => FruitType::Key,
+            _ => panic!("Invalid fruit index: {}", index),
+        }
     }
 }
 
@@ -81,7 +83,6 @@ pub fn item_system(
     item_query: Query<(Entity, &EntityType, &Position), With<ItemCollider>>,
     mut ghost_query: Query<&mut GhostState, With<GhostCollider>>,
     mut events: EventWriter<AudioEvent>,
-    atlas: NonSendMut<SpriteAtlas>,
 ) {
     for event in collision_events.read() {
         if let GameEvent::Collision(entity1, entity2) = event {
@@ -95,36 +96,10 @@ pub fn item_system(
             };
 
             // Get the item type and update score
-            if let Ok((item_ent, entity_type, item_position)) = item_query.get(item_entity) {
+            if let Ok((item_ent, entity_type, position)) = item_query.get(item_entity) {
                 if let Some(score_value) = entity_type.score_value() {
                     trace!(item_entity = ?item_ent, item_type = ?entity_type, score_value, new_score = score.0 + score_value, "Item collected by player");
                     score.0 += score_value;
-
-                    // Spawn bonus sprite for fruits at the fruit's position (similar to ghost eating bonus)
-                    if matches!(entity_type, EntityType::Fruit(_)) {
-                        let sprite_index = fruit_score_to_sprite_index(score_value);
-                        let sprite_path = sprite_index_to_path(sprite_index);
-
-                        if let Ok(sprite_tile) = SpriteAtlas::get_tile(&atlas, sprite_path) {
-                            let tile_sequence = TileSequence::single(sprite_tile);
-                            let animation = LinearAnimation::new(tile_sequence, 1);
-
-                            commands.spawn((
-                                *item_position,
-                                Renderable {
-                                    sprite: sprite_tile,
-                                    layer: 2, // Above other entities
-                                },
-                                animation,
-                                TimeToLive::new(120), // 2 seconds at 60 FPS
-                            ));
-
-                            debug!(
-                                fruit_score = score_value,
-                                sprite_index, "Fruit bonus sprite spawned at fruit position"
-                            );
-                        }
-                    }
 
                     // Remove the collected item
                     commands.entity(item_ent).despawn();
@@ -135,10 +110,19 @@ pub fn item_system(
                         trace!(pellet_count = pellet_count.0, "Pellet consumed");
 
                         // Check if we should spawn a fruit
-                        if pellet_count.0 == 70 || pellet_count.0 == 170 {
+                        if pellet_count.0 == 5 || pellet_count.0 == 170 {
                             debug!(pellet_count = pellet_count.0, "Fruit spawn milestone reached");
-                            commands.trigger(SpawnFruitTrigger);
+                            commands.trigger(SpawnTrigger::Fruit);
                         }
+                    }
+
+                    // Trigger bonus points effect if a fruit is collected
+                    if matches!(*entity_type, EntityType::Fruit(_)) {
+                        commands.trigger(SpawnTrigger::Bonus {
+                            position: *position,
+                            value: entity_type.score_value().unwrap(),
+                            ttl: 60 * 2,
+                        });
                     }
 
                     // Trigger audio if appropriate
@@ -169,30 +153,57 @@ pub fn item_system(
 }
 
 /// Trigger to spawn a fruit
-#[derive(Event, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SpawnFruitTrigger;
+#[derive(Event, Clone, Copy, Debug)]
+pub enum SpawnTrigger {
+    Fruit,
+    Bonus { position: Position, value: u32, ttl: u32 },
+}
 
 pub fn spawn_fruit_observer(
-    _: Trigger<SpawnFruitTrigger>,
+    trigger: Trigger<SpawnTrigger>,
     mut commands: Commands,
     atlas: NonSendMut<SpriteAtlas>,
     map: Res<Map>,
 ) {
-    // Use cherry sprite as the default fruit (first fruit in original Pac-Man)
-    let fruit_sprite = &atlas
-        .get_tile(&GameSprite::Fruit(crate::texture::sprites::FruitSprite::Cherry).to_path())
-        .unwrap();
+    let entity = match *trigger {
+        SpawnTrigger::Fruit => {
+            // Use cherry sprite as the default fruit (first fruit in original Pac-Man)
+            let sprite = &atlas
+                .get_tile(&GameSprite::Fruit(FruitType::from_index(0)).to_path())
+                .unwrap();
+            let bundle = ItemBundle {
+                position: map.start_positions.fruit_spawn,
+                sprite: Renderable {
+                    sprite: *sprite,
+                    layer: 1,
+                },
+                entity_type: EntityType::Fruit(FruitType::Cherry),
+                collider: Collider {
+                    size: constants::collider::FRUIT_SIZE,
+                },
+                item_collider: ItemCollider,
+            };
 
-    let fruit_entity = commands.spawn(ItemBundle {
-        position: map.start_positions.fruit_spawn,
-        sprite: Renderable {
-            sprite: *fruit_sprite,
-            layer: 1,
-        },
-        entity_type: EntityType::Fruit(crate::texture::sprites::FruitSprite::Cherry),
-        collider: Collider { size: FRUIT_SIZE },
-        item_collider: ItemCollider,
-    });
+            commands.spawn(bundle)
+        }
+        SpawnTrigger::Bonus { position, value, ttl } => {
+            let sprite = &atlas
+                .get_tile(&GameSprite::Effect(EffectSprite::Bonus(value)).to_path())
+                .unwrap();
 
-    debug!(fruit_entity = ?fruit_entity.id(), fruit_spawn_node = ?map.start_positions.fruit_spawn, "Fruit spawned");
+            let bundle = (
+                position,
+                TimeToLive::new(ttl),
+                Renderable {
+                    sprite: *sprite,
+                    layer: 1,
+                },
+                EntityType::Effect,
+            );
+
+            commands.spawn(bundle)
+        }
+    };
+
+    debug!(entity = ?entity.id(), "Entity spawned via trigger");
 }

@@ -14,11 +14,6 @@ impl TileSequence {
         Self { tiles: tiles.to_vec() }
     }
 
-    /// Creates a tile sequence with a single tile.
-    pub fn single(tile: AtlasTile) -> Self {
-        Self { tiles: vec![tile] }
-    }
-
     /// Returns the tile at the given frame index, wrapping if necessary
     pub fn get_tile(&self, frame: usize) -> AtlasTile {
         if self.tiles.is_empty() {
