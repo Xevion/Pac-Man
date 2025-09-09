@@ -3,7 +3,7 @@ use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE};
 use crate::map::direction::Direction;
 use crate::map::graph::{Graph, Node, TraversalFlags};
 use crate::map::parser::MapTileParser;
-use crate::systems::NodeId;
+use crate::systems::{NodeId, Position};
 use bevy_ecs::resource::Resource;
 use glam::{I8Vec2, IVec2, Vec2};
 use std::collections::{HashMap, VecDeque};
@@ -25,6 +25,8 @@ pub struct NodePositions {
     pub inky: NodeId,
     /// Clyde starts in the center of the ghost house
     pub clyde: NodeId,
+    /// Fruit spawn location directly below the ghost house
+    pub fruit_spawn: Position,
 }
 
 /// Complete maze representation combining visual layout with navigation pathfinding.
@@ -154,12 +156,37 @@ impl Map {
         let (house_entrance_node_id, left_center_node_id, center_center_node_id, right_center_node_id) =
             Self::build_house(&mut graph, &grid_to_node, &house_door)?;
 
+        // Find fruit spawn location (directly below ghost house)
+        let left_node_position = I8Vec2::new(13, 17);
+        let left_node_id = grid_to_node.get(&left_node_position).unwrap();
+        let right_node_position = I8Vec2::new(14, 17);
+        let right_node_id = grid_to_node.get(&right_node_position).unwrap();
+
+        let distance = graph
+            .get_node(*right_node_id)
+            .unwrap()
+            .position
+            .distance(graph.get_node(*left_node_id).unwrap().position);
+
+        // interpolate between the two nodes
+        let fruit_spawn_position: Position = Position::Moving {
+            from: *left_node_id,
+            to: *right_node_id,
+            remaining_distance: distance / 2.0,
+        };
+
+        tracing::warn!(
+            fruit_spawn_position = ?fruit_spawn_position,
+            "Fruit spawn position found"
+        );
+
         let start_positions = NodePositions {
             pacman: grid_to_node[&start_pos],
             blinky: house_entrance_node_id,
             pinky: left_center_node_id,
             inky: right_center_node_id,
             clyde: center_center_node_id,
+            fruit_spawn: fruit_spawn_position,
         };
 
         // Build tunnel connections

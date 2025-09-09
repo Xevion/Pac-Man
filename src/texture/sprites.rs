@@ -47,12 +47,43 @@ pub enum MazeSprite {
     Energizer,
 }
 
+/// Represents the different fruit sprites that can appear as bonus items.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[allow(dead_code)]
+pub enum FruitSprite {
+    Cherry,
+    Strawberry,
+    Orange,
+    Apple,
+    Melon,
+    Galaxian,
+    Bell,
+    Key,
+}
+
+impl FruitSprite {
+    /// Returns the score value for this fruit type.
+    pub fn score_value(self) -> u32 {
+        match self {
+            FruitSprite::Cherry => 100,
+            FruitSprite::Strawberry => 300,
+            FruitSprite::Orange => 500,
+            FruitSprite::Apple => 700,
+            FruitSprite::Melon => 1000,
+            FruitSprite::Galaxian => 2000,
+            FruitSprite::Bell => 3000,
+            FruitSprite::Key => 5000,
+        }
+    }
+}
+
 /// A top-level enum that encompasses all game sprites.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GameSprite {
     Pacman(PacmanSprite),
     Ghost(GhostSprite),
     Maze(MazeSprite),
+    Fruit(FruitSprite),
 }
 
 impl GameSprite {
@@ -105,6 +136,16 @@ impl GameSprite {
             GameSprite::Maze(MazeSprite::Tile(index)) => format!("maze/tiles/{}.png", index),
             GameSprite::Maze(MazeSprite::Pellet) => "maze/pellet.png".to_string(),
             GameSprite::Maze(MazeSprite::Energizer) => "maze/energizer.png".to_string(),
+
+            // Fruit sprites
+            GameSprite::Fruit(FruitSprite::Cherry) => "edible/cherry.png".to_string(),
+            GameSprite::Fruit(FruitSprite::Strawberry) => "edible/strawberry.png".to_string(),
+            GameSprite::Fruit(FruitSprite::Orange) => "edible/orange.png".to_string(),
+            GameSprite::Fruit(FruitSprite::Apple) => "edible/apple.png".to_string(),
+            GameSprite::Fruit(FruitSprite::Melon) => "edible/melon.png".to_string(),
+            GameSprite::Fruit(FruitSprite::Galaxian) => "edible/galaxian.png".to_string(),
+            GameSprite::Fruit(FruitSprite::Bell) => "edible/bell.png".to_string(),
+            GameSprite::Fruit(FruitSprite::Key) => "edible/key.png".to_string(),
         }
     }
 }

@@ -127,6 +127,8 @@ impl Game {
         debug!("Setting up ECS event registry and observers");
         Self::setup_ecs(&mut world);
 
+        world.add_observer(systems::spawn_fruit_observer);
+
         debug!("Inserting resources into ECS world");
         Self::insert_resources(
             &mut world,
@@ -409,6 +411,7 @@ impl Game {
         world.insert_resource(GlobalState { exit: false });
         world.insert_resource(PlayerLives::default());
         world.insert_resource(ScoreResource(0));
+        world.insert_resource(crate::systems::item::PelletCount(0));
         world.insert_resource(SystemTimings::default());
         world.insert_resource(Timing::default());
         world.insert_resource(Bindings::default());

@@ -9,6 +9,7 @@ pub enum EntityType {
     Ghost,
     Pellet,
     PowerPellet,
+    Fruit(crate::texture::sprites::FruitSprite),
 }
 
 impl EntityType {
@@ -24,12 +25,13 @@ impl EntityType {
         match self {
             EntityType::Pellet => Some(10),
             EntityType::PowerPellet => Some(50),
+            EntityType::Fruit(fruit_type) => Some(fruit_type.score_value()),
             _ => None,
         }
     }
 
     pub fn is_collectible(&self) -> bool {
-        matches!(self, EntityType::Pellet | EntityType::PowerPellet)
+        matches!(self, EntityType::Pellet | EntityType::PowerPellet | EntityType::Fruit(_))
     }
 }
 

@@ -79,6 +79,8 @@ pub mod collider {
     pub const PELLET_SIZE: f32 = CELL_SIZE as f32 * 0.4;
     /// Collider size for power pellets/energizers (0.95x cell size)
     pub const POWER_PELLET_SIZE: f32 = CELL_SIZE as f32 * 0.95;
+    /// Collider size for fruits (0.8x cell size)
+    pub const FRUIT_SIZE: f32 = CELL_SIZE as f32 * 1.375;
 }
 
 /// UI and rendering constants
