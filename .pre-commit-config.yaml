@@ -41,17 +41,3 @@ repos:
         language: system
         types_or: [rust, cargo, cargo-lock]
         pass_filenames: false
-
-      - id: bump-version
-        name: bump version based on commit message
-        entry: python scripts/bump-version.py
-        language: system
-        stages: [commit-msg]
-        always_run: true
-
-      - id: tag-version
-        name: tag version based on commit message
-        entry: python scripts/tag-version.py
-        language: system
-        stages: [post-commit]
-        always_run: true

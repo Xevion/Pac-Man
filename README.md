@@ -1,3 +1,6 @@
+<!-- markdownlint-disable MD033 -->
+<!-- markdownlint-disable MD041 -->
+
 <div align="center">
   <img src="assets/repo/banner.png" alt="Pac-Man Banner Screenshot">
 </div>
@@ -13,7 +16,6 @@
 [badge-build]: https://github.com/Xevion/Pac-Man/actions/workflows/build.yaml/badge.svg
 [badge-coverage]: https://coveralls.io/repos/github/Xevion/Pac-Man/badge.svg?branch=master
 [badge-online-demo]: https://img.shields.io/badge/Online%20Demo-Click%20Me!-brightgreen
-[banner-image]: assets/repo/banner.png
 [justforfunnoreally]: https://justforfunnoreally.dev
 [build]: https://github.com/Xevion/Pac-Man/actions/workflows/build.yaml
 [test]: https://github.com/Xevion/Pac-Man/actions/workflows/tests.yaml
