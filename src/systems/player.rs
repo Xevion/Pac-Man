@@ -32,6 +32,7 @@ pub fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
 /// toggling, audio muting, and game exit requests. Movement commands are buffered
 /// to allow direction changes before reaching intersections, improving gameplay
 /// responsiveness. Non-movement commands immediately modify global game state.
+#[allow(clippy::type_complexity)]
 pub fn player_control_system(
     mut events: EventReader<GameEvent>,
     mut state: ResMut<GlobalState>,

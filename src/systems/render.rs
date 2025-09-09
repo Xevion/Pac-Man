@@ -23,6 +23,7 @@ use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Canvas, Texture};
 use sdl2::video::Window;
+use std::cmp::Ordering;
 use std::time::Instant;
 
 /// A component for entities that have a sprite, with a layer for ordering.
@@ -83,42 +84,47 @@ pub fn player_life_sprite_system(
     // Calculate the difference
     let diff = (displayed_lives as i8) - (current_count as i8);
 
-    if diff > 0 {
+    match diff.cmp(&0) {
+        // Ignore when the number of lives displayed is correct
+        Ordering::Equal => {}
         // Spawn new life sprites
-        let life_sprite = match atlas.get_tile(&GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path()) {
-            Ok(sprite) => sprite,
-            Err(e) => {
-                errors.write(e.into());
-                return;
+        Ordering::Greater => {
+            let life_sprite = match atlas.get_tile(&GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path()) {
+                Ok(sprite) => sprite,
+                Err(e) => {
+                    errors.write(e.into());
+                    return;
+                }
+            };
+
+            for i in 0..diff {
+                let position = calculate_life_sprite_position(i as u32);
+
+                commands.spawn((
+                    PlayerLife { index: i as u32 },
+                    Renderable {
+                        sprite: life_sprite,
+                        layer: 255, // High layer to render on top
+                    },
+                    PixelPosition {
+                        pixel_position: position,
+                    },
+                ));
             }
-        };
-
-        for i in 0..diff.abs() {
-            let position = calculate_life_sprite_position(i as u32);
-
-            commands.spawn((
-                PlayerLife { index: i as u32 },
-                Renderable {
-                    sprite: life_sprite,
-                    layer: 255, // High layer to render on top
-                },
-                PixelPosition {
-                    pixel_position: position,
-                },
-            ));
         }
-    } else if diff < 0 {
         // Remove excess life sprites (highest indices first)
-        let to_remove = diff.abs() as usize;
-        let sprites_to_remove: Vec<_> = current_sprites
-            .iter()
-            .rev() // Start from highest index
-            .take(to_remove as usize)
-            .map(|(entity, _)| *entity)
-            .collect();
+        Ordering::Less => {
+            let to_remove = diff.unsigned_abs();
+            let sprites_to_remove: Vec<_> = current_sprites
+                .iter()
+                .rev() // Start from highest index
+                .take(to_remove as usize)
+                .map(|(entity, _)| *entity)
+                .collect();
 
-        for entity in sprites_to_remove {
-            commands.entity(entity).despawn();
+            for entity in sprites_to_remove {
+                commands.entity(entity).despawn();
+            }
         }
     }
 }
@@ -297,6 +303,7 @@ pub fn hud_render_system(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 pub fn render_system(
     canvas: &mut Canvas<Window>,
     map_texture: &NonSendMut<MapTextureResource>,
@@ -362,6 +369,7 @@ pub fn render_system(
 /// Combined render system that renders to both backbuffer and debug textures in a single
 /// with_multiple_texture_canvas call for reduced overhead
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 pub fn combined_render_system(
     mut canvas: NonSendMut<&mut Canvas<Window>>,
     map_texture: NonSendMut<MapTextureResource>,
