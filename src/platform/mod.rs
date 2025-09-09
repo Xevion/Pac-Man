@@ -6,7 +6,7 @@ mod desktop;
 pub use desktop::*;
 
 /// Tracing buffer is only used on Windows.
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 pub mod tracing_buffer;
 
 #[cfg(target_os = "emscripten")]

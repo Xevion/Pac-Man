@@ -40,7 +40,7 @@ num-width = "0.1.0"
 phf = { version = "0.13.1", features = ["macros"] }
 
 # Windows-specific dependencies
-[target.'cfg(target_os = "windows")'.dependencies]
+[target.'cfg(windows)'.dependencies]
 # Used for customizing console output on Windows; both are required due to the `windows` crate having poor Result handling with `GetStdHandle`.
 windows = { version = "0.62.0", features = ["Win32_Security", "Win32_Storage_FileSystem", "Win32_System_Console"] }
 windows-sys = { version = "0.61.0", features = ["Win32_System_Console"] }

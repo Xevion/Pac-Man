@@ -7,7 +7,7 @@ rustflags = [
 ]
 runner = "node"
 
-[target.'cfg(target_os = "linux")']
+[target.'cfg(linux)']
 rustflags = [
     # Manually link zlib.
     # The `sdl2` crate's build script uses `libpng`, which requires `zlib`.
