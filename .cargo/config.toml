@@ -7,7 +7,7 @@ rustflags = [
 ]
 runner = "node"
 
-# despite being semantically identical to `target_os = "linux"`, the `cfg(linux)` syntax is not supported here. Who knows why...\
+# despite being semantically identical to `target_os = "linux"`, the `cfg(linux)` syntax is not supported here. Who knows why...
 # https://github.com/Xevion/Pac-Man/actions/runs/17596477856
 [target.'cfg(target_os = "linux")']
 rustflags = [
