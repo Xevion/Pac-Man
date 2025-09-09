@@ -714,12 +714,23 @@ impl Game {
             timings.add_total_timing(total_duration, new_tick);
 
             // Log performance warnings for slow frames
-            if total_duration.as_millis() > 20 {
-                // Warn if frame takes more than 20ms
+            if total_duration.as_millis() > 17 {
+                // Warn if frame takes too long
+                let slowest_systems = timings.get_slowest_systems();
+                let systems_context = if slowest_systems.is_empty() {
+                    "No specific systems identified".to_string()
+                } else {
+                    slowest_systems
+                        .iter()
+                        .map(|(id, duration)| format!("{} ({:.2?})", id, duration))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                };
+
                 warn!(
-                    duration_ms = total_duration.as_millis(),
-                    frame_dt = ?std::time::Duration::from_secs_f32(dt),
+                    total = format!("{:.3?}", total_duration),
                     tick = new_tick,
+                    systems = systems_context,
                     "Frame took longer than expected"
                 );
             }

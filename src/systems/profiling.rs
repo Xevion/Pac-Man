@@ -52,6 +52,11 @@ impl TimingBuffer {
         self.last_tick = current_tick;
     }
 
+    /// Gets the most recent timing from the buffer.
+    pub fn get_most_recent_timing(&self) -> Duration {
+        self.buffer.back().copied().unwrap_or(Duration::ZERO)
+    }
+
     /// Gets statistics for this timing buffer.
     ///
     /// # Panics
@@ -247,6 +252,61 @@ impl SystemTimings {
 
         // Use the formatting module to format the data
         format_timing_display(timing_data)
+    }
+
+    /// Returns a list of systems with their timings, likely responsible for slow frame timings.
+    ///
+    /// First, checks if any systems took longer than 2ms on the most recent tick.
+    /// If none exceed 2ms, accumulates systems until the top 30% of total timing
+    /// is reached, stopping at 5 systems maximum.
+    ///
+    /// Returns tuples of (SystemId, Duration) in a SmallVec capped at 5 items.
+    pub fn get_slowest_systems(&self) -> SmallVec<[(SystemId, Duration); 5]> {
+        let mut system_timings: Vec<(SystemId, Duration)> = Vec::new();
+        let mut total_duration = Duration::ZERO;
+
+        // Collect most recent timing for each system (excluding Total)
+        for id in SystemId::iter() {
+            if id == SystemId::Total {
+                continue;
+            }
+
+            if let Some(buffer) = self.timings.get(&id) {
+                let recent_timing = buffer.lock().get_most_recent_timing();
+                system_timings.push((id, recent_timing));
+                total_duration += recent_timing;
+            }
+        }
+
+        // Sort by duration (highest first)
+        system_timings.sort_by(|a, b| b.1.cmp(&a.1));
+
+        // Check for systems over 2ms threshold
+        let over_threshold: SmallVec<[(SystemId, Duration); 5]> = system_timings
+            .iter()
+            .filter(|(_, duration)| duration.as_millis() >= 2)
+            .copied()
+            .collect();
+
+        if !over_threshold.is_empty() {
+            return over_threshold;
+        }
+
+        // Accumulate top systems until 30% of total is reached (max 5 systems)
+        let threshold = total_duration.as_nanos() as f64 * 0.3;
+        let mut accumulated = 0u128;
+        let mut result = SmallVec::new();
+
+        for (id, duration) in system_timings.iter().take(5) {
+            result.push((*id, *duration));
+            accumulated += duration.as_nanos();
+
+            if accumulated as f64 >= threshold {
+                break;
+            }
+        }
+
+        result
     }
 }
 
