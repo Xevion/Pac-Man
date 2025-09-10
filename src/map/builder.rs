@@ -175,11 +175,6 @@ impl Map {
             remaining_distance: distance / 2.0,
         };
 
-        tracing::warn!(
-            fruit_spawn_position = ?fruit_spawn_position,
-            "Fruit spawn position found"
-        );
-
         let start_positions = NodePositions {
             pacman: grid_to_node[&start_pos],
             blinky: house_entrance_node_id,

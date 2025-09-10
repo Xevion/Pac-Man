@@ -146,7 +146,7 @@ pub fn render_system(
     // Collect and filter visible entities, then sort by layer
     let mut visible_entities: Vec<_> = renderables
         .iter()
-        .filter(|(_, _, _, _, visibility)| visibility.map(|v| v.is_visible()).unwrap_or(true))
+        .filter(|(_, _, _, _, visibility)| visibility.copied().unwrap_or_default().is_visible())
         .collect();
 
     visible_entities.sort_by_key(|(_, renderable, _, _, _)| renderable.layer);

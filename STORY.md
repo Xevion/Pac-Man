@@ -412,8 +412,8 @@ The bigger downside was that I had to toss out almost all the existing code for 
 
 This ended up being okay though, as I was able to clean up a lot of gross code, and the system ended up being easier to work with by comparison.
 
-[code-review-video]: https://www.youtube.com/watch?v=OKs_JewEeOo
 [code-review-thumbnail]: https://img.youtube.com/vi/OKs_JewEeOo/hqdefault.jpg
+[code-review-video]: https://www.youtube.com/watch?v=OKs_JewEeOo
 [fighting-lifetimes-1]: https://devcry.heiho.net/html/2022/20220709-rust-and-sdl2-fighting-with-lifetimes.html
 [fighting-lifetimes-2]: https://devcry.heiho.net/html/2022/20220716-rust-and-sdl2-fighting-with-lifetimes-2.html
 [fighting-lifetimes-3]: https://devcry.heiho.net/html/2022/20220724-rust-and-sdl2-fighting-with-lifetimes-3.html

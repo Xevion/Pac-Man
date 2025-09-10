@@ -22,10 +22,6 @@ use bevy_ecs::system::{Commands, Query, Res};
 use rand::seq::IndexedRandom;
 use smallvec::SmallVec;
 
-/// Tag component for eaten ghosts
-#[derive(Component, Debug, Clone, Copy)]
-pub struct Eaten;
-
 /// Tag component for Pac-Man during his death animation.
 /// This is mainly because the Frozen tag would stop both movement and animation, while the Dying tag can signal that the animation should continue despite being frozen.
 #[derive(Component, Debug, Clone, Copy)]

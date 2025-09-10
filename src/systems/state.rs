@@ -6,8 +6,8 @@ use crate::systems::SpawnTrigger;
 use crate::{
     map::builder::Map,
     systems::{
-        AudioEvent, Blinking, DirectionalAnimation, Dying, Eaten, Frozen, Ghost, GhostCollider, GhostState, LinearAnimation,
-        Looping, NodeId, PlayerControlled, Position, Visibility,
+        AudioEvent, Blinking, DirectionalAnimation, Dying, Frozen, Ghost, GhostCollider, GhostState, LinearAnimation, Looping,
+        NodeId, PlayerControlled, Position, Visibility,
     },
 };
 use bevy_ecs::{
@@ -296,7 +296,7 @@ pub fn stage_system(
                 };
                 commands
                     .entity(ghost_entity)
-                    .remove::<(Frozen, Eaten)>()
+                    .remove::<Frozen>()
                     .insert((Visibility::visible(), GhostState::Normal));
             }
         }
