@@ -31,6 +31,8 @@ pub struct TtfAtlas {
     char_tiles: HashMap<char, TtfCharTile>,
     /// Cached color modulation state to avoid redundant SDL2 calls
     last_modulation: Option<Color>,
+    /// Cached maximum character height
+    max_char_height: u32,
 }
 
 const TTF_CHARS: &str = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,:-/()ms μµ%± ";
@@ -101,6 +103,7 @@ impl TtfAtlas {
             texture: atlas_texture,
             char_tiles,
             last_modulation: None,
+            max_char_height: max_height,
         })
     }
 
@@ -261,12 +264,6 @@ impl TtfRenderer {
     /// Calculate the height of text in pixels
     pub fn text_height(&self, atlas: &TtfAtlas) -> u32 {
         // Find the maximum height among all characters
-        atlas
-            .char_tiles
-            .values()
-            .map(|tile| tile.size.y)
-            .max()
-            .unwrap_or(0)
-            .saturating_mul(self.scale as u32)
+        (atlas.max_char_height as f32 * self.scale) as u32
     }
 }
