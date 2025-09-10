@@ -1,13 +1,12 @@
 use bevy_ecs::{
     component::Component,
     query::{Has, Or, With, Without},
-    resource::Resource,
     system::{Query, Res},
 };
 
 use crate::{
-    systems::{DeltaTime, Dying, Frozen, Position, Renderable, Velocity},
-    texture::animated::{DirectionalTiles, TileSequence},
+    systems::{DeltaTime, Dying, Frozen, LinearAnimation, Looping, Position, Renderable, Velocity},
+    texture::animated::DirectionalTiles,
 };
 
 /// Directional animation component with shared timing across all directions
@@ -29,33 +28,6 @@ impl DirectionalAnimation {
             current_frame: 0,
             time_bank: 0,
             frame_duration,
-        }
-    }
-}
-
-/// Tag component to mark animations that should loop when they reach the end
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Looping;
-
-/// Linear animation component for non-directional animations (frightened ghosts)
-#[derive(Component, Resource, Clone)]
-pub struct LinearAnimation {
-    pub tiles: TileSequence,
-    pub current_frame: usize,
-    pub time_bank: u16,
-    pub frame_duration: u16,
-    pub finished: bool,
-}
-
-impl LinearAnimation {
-    /// Creates a new linear animation with the given tiles and frame duration
-    pub fn new(tiles: TileSequence, frame_duration: u16) -> Self {
-        Self {
-            tiles,
-            current_frame: 0,
-            time_bank: 0,
-            frame_duration,
-            finished: false,
         }
     }
 }

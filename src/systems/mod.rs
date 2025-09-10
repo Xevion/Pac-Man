@@ -10,12 +10,11 @@ pub mod profiling;
 #[cfg_attr(coverage_nightly, coverage(off))]
 pub mod render;
 
-pub mod animation;
-pub mod blinking;
-pub mod collision;
+mod animation;
+mod collision;
 pub mod common;
-pub mod ghost;
-pub mod hud;
+mod ghost;
+mod hud;
 pub mod input;
 pub mod item;
 pub mod lifetime;
@@ -27,7 +26,6 @@ pub mod state;
 
 pub use self::animation::*;
 pub use self::audio::*;
-pub use self::blinking::*;
 pub use self::collision::*;
 pub use self::common::*;
 pub use self::debug::*;
