@@ -1,11 +1,10 @@
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
     query::{Has, With},
-    system::{Commands, Query, Res},
+    system::{Query, Res},
 };
 
-use crate::systems::{DeltaTime, Frozen, Hidden, Renderable};
+use crate::systems::{DeltaTime, Frozen, Renderable, Visibility};
 
 #[derive(Component, Debug)]
 pub struct Blinking {
@@ -28,18 +27,11 @@ impl Blinking {
 /// accumulating ticks and toggling visibility when the specified interval is reached.
 /// Uses integer arithmetic for deterministic behavior.
 #[allow(clippy::type_complexity)]
-pub fn blinking_system(
-    mut commands: Commands,
-    time: Res<DeltaTime>,
-    mut query: Query<(Entity, &mut Blinking, Has<Hidden>, Has<Frozen>), With<Renderable>>,
-) {
-    for (entity, mut blinking, hidden, frozen) in query.iter_mut() {
-        // If the entity is frozen, blinking is disabled and the entity is unhidden (if it was hidden)
+pub fn blinking_system(time: Res<DeltaTime>, mut query: Query<(&mut Blinking, &mut Visibility, Has<Frozen>), With<Renderable>>) {
+    for (mut blinking, mut visibility, frozen) in query.iter_mut() {
+        // If the entity is frozen, blinking is disabled and the entity is made visible
         if frozen {
-            if hidden {
-                commands.entity(entity).remove::<Hidden>();
-            }
-
+            visibility.show();
             continue;
         }
 
@@ -49,11 +41,7 @@ pub fn blinking_system(
         // Handle zero interval case (immediate toggling)
         if blinking.interval_ticks == 0 {
             if time.ticks > 0 {
-                if hidden {
-                    commands.entity(entity).remove::<Hidden>();
-                } else {
-                    commands.entity(entity).insert(Hidden);
-                }
+                visibility.toggle();
             }
             continue;
         }
@@ -69,14 +57,10 @@ pub fn blinking_system(
         // Update the timer to the remainder after complete intervals
         blinking.tick_timer %= blinking.interval_ticks;
 
-        // Toggle the Hidden component for each complete interval
+        // Toggle the visibility for each complete interval
         // Since toggling twice is a no-op, we only need to toggle if the count is odd
         if complete_intervals % 2 == 1 {
-            if hidden {
-                commands.entity(entity).remove::<Hidden>();
-            } else {
-                commands.entity(entity).insert(Hidden);
-            }
+            visibility.toggle();
         }
     }
 }

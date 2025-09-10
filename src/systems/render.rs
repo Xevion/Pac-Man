@@ -8,7 +8,7 @@ use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
-use bevy_ecs::query::{Changed, Or, With, Without};
+use bevy_ecs::query::{Changed, Or, With};
 use bevy_ecs::removal_detection::RemovedComponents;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{NonSendMut, Query, Res, ResMut};
@@ -33,6 +33,53 @@ pub struct RenderDirty(pub bool);
 #[derive(Component)]
 pub struct Hidden;
 
+/// A component that controls entity visibility in the render system.
+///
+/// Entities without this component are considered visible by default.
+/// This allows for efficient rendering where only entities that need
+/// visibility control have this component.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Visibility(pub bool);
+
+impl Default for Visibility {
+    fn default() -> Self {
+        Self(true) // Default to visible
+    }
+}
+
+impl Visibility {
+    /// Creates a visible Visibility component
+    pub fn visible() -> Self {
+        Self(true)
+    }
+
+    /// Creates a hidden Visibility component
+    pub fn hidden() -> Self {
+        Self(false)
+    }
+
+    /// Returns true if the entity is visible
+    pub fn is_visible(&self) -> bool {
+        self.0
+    }
+
+    /// Returns true if the entity is hidden
+    #[allow(dead_code)] // Used in tests
+    pub fn is_hidden(&self) -> bool {
+        !self.0
+    }
+
+    /// Makes the entity visible
+    pub fn show(&mut self) {
+        self.0 = true;
+    }
+
+    /// Toggles the visibility state
+    pub fn toggle(&mut self) {
+        self.0 = !self.0;
+    }
+}
+
 /// Enum to identify which texture is being rendered to in the combined render system
 #[derive(Debug, Clone, Copy)]
 enum RenderTarget {
@@ -43,15 +90,10 @@ enum RenderTarget {
 #[allow(clippy::type_complexity)]
 pub fn dirty_render_system(
     mut dirty: ResMut<RenderDirty>,
-    changed: Query<(), Or<(Changed<Renderable>, Changed<Position>)>>,
-    removed_hidden: RemovedComponents<Hidden>,
+    changed: Query<(), Or<(Changed<Renderable>, Changed<Position>, Changed<Visibility>)>>,
     removed_renderables: RemovedComponents<Renderable>,
 ) {
-    let changed_count = changed.iter().count();
-    let removed_hidden_count = removed_hidden.len();
-    let removed_renderables_count = removed_renderables.len();
-
-    if changed_count > 0 || removed_hidden_count > 0 || removed_renderables_count > 0 {
+    if changed.iter().count() > 0 || !removed_renderables.is_empty() {
         dirty.0 = true;
     }
 }
@@ -77,8 +119,14 @@ pub fn render_system(
     map: &Res<Map>,
     dirty: &Res<RenderDirty>,
     renderables: &Query<
-        (Entity, &Renderable, Option<&Position>, Option<&PixelPosition>),
-        (Without<Hidden>, Or<(With<Position>, With<PixelPosition>)>),
+        (
+            Entity,
+            &Renderable,
+            Option<&Position>,
+            Option<&PixelPosition>,
+            Option<&Visibility>,
+        ),
+        Or<(With<Position>, With<PixelPosition>)>,
     >,
     errors: &mut EventWriter<GameError>,
 ) {
@@ -95,14 +143,17 @@ pub fn render_system(
         errors.write(TextureError::RenderFailed(e.to_string()).into());
     }
 
-    // Render all entities to the backbuffer
-    for (_entity, renderable, position, pixel_position) in renderables
+    // Collect and filter visible entities, then sort by layer
+    let mut visible_entities: Vec<_> = renderables
         .iter()
-        .sort_by_key::<(Entity, &Renderable, Option<&Position>, Option<&PixelPosition>), _>(|(_, renderable, _, _)| {
-            renderable.layer
-        })
-        .rev()
-    {
+        .filter(|(_, _, _, _, visibility)| visibility.map(|v| v.is_visible()).unwrap_or(true))
+        .collect();
+
+    visible_entities.sort_by_key(|(_, renderable, _, _, _)| renderable.layer);
+    visible_entities.reverse();
+
+    // Render all visible entities to the backbuffer
+    for (_entity, renderable, position, pixel_position, _visibility) in visible_entities {
         let pos = if let Some(position) = position {
             position.get_pixel_position(&map.graph)
         } else {
@@ -150,8 +201,14 @@ pub fn combined_render_system(
     map: Res<Map>,
     dirty: Res<RenderDirty>,
     renderables: Query<
-        (Entity, &Renderable, Option<&Position>, Option<&PixelPosition>),
-        (Without<Hidden>, Or<(With<Position>, With<PixelPosition>)>),
+        (
+            Entity,
+            &Renderable,
+            Option<&Position>,
+            Option<&PixelPosition>,
+            Option<&Visibility>,
+        ),
+        Or<(With<Position>, With<PixelPosition>)>,
     >,
     colliders: Query<(&Collider, &Position)>,
     cursor: Res<CursorPosition>,

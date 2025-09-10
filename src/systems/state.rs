@@ -6,8 +6,8 @@ use crate::systems::SpawnTrigger;
 use crate::{
     map::builder::Map,
     systems::{
-        AudioEvent, Blinking, DirectionalAnimation, Dying, Eaten, Frozen, Ghost, GhostCollider, GhostState, Hidden,
-        LinearAnimation, Looping, NodeId, PlayerControlled, Position,
+        AudioEvent, Blinking, DirectionalAnimation, Dying, Eaten, Frozen, Ghost, GhostCollider, GhostState, LinearAnimation,
+        Looping, NodeId, PlayerControlled, Position, Visibility,
     },
 };
 use bevy_ecs::{
@@ -223,8 +223,8 @@ pub fn stage_system(
             }
 
             // Hide the player & eaten ghost
-            commands.entity(player.0).insert(Hidden);
-            commands.entity(ghost_entity).insert(Hidden);
+            commands.entity(player.0).insert(Visibility::hidden());
+            commands.entity(ghost_entity).insert(Visibility::hidden());
 
             // Spawn bonus points entity at Pac-Man's position
             commands.trigger(SpawnTrigger::Bonus {
@@ -236,9 +236,9 @@ pub fn stage_system(
         }
         (GameStage::GhostEatenPause { ghost_entity, .. }, GameStage::Playing) => {
             // Unfreeze and reveal the player & all ghosts
-            commands.entity(player.0).remove::<(Frozen, Hidden)>();
+            commands.entity(player.0).remove::<Frozen>().insert(Visibility::visible());
             for (entity, _, _) in ghost_query.iter_mut() {
-                commands.entity(entity).remove::<(Frozen, Hidden)>();
+                commands.entity(entity).remove::<Frozen>().insert(Visibility::visible());
             }
 
             // Reveal the eaten ghost and switch it to Eyes state
@@ -254,7 +254,7 @@ pub fn stage_system(
         (GameStage::PlayerDying(DyingSequence::Frozen { .. }), GameStage::PlayerDying(DyingSequence::Animating { .. })) => {
             // Hide the ghosts
             for (entity, _, _) in ghost_query.iter_mut() {
-                commands.entity(entity).insert(Hidden);
+                commands.entity(entity).insert(Visibility::hidden());
             }
 
             // Start Pac-Man's death animation
@@ -265,7 +265,7 @@ pub fn stage_system(
         }
         (GameStage::PlayerDying(DyingSequence::Animating { .. }), GameStage::PlayerDying(DyingSequence::Hidden { .. })) => {
             // Hide the player
-            commands.entity(player.0).insert(Hidden);
+            commands.entity(player.0).insert(Visibility::hidden());
         }
         (_, GameStage::LevelRestarting) => {
             let (player_entity, mut pos) = player.into_inner();
@@ -275,7 +275,7 @@ pub fn stage_system(
 
             // Freeze the blinking, force them to be visible (if they were hidden by blinking)
             for entity in blinking_query.iter_mut() {
-                commands.entity(entity).insert(Frozen).remove::<Hidden>();
+                commands.entity(entity).insert(Frozen).insert(Visibility::visible());
             }
 
             // Reset the player animation
@@ -296,15 +296,15 @@ pub fn stage_system(
                 };
                 commands
                     .entity(ghost_entity)
-                    .remove::<(Frozen, Hidden, Eaten)>()
-                    .insert(GhostState::Normal);
+                    .remove::<(Frozen, Eaten)>()
+                    .insert((Visibility::visible(), GhostState::Normal));
             }
         }
         (_, GameStage::Starting(StartupSequence::CharactersVisible { .. })) => {
             // Unhide the player & ghosts
-            commands.entity(player.0).remove::<Hidden>();
+            commands.entity(player.0).insert(Visibility::visible());
             for (entity, _, _) in ghost_query.iter_mut() {
-                commands.entity(entity).remove::<Hidden>();
+                commands.entity(entity).insert(Visibility::visible());
             }
         }
         (GameStage::Starting(StartupSequence::CharactersVisible { .. }), GameStage::Playing) => {

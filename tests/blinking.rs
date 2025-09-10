@@ -1,5 +1,5 @@
 use bevy_ecs::{entity::Entity, system::RunSystemOnce, world::World};
-use pacman::systems::{blinking_system, Blinking, DeltaTime, Frozen, Hidden, Renderable};
+use pacman::systems::{blinking_system, Blinking, DeltaTime, Frozen, Renderable, Visibility};
 use speculoos::prelude::*;
 
 mod common;
@@ -20,11 +20,12 @@ fn spawn_blinking_entity(world: &mut World, interval_ticks: u32) -> Entity {
                 sprite: common::mock_atlas_tile(1),
                 layer: 0,
             },
+            Visibility::visible(),
         ))
         .id()
 }
 
-/// Spawns a test entity with blinking, renderable, and hidden components
+/// Spawns a test entity with blinking, renderable, and hidden visibility
 fn spawn_hidden_blinking_entity(world: &mut World, interval_ticks: u32) -> Entity {
     world
         .spawn((
@@ -33,7 +34,7 @@ fn spawn_hidden_blinking_entity(world: &mut World, interval_ticks: u32) -> Entit
                 sprite: common::mock_atlas_tile(1),
                 layer: 0,
             },
-            Hidden,
+            Visibility::hidden(),
         ))
         .id()
 }
@@ -47,12 +48,13 @@ fn spawn_frozen_blinking_entity(world: &mut World, interval_ticks: u32) -> Entit
                 sprite: common::mock_atlas_tile(1),
                 layer: 0,
             },
+            Visibility::visible(),
             Frozen,
         ))
         .id()
 }
 
-/// Spawns a test entity with blinking, renderable, hidden, and frozen components
+/// Spawns a test entity with blinking, renderable, hidden visibility, and frozen components
 fn spawn_frozen_hidden_blinking_entity(world: &mut World, interval_ticks: u32) -> Entity {
     world
         .spawn((
@@ -61,7 +63,7 @@ fn spawn_frozen_hidden_blinking_entity(world: &mut World, interval_ticks: u32) -
                 sprite: common::mock_atlas_tile(1),
                 layer: 0,
             },
-            Hidden,
+            Visibility::hidden(),
             Frozen,
         ))
         .id()
@@ -73,9 +75,22 @@ fn run_blinking_system(world: &mut World, delta_ticks: u32) {
     world.run_system_once(blinking_system).unwrap();
 }
 
-/// Checks if an entity has the Hidden component
-fn has_hidden_component(world: &World, entity: Entity) -> bool {
-    world.entity(entity).contains::<Hidden>()
+/// Checks if an entity is visible
+fn is_entity_visible(world: &World, entity: Entity) -> bool {
+    world
+        .entity(entity)
+        .get::<Visibility>()
+        .map(|v| v.is_visible())
+        .unwrap_or(true) // Default to visible if no Visibility component
+}
+
+/// Checks if an entity is hidden
+fn is_entity_hidden(world: &World, entity: Entity) -> bool {
+    world
+        .entity(entity)
+        .get::<Visibility>()
+        .map(|v| v.is_hidden())
+        .unwrap_or(false) // Default to visible if no Visibility component
 }
 
 /// Checks if an entity has the Frozen component
@@ -100,7 +115,7 @@ fn test_blinking_system_normal_interval_no_toggle() {
     run_blinking_system(&mut world, 3);
 
     // Entity should not be hidden yet
-    assert_that(&has_hidden_component(&world, entity)).is_false();
+    assert_that(&is_entity_visible(&world, entity)).is_true();
 
     // Check that timer was updated
     let blinking = world.entity(entity).get::<Blinking>().unwrap();
@@ -116,7 +131,7 @@ fn test_blinking_system_normal_interval_first_toggle() {
     run_blinking_system(&mut world, 5);
 
     // Entity should now be hidden
-    assert_that(&has_hidden_component(&world, entity)).is_true();
+    assert_that(&is_entity_hidden(&world, entity)).is_true();
 
     // Check that timer was reset
     let blinking = world.entity(entity).get::<Blinking>().unwrap();
@@ -130,11 +145,11 @@ fn test_blinking_system_normal_interval_second_toggle() {
 
     // First toggle: 5 ticks
     run_blinking_system(&mut world, 5);
-    assert_that(&has_hidden_component(&world, entity)).is_true();
+    assert_that(&is_entity_hidden(&world, entity)).is_true();
 
     // Second toggle: another 5 ticks
     run_blinking_system(&mut world, 5);
-    assert_that(&has_hidden_component(&world, entity)).is_false();
+    assert_that(&is_entity_visible(&world, entity)).is_true();
 }
 
 #[test]
@@ -146,7 +161,7 @@ fn test_blinking_system_normal_interval_multiple_intervals() {
     run_blinking_system(&mut world, 7);
 
     // Should toggle twice (even number), so back to original state (not hidden)
-    assert_that(&has_hidden_component(&world, entity)).is_false();
+    assert_that(&is_entity_visible(&world, entity)).is_true();
 
     // Check that timer was updated to remainder
     let blinking = world.entity(entity).get::<Blinking>().unwrap();
@@ -162,7 +177,7 @@ fn test_blinking_system_normal_interval_odd_intervals() {
     run_blinking_system(&mut world, 5);
 
     // Should toggle twice (even number), so back to original state (not hidden)
-    assert_that(&has_hidden_component(&world, entity)).is_false();
+    assert_that(&is_entity_visible(&world, entity)).is_true();
 
     // Check that timer was updated to remainder
     let blinking = world.entity(entity).get::<Blinking>().unwrap();
@@ -178,7 +193,7 @@ fn test_blinking_system_zero_interval_with_ticks() {
     run_blinking_system(&mut world, 1);
 
     // Entity should be hidden immediately
-    assert_that(&has_hidden_component(&world, entity)).is_true();
+    assert_that(&is_entity_hidden(&world, entity)).is_true();
 }
 
 #[test]
@@ -190,7 +205,7 @@ fn test_blinking_system_zero_interval_no_ticks() {
     run_blinking_system(&mut world, 0);
 
     // Entity should not be hidden (no time passed)
-    assert_that(&has_hidden_component(&world, entity)).is_false();
+    assert_that(&is_entity_visible(&world, entity)).is_true();
 }
 
 #[test]
@@ -202,7 +217,7 @@ fn test_blinking_system_zero_interval_toggle_back() {
     run_blinking_system(&mut world, 1);
 
     // Entity should be unhidden
-    assert_that(&has_hidden_component(&world, entity)).is_false();
+    assert_that(&is_entity_visible(&world, entity)).is_true();
 }
 
 #[test]
@@ -214,7 +229,7 @@ fn test_blinking_system_frozen_entity_unhidden() {
     run_blinking_system(&mut world, 10);
 
     // Frozen entity should be unhidden and stay unhidden
-    assert_that(&has_hidden_component(&world, entity)).is_false();
+    assert_that(&is_entity_visible(&world, entity)).is_true();
     assert_that(&has_frozen_component(&world, entity)).is_true();
 }
 
@@ -227,7 +242,7 @@ fn test_blinking_system_frozen_entity_no_blinking() {
     run_blinking_system(&mut world, 10);
 
     // Frozen entity should not be hidden (blinking disabled)
-    assert_that(&has_hidden_component(&world, entity)).is_false();
+    assert_that(&is_entity_visible(&world, entity)).is_true();
     assert_that(&has_frozen_component(&world, entity)).is_true();
 }
 
@@ -255,7 +270,7 @@ fn test_blinking_system_entity_without_renderable_ignored() {
     run_blinking_system(&mut world, 10);
 
     // Entity should not be affected (not in query)
-    assert_that(&has_hidden_component(&world, entity)).is_false();
+    assert_that(&is_entity_visible(&world, entity)).is_true();
 }
 
 #[test]
@@ -274,7 +289,7 @@ fn test_blinking_system_entity_without_blinking_ignored() {
     run_blinking_system(&mut world, 10);
 
     // Entity should not be affected (not in query)
-    assert_that(&has_hidden_component(&world, entity)).is_false();
+    assert_that(&is_entity_visible(&world, entity)).is_true();
 }
 
 #[test]
@@ -286,7 +301,7 @@ fn test_blinking_system_large_interval() {
     run_blinking_system(&mut world, 500);
 
     // Entity should not be hidden yet
-    assert_that(&has_hidden_component(&world, entity)).is_false();
+    assert_that(&is_entity_visible(&world, entity)).is_true();
 
     // Check that timer was updated
     let blinking = world.entity(entity).get::<Blinking>().unwrap();
@@ -302,11 +317,11 @@ fn test_blinking_system_very_small_interval() {
     run_blinking_system(&mut world, 1);
 
     // Entity should be hidden
-    assert_that(&has_hidden_component(&world, entity)).is_true();
+    assert_that(&is_entity_hidden(&world, entity)).is_true();
 
     // Run system with another 1 tick
     run_blinking_system(&mut world, 1);
 
     // Entity should be unhidden
-    assert_that(&has_hidden_component(&world, entity)).is_false();
+    assert_that(&is_entity_visible(&world, entity)).is_true();
 }

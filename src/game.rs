@@ -16,10 +16,10 @@ use crate::systems::{
     hud_render_system, item_system, linear_render_system, player_life_sprite_system, present_system, profile,
     time_to_live_system, touch_ui_render_system, AudioEvent, AudioResource, AudioState, BackbufferResource, Blinking,
     BufferedDirection, Collider, DebugState, DebugTextureResource, DeltaTime, DirectionalAnimation, EntityType, Frozen,
-    GameStage, Ghost, GhostAnimation, GhostAnimations, GhostBundle, GhostCollider, GhostState, GlobalState, Hidden, ItemBundle,
+    GameStage, Ghost, GhostAnimation, GhostAnimations, GhostBundle, GhostCollider, GhostState, GlobalState, ItemBundle,
     ItemCollider, LastAnimationState, LinearAnimation, MapTextureResource, MovementModifiers, NodeId, PacmanCollider,
     PlayerAnimation, PlayerBundle, PlayerControlled, PlayerDeathAnimation, PlayerLives, Position, RenderDirty, Renderable,
-    ScoreResource, StartupSequence, SystemId, SystemTimings, Timing, TouchState, Velocity,
+    ScoreResource, StartupSequence, SystemId, SystemTimings, Timing, TouchState, Velocity, Visibility,
 };
 
 use crate::texture::animated::{DirectionalTiles, TileSequence};
@@ -148,7 +148,7 @@ impl Game {
         Self::configure_schedule(&mut schedule);
 
         debug!("Spawning player entity");
-        world.spawn(player_bundle).insert((Frozen, Hidden));
+        world.spawn(player_bundle).insert((Frozen, Visibility::hidden()));
 
         info!("Spawning game entities");
         Self::spawn_ghosts(&mut world)?;
@@ -601,7 +601,7 @@ impl Game {
                 }
             };
 
-            let entity = world.spawn(ghost).insert((Frozen, Hidden)).id();
+            let entity = world.spawn(ghost).insert((Frozen, Visibility::hidden())).id();
             trace!(ghost = ?ghost_type, entity = ?entity, start_node, "Spawned ghost entity");
         }
 
