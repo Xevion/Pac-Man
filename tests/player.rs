@@ -112,7 +112,7 @@ fn test_entity_type_traversal_flags() {
 
 #[test]
 fn test_player_control_system_move_command() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let _player = common::spawn_test_player(&mut world, 0);
 
     // Send move command
@@ -141,7 +141,7 @@ fn test_player_control_system_move_command() {
 
 #[test]
 fn test_player_control_system_exit_command() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let _player = common::spawn_test_player(&mut world, 0);
 
     // Send exit command
@@ -159,7 +159,7 @@ fn test_player_control_system_exit_command() {
 
 #[test]
 fn test_player_control_system_toggle_debug() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let _player = common::spawn_test_player(&mut world, 0);
 
     // Send toggle debug command
@@ -177,7 +177,7 @@ fn test_player_control_system_toggle_debug() {
 
 #[test]
 fn test_player_control_system_mute_audio() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let _player = common::spawn_test_player(&mut world, 0);
 
     // Send mute audio command
@@ -206,7 +206,7 @@ fn test_player_control_system_mute_audio() {
 
 #[test]
 fn test_player_control_system_no_player_entity() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     // Don't spawn a player entity
 
     common::send_game_event(&mut world, GameEvent::Command(GameCommand::MovePlayer(Direction::Up)));
@@ -221,7 +221,7 @@ fn test_player_control_system_no_player_entity() {
 
 #[test]
 fn test_player_movement_system_buffered_direction_expires() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let player = common::spawn_test_player(&mut world, 0);
 
     // Set a buffered direction with short time
@@ -251,7 +251,7 @@ fn test_player_movement_system_buffered_direction_expires() {
 
 #[test]
 fn test_player_movement_system_start_moving_from_stopped() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let _player = common::spawn_test_player(&mut world, 0);
 
     // Player starts at node 0, facing right (towards node 1)
@@ -276,7 +276,7 @@ fn test_player_movement_system_start_moving_from_stopped() {
 
 #[test]
 fn test_player_movement_system_buffered_direction_change() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let player = common::spawn_test_player(&mut world, 0);
 
     // Set a buffered direction to go down (towards node 2)
@@ -307,7 +307,7 @@ fn test_player_movement_system_buffered_direction_change() {
 
 #[test]
 fn test_player_movement_system_no_valid_edge() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let player = common::spawn_test_player(&mut world, 0);
 
     // Set velocity to direction with no edge
@@ -332,7 +332,7 @@ fn test_player_movement_system_no_valid_edge() {
 
 #[test]
 fn test_player_movement_system_continue_moving() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let player = common::spawn_test_player(&mut world, 0);
 
     // Set player to already be moving
@@ -362,7 +362,7 @@ fn test_player_movement_system_continue_moving() {
 
 #[test]
 fn test_full_player_input_to_movement_flow() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let _player = common::spawn_test_player(&mut world, 0);
 
     // Send move command
@@ -396,7 +396,7 @@ fn test_full_player_input_to_movement_flow() {
 
 #[test]
 fn test_buffered_direction_timing() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let _player = common::spawn_test_player(&mut world, 0);
 
     // Send move command
@@ -435,7 +435,7 @@ fn test_buffered_direction_timing() {
 
 #[test]
 fn test_multiple_rapid_direction_changes() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let _player = common::spawn_test_player(&mut world, 0);
 
     // Send multiple rapid direction changes
@@ -468,7 +468,7 @@ fn test_multiple_rapid_direction_changes() {
 
 #[test]
 fn test_player_state_persistence_across_systems() {
-    let mut world = common::create_test_world();
+    let (mut world, _) = common::create_test_world();
     let _player = common::spawn_test_player(&mut world, 0);
 
     // Test that multiple commands can be processed - but need to handle events properly

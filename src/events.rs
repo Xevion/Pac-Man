@@ -1,6 +1,6 @@
 use bevy_ecs::{entity::Entity, event::Event};
 
-use crate::map::direction::Direction;
+use crate::{map::direction::Direction, systems::Ghost};
 
 /// Player input commands that trigger specific game actions.
 ///
@@ -24,15 +24,12 @@ pub enum GameCommand {
 
 /// Global events that flow through the ECS event system to coordinate game behavior.
 ///
-/// Events enable loose coupling between systems - input generates commands, collision
-/// detection reports overlaps, and various systems respond appropriately without
-/// direct dependencies.
+/// Events enable loose coupling between systems - input generates commands and
+/// various systems respond appropriately without direct dependencies.
 #[derive(Event, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GameEvent {
     /// Player input command to be processed by relevant game systems
     Command(GameCommand),
-    /// Physical overlap detected between two entities requiring gameplay response
-    Collision(Entity, Entity),
 }
 
 impl From<GameCommand> for GameEvent {
@@ -44,5 +41,18 @@ impl From<GameCommand> for GameEvent {
 /// Data for requesting stage transitions; processed centrally in stage_system
 #[derive(Event, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StageTransition {
-    GhostEatenPause { ghost_entity: Entity },
+    GhostEatenPause { ghost_entity: Entity, ghost_type: Ghost },
+}
+
+/// Collision triggers for immediate collision handling via observers
+#[derive(Event, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CollisionTrigger {
+    /// Pac-Man collided with a ghost
+    GhostCollision {
+        pacman: Entity,
+        ghost: Entity,
+        ghost_type: Ghost,
+    },
+    /// Pac-Man collided with an item
+    ItemCollision { pacman: Entity, item: Entity },
 }

@@ -34,6 +34,7 @@ pub enum GameStage {
     GhostEatenPause {
         remaining_ticks: u32,
         ghost_entity: Entity,
+        ghost_type: Ghost,
         node: NodeId,
     },
     /// The player has died and the death sequence is in progress.
@@ -112,13 +113,17 @@ pub fn stage_system(
 
     // Handle stage transition requests before normal ticking
     for event in stage_event_reader.read() {
-        let StageTransition::GhostEatenPause { ghost_entity } = *event;
+        let StageTransition::GhostEatenPause {
+            ghost_entity,
+            ghost_type,
+        } = *event;
         let pac_node = player.1.current_node();
 
         debug!(ghost_entity = ?ghost_entity, node = pac_node, "Ghost eaten, entering pause state");
         new_state = Some(GameStage::GhostEatenPause {
             remaining_ticks: 30,
             ghost_entity,
+            ghost_type,
             node: pac_node,
         });
     }
@@ -131,7 +136,6 @@ pub fn stage_system(
                         remaining_ticks: remaining_ticks - 1,
                     })
                 } else {
-                    debug!("Transitioning from text-only to characters visible startup stage");
                     GameStage::Starting(StartupSequence::CharactersVisible { remaining_ticks: 60 })
                 }
             }
@@ -150,12 +154,14 @@ pub fn stage_system(
         GameStage::GhostEatenPause {
             remaining_ticks,
             ghost_entity,
+            ghost_type,
             node,
         } => {
             if remaining_ticks > 0 {
                 GameStage::GhostEatenPause {
                     remaining_ticks: remaining_ticks.saturating_sub(1),
                     ghost_entity,
+                    ghost_type,
                     node,
                 }
             } else {

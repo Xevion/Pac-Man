@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
-use bevy_ecs::{entity::Entity, event::Events, world::World};
+use bevy_ecs::{entity::Entity, event::Events, schedule::Schedule, world::World};
 use glam::{U16Vec2, Vec2};
 use pacman::{
     asset::{get_asset_bytes, Asset},
     constants::RAW_BOARD,
-    events::GameEvent,
+    events::{CollisionTrigger, GameEvent},
     game::ATLAS_FRAMES,
     map::{
         builder::Map,
@@ -13,9 +13,9 @@ use pacman::{
         graph::{Graph, Node},
     },
     systems::{
-        AudioEvent, AudioState, BufferedDirection, Collider, DebugState, DeltaTime, EntityType, Ghost, GhostCollider, GhostState,
-        GlobalState, ItemCollider, MovementModifiers, PacmanCollider, PelletCount, PlayerControlled, Position, ScoreResource,
-        Velocity,
+        item_collision_observer, AudioEvent, AudioState, BufferedDirection, Collider, DebugState, DeltaTime, EntityType, Ghost,
+        GhostCollider, GhostState, GlobalState, ItemCollider, MovementModifiers, PacmanCollider, PelletCount, PlayerControlled,
+        Position, ScoreResource, Velocity,
     },
     texture::sprite::{AtlasMapper, AtlasTile, SpriteAtlas},
 };
@@ -75,7 +75,7 @@ pub fn create_test_graph() -> Graph {
 }
 
 /// Creates a basic test world with required resources for ECS systems
-pub fn create_test_world() -> World {
+pub fn create_test_world() -> (World, Schedule) {
     let mut world = World::new();
 
     // Add required resources
@@ -93,7 +93,11 @@ pub fn create_test_world() -> World {
     }); // 60 FPS
     world.insert_resource(create_test_map());
 
-    world
+    let schedule = Schedule::default();
+
+    world.add_observer(item_collision_observer);
+
+    (world, schedule)
 }
 
 /// Creates a test map using the default RAW_BOARD
@@ -163,9 +167,8 @@ pub fn send_game_event(world: &mut World, event: GameEvent) {
 }
 
 /// Sends a collision event between two entities
-pub fn send_collision_event(world: &mut World, entity1: Entity, entity2: Entity) {
-    let mut events = world.resource_mut::<Events<GameEvent>>();
-    events.send(GameEvent::Collision(entity1, entity2));
+pub fn trigger_collision(world: &mut World, event: CollisionTrigger) {
+    world.trigger(event);
 }
 
 /// Creates a mock atlas tile for testing

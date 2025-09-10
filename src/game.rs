@@ -7,13 +7,13 @@ use tracing::{debug, info, trace, warn};
 
 use crate::constants::{self, animation, MapTile, CANVAS_SIZE};
 use crate::error::{GameError, GameResult};
-use crate::events::{GameEvent, StageTransition};
+use crate::events::{CollisionTrigger, GameEvent, StageTransition};
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::systems::{
     self, audio_system, blinking_system, collision_system, combined_render_system, directional_render_system,
-    dirty_render_system, eaten_ghost_system, ghost_collision_system, ghost_movement_system, ghost_state_system,
-    hud_render_system, item_system, linear_render_system, player_life_sprite_system, present_system, profile,
+    dirty_render_system, eaten_ghost_system, ghost_collision_observer, ghost_movement_system, ghost_state_system,
+    hud_render_system, item_collision_observer, linear_render_system, player_life_sprite_system, present_system, profile,
     time_to_live_system, touch_ui_render_system, AudioEvent, AudioResource, AudioState, BackbufferResource, Blinking,
     BufferedDirection, Collider, DebugState, DebugTextureResource, DeltaTime, DirectionalAnimation, EntityType, Frozen,
     GameStage, Ghost, GhostAnimation, GhostAnimations, GhostBundle, GhostCollider, GhostState, GlobalState, ItemBundle,
@@ -376,6 +376,7 @@ impl Game {
         EventRegistry::register_event::<GameEvent>(world);
         EventRegistry::register_event::<AudioEvent>(world);
         EventRegistry::register_event::<StageTransition>(world);
+        EventRegistry::register_event::<CollisionTrigger>(world);
 
         world.add_observer(
             |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| {
@@ -384,6 +385,9 @@ impl Game {
                 }
             },
         );
+
+        world.add_observer(ghost_collision_observer);
+        world.add_observer(item_collision_observer);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -443,8 +447,6 @@ impl Game {
         let player_tunnel_slowdown_system = profile(SystemId::PlayerMovement, systems::player::player_tunnel_slowdown_system);
         let ghost_movement_system = profile(SystemId::Ghost, ghost_movement_system);
         let collision_system = profile(SystemId::Collision, collision_system);
-        let ghost_collision_system = profile(SystemId::GhostCollision, ghost_collision_system);
-        let item_system = profile(SystemId::Item, item_system);
         let audio_system = profile(SystemId::Audio, audio_system);
         let blinking_system = profile(SystemId::Blinking, blinking_system);
         let directional_render_system = profile(SystemId::DirectionalRender, directional_render_system);
@@ -478,7 +480,7 @@ impl Game {
         let gameplay_systems = (
             (player_movement_system, player_tunnel_slowdown_system, ghost_movement_system).chain(),
             eaten_ghost_system,
-            (collision_system, ghost_collision_system, item_system).chain(),
+            (collision_system).chain(),
             unified_ghost_state_system,
         )
             .chain()

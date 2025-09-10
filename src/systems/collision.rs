@@ -1,15 +1,16 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    event::{EventReader, EventWriter},
+    event::EventWriter,
+    observer::Trigger,
     query::With,
-    system::{Commands, Query, Res, ResMut, Single},
+    system::{Commands, Query, Res, ResMut},
 };
 use tracing::{debug, trace, warn};
 
-use crate::events::{GameEvent, StageTransition};
+use crate::events::{CollisionTrigger, StageTransition};
 use crate::map::builder::Map;
-use crate::systems::{movement::Position, AudioEvent, DyingSequence, Frozen, GameStage, Ghost, PlayerControlled, ScoreResource};
+use crate::systems::{movement::Position, AudioEvent, DyingSequence, GameStage, Ghost, ScoreResource};
 use crate::{error::GameError, systems::GhostState};
 
 /// A component for defining the collision area of an entity.
@@ -55,11 +56,11 @@ pub fn check_collision(
     Ok(collider1.collides_with(collider2.size, distance))
 }
 
-/// Detects overlapping entities and generates collision events for gameplay systems.
+/// Detects overlapping entities and triggers collision observers immediately.
 ///
 /// Performs distance-based collision detection between Pac-Man and collectible items
-/// using each entity's position and collision radius. When entities overlap, emits
-/// a `GameEvent::Collision` for the item system to handle scoring and removal.
+/// using each entity's position and collision radius. When entities overlap, triggers
+/// collision observers for immediate handling without race conditions.
 /// Collision detection accounts for both entities being in motion and supports
 /// circular collision boundaries for accurate gameplay feel.
 ///
@@ -70,8 +71,8 @@ pub fn collision_system(
     map: Res<Map>,
     pacman_query: Query<(Entity, &Position, &Collider), With<PacmanCollider>>,
     item_query: Query<(Entity, &Position, &Collider), With<ItemCollider>>,
-    ghost_query: Query<(Entity, &Position, &Collider), With<GhostCollider>>,
-    mut events: EventWriter<GameEvent>,
+    ghost_query: Query<(Entity, &Position, &Collider, &Ghost), With<GhostCollider>>,
+    mut commands: Commands,
     mut errors: EventWriter<GameError>,
 ) {
     // Check PACMAN × ITEM collisions
@@ -80,8 +81,11 @@ pub fn collision_system(
             match check_collision(pacman_pos, pacman_collider, item_pos, item_collider, &map) {
                 Ok(colliding) => {
                     if colliding {
-                        trace!(pacman_entity = ?pacman_entity, item_entity = ?item_entity, "Item collision detected");
-                        events.write(GameEvent::Collision(pacman_entity, item_entity));
+                        trace!("Item collision detected");
+                        commands.trigger(CollisionTrigger::ItemCollision {
+                            pacman: pacman_entity,
+                            item: item_entity,
+                        });
                     }
                 }
                 Err(e) => {
@@ -94,12 +98,16 @@ pub fn collision_system(
         }
 
         // Check PACMAN × GHOST collisions
-        for (ghost_entity, ghost_pos, ghost_collider) in ghost_query.iter() {
+        for (ghost_entity, ghost_pos, ghost_collider, ghost) in ghost_query.iter() {
             match check_collision(pacman_pos, pacman_collider, ghost_pos, ghost_collider, &map) {
                 Ok(colliding) => {
                     if colliding {
-                        trace!(pacman_entity = ?pacman_entity, ghost_entity = ?ghost_entity, "Ghost collision detected");
-                        events.write(GameEvent::Collision(pacman_entity, ghost_entity));
+                        trace!(ghost = ?ghost, "Ghost collision detected");
+                        commands.trigger(CollisionTrigger::GhostCollision {
+                            pacman: pacman_entity,
+                            ghost: ghost_entity,
+                            ghost_type: ghost.clone(),
+                        });
                     }
                 }
                 Err(e) => {
@@ -113,55 +121,109 @@ pub fn collision_system(
     }
 }
 
+/// Observer for handling ghost collisions immediately when they occur
 #[allow(clippy::too_many_arguments)]
-pub fn ghost_collision_system(
-    mut commands: Commands,
-    mut collision_events: EventReader<GameEvent>,
+pub fn ghost_collision_observer(
+    trigger: Trigger<CollisionTrigger>,
     mut stage_events: EventWriter<StageTransition>,
     mut score: ResMut<ScoreResource>,
     mut game_state: ResMut<GameStage>,
-    player: Single<Entity, With<PlayerControlled>>,
-    ghost_query: Query<(Entity, &Ghost), With<GhostCollider>>,
     mut ghost_state_query: Query<&mut GhostState>,
     mut events: EventWriter<AudioEvent>,
 ) {
-    for event in collision_events.read() {
-        if let GameEvent::Collision(entity1, entity2) = event {
-            // Check if one is Pacman and the other is a ghost
-            let (pacman_entity, ghost_entity) = if *entity1 == *player && ghost_query.get(*entity2).is_ok() {
-                (*entity1, *entity2)
-            } else if *entity2 == *player && ghost_query.get(*entity1).is_ok() {
-                (*entity2, *entity1)
+    if let CollisionTrigger::GhostCollision {
+        pacman: _pacman,
+        ghost,
+        ghost_type,
+    } = *trigger
+    {
+        // Check if the ghost is frightened
+        if let Ok(ghost_state) = ghost_state_query.get_mut(ghost) {
+            // Check if ghost is in frightened state
+            if matches!(*ghost_state, GhostState::Frightened { .. }) {
+                // Pac-Man eats the ghost
+                // Add score (200 points per ghost eaten)
+                debug!(ghost = ?ghost_type, score_added = 200, new_score = score.0 + 200, "Pacman ate frightened ghost");
+                score.0 += 200;
+
+                // Enter short pause to show bonus points, hide ghost, then set Eyes after pause
+                // Request transition via event so stage_system can process it
+                stage_events.write(StageTransition::GhostEatenPause {
+                    ghost_entity: ghost,
+                    ghost_type: ghost_type,
+                });
+
+                // Play eat sound
+                events.write(AudioEvent::PlayEat);
+            } else if matches!(*ghost_state, GhostState::Normal) {
+                // Pac-Man dies
+                warn!(ghost = ?ghost_type, "Pacman hit by normal ghost, player dies");
+                *game_state = GameStage::PlayerDying(DyingSequence::Frozen { remaining_ticks: 60 });
+                events.write(AudioEvent::StopAll);
             } else {
-                continue;
-            };
+                trace!(ghost_state = ?*ghost_state, "Ghost collision ignored due to state");
+            }
+        }
+    }
+}
 
-            // Check if the ghost is frightened
-            if let Ok((ghost_ent, _ghost_type)) = ghost_query.get(ghost_entity) {
-                if let Ok(ghost_state) = ghost_state_query.get_mut(ghost_ent) {
-                    // Check if ghost is in frightened state
-                    if matches!(*ghost_state, GhostState::Frightened { .. }) {
-                        // Pac-Man eats the ghost
-                        // Add score (200 points per ghost eaten)
-                        debug!(ghost_entity = ?ghost_ent, score_added = 200, new_score = score.0 + 200, "Pacman ate frightened ghost");
-                        score.0 += 200;
+/// Observer for handling item collisions immediately when they occur
+#[allow(clippy::too_many_arguments)]
+pub fn item_collision_observer(
+    trigger: Trigger<CollisionTrigger>,
+    mut commands: Commands,
+    mut score: ResMut<ScoreResource>,
+    mut pellet_count: ResMut<crate::systems::PelletCount>,
+    item_query: Query<(Entity, &crate::systems::EntityType, &Position), With<ItemCollider>>,
+    mut ghost_query: Query<&mut GhostState, With<GhostCollider>>,
+    mut events: EventWriter<AudioEvent>,
+) {
+    if let CollisionTrigger::ItemCollision { pacman: _pacman, item } = *trigger {
+        // Get the item type and update score
+        if let Ok((item_ent, entity_type, position)) = item_query.get(item) {
+            if let Some(score_value) = entity_type.score_value() {
+                trace!(item_entity = ?item_ent, item_type = ?entity_type, score_value, new_score = score.0 + score_value, "Item collected by player");
+                score.0 += score_value;
 
-                        // Enter short pause to show bonus points, hide ghost, then set Eyes after pause
-                        // Request transition via event so stage_system can process it
-                        stage_events.write(StageTransition::GhostEatenPause { ghost_entity: ghost_ent });
+                // Remove the collected item
+                commands.entity(item_ent).despawn();
 
-                        // Play eat sound
-                        events.write(AudioEvent::PlayEat);
-                    } else if matches!(*ghost_state, GhostState::Normal) {
-                        // Pac-Man dies
-                        warn!(ghost_entity = ?ghost_ent, "Pacman hit by normal ghost, player dies");
-                        *game_state = GameStage::PlayerDying(DyingSequence::Frozen { remaining_ticks: 60 });
-                        commands.entity(pacman_entity).insert(Frozen);
-                        commands.entity(ghost_entity).insert(Frozen);
-                        events.write(AudioEvent::StopAll);
-                    } else {
-                        trace!(ghost_state = ?*ghost_state, "Ghost collision ignored due to state");
+                // Track pellet consumption for fruit spawning
+                if *entity_type == crate::systems::EntityType::Pellet {
+                    pellet_count.0 += 1;
+                    trace!(pellet_count = pellet_count.0, "Pellet consumed");
+
+                    // Check if we should spawn a fruit
+                    if pellet_count.0 == 5 || pellet_count.0 == 170 {
+                        debug!(pellet_count = pellet_count.0, "Fruit spawn milestone reached");
+                        commands.trigger(crate::systems::SpawnTrigger::Fruit);
                     }
+                }
+
+                // Trigger bonus points effect if a fruit is collected
+                if matches!(*entity_type, crate::systems::EntityType::Fruit(_)) {
+                    commands.trigger(crate::systems::SpawnTrigger::Bonus {
+                        position: *position,
+                        value: entity_type.score_value().unwrap(),
+                        ttl: 60 * 2,
+                    });
+                }
+
+                // Trigger audio if appropriate
+                if entity_type.is_collectible() {
+                    events.write(AudioEvent::PlayEat);
+                }
+
+                // Make ghosts frightened when power pellet is collected
+                if matches!(*entity_type, crate::systems::EntityType::PowerPellet) {
+                    debug!(duration_ticks = 300, "Power pellet collected, frightening ghosts");
+                    for mut ghost_state in ghost_query.iter_mut() {
+                        *ghost_state = GhostState::new_frightened(300, 60);
+                    }
+                    debug!(
+                        frightened_count = ghost_query.iter().count(),
+                        "Ghosts set to frightened state"
+                    );
                 }
             }
         }
