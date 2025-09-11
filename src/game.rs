@@ -12,7 +12,7 @@ use crate::events::{CollisionTrigger, GameEvent, StageTransition};
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::systems::item::PelletCount;
-use crate::systems::state::IntroPlayed;
+use crate::systems::state::{IntroPlayed, PauseState};
 use crate::systems::{
     self, audio_system, blinking_system, collision_system, combined_render_system, directional_render_system,
     dirty_render_system, eaten_ghost_system, fruit_sprite_system, ghost_collision_observer, ghost_movement_system,
@@ -21,8 +21,8 @@ use crate::systems::{
     BackbufferResource, Blinking, BufferedDirection, Collider, DebugState, DebugTextureResource, DeltaTime, DirectionalAnimation,
     EntityType, Frozen, FruitSprites, GameStage, Ghost, GhostAnimation, GhostAnimations, GhostBundle, GhostCollider, GhostState,
     GlobalState, ItemBundle, ItemCollider, LastAnimationState, LinearAnimation, MapTextureResource, MovementModifiers, NodeId,
-    PacmanCollider, Paused, PlayerAnimation, PlayerBundle, PlayerControlled, PlayerDeathAnimation, PlayerLives, Position,
-    RenderDirty, Renderable, ScoreResource, StartupSequence, SystemId, SystemTimings, Timing, TouchState, Velocity, Visibility,
+    PacmanCollider, PlayerAnimation, PlayerBundle, PlayerControlled, PlayerDeathAnimation, PlayerLives, Position, RenderDirty,
+    Renderable, ScoreResource, StartupSequence, SystemId, SystemTimings, Timing, TouchState, Velocity, Visibility,
 };
 
 use crate::texture::animated::{DirectionalTiles, TileSequence};
@@ -446,7 +446,7 @@ impl Game {
         world.insert_resource(GameStage::Starting(StartupSequence::TextOnly {
             remaining_ticks: constants::startup::STARTUP_FRAMES,
         }));
-        world.insert_resource(Paused(false));
+        world.insert_resource(PauseState::default());
 
         world.insert_non_send_resource(event_pump);
         world.insert_non_send_resource::<&mut Canvas<Window>>(Box::leak(Box::new(canvas)));
@@ -479,6 +479,7 @@ impl Game {
         let unified_ghost_state_system = profile(SystemId::GhostStateAnimation, ghost_state_system);
         let eaten_ghost_system = profile(SystemId::EatenGhost, eaten_ghost_system);
         let time_to_live_system = profile(SystemId::TimeToLive, time_to_live_system);
+        let manage_pause_state_system = profile(SystemId::PauseManager, systems::state::manage_pause_state_system);
 
         // Input system should always run to prevent SDL event pump from blocking
         let input_systems = (
@@ -530,12 +531,13 @@ impl Game {
                     .chain()
                     .in_set(RenderSet::Draw),
                 (present_system, audio_system).chain().in_set(RenderSet::Present),
+                manage_pause_state_system.after(GameplaySet::Update),
             ))
             .configure_sets((
                 GameplaySet::Input,
-                GameplaySet::Update.run_if(|paused: Res<Paused>| !paused.0),
-                GameplaySet::Respond.run_if(|paused: Res<Paused>| !paused.0),
-                RenderSet::Animation.run_if(|paused: Res<Paused>| !paused.0),
+                GameplaySet::Update.run_if(|paused: Res<PauseState>| paused.active()),
+                GameplaySet::Respond.run_if(|paused: Res<PauseState>| paused.active()),
+                RenderSet::Animation.run_if(|paused: Res<PauseState>| paused.active()),
                 RenderSet::Draw,
                 RenderSet::Present,
             ));

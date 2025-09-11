@@ -44,4 +44,5 @@ fix:
     cargo fmt --all
 
 push:
-    git push origin --tags && git push
+    git push origin --tags;
+    git push

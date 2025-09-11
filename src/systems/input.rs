@@ -85,6 +85,7 @@ impl Default for Bindings {
         key_bindings.insert(Keycode::Space, GameCommand::ToggleDebug);
         key_bindings.insert(Keycode::M, GameCommand::MuteAudio);
         key_bindings.insert(Keycode::R, GameCommand::ResetLevel);
+        key_bindings.insert(Keycode::T, GameCommand::SingleTick);
 
         #[cfg(not(target_os = "emscripten"))]
         {

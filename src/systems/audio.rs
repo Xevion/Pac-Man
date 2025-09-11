@@ -5,13 +5,13 @@
 //! main-thread requirements while maintaining Bevy ECS compatibility.
 
 use bevy_ecs::{
-    event::{Event, EventReader, EventWriter},
+    event::{Event, EventReader},
     resource::Resource,
     system::{NonSendMut, ResMut},
 };
 use tracing::{debug, trace};
 
-use crate::{audio::Audio, audio::Sound, error::GameError};
+use crate::{audio::Audio, audio::Sound};
 
 /// Resource for tracking audio state
 #[derive(Resource, Debug, Clone, Default)]
@@ -46,44 +46,39 @@ pub enum AudioEvent {
 pub struct AudioResource(pub Audio);
 
 /// System that processes audio events and plays sounds
-pub fn audio_system(
-    mut audio: NonSendMut<AudioResource>,
-    mut audio_state: ResMut<AudioState>,
-    mut audio_events: EventReader<AudioEvent>,
-    _errors: EventWriter<GameError>,
-) {
+pub fn audio_system(mut audio: NonSendMut<AudioResource>, mut state: ResMut<AudioState>, mut events: EventReader<AudioEvent>) {
     // Set mute state if it has changed
-    if audio.0.is_muted() != audio_state.muted {
-        debug!(muted = audio_state.muted, "Audio mute state changed");
-        audio.0.set_mute(audio_state.muted);
+    if audio.0.is_muted() != state.muted {
+        debug!(muted = state.muted, "Audio mute state changed");
+        audio.0.set_mute(state.muted);
     }
 
     // Process audio events
-    for event in audio_events.read() {
+    for event in events.read() {
         match event {
             AudioEvent::Waka => {
-                if !audio.0.is_disabled() && !audio_state.muted {
-                    trace!(sound_index = audio_state.sound_index, "Playing eat sound");
+                if !audio.0.is_disabled() && !state.muted {
+                    trace!(sound_index = state.sound_index, "Playing eat sound");
                     audio.0.waka();
                     // Update the sound index for cycling through sounds
-                    audio_state.sound_index = (audio_state.sound_index + 1) % 4;
+                    state.sound_index = (state.sound_index + 1) % 4;
                     // 4 eat sounds available
                 } else {
                     debug!(
                         disabled = audio.0.is_disabled(),
-                        muted = audio_state.muted,
+                        muted = state.muted,
                         "Skipping eat sound due to audio state"
                     );
                 }
             }
             AudioEvent::PlaySound(sound) => {
-                if !audio.0.is_disabled() && !audio_state.muted {
+                if !audio.0.is_disabled() && !state.muted {
                     trace!(?sound, "Playing sound");
                     audio.0.play(*sound);
                 } else {
                     debug!(
                         disabled = audio.0.is_disabled(),
-                        muted = audio_state.muted,
+                        muted = state.muted,
                         "Skipping sound due to audio state"
                     );
                 }

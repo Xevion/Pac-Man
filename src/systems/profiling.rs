@@ -163,6 +163,7 @@ pub enum SystemId {
     GhostStateAnimation,
     EatenGhost,
     TimeToLive,
+    PauseManager,
 }
 
 impl Display for SystemId {
