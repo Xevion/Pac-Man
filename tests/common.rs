@@ -3,7 +3,7 @@
 use bevy_ecs::{entity::Entity, event::Events, schedule::Schedule, world::World};
 use glam::{U16Vec2, Vec2};
 use pacman::{
-    asset::{get_asset_bytes, Asset},
+    asset::Asset,
     constants::RAW_BOARD,
     events::{CollisionTrigger, GameEvent},
     game::ATLAS_FRAMES,
@@ -43,7 +43,7 @@ pub fn setup_sdl() -> Result<(Canvas<Window>, TextureCreator<WindowContext>, Sdl
 
 pub fn create_atlas(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) -> SpriteAtlas {
     let texture_creator = canvas.texture_creator();
-    let atlas_bytes = get_asset_bytes(Asset::AtlasImage).unwrap();
+    let atlas_bytes = Asset::AtlasImage.get_bytes().unwrap();
 
     let texture = texture_creator.load_texture_bytes(&atlas_bytes).unwrap();
 

@@ -1,13 +1,10 @@
 //! Emscripten platform implementation.
 
-use crate::asset::Asset;
-use crate::error::{AssetError, PlatformError};
+use crate::error::PlatformError;
 use crate::formatter::CustomFormatter;
 use rand::{rngs::SmallRng, SeedableRng};
-use sdl2::rwops::RWops;
-use std::borrow::Cow;
 use std::ffi::CString;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::time::Duration;
 
 // Emscripten FFI functions
@@ -60,18 +57,6 @@ impl Write for EmscriptenConsoleWriter {
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
-}
-
-pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
-    let path = format!("assets/game/{}", asset.path());
-    let mut rwops = RWops::from_file(&path, "rb").map_err(|_| AssetError::NotFound(asset.path().to_string()))?;
-
-    let len = rwops.len().ok_or_else(|| AssetError::NotFound(asset.path().to_string()))?;
-
-    let mut buf = vec![0u8; len];
-    rwops.read_exact(&mut buf).map_err(|e| AssetError::Io(io::Error::other(e)))?;
-
-    Ok(Cow::Owned(buf))
 }
 
 pub fn rng() -> SmallRng {

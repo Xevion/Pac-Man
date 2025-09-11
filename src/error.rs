@@ -46,8 +46,6 @@ pub enum AssetError {
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
 
-    // This error is only possible on Emscripten, as the assets are loaded from a 'filesystem' of sorts (while on Desktop, they are included in the binary at compile time)
-    #[allow(dead_code)]
     #[error("Asset not found: {0}")]
     NotFound(String),
 }

@@ -40,7 +40,7 @@ use sdl2::video::{Window, WindowContext};
 use sdl2::EventPump;
 
 use crate::{
-    asset::{get_asset_bytes, Asset},
+    asset::Asset,
     events::GameCommand,
     map::render::MapRenderer,
     systems::{BatchedLinesResource, Bindings, CursorPosition, TtfAtlasResource},
@@ -247,7 +247,7 @@ impl Game {
         debug_texture.set_blend_mode(BlendMode::Blend);
         debug_texture.set_scale_mode(ScaleMode::Nearest);
 
-        let font_data: &'static [u8] = get_asset_bytes(Asset::Font)?.to_vec().leak();
+        let font_data: &'static [u8] = Asset::Font.get_bytes()?.to_vec().leak();
         let font_asset = RWops::from_bytes(font_data).map_err(|_| GameError::Sdl("Failed to load font".to_string()))?;
         let debug_font = ttf_context
             .load_font_from_rwops(font_asset, constants::ui::DEBUG_FONT_SIZE)
@@ -261,7 +261,7 @@ impl Game {
 
     fn load_atlas_and_map_tiles(texture_creator: &TextureCreator<WindowContext>) -> GameResult<(SpriteAtlas, Vec<AtlasTile>)> {
         trace!("Loading atlas image from embedded assets");
-        let atlas_bytes = get_asset_bytes(Asset::AtlasImage)?;
+        let atlas_bytes = Asset::AtlasImage.get_bytes()?;
         let atlas_texture = texture_creator.load_texture_bytes(&atlas_bytes).map_err(|e| {
             if e.to_string().contains("format") || e.to_string().contains("unsupported") {
                 GameError::Texture(crate::error::TextureError::InvalidFormat(format!(

@@ -1,7 +1,7 @@
 //! This module handles the audio playback for the game.
 use std::collections::HashMap;
 
-use crate::asset::{get_asset_bytes, Asset};
+use crate::asset::Asset;
 use sdl2::{
     mixer::{self, Chunk, InitFlag, LoaderRWops, AUDIO_S16LSB, DEFAULT_CHANNELS},
     rwops::RWops,
@@ -117,12 +117,13 @@ impl Audio {
 
         // Try to load sounds, but don't panic if any fail
         let mut sounds = HashMap::new();
-        for (i, asset) in Sound::iter().enumerate() {
-            match get_asset_bytes(Asset::SoundFile(asset)) {
+        for (i, sound_type) in Sound::iter().enumerate() {
+            let asset = Asset::SoundFile(sound_type);
+            match asset.get_bytes() {
                 Ok(data) => match RWops::from_bytes(&data) {
                     Ok(rwops) => match rwops.load_wav() {
                         Ok(chunk) => {
-                            sounds.insert(asset, chunk);
+                            sounds.insert(sound_type, chunk);
                         }
                         Err(e) => {
                             tracing::warn!("Failed to load sound {} from asset API: {}", i + 1, e);
@@ -138,7 +139,7 @@ impl Audio {
             }
         }
 
-        let death_sound = match get_asset_bytes(Asset::SoundFile(Sound::PacmanDeath)) {
+        let death_sound = match Asset::SoundFile(Sound::PacmanDeath).get_bytes() {
             Ok(data) => match RWops::from_bytes(&data) {
                 Ok(rwops) => match rwops.load_wav() {
                     Ok(chunk) => Some(chunk),

@@ -1,13 +1,15 @@
 //! Desktop platform implementation.
 
-use std::borrow::Cow;
 use std::time::Duration;
 
 use rand::rngs::ThreadRng;
+use rust_embed::Embed;
 
-use crate::asset::Asset;
-use crate::audio::Sound;
-use crate::error::{AssetError, PlatformError};
+use crate::error::PlatformError;
+
+#[derive(Embed)]
+#[folder = "assets/game/"]
+struct EmbeddedAssets;
 
 /// Desktop platform implementation.
 pub fn sleep(duration: Duration, focused: bool) {
@@ -56,25 +58,6 @@ pub fn init_console() -> Result<(), PlatformError> {
     }
 
     Ok(())
-}
-
-pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
-    match asset {
-        Asset::SoundFile(sound) => match sound {
-            Sound::Waka(0) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/1.ogg"))),
-            Sound::Waka(1) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/2.ogg"))),
-            Sound::Waka(2) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/3.ogg"))),
-            Sound::Waka(3..=u8::MAX) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/4.ogg"))),
-            Sound::PacmanDeath => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/death.ogg"))),
-            Sound::ExtraLife => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/extra_life.ogg"))),
-            Sound::Fruit => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/fruit.ogg"))),
-            Sound::Ghost => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/ghost.ogg"))),
-            Sound::Beginning => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/begin.ogg"))),
-            Sound::Intermission => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/intermission.ogg"))),
-        },
-        Asset::AtlasImage => Ok(Cow::Borrowed(include_bytes!("../../assets/game/atlas.png"))),
-        Asset::Font => Ok(Cow::Borrowed(include_bytes!("../../assets/game/TerminalVector.ttf"))),
-    }
 }
 
 pub fn rng() -> ThreadRng {

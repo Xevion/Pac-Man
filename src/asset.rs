@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use std::iter;
 
 use crate::audio::Sound;
+use crate::error::AssetError;
 
 /// Enumeration of all game assets with cross-platform loading support.
 ///
@@ -66,7 +67,6 @@ impl Asset {
     /// Paths are consistent across platforms and used by the Emscripten backend
     /// for filesystem loading. Desktop builds embed assets directly and don't
     /// use these paths at runtime.
-    #[allow(dead_code)]
     pub fn path(&self) -> &str {
         use Asset::*;
         match self {
@@ -84,34 +84,54 @@ impl Asset {
             Font => "TerminalVector.ttf",
         }
     }
-}
-
-mod imp {
-    use super::*;
-    use crate::error::AssetError;
-    use crate::platform;
-    use tracing::trace;
 
     /// Loads asset bytes using the appropriate platform-specific method.
     ///
-    /// On desktop platforms, returns embedded compile-time data via `include_bytes!`.
+    /// On desktop platforms, returns embedded compile-time data via `rust-embed`.
     /// On Emscripten, loads from the filesystem using the asset's path. The returned
     /// `Cow` allows zero-copy access to embedded data while supporting owned data
     /// when loaded from disk.
     ///
     /// # Errors
     ///
-    /// Returns `AssetError::NotFound` if the asset file cannot be located (Emscripten only),
+    /// Returns `AssetError::NotFound` if the asset file cannot be located,
     /// or `AssetError::Io` for filesystem I/O failures.
-    pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
-        trace!(asset = ?asset, "Loading game asset");
-        let result = platform::get_asset_bytes(asset);
+    pub fn get_bytes(&self) -> Result<Cow<'static, [u8]>, AssetError> {
+        use tracing::trace;
+        trace!(asset = ?self, "Loading game asset");
+        let result = self.get_bytes_platform();
         match &result {
-            Ok(bytes) => trace!(asset = ?asset, size_bytes = bytes.len(), "Asset loaded successfully"),
-            Err(e) => trace!(asset = ?asset, error = ?e, "Asset loading failed"),
+            Ok(bytes) => trace!(asset = ?self, size_bytes = bytes.len(), "Asset loaded successfully"),
+            Err(e) => trace!(asset = ?self, error = ?e, "Asset loading failed"),
         }
         result
     }
-}
 
-pub use imp::get_asset_bytes;
+    #[cfg(not(target_os = "emscripten"))]
+    fn get_bytes_platform(&self) -> Result<Cow<'static, [u8]>, AssetError> {
+        #[derive(rust_embed::Embed)]
+        #[folder = "assets/game/"]
+        struct EmbeddedAssets;
+
+        let path = self.path();
+        EmbeddedAssets::get(path)
+            .map(|file| file.data)
+            .ok_or_else(|| AssetError::NotFound(path.to_string()))
+    }
+
+    #[cfg(target_os = "emscripten")]
+    fn get_bytes_platform(&self) -> Result<Cow<'static, [u8]>, AssetError> {
+        use sdl2::rwops::RWops;
+        use std::io::{self, Read};
+
+        let path = format!("assets/game/{}", self.path());
+        let mut rwops = RWops::from_file(&path, "rb").map_err(|_| AssetError::NotFound(self.path().to_string()))?;
+
+        let len = rwops.len().ok_or_else(|| AssetError::NotFound(self.path().to_string()))?;
+
+        let mut buf = vec![0u8; len];
+        rwops.read_exact(&mut buf).map_err(|e| AssetError::Io(io::Error::other(e)))?;
+
+        Ok(Cow::Owned(buf))
+    }
+}
