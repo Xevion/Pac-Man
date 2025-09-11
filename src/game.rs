@@ -11,6 +11,7 @@ use crate::error::{GameError, GameResult};
 use crate::events::{CollisionTrigger, GameEvent, StageTransition};
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
+use crate::systems::state::IntroPlayed;
 use crate::systems::{
     self, audio_system, blinking_system, collision_system, combined_render_system, directional_render_system,
     dirty_render_system, eaten_ghost_system, fruit_sprite_system, ghost_collision_observer, ghost_movement_system,
@@ -438,6 +439,7 @@ impl Game {
         world.insert_resource(RenderDirty::default());
         world.insert_resource(DebugState::default());
         world.insert_resource(AudioState::default());
+        world.insert_resource(IntroPlayed::default());
         world.insert_resource(CursorPosition::default());
         world.insert_resource(TouchState::default());
         world.insert_resource(GameStage::Starting(StartupSequence::TextOnly {

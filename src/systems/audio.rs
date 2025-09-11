@@ -11,7 +11,7 @@ use bevy_ecs::{
 };
 use tracing::{debug, trace};
 
-use crate::{audio::Audio, error::GameError};
+use crate::{audio::Audio, audio::Sound, error::GameError};
 
 /// Resource for tracking audio state
 #[derive(Resource, Debug, Clone, Default)]
@@ -25,10 +25,10 @@ pub struct AudioState {
 /// Events for triggering audio playback
 #[derive(Event, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AudioEvent {
-    /// Play the "eat" sound when Pac-Man consumes a pellet
-    PlayEat,
-    /// Play the death sound
-    PlayDeath,
+    /// Play a specific sound effect
+    PlaySound(Sound),
+    /// Play the cycling waka sound variant
+    Waka,
     /// Stop all currently playing sounds
     StopAll,
     /// Pause all sounds
@@ -61,7 +61,7 @@ pub fn audio_system(
     // Process audio events
     for event in audio_events.read() {
         match event {
-            AudioEvent::PlayEat => {
+            AudioEvent::Waka => {
                 if !audio.0.is_disabled() && !audio_state.muted {
                     trace!(sound_index = audio_state.sound_index, "Playing eat sound");
                     audio.0.waka();
@@ -76,15 +76,15 @@ pub fn audio_system(
                     );
                 }
             }
-            AudioEvent::PlayDeath => {
+            AudioEvent::PlaySound(sound) => {
                 if !audio.0.is_disabled() && !audio_state.muted {
-                    trace!("Playing death sound");
-                    audio.0.play(crate::audio::Sound::PacmanDeath);
+                    trace!(?sound, "Playing sound");
+                    audio.0.play(*sound);
                 } else {
                     debug!(
                         disabled = audio.0.is_disabled(),
                         muted = audio_state.muted,
-                        "Skipping death sound due to audio state"
+                        "Skipping sound due to audio state"
                     );
                 }
             }

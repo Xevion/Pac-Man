@@ -8,6 +8,7 @@ use bevy_ecs::{
 };
 use tracing::{debug, trace, warn};
 
+use crate::audio::Sound;
 use crate::{
     constants,
     systems::{movement::Position, AudioEvent, DyingSequence, FruitSprites, GameStage, Ghost, ScoreResource, SpawnTrigger},
@@ -165,8 +166,8 @@ pub fn ghost_collision_observer(
                     ghost_type,
                 });
 
-                // Play eat sound
-                events.write(AudioEvent::PlayEat);
+                // Play ghost eaten sound
+                events.write(AudioEvent::PlaySound(Sound::Ghost));
             } else if matches!(*ghost_state, GhostState::Normal) {
                 // Pac-Man dies
                 warn!(ghost = ?ghost_type, "Pacman hit by normal ghost, player dies");
@@ -226,7 +227,15 @@ pub fn item_collision_observer(
 
                 // Trigger audio if appropriate
                 if entity_type.is_collectible() {
-                    events.write(AudioEvent::PlayEat);
+                    match *entity_type {
+                        EntityType::Fruit(_) => {
+                            events.write(AudioEvent::PlaySound(Sound::Fruit));
+                        }
+                        EntityType::Pellet | EntityType::PowerPellet => {
+                            events.write(AudioEvent::Waka);
+                        }
+                        _ => {}
+                    }
                 }
 
                 // Make non-eaten ghosts frightened when power pellet is collected

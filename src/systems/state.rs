@@ -28,6 +28,10 @@ pub struct PlayerAnimation(pub DirectionalAnimation);
 #[derive(Resource, Clone)]
 pub struct PlayerDeathAnimation(pub LinearAnimation);
 
+/// Tracks whether the beginning sound has been played for the current startup sequence
+#[derive(Resource, Debug, Default, Clone, Copy)]
+pub struct IntroPlayed(pub bool);
+
 /// A resource to track the overall stage of the game from a high-level perspective.
 #[derive(Resource, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum GameStage {
@@ -183,6 +187,7 @@ pub fn stage_system(
     player: Single<(Entity, &mut Position), With<PlayerControlled>>,
     mut item_query: Query<(Entity, &EntityType), With<ItemCollider>>,
     mut ghost_query: Query<(Entity, &Ghost, &mut Position, &mut GhostState), (With<GhostCollider>, Without<PlayerControlled>)>,
+    mut intro_played: ResMut<IntroPlayed>,
 ) {
     let old_state = *game_state;
     let mut new_state_opt: Option<GameStage> = None;
@@ -229,6 +234,11 @@ pub fn stage_system(
         }
         GameStage::Starting(sequence) => match sequence {
             StartupSequence::TextOnly { remaining_ticks } => {
+                // Play the beginning sound once at the start of TextOnly stage
+                if !intro_played.0 {
+                    audio_events.write(AudioEvent::PlaySound(crate::audio::Sound::Beginning));
+                    intro_played.0 = true;
+                }
                 if remaining_ticks > 0 {
                     GameStage::Starting(StartupSequence::TextOnly {
                         remaining_ticks: remaining_ticks.saturating_sub(1),
@@ -354,7 +364,7 @@ pub fn stage_system(
                 .insert((Dying, player_death_animation.0.clone()));
 
             // Play the death sound
-            audio_events.write(AudioEvent::PlayDeath);
+            audio_events.write(AudioEvent::PlaySound(crate::audio::Sound::PacmanDeath));
         }
         (_, GameStage::PlayerDying(DyingSequence::Hidden { .. })) => {
             // Pac-Man's death animation is complete, so he should be hidden just like the ghosts.
@@ -423,6 +433,8 @@ pub fn stage_system(
             for entity in blinking_query.iter_mut() {
                 commands.entity(entity).remove::<Frozen>();
             }
+            // Reset intro flag for the next round
+            intro_played.0 = false;
         }
         (_, GameStage::GameOver) => {
             // Freeze blinking
