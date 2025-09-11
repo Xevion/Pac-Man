@@ -381,7 +381,7 @@ impl Game {
             directional_animation: player_animation,
             entity_type: EntityType::Player,
             collider: Collider {
-                size: constants::collider::PLAYER_GHOST_SIZE,
+                size: constants::collider::PLAYER_SIZE,
             },
             pacman_collider: PacmanCollider,
         }
@@ -629,7 +629,7 @@ impl Game {
                     directional_animation: animations,
                     entity_type: EntityType::Ghost,
                     collider: Collider {
-                        size: constants::collider::PLAYER_GHOST_SIZE,
+                        size: constants::collider::GHOST_SIZE,
                     },
                     ghost_collider: GhostCollider,
                     ghost_state: GhostState::Normal,

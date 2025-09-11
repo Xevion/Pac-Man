@@ -53,9 +53,9 @@ pub mod animation {
     /// Frightened ghost animation speed (ticks per frame at 60 ticks/sec)
     pub const GHOST_FRIGHTENED_SPEED: u16 = 12;
     /// Time in ticks for frightened ghosts to return to normal
-    pub const GHOST_FRIGHTENED_TICKS: u32 = 300;
+    pub const GHOST_FRIGHTENED_TICKS: u32 = 5 * 60;
     /// Time in ticks when frightened ghosts start flashing
-    pub const GHOST_FRIGHTENED_FLASH_START_TICKS: u32 = GHOST_FRIGHTENED_TICKS - 120;
+    pub const GHOST_FRIGHTENED_FLASH_START_TICKS: u32 = GHOST_FRIGHTENED_TICKS - 2 * 60;
 }
 
 /// The size of the canvas, in pixels.
@@ -75,13 +75,15 @@ pub const LARGE_CANVAS_SIZE: UVec2 = UVec2::new(
 pub mod collider {
     use super::CELL_SIZE;
 
-    /// Collider size for player and ghosts (1.375x cell size)
-    pub const PLAYER_GHOST_SIZE: f32 = CELL_SIZE as f32 * 1.375;
-    /// Collider size for pellets (0.4x cell size)
+    /// Collider size for player and ghosts
+    pub const PLAYER_SIZE: f32 = CELL_SIZE as f32 * 1.385;
+    /// Collider size for ghosts
+    pub const GHOST_SIZE: f32 = CELL_SIZE as f32 * 1.55;
+    /// Collider size for pellets
     pub const PELLET_SIZE: f32 = CELL_SIZE as f32 * 0.4;
-    /// Collider size for power pellets/energizers (0.95x cell size)
+    /// Collider size for power pellets/energizers
     pub const POWER_PELLET_SIZE: f32 = CELL_SIZE as f32 * 0.95;
-    /// Collider size for fruits (0.8x cell size)
+    /// Collider size for fruits
     pub const FRUIT_SIZE: f32 = CELL_SIZE as f32 * 1.375;
 }
 
@@ -148,7 +150,7 @@ pub const RAW_BOARD: [&str; BOARD_CELL_SIZE.y as usize] = [
 /// Game initialization constants
 pub mod startup {
     /// Number of frames for the startup sequence (3 seconds at 60 FPS)
-    pub const STARTUP_FRAMES: u32 = 60 * 3;
+    pub const STARTUP_FRAMES: u32 = 60 * 4;
 }
 
 /// Game mechanics constants

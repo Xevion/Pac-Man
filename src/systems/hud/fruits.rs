@@ -27,7 +27,7 @@ fn calculate_fruit_sprite_position(index: u32) -> Vec2 {
     let sprite_spacing = CELL_SIZE + CELL_SIZE / 2; // 1.5 cells between sprites
 
     let x = start_x - ((index as f32) * (sprite_spacing as f32 * 1.5)).round() as u32;
-    let y = start_y - CELL_SIZE / 2;
+    let y = start_y - (1 + CELL_SIZE / 2);
 
     Vec2::new((x - CELL_SIZE) as f32, (y + CELL_SIZE) as f32)
 }

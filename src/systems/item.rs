@@ -3,12 +3,14 @@ use bevy_ecs::{
     observer::Trigger,
     system::{Commands, NonSendMut, Res},
 };
+use rand::Rng;
 use strum_macros::IntoStaticStr;
 use tracing::debug;
 
 use crate::{
     constants,
     map::builder::Map,
+    platform::rng,
     systems::{common::bundles::ItemBundle, Collider, Position, Renderable, TimeToLive},
     texture::{
         sprite::SpriteAtlas,
@@ -112,7 +114,9 @@ pub fn spawn_fruit_observer(
                 item_collider: ItemCollider,
             };
 
-            commands.spawn(bundle)
+            let lifetime_ticks = (rng().random_range(9f32..10f32) * 60f32).round() as u32;
+
+            commands.spawn((bundle, TimeToLive::new(lifetime_ticks)))
         }
         SpawnTrigger::Bonus { position, value, ttl } => {
             let sprite = &atlas
