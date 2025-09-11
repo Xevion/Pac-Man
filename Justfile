@@ -37,3 +37,8 @@ samply:
 web *args:
     bun run web.build.ts {{args}};
     caddy file-server --root dist
+
+# Run cargo fix
+fix:
+    cargo fix --workspace --lib --allow-dirty
+    cargo fmt --all

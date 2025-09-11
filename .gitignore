@@ -20,7 +20,3 @@ coverage.html
 # Profiling output
 flamegraph.svg
 /profile.*
-
-# temporary
-assets/game/sound/*.wav
-/*.py
