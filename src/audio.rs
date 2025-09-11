@@ -185,13 +185,13 @@ impl Audio {
     /// Automatically rotates through the four eating sound assets. The sound plays on channel 0 and the internal sound index
     /// advances to the next variant. Silently returns if audio is disabled, muted,
     /// or no sounds were loaded successfully.
-    pub fn eat(&mut self) {
+    pub fn waka(&mut self) {
         if self.disabled || self.muted || self.sounds.is_empty() {
             return;
         }
 
         if let Some(chunk) = self.sounds.get(&Sound::Waka(self.next_waka_index)) {
-            match mixer::Channel(0).play(chunk, 0) {
+            match mixer::Channel::all().play(chunk, 0) {
                 Ok(channel) => {
                     tracing::trace!("Playing sound #{} on channel {:?}", self.next_waka_index + 1, channel);
                 }
@@ -203,14 +203,14 @@ impl Audio {
         self.next_waka_index = (self.next_waka_index + 1) & 3;
     }
 
-    /// Plays the death sound effect.
-    pub fn death(&mut self) {
+    /// Plays the provided sound effect once.
+    pub fn play(&mut self, sound: Sound) {
         if self.disabled || self.muted {
             return;
         }
 
-        if let Some(chunk) = self.sounds.get(&Sound::PacmanDeath) {
-            mixer::Channel::all().play(chunk, 0).ok();
+        if let Some(chunk) = self.sounds.get(&sound) {
+            let _ = mixer::Channel::all().play(chunk, 0);
         }
     }
 

@@ -64,7 +64,7 @@ pub fn audio_system(
             AudioEvent::PlayEat => {
                 if !audio.0.is_disabled() && !audio_state.muted {
                     trace!(sound_index = audio_state.sound_index, "Playing eat sound");
-                    audio.0.eat();
+                    audio.0.waka();
                     // Update the sound index for cycling through sounds
                     audio_state.sound_index = (audio_state.sound_index + 1) % 4;
                     // 4 eat sounds available
@@ -79,7 +79,7 @@ pub fn audio_system(
             AudioEvent::PlayDeath => {
                 if !audio.0.is_disabled() && !audio_state.muted {
                     trace!("Playing death sound");
-                    audio.0.death();
+                    audio.0.play(crate::audio::Sound::PacmanDeath);
                 } else {
                     debug!(
                         disabled = audio.0.is_disabled(),
