@@ -20,6 +20,7 @@ pub fn sleep(duration: Duration, focused: bool) {
     }
 }
 
+#[allow(unused_variables)]
 pub fn init_console(force_console: bool) -> Result<(), PlatformError> {
     use crate::formatter::CustomFormatter;
     use tracing::Level;
