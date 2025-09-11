@@ -29,13 +29,13 @@ fn test_is_collectible_item() {
 
 #[test]
 fn test_item_system_pellet_collection() {
-    let (mut world, mut schedule) = common::create_test_world();
+    let (mut world, mut _schedule) = common::create_test_world();
     let pellet = common::spawn_test_item(&mut world, 1, EntityType::Pellet);
 
     // Send collision event
     common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: pellet });
 
-    schedule.run(&mut world);
+    world.flush();
 
     // Check that score was updated
     let score = world.resource_mut::<ScoreResource>();
@@ -52,12 +52,12 @@ fn test_item_system_pellet_collection() {
 
 #[test]
 fn test_item_system_power_pellet_collection() {
-    let (mut world, mut schedule) = common::create_test_world();
+    let (mut world, mut _schedule) = common::create_test_world();
     let power_pellet = common::spawn_test_item(&mut world, 1, EntityType::PowerPellet);
 
     common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: power_pellet });
 
-    schedule.run(&mut world);
+    world.flush();
 
     // Check that score was updated with power pellet value
     let score = world.resource::<ScoreResource>();
@@ -74,7 +74,7 @@ fn test_item_system_power_pellet_collection() {
 
 #[test]
 fn test_item_system_multiple_collections() {
-    let (mut world, mut schedule) = common::create_test_world();
+    let (mut world, mut _schedule) = common::create_test_world();
     let pellet1 = common::spawn_test_item(&mut world, 1, EntityType::Pellet);
     let pellet2 = common::spawn_test_item(&mut world, 2, EntityType::Pellet);
     let power_pellet = common::spawn_test_item(&mut world, 3, EntityType::PowerPellet);
@@ -84,13 +84,11 @@ fn test_item_system_multiple_collections() {
     common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: pellet2 });
     common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: power_pellet });
 
-    schedule.run(&mut world);
+    world.flush();
 
     // Check final score: 2 pellets (20) + 1 power pellet (50) = 70
     let score = world.resource::<ScoreResource>();
     assert_that(&score.0).is_equal_to(70);
-
-    schedule.run(&mut world);
 
     // Check that all items were despawned
     let pellet_count = world
@@ -109,7 +107,7 @@ fn test_item_system_multiple_collections() {
 
 #[test]
 fn test_item_system_ignores_non_item_collisions() {
-    let (mut world, mut schedule) = common::create_test_world();
+    let (mut world, mut _schedule) = common::create_test_world();
 
     // Create a ghost entity (not an item)
     let ghost = world.spawn((Position::Stopped { node: 2 }, EntityType::Ghost)).id();
@@ -120,7 +118,7 @@ fn test_item_system_ignores_non_item_collisions() {
     // Send collision event between pacman and ghost
     common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: ghost });
 
-    schedule.run(&mut world);
+    world.flush();
 
     // Score should remain unchanged
     let score = world.resource::<ScoreResource>();
@@ -137,14 +135,14 @@ fn test_item_system_ignores_non_item_collisions() {
 
 #[test]
 fn test_item_system_no_collision_events() {
-    let (mut world, mut schedule) = common::create_test_world();
+    let (mut world, mut _schedule) = common::create_test_world();
     let _pacman = common::spawn_test_pacman(&mut world, 0);
     let _pellet = common::spawn_test_item(&mut world, 1, EntityType::Pellet);
 
     let initial_score = world.resource::<ScoreResource>().0;
 
     // Run system without any collision events
-    schedule.run(&mut world);
+    world.flush();
 
     // Nothing should change
     let score = world.resource::<ScoreResource>();
@@ -159,7 +157,7 @@ fn test_item_system_no_collision_events() {
 
 #[test]
 fn test_item_system_collision_with_missing_entity() {
-    let (mut world, mut schedule) = common::create_test_world();
+    let (mut world, mut _schedule) = common::create_test_world();
 
     // Create a fake entity ID that doesn't exist
     let fake_entity = Entity::from_raw(999);
@@ -167,7 +165,7 @@ fn test_item_system_collision_with_missing_entity() {
     common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: fake_entity });
 
     // System should handle gracefully and not crash
-    schedule.run(&mut world);
+    world.flush();
     // Score should remain unchanged
     let score = world.resource::<ScoreResource>();
     assert_that(&score.0).is_equal_to(0);
@@ -175,7 +173,7 @@ fn test_item_system_collision_with_missing_entity() {
 
 #[test]
 fn test_item_system_preserves_existing_score() {
-    let (mut world, mut schedule) = common::create_test_world();
+    let (mut world, mut _schedule) = common::create_test_world();
 
     // Set initial score
     world.insert_resource(ScoreResource(100));
@@ -184,7 +182,7 @@ fn test_item_system_preserves_existing_score() {
 
     common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: pellet });
 
-    schedule.run(&mut world);
+    world.flush();
 
     // Score should be initial + pellet value
     let score = world.resource::<ScoreResource>();
@@ -193,7 +191,7 @@ fn test_item_system_preserves_existing_score() {
 
 #[test]
 fn test_power_pellet_does_not_affect_ghosts_in_eyes_state() {
-    let (mut world, mut schedule) = common::create_test_world();
+    let (mut world, mut _schedule) = common::create_test_world();
     let power_pellet = common::spawn_test_item(&mut world, 1, EntityType::PowerPellet);
 
     // Spawn a ghost in Eyes state (returning to ghost house)
@@ -204,7 +202,7 @@ fn test_power_pellet_does_not_affect_ghosts_in_eyes_state() {
 
     common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: power_pellet });
 
-    schedule.run(&mut world);
+    world.flush();
 
     // Check that the power pellet was collected and score updated
     let score = world.resource::<ScoreResource>();

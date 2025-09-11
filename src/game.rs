@@ -3,6 +3,7 @@
 include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 
 use std::collections::HashMap;
+use std::ops::Not;
 use tracing::{debug, info, trace, warn};
 
 use crate::constants::{self, animation, MapTile, CANVAS_SIZE};
@@ -510,7 +511,7 @@ impl Game {
                     (|mut dirty: ResMut<RenderDirty>, score: Res<ScoreResource>, stage: Res<GameStage>| {
                         dirty.0 = score.is_changed() || stage.is_changed();
                     }),
-                    dirty_render_system.run_if(|dirty: Res<RenderDirty>| dirty.0 == false),
+                    dirty_render_system.run_if(|dirty: Res<RenderDirty>| dirty.0.not()),
                     combined_render_system,
                     hud_render_system,
                     touch_ui_render_system,

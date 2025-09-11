@@ -162,7 +162,7 @@ pub fn ghost_collision_observer(
                 // Request transition via event so stage_system can process it
                 stage_events.write(StageTransition::GhostEatenPause {
                     ghost_entity: ghost,
-                    ghost_type: ghost_type,
+                    ghost_type,
                 });
 
                 // Play eat sound
