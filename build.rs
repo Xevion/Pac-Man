@@ -51,4 +51,11 @@ fn main() {
 
     writeln!(&mut file, "}};").unwrap();
     println!("cargo:rerun-if-changed=assets/game/atlas.json");
+
+    #[cfg(target_os = "windows")]
+    {
+        if cfg!(any(feature = "force-console", debug_assertions)) {
+            println!("cargo:rustc-cfg=use_console");
+        }
+    }
 }

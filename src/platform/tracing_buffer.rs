@@ -1,14 +1,11 @@
 //! Buffered tracing setup for handling logs before console attachment.
 
-use crate::formatter::CustomFormatter;
 use parking_lot::Mutex;
 use std::io;
 use std::io::Write;
 use std::sync::Arc;
-use tracing::{debug, Level};
-use tracing_error::ErrorLayer;
+use tracing::debug;
 use tracing_subscriber::fmt::MakeWriter;
-use tracing_subscriber::layer::SubscriberExt;
 
 /// A thread-safe buffered writer that stores logs in memory until flushed.
 #[derive(Clone)]
@@ -76,7 +73,7 @@ impl SwitchableWriter {
             // Get buffer size before flushing for debug logging
             let buffer_size = self.buffered_writer.buffer_size();
 
-            // Flush any buffered content
+            // Flush any buffered content to stdout only
             self.buffered_writer.flush_to(io::stdout())?;
 
             // Switch to direct mode (and drop the lock)
@@ -129,24 +126,4 @@ impl<'a> MakeWriter<'a> for SwitchableMakeWriter {
     fn make_writer(&'a self) -> Self::Writer {
         self.writer.clone()
     }
-}
-
-/// Sets up a switchable tracing subscriber that can transition from buffered to direct output.
-///
-/// Returns the switchable writer that can be used to control the behavior.
-pub fn setup_switchable_subscriber() -> SwitchableWriter {
-    let switchable_writer = SwitchableWriter::default();
-    let make_writer = SwitchableMakeWriter::new(switchable_writer.clone());
-
-    let _subscriber = tracing_subscriber::fmt()
-        .with_ansi(cfg!(not(target_os = "emscripten")))
-        .with_max_level(Level::DEBUG)
-        .event_format(CustomFormatter)
-        .with_writer(make_writer)
-        .finish()
-        .with(ErrorLayer::default());
-
-    tracing::subscriber::set_global_default(_subscriber).expect("Could not set global default switchable subscriber");
-
-    switchable_writer
 }

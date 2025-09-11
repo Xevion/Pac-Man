@@ -1,7 +1,9 @@
-// Note: This disables the console window on Windows. We manually re-attach to the parent terminal or process later on.
-#![windows_subsystem = "windows"]
+#![cfg_attr(all(not(use_console), target_os = "windows"), windows_subsystem = "windows")]
+#![cfg_attr(all(use_console, target_os = "windows"), windows_subsystem = "console")]
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
+
+use std::env;
 
 use crate::{app::App, constants::LOOP_TIME};
 use tracing::info;
@@ -32,9 +34,12 @@ mod texture;
 /// This function initializes SDL, the window, the game state, and then enters
 /// the main game loop.
 pub fn main() {
-    // On Windows, this connects output streams to the console dynamically
+    // Parse command line arguments
+    let args: Vec<String> = env::args().collect();
+    let force_console = args.iter().any(|arg| arg == "--console" || arg == "-c");
+
     // On Emscripten, this connects the subscriber to the browser console
-    platform::init_console().expect("Could not initialize console");
+    platform::init_console(force_console).expect("Could not initialize console");
 
     let mut app = App::new().expect("Could not create app");
 

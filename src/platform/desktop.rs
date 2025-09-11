@@ -20,41 +20,83 @@ pub fn sleep(duration: Duration, focused: bool) {
     }
 }
 
-pub fn init_console() -> Result<(), PlatformError> {
+pub fn init_console(force_console: bool) -> Result<(), PlatformError> {
+    use crate::formatter::CustomFormatter;
+    use tracing::Level;
+    use tracing_error::ErrorLayer;
+    use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Layer};
+
+    // Create a file layer
+    let log_file = std::fs::File::create("pacman.log")
+        .map_err(|e| PlatformError::ConsoleInit(format!("Failed to create log file: {}", e)))?;
+    let file_layer = fmt::layer()
+        .with_ansi(false)
+        .with_writer(log_file)
+        .event_format(CustomFormatter)
+        .with_filter(tracing_subscriber::filter::LevelFilter::from_level(Level::DEBUG))
+        .boxed();
+
     #[cfg(windows)]
     {
-        use crate::platform::tracing_buffer::setup_switchable_subscriber;
-        use tracing::{debug, info, trace};
-        use windows::Win32::System::Console::GetConsoleWindow;
+        // If using windows subsystem, and force_console is true, allocate a new console window
+        if force_console && cfg!(not(use_console)) {
+            use crate::platform::tracing_buffer::{SwitchableMakeWriter, SwitchableWriter};
 
-        // Setup buffered tracing subscriber that will buffer logs until console is ready
-        let switchable_writer = setup_switchable_subscriber();
+            // Setup deferred tracing subscriber that will buffer logs until console is ready
+            let switchable_writer = SwitchableWriter::default();
+            let make_writer = SwitchableMakeWriter::new(switchable_writer.clone());
+            let console_layer = fmt::layer()
+                .with_ansi(true)
+                .with_writer(make_writer)
+                .event_format(CustomFormatter)
+                .with_filter(tracing_subscriber::filter::LevelFilter::from_level(Level::DEBUG))
+                .boxed();
 
-        // Check if we already have a console window
-        if unsafe { !GetConsoleWindow().0.is_null() } {
-            debug!("Already have a console window");
-            return Ok(());
+            tracing_subscriber::registry()
+                .with(console_layer)
+                .with(file_layer)
+                .with(ErrorLayer::default())
+                .init();
+
+            // Enable virtual terminal processing for ANSI colors
+            allocate_console()?;
+            enable_ansi_support()?;
+
+            switchable_writer
+                .switch_to_direct_mode()
+                .map_err(|e| PlatformError::ConsoleInit(format!("Failed to switch to direct mode: {}", e)))?;
         } else {
-            trace!("No existing console window found");
+            // Set up tracing subscriber with ANSI colors enabled
+            let console_layer = fmt::layer()
+                .with_ansi(true)
+                .with_writer(std::io::stdout)
+                .event_format(CustomFormatter)
+                .with_filter(tracing_subscriber::filter::LevelFilter::from_level(Level::DEBUG))
+                .boxed();
+
+            tracing_subscriber::registry()
+                .with(console_layer)
+                .with(file_layer)
+                .with(ErrorLayer::default())
+                .init();
         }
+    }
 
-        if let Some(file_type) = is_output_setup()? {
-            trace!(r#type = file_type, "Existing output detected");
-        } else {
-            trace!("No existing output detected");
+    #[cfg(not(windows))]
+    {
+        // Set up tracing subscriber with ANSI colors enabled
+        let console_layer = fmt::layer()
+            .with_ansi(true)
+            .with_writer(std::io::stdout)
+            .event_format(CustomFormatter)
+            .with_filter(tracing_subscriber::filter::LevelFilter::from_level(Level::DEBUG))
+            .boxed();
 
-            // Try to attach to parent console for direct cargo run
-            attach_to_parent_console()?;
-            info!("Successfully attached to parent console");
-        }
-
-        // Now that console is initialized, flush buffered logs and switch to direct output
-        trace!("Switching to direct logging mode and flushing buffer...");
-        if let Err(error) = switchable_writer.switch_to_direct_mode() {
-            use tracing::warn;
-
-            warn!("Failed to flush buffered logs to console: {error:?}");
-        }
+        tracing_subscriber::registry()
+            .with(console_layer)
+            .with(file_layer)
+            .with(ErrorLayer::default())
+            .init();
     }
 
     Ok(())
@@ -64,73 +106,66 @@ pub fn rng() -> ThreadRng {
     rand::rng()
 }
 
-/* Internal functions */
-
-/// Check if the output stream has been setup by a parent process
+/// Enable ANSI escape sequence support in the Windows console
 /// Windows-only
 #[cfg(windows)]
-fn is_output_setup() -> Result<Option<&'static str>, PlatformError> {
-    use tracing::{trace, warn};
-
-    use windows::Win32::Storage::FileSystem::{
-        GetFileType, FILE_TYPE_CHAR, FILE_TYPE_DISK, FILE_TYPE_PIPE, FILE_TYPE_REMOTE, FILE_TYPE_UNKNOWN,
+fn enable_ansi_support() -> Result<(), PlatformError> {
+    use windows::Win32::System::Console::{
+        GetConsoleMode, GetStdHandle, SetConsoleMode, CONSOLE_MODE, ENABLE_VIRTUAL_TERMINAL_PROCESSING, STD_ERROR_HANDLE,
+        STD_OUTPUT_HANDLE,
     };
 
-    use windows_sys::Win32::{
-        Foundation::INVALID_HANDLE_VALUE,
-        System::Console::{GetStdHandle, STD_OUTPUT_HANDLE},
-    };
+    // Enable ANSI processing for stdout
+    unsafe {
+        let stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE)
+            .map_err(|e| PlatformError::ConsoleInit(format!("Failed to get stdout handle: {:?}", e)))?;
 
-    // Get the process's standard output handle, check if it's invalid
-    let handle = match unsafe { GetStdHandle(STD_OUTPUT_HANDLE) } {
-        INVALID_HANDLE_VALUE => {
-            return Err(PlatformError::ConsoleInit("Invalid handle".to_string()));
-        }
-        handle => handle,
-    };
+        let mut console_mode = CONSOLE_MODE(0);
+        GetConsoleMode(stdout_handle, &mut console_mode)
+            .map_err(|e| PlatformError::ConsoleInit(format!("Failed to get console mode: {:?}", e)))?;
 
-    // Identify the file type of the handle and whether it's 'well known' (i.e. we trust it to be a reasonable output destination)
-    let (well_known, file_type) = match unsafe {
-        use windows::Win32::Foundation::HANDLE;
-        GetFileType(HANDLE(handle))
-    } {
-        FILE_TYPE_PIPE => (true, "pipe"),
-        FILE_TYPE_CHAR => (true, "char"),
-        FILE_TYPE_DISK => (true, "disk"),
-        FILE_TYPE_UNKNOWN => (false, "unknown"),
-        FILE_TYPE_REMOTE => (false, "remote"),
-        unexpected => {
-            warn!("Unexpected file type: {unexpected:?}");
-            (false, "unknown")
-        }
-    };
+        console_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        SetConsoleMode(stdout_handle, console_mode)
+            .map_err(|e| PlatformError::ConsoleInit(format!("Failed to enable ANSI for stdout: {:?}", e)))?;
+    }
 
-    trace!("File type: {file_type:?}, well known: {well_known}");
+    // Enable ANSI processing for stderr
+    unsafe {
+        let stderr_handle = GetStdHandle(STD_ERROR_HANDLE)
+            .map_err(|e| PlatformError::ConsoleInit(format!("Failed to get stderr handle: {:?}", e)))?;
 
-    // If it's anything recognizable and valid, assume that a parent process has setup an output stream
-    Ok(well_known.then_some(file_type))
+        let mut console_mode = CONSOLE_MODE(0);
+        GetConsoleMode(stderr_handle, &mut console_mode)
+            .map_err(|e| PlatformError::ConsoleInit(format!("Failed to get console mode: {:?}", e)))?;
+
+        console_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        SetConsoleMode(stderr_handle, console_mode)
+            .map_err(|e| PlatformError::ConsoleInit(format!("Failed to enable ANSI for stderr: {:?}", e)))?;
+    }
+
+    Ok(())
 }
 
-/// Try to attach to parent console
+/// Allocate a new console window for the process
 /// Windows-only
 #[cfg(windows)]
-fn attach_to_parent_console() -> Result<(), PlatformError> {
+fn allocate_console() -> Result<(), PlatformError> {
     use windows::{
         core::PCSTR,
         Win32::{
             Foundation::{GENERIC_READ, GENERIC_WRITE},
             Storage::FileSystem::{CreateFileA, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING},
-            System::Console::{
-                AttachConsole, FreeConsole, SetStdHandle, ATTACH_PARENT_PROCESS, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE,
-            },
+            System::Console::{AllocConsole, SetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE},
         },
     };
 
-    // Attach the process to the parent's console
-    unsafe { AttachConsole(ATTACH_PARENT_PROCESS) }
-        .map_err(|e| PlatformError::ConsoleInit(format!("Failed to attach to parent console: {:?}", e)))?;
+    // Allocate a new console for this process
+    unsafe { AllocConsole() }.map_err(|e| PlatformError::ConsoleInit(format!("Failed to allocate console: {:?}", e)))?;
 
-    let handle = unsafe {
+    // Note: SetConsoleTitle is not available in the imported modules, skipping title setting
+
+    // Redirect stdout
+    let stdout_handle = unsafe {
         let pcstr = PCSTR::from_raw(c"CONOUT$".as_ptr() as *const u8);
         CreateFileA::<PCSTR>(
             pcstr,
@@ -142,28 +177,32 @@ fn attach_to_parent_console() -> Result<(), PlatformError> {
             None,
         )
     }
-    .map_err(|e| PlatformError::ConsoleInit(format!("Failed to create console handle: {:?}", e)))?;
+    .map_err(|e| PlatformError::ConsoleInit(format!("Failed to create stdout handle: {:?}", e)))?;
 
-    // Set the console's output and then error handles
-    if let Some(handle_error) = unsafe { SetStdHandle(STD_OUTPUT_HANDLE, handle) }
-        .map_err(|e| PlatformError::ConsoleInit(format!("Failed to set console output handle: {:?}", e)))
-        .and_then(|_| {
-            unsafe { SetStdHandle(STD_ERROR_HANDLE, handle) }
-                .map_err(|e| PlatformError::ConsoleInit(format!("Failed to set console error handle: {:?}", e)))
-        })
-        .err()
-    {
-        // If either set handle call fails, free the console
-        unsafe { FreeConsole() }
-            // Free the console if the SetStdHandle calls fail
-            .map_err(|free_error| {
-                PlatformError::ConsoleInit(format!(
-                    "Failed to free console after SetStdHandle failed: {free_error:?} ({handle_error:?})"
-                ))
-            })
-            // And then return the original error if the FreeConsole call succeeds
-            .and(Err(handle_error))?;
+    // Redirect stdin
+    let stdin_handle = unsafe {
+        let pcstr = PCSTR::from_raw(c"CONIN$".as_ptr() as *const u8);
+        CreateFileA::<PCSTR>(
+            pcstr,
+            (GENERIC_READ | GENERIC_WRITE).0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            None,
+            OPEN_EXISTING,
+            FILE_FLAGS_AND_ATTRIBUTES(0),
+            None,
+        )
     }
+    .map_err(|e| PlatformError::ConsoleInit(format!("Failed to create stdin handle: {:?}", e)))?;
+
+    // Set the standard handles
+    unsafe { SetStdHandle(STD_OUTPUT_HANDLE, stdout_handle) }
+        .map_err(|e| PlatformError::ConsoleInit(format!("Failed to set stdout handle: {:?}", e)))?;
+
+    unsafe { SetStdHandle(STD_ERROR_HANDLE, stdout_handle) }
+        .map_err(|e| PlatformError::ConsoleInit(format!("Failed to set stderr handle: {:?}", e)))?;
+
+    unsafe { SetStdHandle(STD_INPUT_HANDLE, stdin_handle) }
+        .map_err(|e| PlatformError::ConsoleInit(format!("Failed to set stdin handle: {:?}", e)))?;
 
     Ok(())
 }

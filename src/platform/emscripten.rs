@@ -19,7 +19,7 @@ pub fn sleep(duration: Duration, _focused: bool) {
     }
 }
 
-pub fn init_console() -> Result<(), PlatformError> {
+pub fn init_console(_force_console: bool) -> Result<(), PlatformError> {
     use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter};
 
     // Set up a custom tracing subscriber that writes directly to emscripten console
