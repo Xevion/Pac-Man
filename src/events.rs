@@ -54,5 +54,5 @@ pub enum CollisionTrigger {
         ghost_type: Ghost,
     },
     /// Pac-Man collided with an item
-    ItemCollision { pacman: Entity, item: Entity },
+    ItemCollision { item: Entity },
 }

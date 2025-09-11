@@ -57,7 +57,7 @@ impl Ghost {
     }
 }
 
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GhostState {
     /// Normal ghost behavior - chasing Pac-Man
     Normal,
@@ -254,7 +254,7 @@ pub fn ghost_movement_system(
 pub fn eaten_ghost_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,
-    mut eaten_ghosts: Query<(&Ghost, &mut Position, &mut Velocity, &mut GhostState)>,
+    mut eaten_ghosts: Query<(&Ghost, &mut Position, &mut Velocity, &mut GhostState), Without<Frozen>>,
 ) {
     for (ghost_type, mut position, mut velocity, mut ghost_state) in eaten_ghosts.iter_mut() {
         // Only process ghosts that are in Eyes state

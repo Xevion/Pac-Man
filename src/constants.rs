@@ -52,10 +52,12 @@ pub mod animation {
     pub const GHOST_EATEN_SPEED: u16 = 6;
     /// Frightened ghost animation speed (ticks per frame at 60 ticks/sec)
     pub const GHOST_FRIGHTENED_SPEED: u16 = 12;
-
-    /// Time in ticks when frightened ghosts start flashing (2 seconds at 60 FPS)
-    pub const FRIGHTENED_FLASH_START_TICKS: u32 = 120;
+    /// Time in ticks for frightened ghosts to return to normal
+    pub const GHOST_FRIGHTENED_TICKS: u32 = 300;
+    /// Time in ticks when frightened ghosts start flashing
+    pub const GHOST_FRIGHTENED_FLASH_START_TICKS: u32 = GHOST_FRIGHTENED_TICKS - 120;
 }
+
 /// The size of the canvas, in pixels.
 pub const CANVAS_SIZE: UVec2 = UVec2::new(
     (BOARD_CELL_SIZE.x + BOARD_CELL_OFFSET.x + BOARD_BOTTOM_CELL_OFFSET.x) * CELL_SIZE,

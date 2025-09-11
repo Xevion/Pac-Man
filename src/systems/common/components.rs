@@ -94,7 +94,7 @@ impl Default for MovementModifiers {
 }
 
 /// Tag component for entities that should be frozen during startup
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Frozen;
 
 /// Component for HUD life sprite entities.

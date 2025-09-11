@@ -1,8 +1,10 @@
 use std::mem::discriminant;
 use tracing::{debug, info, warn};
 
+use crate::constants;
 use crate::events::StageTransition;
-use crate::systems::SpawnTrigger;
+use crate::map::direction::Direction;
+use crate::systems::{EntityType, ItemCollider, SpawnTrigger, Velocity};
 use crate::{
     map::builder::Map,
     systems::{
@@ -37,12 +39,49 @@ pub enum GameStage {
         ghost_type: Ghost,
         node: NodeId,
     },
-    /// The player has died and the death sequence is in progress.
+    /// The player has died and the death sequence is in progress. At the end, the player will return to the startup sequence or game over.
     PlayerDying(DyingSequence),
-    /// The level is restarting after a death.
-    LevelRestarting,
     /// The game has ended.
     GameOver,
+}
+
+pub trait TooSimilar {
+    fn too_similar(&self, other: &Self) -> bool;
+}
+
+impl TooSimilar for GameStage {
+    fn too_similar(&self, other: &Self) -> bool {
+        discriminant(self) == discriminant(other) && {
+            // These states are very simple, so they're 'too similar' automatically
+            if matches!(self, GameStage::Playing | GameStage::GameOver) {
+                return true;
+            }
+
+            // Since the discriminant is the same but the values are different, it's the interior value that is somehow different
+            match (self, other) {
+                // These states are similar if their interior values are similar as well
+                (GameStage::Starting(startup), GameStage::Starting(other)) => startup.too_similar(other),
+                (GameStage::PlayerDying(dying), GameStage::PlayerDying(other)) => dying.too_similar(other),
+                (
+                    GameStage::GhostEatenPause {
+                        ghost_entity,
+                        ghost_type,
+                        node,
+                        ..
+                    },
+                    GameStage::GhostEatenPause {
+                        ghost_entity: other_ghost_entity,
+                        ghost_type: other_ghost_type,
+                        node: other_node,
+                        ..
+                    },
+                ) => ghost_entity == other_ghost_entity && ghost_type == other_ghost_type && node == other_node,
+                // Already handled, but kept to properly exhaust the match
+                (GameStage::Playing, _) | (GameStage::GameOver, _) => unreachable!(),
+                _ => unreachable!(),
+            }
+        }
+    }
 }
 
 /// A resource that manages the multi-stage startup sequence of the game.
@@ -71,6 +110,12 @@ impl Default for GameStage {
     }
 }
 
+impl TooSimilar for StartupSequence {
+    fn too_similar(&self, other: &Self) -> bool {
+        discriminant(self) == discriminant(other)
+    }
+}
+
 /// The state machine for the multi-stage death sequence.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum DyingSequence {
@@ -80,6 +125,12 @@ pub enum DyingSequence {
     Animating { remaining_ticks: u32 },
     /// Third stage: Pac-Man is now gone, waiting a moment before the level restarts.
     Hidden { remaining_ticks: u32 },
+}
+
+impl TooSimilar for DyingSequence {
+    fn too_similar(&self, other: &Self) -> bool {
+        discriminant(self) == discriminant(other)
+    }
 }
 
 /// A resource to store the number of player lives.
@@ -106,7 +157,8 @@ pub fn stage_system(
     mut stage_event_reader: EventReader<StageTransition>,
     mut blinking_query: Query<Entity, With<Blinking>>,
     player: Single<(Entity, &mut Position), With<PlayerControlled>>,
-    mut ghost_query: Query<(Entity, &Ghost, &mut Position), (With<GhostCollider>, Without<PlayerControlled>)>,
+    mut item_query: Query<(Entity, &EntityType), With<ItemCollider>>,
+    mut ghost_query: Query<(Entity, &Ghost, &mut Position, &mut GhostState), (With<GhostCollider>, Without<PlayerControlled>)>,
 ) {
     let old_state = *game_state;
     let mut new_state: Option<GameStage> = None;
@@ -119,7 +171,7 @@ pub fn stage_system(
         } = *event;
         let pac_node = player.1.current_node();
 
-        debug!(ghost_entity = ?ghost_entity, node = pac_node, "Ghost eaten, entering pause state");
+        debug!(ghost = ?ghost_type, node = pac_node, "Ghost eaten, entering pause state");
         new_state = Some(GameStage::GhostEatenPause {
             remaining_ticks: 30,
             ghost_entity,
@@ -200,8 +252,8 @@ pub fn stage_system(
                     player_lives.0 = player_lives.0.saturating_sub(1);
 
                     if player_lives.0 > 0 {
-                        info!(remaining_lives = player_lives.0, "Player died, restarting level");
-                        GameStage::LevelRestarting
+                        info!(remaining_lives = player_lives.0, "Player died, returning to startup sequence");
+                        GameStage::Starting(StartupSequence::CharactersVisible { remaining_ticks: 60 })
                     } else {
                         warn!("All lives lost, game over");
                         GameStage::GameOver
@@ -209,10 +261,6 @@ pub fn stage_system(
                 }
             }
         },
-        GameStage::LevelRestarting => {
-            debug!("Level restart complete, returning to startup sequence");
-            GameStage::Starting(StartupSequence::CharactersVisible { remaining_ticks: 60 })
-        }
         GameStage::GameOver => GameStage::GameOver,
     };
 
@@ -220,12 +268,21 @@ pub fn stage_system(
         return;
     }
 
+    if !old_state.too_similar(&new_state) {
+        debug!(old_state = ?old_state, new_state = ?new_state, "Game stage transition");
+    }
+
     match (old_state, new_state) {
         (GameStage::Playing, GameStage::GhostEatenPause { ghost_entity, node, .. }) => {
-            // Freeze the player & ghosts
+            // Freeze the player & non-eaten ghosts
             commands.entity(player.0).insert(Frozen);
-            for (entity, _, _) in ghost_query.iter_mut() {
-                commands.entity(entity).insert(Frozen);
+            commands.entity(ghost_entity).insert(Frozen);
+            for (entity, _, _, state) in ghost_query.iter_mut() {
+                // Only freeze ghosts that are not currently eaten
+                if *state != GhostState::Eyes {
+                    debug!(ghost = ?entity, "Freezing ghost");
+                    commands.entity(entity).insert(Frozen);
+                }
             }
 
             // Hide the player & eaten ghost
@@ -243,101 +300,110 @@ pub fn stage_system(
         (GameStage::GhostEatenPause { ghost_entity, .. }, GameStage::Playing) => {
             // Unfreeze and reveal the player & all ghosts
             commands.entity(player.0).remove::<Frozen>().insert(Visibility::visible());
-            for (entity, _, _) in ghost_query.iter_mut() {
+            for (entity, _, _, _) in ghost_query.iter_mut() {
                 commands.entity(entity).remove::<Frozen>().insert(Visibility::visible());
             }
 
             // Reveal the eaten ghost and switch it to Eyes state
             commands.entity(ghost_entity).insert(GhostState::Eyes);
         }
-        (GameStage::Playing, GameStage::PlayerDying(DyingSequence::Frozen { .. })) => {
+        (_, GameStage::PlayerDying(DyingSequence::Frozen { .. })) => {
             // Freeze the player & ghosts
             commands.entity(player.0).insert(Frozen);
-            for (entity, _, _) in ghost_query.iter_mut() {
+            for (entity, _, _, _) in ghost_query.iter_mut() {
                 commands.entity(entity).insert(Frozen);
             }
         }
         (GameStage::PlayerDying(DyingSequence::Frozen { .. }), GameStage::PlayerDying(DyingSequence::Animating { .. })) => {
             // Hide the ghosts
-            for (entity, _, _) in ghost_query.iter_mut() {
+            for (entity, _, _, _) in ghost_query.iter_mut() {
                 commands.entity(entity).insert(Visibility::hidden());
             }
 
             // Start Pac-Man's death animation
-            commands.entity(player.0).insert((Dying, player_death_animation.0.clone()));
+            commands
+                .entity(player.0)
+                .remove::<DirectionalAnimation>()
+                .insert((Dying, player_death_animation.0.clone()));
 
             // Play the death sound
             audio_events.write(AudioEvent::PlayDeath);
         }
-        (GameStage::PlayerDying(DyingSequence::Animating { .. }), GameStage::PlayerDying(DyingSequence::Hidden { .. })) => {
-            // Hide the player
-            commands.entity(player.0).insert(Visibility::hidden());
-        }
-        (_, GameStage::LevelRestarting) => {
-            let (player_entity, mut pos) = player.into_inner();
-            *pos = Position::Stopped {
-                node: map.start_positions.pacman,
-            };
+        (_, GameStage::PlayerDying(DyingSequence::Hidden { .. })) => {
+            // Pac-Man's death animation is complete, so he should be hidden just like the ghosts.
+            // Then, we reset them all back to their original positions and states.
 
-            // Freeze the blinking, force them to be visible (if they were hidden by blinking)
+            // Freeze the blinking power pellets, force them to be visible (if they were hidden by blinking)
             for entity in blinking_query.iter_mut() {
                 commands.entity(entity).insert(Frozen).insert(Visibility::visible());
             }
 
+            // Delete any fruit entities
+            for (entity, _) in item_query
+                .iter_mut()
+                .filter(|(_, entity_type)| matches!(entity_type, EntityType::Fruit(_)))
+            {
+                commands.entity(entity).despawn();
+            }
+
             // Reset the player animation
             commands
-                .entity(player_entity)
-                .remove::<(Frozen, Dying, LinearAnimation, Looping)>()
-                .insert(player_animation.0.clone());
+                .entity(player.0)
+                .remove::<(Dying, LinearAnimation, Looping)>()
+                .insert((
+                    Velocity {
+                        speed: constants::mechanics::PLAYER_SPEED,
+                        direction: Direction::Left,
+                    },
+                    Position::Stopped {
+                        node: map.start_positions.pacman,
+                    },
+                    player_animation.0.clone(),
+                    Visibility::hidden(),
+                    Frozen,
+                ));
 
             // Reset ghost positions and state
-            for (ghost_entity, ghost, mut ghost_pos) in ghost_query.iter_mut() {
-                *ghost_pos = Position::Stopped {
-                    node: match ghost {
-                        Ghost::Blinky => map.start_positions.blinky,
-                        Ghost::Pinky => map.start_positions.pinky,
-                        Ghost::Inky => map.start_positions.inky,
-                        Ghost::Clyde => map.start_positions.clyde,
+            for (ghost_entity, ghost, _, _) in ghost_query.iter_mut() {
+                commands.entity(ghost_entity).insert((
+                    GhostState::Normal,
+                    Position::Stopped {
+                        node: match ghost {
+                            Ghost::Blinky => map.start_positions.blinky,
+                            Ghost::Pinky => map.start_positions.pinky,
+                            Ghost::Inky => map.start_positions.inky,
+                            Ghost::Clyde => map.start_positions.clyde,
+                        },
                     },
-                };
-                commands
-                    .entity(ghost_entity)
-                    .remove::<Frozen>()
-                    .insert((Visibility::visible(), GhostState::Normal));
+                    Frozen,
+                    Visibility::hidden(),
+                ));
             }
         }
         (_, GameStage::Starting(StartupSequence::CharactersVisible { .. })) => {
             // Unhide the player & ghosts
             commands.entity(player.0).insert(Visibility::visible());
-            for (entity, _, _) in ghost_query.iter_mut() {
+            for (entity, _, _, _) in ghost_query.iter_mut() {
                 commands.entity(entity).insert(Visibility::visible());
             }
         }
         (GameStage::Starting(StartupSequence::CharactersVisible { .. }), GameStage::Playing) => {
             // Unfreeze the player & ghosts & blinking
             commands.entity(player.0).remove::<Frozen>();
-            for (entity, _, _) in ghost_query.iter_mut() {
+            for (entity, _, _, _) in ghost_query.iter_mut() {
                 commands.entity(entity).remove::<Frozen>();
             }
             for entity in blinking_query.iter_mut() {
                 commands.entity(entity).remove::<Frozen>();
             }
         }
-        (GameStage::PlayerDying(..), GameStage::GameOver) => {
+        (_, GameStage::GameOver) => {
             // Freeze blinking
             for entity in blinking_query.iter_mut() {
                 commands.entity(entity).insert(Frozen);
             }
         }
-        _ => {
-            let different = discriminant(&old_state) != discriminant(&new_state);
-            if different {
-                tracing::warn!(
-                    new_state = ?new_state,
-                    old_state = ?old_state,
-                    "Unhandled game stage transition");
-            }
-        }
+        _ => {}
     }
 
     *game_state = new_state;

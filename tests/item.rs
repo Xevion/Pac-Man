@@ -30,11 +30,10 @@ fn test_is_collectible_item() {
 #[test]
 fn test_item_system_pellet_collection() {
     let (mut world, mut schedule) = common::create_test_world();
-    let pacman = common::spawn_test_pacman(&mut world, 0);
     let pellet = common::spawn_test_item(&mut world, 1, EntityType::Pellet);
 
     // Send collision event
-    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { pacman, item: pellet });
+    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: pellet });
 
     schedule.run(&mut world);
 
@@ -54,16 +53,9 @@ fn test_item_system_pellet_collection() {
 #[test]
 fn test_item_system_power_pellet_collection() {
     let (mut world, mut schedule) = common::create_test_world();
-    let pacman = common::spawn_test_pacman(&mut world, 0);
     let power_pellet = common::spawn_test_item(&mut world, 1, EntityType::PowerPellet);
 
-    common::trigger_collision(
-        &mut world,
-        CollisionTrigger::ItemCollision {
-            pacman,
-            item: power_pellet,
-        },
-    );
+    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: power_pellet });
 
     schedule.run(&mut world);
 
@@ -83,21 +75,14 @@ fn test_item_system_power_pellet_collection() {
 #[test]
 fn test_item_system_multiple_collections() {
     let (mut world, mut schedule) = common::create_test_world();
-    let pacman = common::spawn_test_pacman(&mut world, 0);
     let pellet1 = common::spawn_test_item(&mut world, 1, EntityType::Pellet);
     let pellet2 = common::spawn_test_item(&mut world, 2, EntityType::Pellet);
     let power_pellet = common::spawn_test_item(&mut world, 3, EntityType::PowerPellet);
 
     // Send multiple collision events
-    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { pacman, item: pellet1 });
-    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { pacman, item: pellet2 });
-    common::trigger_collision(
-        &mut world,
-        CollisionTrigger::ItemCollision {
-            pacman,
-            item: power_pellet,
-        },
-    );
+    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: pellet1 });
+    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: pellet2 });
+    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: power_pellet });
 
     schedule.run(&mut world);
 
@@ -125,7 +110,6 @@ fn test_item_system_multiple_collections() {
 #[test]
 fn test_item_system_ignores_non_item_collisions() {
     let (mut world, mut schedule) = common::create_test_world();
-    let pacman = common::spawn_test_pacman(&mut world, 0);
 
     // Create a ghost entity (not an item)
     let ghost = world.spawn((Position::Stopped { node: 2 }, EntityType::Ghost)).id();
@@ -134,7 +118,7 @@ fn test_item_system_ignores_non_item_collisions() {
     let initial_score = world.resource::<ScoreResource>().0;
 
     // Send collision event between pacman and ghost
-    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { pacman, item: ghost });
+    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: ghost });
 
     schedule.run(&mut world);
 
@@ -176,18 +160,11 @@ fn test_item_system_no_collision_events() {
 #[test]
 fn test_item_system_collision_with_missing_entity() {
     let (mut world, mut schedule) = common::create_test_world();
-    let pacman = common::spawn_test_pacman(&mut world, 0);
 
     // Create a fake entity ID that doesn't exist
     let fake_entity = Entity::from_raw(999);
 
-    common::trigger_collision(
-        &mut world,
-        CollisionTrigger::ItemCollision {
-            pacman,
-            item: fake_entity,
-        },
-    );
+    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: fake_entity });
 
     // System should handle gracefully and not crash
     schedule.run(&mut world);
@@ -203,10 +180,9 @@ fn test_item_system_preserves_existing_score() {
     // Set initial score
     world.insert_resource(ScoreResource(100));
 
-    let pacman = common::spawn_test_pacman(&mut world, 0);
     let pellet = common::spawn_test_item(&mut world, 1, EntityType::Pellet);
 
-    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { pacman, item: pellet });
+    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: pellet });
 
     schedule.run(&mut world);
 
@@ -218,7 +194,6 @@ fn test_item_system_preserves_existing_score() {
 #[test]
 fn test_power_pellet_does_not_affect_ghosts_in_eyes_state() {
     let (mut world, mut schedule) = common::create_test_world();
-    let pacman = common::spawn_test_pacman(&mut world, 0);
     let power_pellet = common::spawn_test_item(&mut world, 1, EntityType::PowerPellet);
 
     // Spawn a ghost in Eyes state (returning to ghost house)
@@ -227,13 +202,7 @@ fn test_power_pellet_does_not_affect_ghosts_in_eyes_state() {
     // Spawn a ghost in Normal state
     let normal_ghost = common::spawn_test_ghost(&mut world, 3, GhostState::Normal);
 
-    common::trigger_collision(
-        &mut world,
-        CollisionTrigger::ItemCollision {
-            pacman,
-            item: power_pellet,
-        },
-    );
+    common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: power_pellet });
 
     schedule.run(&mut world);
 

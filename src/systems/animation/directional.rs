@@ -38,15 +38,15 @@ impl DirectionalAnimation {
 /// All directions share the same frame timing to ensure perfect synchronization.
 pub fn directional_render_system(
     dt: Res<DeltaTime>,
-    mut query: Query<(&Position, &Velocity, &mut DirectionalAnimation, &mut Renderable), Without<Frozen>>,
+    mut query: Query<(&Position, &Velocity, &mut DirectionalAnimation, &mut Renderable, Has<Frozen>)>,
 ) {
     let ticks = (dt.seconds * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
 
-    for (position, velocity, mut anim, mut renderable) in query.iter_mut() {
+    for (position, velocity, mut anim, mut renderable, frozen) in query.iter_mut() {
         let stopped = matches!(position, Position::Stopped { .. });
 
         // Only tick animation when moving to preserve stopped frame
-        if !stopped {
+        if !stopped && !frozen {
             // Tick shared animation state
             anim.time_bank += ticks;
             while anim.time_bank >= anim.frame_duration {

@@ -42,30 +42,30 @@ pub fn player_control_system(
 ) {
     // Handle events
     for event in events.read() {
-        if let GameEvent::Command(command) = event {
-            match command {
-                GameCommand::MovePlayer(direction) => {
-                    // Only handle movement if there's an unfrozen player
-                    if let Some(player_single) = player.as_mut() {
-                        trace!(direction = ?*direction, "Player direction buffered for movement");
-                        ***player_single = BufferedDirection::Some {
-                            direction: *direction,
-                            remaining_time: 0.25,
-                        };
-                    }
+        let GameEvent::Command(command) = event;
+
+        match command {
+            GameCommand::MovePlayer(direction) => {
+                // Only handle movement if there's an unfrozen player
+                if let Some(player_single) = player.as_mut() {
+                    trace!(direction = ?*direction, "Player direction buffered for movement");
+                    ***player_single = BufferedDirection::Some {
+                        direction: *direction,
+                        remaining_time: 0.25,
+                    };
                 }
-                GameCommand::Exit => {
-                    state.exit = true;
-                }
-                GameCommand::ToggleDebug => {
-                    debug_state.enabled = !debug_state.enabled;
-                }
-                GameCommand::MuteAudio => {
-                    audio_state.muted = !audio_state.muted;
-                    tracing::info!("Audio {}", if audio_state.muted { "muted" } else { "unmuted" });
-                }
-                _ => {}
             }
+            GameCommand::Exit => {
+                state.exit = true;
+            }
+            GameCommand::ToggleDebug => {
+                debug_state.enabled = !debug_state.enabled;
+            }
+            GameCommand::MuteAudio => {
+                audio_state.muted = !audio_state.muted;
+                tracing::info!("Audio {}", if audio_state.muted { "muted" } else { "unmuted" });
+            }
+            _ => {}
         }
     }
 }

@@ -46,10 +46,23 @@ use crate::{
     texture::sprite::{AtlasMapper, SpriteAtlas},
 };
 
+/// System set for all gameplay systems to ensure they run after input processing
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+enum GameplaySet {
+    /// Gameplay systems that process inputs
+    Input,
+    /// Gameplay systems that update the game state
+    Update,
+    /// Gameplay systems that respond to events
+    Respond,
+}
+
 /// System set for all rendering systems to ensure they run after gameplay logic
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 enum RenderSet {
     Animation,
+    Draw,
+    Present,
 }
 
 /// Core game state manager built on the Bevy ECS architecture.
@@ -459,13 +472,6 @@ impl Game {
         let eaten_ghost_system = profile(SystemId::EatenGhost, eaten_ghost_system);
         let time_to_live_system = profile(SystemId::TimeToLive, time_to_live_system);
 
-        let forced_dirty_system = |mut dirty: ResMut<RenderDirty>| {
-            dirty.0 = true;
-        };
-
-        schedule.add_systems((forced_dirty_system
-            .run_if(|score: Res<ScoreResource>, stage: Res<GameStage>| score.is_changed() || stage.is_changed()),));
-
         // Input system should always run to prevent SDL event pump from blocking
         let input_systems = (
             input_system.run_if(|mut local: Local<u8>| {
@@ -477,34 +483,50 @@ impl Game {
         )
             .chain();
 
-        let gameplay_systems = (
-            (player_movement_system, player_tunnel_slowdown_system, ghost_movement_system).chain(),
-            eaten_ghost_system,
-            (collision_system).chain(),
-            unified_ghost_state_system,
-        )
-            .chain()
-            .run_if(|game_state: Res<GameStage>| matches!(*game_state, GameStage::Playing));
+        // .run_if(|game_state: Res<GameStage>| matches!(*game_state, GameStage::Playing));
 
-        schedule.add_systems((blinking_system, directional_render_system, linear_render_system).in_set(RenderSet::Animation));
-
-        schedule.add_systems((
-            time_to_live_system,
-            stage_system,
-            input_systems,
-            gameplay_systems,
-            (
-                dirty_render_system,
-                combined_render_system,
-                hud_render_system,
-                player_life_sprite_system,
-                touch_ui_render_system,
-                present_system,
-            )
-                .chain()
-                .after(RenderSet::Animation),
-            audio_system,
-        ));
+        schedule
+            .add_systems((
+                input_systems.in_set(GameplaySet::Input),
+                time_to_live_system.before(GameplaySet::Update),
+                (
+                    player_movement_system,
+                    player_tunnel_slowdown_system,
+                    ghost_movement_system,
+                    eaten_ghost_system,
+                    collision_system,
+                    unified_ghost_state_system,
+                )
+                    .in_set(GameplaySet::Update),
+                (
+                    blinking_system,
+                    directional_render_system,
+                    linear_render_system,
+                    player_life_sprite_system,
+                )
+                    .in_set(RenderSet::Animation),
+                stage_system.in_set(GameplaySet::Respond),
+                (
+                    (|mut dirty: ResMut<RenderDirty>, score: Res<ScoreResource>, stage: Res<GameStage>| {
+                        dirty.0 = score.is_changed() || stage.is_changed();
+                    }),
+                    dirty_render_system.run_if(|dirty: Res<RenderDirty>| dirty.0 == false),
+                    combined_render_system,
+                    hud_render_system,
+                    touch_ui_render_system,
+                )
+                    .chain()
+                    .in_set(RenderSet::Draw),
+                (present_system, audio_system).chain().in_set(RenderSet::Present),
+            ))
+            .configure_sets((
+                GameplaySet::Input,
+                GameplaySet::Update,
+                GameplaySet::Respond,
+                RenderSet::Animation,
+                RenderSet::Draw,
+                RenderSet::Present,
+            ));
     }
 
     fn spawn_items(world: &mut World) -> GameResult<()> {
