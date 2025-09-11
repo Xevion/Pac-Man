@@ -1,7 +1,7 @@
 //! This module handles the audio playback for the game.
 use crate::asset::{get_asset_bytes, Asset};
 use sdl2::{
-    mixer::{self, Chunk, InitFlag, LoaderRWops, DEFAULT_FORMAT},
+    mixer::{self, Chunk, InitFlag, LoaderRWops, AUDIO_S16LSB, DEFAULT_CHANNELS},
     rwops::RWops,
 };
 
@@ -33,13 +33,24 @@ impl Audio {
     /// If audio fails to initialize, the audio system will be disabled and
     /// all functions will silently do nothing.
     pub fn new() -> Self {
-        let frequency = 44100;
-        let format = DEFAULT_FORMAT;
-        let channels = 4;
-        let chunk_size = 256; // 256 is minimum for emscripten
+        let frequency = 44_100;
+        let format = AUDIO_S16LSB;
+        let chunk_size = {
+            // 256 is the minimum for Emscripten, but in practice 1024 is much more reliable
+            #[cfg(target_os = "emscripten")]
+            {
+                1024
+            }
+
+            // Otherwise, 256 is plenty safe.
+            #[cfg(not(target_os = "emscripten"))]
+            {
+                256
+            }
+        };
 
         // Try to open audio, but don't panic if it fails
-        if let Err(e) = mixer::open_audio(frequency, format, 1, chunk_size) {
+        if let Err(e) = mixer::open_audio(frequency, format, DEFAULT_CHANNELS, chunk_size) {
             tracing::warn!("Failed to open audio: {}. Audio will be disabled.", e);
             return Self {
                 _mixer_context: None,
@@ -51,7 +62,8 @@ impl Audio {
             };
         }
 
-        mixer::allocate_channels(channels);
+        let channels = 4;
+        mixer::allocate_channels(4);
 
         // set channel volume
         for i in 0..channels {
