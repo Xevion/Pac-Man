@@ -28,7 +28,7 @@ A comprehensive list of features needed to complete the Pac-Man emulation, organ
 
 - [x] Fruit Spawning Mechanics
   - [x] Spawn at pellet counts 70 and 170
-  - [ ] Fruit display in bottom-right corner
+  - [x] Fruit display in bottom-right corner
   - [x] Fruit collection and scoring
   - [x] Bonus point display system
 

@@ -85,8 +85,12 @@ impl Default for Bindings {
         key_bindings.insert(Keycode::Space, GameCommand::ToggleDebug);
         key_bindings.insert(Keycode::M, GameCommand::MuteAudio);
         key_bindings.insert(Keycode::R, GameCommand::ResetLevel);
-        key_bindings.insert(Keycode::Escape, GameCommand::Exit);
-        key_bindings.insert(Keycode::Q, GameCommand::Exit);
+
+        #[cfg(not(target_os = "emscripten"))]
+        {
+            key_bindings.insert(Keycode::Escape, GameCommand::Exit);
+            key_bindings.insert(Keycode::Q, GameCommand::Exit);
+        }
 
         let movement_keys = HashSet::from([
             Keycode::W,
