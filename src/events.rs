@@ -19,7 +19,10 @@ pub enum GameCommand {
     /// Restart the current level with fresh entity positions and items
     ResetLevel,
     /// Pause or resume game ticking logic
+    /// TODO: Display pause state, fix debug rendering pause distress
     TogglePause,
+    /// Toggle fullscreen mode (desktop only)
+    ToggleFullscreen,
 }
 
 /// Global events that flow through the ECS event system to coordinate game behavior.

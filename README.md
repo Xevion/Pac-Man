@@ -32,7 +32,7 @@ The game includes all the original features you'd expect from Pac-Man:
 - [x] Classic maze navigation with tunnels and dot collection
 - [ ] Four ghosts with their unique AI behaviors (Blinky, Pinky, Inky, and Clyde)
 - [x] Power pellets that allow Pac-Man to eat ghosts
-- [ ] Fruit bonuses that appear periodically
+- [x] Fruit bonuses that appear periodically
 - [ ] Progressive difficulty with faster ghosts and shorter power pellet duration
 - [x] Authentic sound effects and sprites
 

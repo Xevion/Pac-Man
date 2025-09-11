@@ -90,6 +90,8 @@ impl Default for Bindings {
         {
             key_bindings.insert(Keycode::Escape, GameCommand::Exit);
             key_bindings.insert(Keycode::Q, GameCommand::Exit);
+            // Desktop-only fullscreen toggle
+            key_bindings.insert(Keycode::F, GameCommand::ToggleFullscreen);
         }
 
         let movement_keys = HashSet::from([

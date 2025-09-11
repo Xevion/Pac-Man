@@ -489,6 +489,8 @@ impl Game {
             }),
             player_control_system,
             pause_system,
+            #[cfg(not(target_os = "emscripten"))]
+            profile(SystemId::Input, systems::handle_fullscreen_command),
         )
             .chain();
 
