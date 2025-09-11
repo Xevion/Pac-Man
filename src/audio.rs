@@ -1,11 +1,43 @@
 //! This module handles the audio playback for the game.
+use std::collections::HashMap;
+
 use crate::asset::{get_asset_bytes, Asset};
 use sdl2::{
     mixer::{self, Chunk, InitFlag, LoaderRWops, AUDIO_S16LSB, DEFAULT_CHANNELS},
     rwops::RWops,
 };
+use strum::IntoEnumIterator;
 
-const SOUND_ASSETS: [Asset; 4] = [Asset::Waka(0), Asset::Waka(1), Asset::Waka(2), Asset::Waka(3)];
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Sound {
+    Waka(u8),
+    PacmanDeath,
+    ExtraLife,
+    Fruit,
+    Ghost,
+    Beginning,
+    Intermission,
+}
+
+impl IntoEnumIterator for Sound {
+    type Iterator = std::vec::IntoIter<Sound>;
+
+    fn iter() -> Self::Iterator {
+        vec![
+            Sound::Waka(0),
+            Sound::Waka(1),
+            Sound::Waka(2),
+            Sound::Waka(3),
+            Sound::PacmanDeath,
+            Sound::ExtraLife,
+            Sound::Fruit,
+            Sound::Ghost,
+            Sound::Beginning,
+            Sound::Intermission,
+        ]
+        .into_iter()
+    }
+}
 
 /// The audio system for the game.
 ///
@@ -14,9 +46,8 @@ const SOUND_ASSETS: [Asset; 4] = [Asset::Waka(0), Asset::Waka(1), Asset::Waka(2)
 /// functions will silently do nothing.
 pub struct Audio {
     _mixer_context: Option<mixer::Sdl2MixerContext>,
-    sounds: Vec<Chunk>,
-    death_sound: Option<Chunk>,
-    next_sound_index: usize,
+    sounds: HashMap<Sound, Chunk>,
+    next_waka_index: u8,
     muted: bool,
     disabled: bool,
 }
@@ -54,9 +85,8 @@ impl Audio {
             tracing::warn!("Failed to open audio: {}. Audio will be disabled.", e);
             return Self {
                 _mixer_context: None,
-                sounds: Vec::new(),
-                death_sound: None,
-                next_sound_index: 0,
+                sounds: HashMap::new(),
+                next_waka_index: 0u8,
                 muted: false,
                 disabled: true,
             };
@@ -77,9 +107,8 @@ impl Audio {
                 tracing::warn!("Failed to initialize SDL2_mixer: {}. Audio will be disabled.", e);
                 return Self {
                     _mixer_context: None,
-                    sounds: Vec::new(),
-                    death_sound: None,
-                    next_sound_index: 0,
+                    sounds: HashMap::new(),
+                    next_waka_index: 0u8,
                     muted: false,
                     disabled: true,
                 };
@@ -87,12 +116,14 @@ impl Audio {
         };
 
         // Try to load sounds, but don't panic if any fail
-        let mut sounds = Vec::new();
-        for (i, asset) in SOUND_ASSETS.iter().enumerate() {
-            match get_asset_bytes(*asset) {
+        let mut sounds = HashMap::new();
+        for (i, asset) in Sound::iter().enumerate() {
+            match get_asset_bytes(Asset::SoundFile(asset)) {
                 Ok(data) => match RWops::from_bytes(&data) {
                     Ok(rwops) => match rwops.load_wav() {
-                        Ok(chunk) => sounds.push(chunk),
+                        Ok(chunk) => {
+                            sounds.insert(asset, chunk);
+                        }
                         Err(e) => {
                             tracing::warn!("Failed to load sound {} from asset API: {}", i + 1, e);
                         }
@@ -107,7 +138,7 @@ impl Audio {
             }
         }
 
-        let death_sound = match get_asset_bytes(Asset::DeathSound) {
+        let death_sound = match get_asset_bytes(Asset::SoundFile(Sound::PacmanDeath)) {
             Ok(data) => match RWops::from_bytes(&data) {
                 Ok(rwops) => match rwops.load_wav() {
                     Ok(chunk) => Some(chunk),
@@ -132,9 +163,8 @@ impl Audio {
             tracing::warn!("No sounds loaded successfully. Audio will be disabled.");
             return Self {
                 _mixer_context: Some(mixer_context),
-                sounds: Vec::new(),
-                death_sound: None,
-                next_sound_index: 0,
+                sounds: HashMap::new(),
+                next_waka_index: 0u8,
                 muted: false,
                 disabled: true,
             };
@@ -143,8 +173,7 @@ impl Audio {
         Audio {
             _mixer_context: Some(mixer_context),
             sounds,
-            death_sound,
-            next_sound_index: 0,
+            next_waka_index: 0u8,
             muted: false,
             disabled: false,
         }
@@ -160,17 +189,17 @@ impl Audio {
             return;
         }
 
-        if let Some(chunk) = self.sounds.get(self.next_sound_index) {
+        if let Some(chunk) = self.sounds.get(&Sound::Waka(self.next_waka_index)) {
             match mixer::Channel(0).play(chunk, 0) {
                 Ok(channel) => {
-                    tracing::trace!("Playing sound #{} on channel {:?}", self.next_sound_index + 1, channel);
+                    tracing::trace!("Playing sound #{} on channel {:?}", self.next_waka_index + 1, channel);
                 }
                 Err(e) => {
-                    tracing::warn!("Could not play sound #{}: {}", self.next_sound_index + 1, e);
+                    tracing::warn!("Could not play sound #{}: {}", self.next_waka_index + 1, e);
                 }
             }
         }
-        self.next_sound_index = (self.next_sound_index + 1) % self.sounds.len();
+        self.next_waka_index = (self.next_waka_index + 1) & 3;
     }
 
     /// Plays the death sound effect.
@@ -179,7 +208,7 @@ impl Audio {
             return;
         }
 
-        if let Some(chunk) = &self.death_sound {
+        if let Some(chunk) = self.sounds.get(&Sound::PacmanDeath) {
             mixer::Channel::all().play(chunk, 0).ok();
         }
     }

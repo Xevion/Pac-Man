@@ -6,6 +6,7 @@ use std::time::Duration;
 use rand::rngs::ThreadRng;
 
 use crate::asset::Asset;
+use crate::audio::Sound;
 use crate::error::{AssetError, PlatformError};
 
 /// Desktop platform implementation.
@@ -59,13 +60,20 @@ pub fn init_console() -> Result<(), PlatformError> {
 
 pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
     match asset {
-        Asset::Waka(0) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/1.ogg"))),
-        Asset::Waka(1) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/2.ogg"))),
-        Asset::Waka(2) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/3.ogg"))),
-        Asset::Waka(3..=u8::MAX) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/4.ogg"))),
+        Asset::SoundFile(sound) => match sound {
+            Sound::Waka(0) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/1.ogg"))),
+            Sound::Waka(1) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/2.ogg"))),
+            Sound::Waka(2) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/3.ogg"))),
+            Sound::Waka(3..=u8::MAX) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/4.ogg"))),
+            Sound::PacmanDeath => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/death.ogg"))),
+            Sound::ExtraLife => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/extra_life.ogg"))),
+            Sound::Fruit => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/fruit.ogg"))),
+            Sound::Ghost => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/ghost.ogg"))),
+            Sound::Beginning => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/begin.ogg"))),
+            Sound::Intermission => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/intermission.ogg"))),
+        },
         Asset::AtlasImage => Ok(Cow::Borrowed(include_bytes!("../../assets/game/atlas.png"))),
         Asset::Font => Ok(Cow::Borrowed(include_bytes!("../../assets/game/TerminalVector.ttf"))),
-        Asset::DeathSound => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/death.ogg"))),
     }
 }
 

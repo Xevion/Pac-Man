@@ -1,10 +1,9 @@
 use pacman::asset::Asset;
 use speculoos::prelude::*;
-use strum::IntoEnumIterator;
 
 #[test]
 fn all_asset_paths_exist() {
-    for asset in Asset::iter() {
+    for asset in Asset::into_iter() {
         let path = asset.path();
         let full_path = format!("assets/game/{}", path);
 
