@@ -132,7 +132,7 @@ A comprehensive list of features needed to complete the Pac-Man emulation, organ
   - [x] Animation system
   - [x] HUD rendering
 - [ ] Display Options
-  - [ ] Fullscreen support
+  - [x] Fullscreen support
   - [x] Window resizing
     - [ ] Pause while resizing (SDL2 limitation mitigation)
   - [ ] Multiple resolution support
