@@ -1,6 +1,6 @@
 [package]
 name = "pacman"
-version = "0.80.1"
+version = "0.80.2"
 authors = ["Xevion"]
 edition = "2021"
 rust-version = "1.86.0"
@@ -88,6 +88,12 @@ panic = 'unwind'
 opt-level = "z"
 lto = true
 panic = "abort"
+
+# This profile is intended to appear as a 'release' profile to the build system due to`debug_assertions = false`,
+# but it will compile faster without optimizations. Useful for rapid testing of release-mode logic.
+[profile.dev-release]
+inherits = "dev"
+debug-assertions = false
 
 [package.metadata.vcpkg]
 dependencies = ["sdl2", "sdl2-image", "sdl2-ttf", "sdl2-gfx", "sdl2-mixer"]
