@@ -64,7 +64,7 @@ impl Audio {
     /// If audio fails to initialize, the audio system will be disabled and
     /// all functions will silently do nothing.
     pub fn new() -> Self {
-        let frequency = 44_100;
+        let frequency = 16_000;
         let format = AUDIO_S16LSB;
         let chunk_size = {
             // 256 is the minimum for Emscripten, but in practice 1024 is much more reliable
