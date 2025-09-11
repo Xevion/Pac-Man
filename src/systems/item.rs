@@ -18,6 +18,8 @@ use crate::{
 
 use crate::{systems::common::components::EntityType, systems::ItemCollider};
 
+use std::cmp::Ordering;
+
 /// Tracks the number of pellets consumed by the player for fruit spawning mechanics.
 #[derive(bevy_ecs::resource::Resource, Debug, Default)]
 pub struct PelletCount(pub u32);
@@ -34,6 +36,18 @@ pub enum FruitType {
     Galaxian,
     Bell,
     Key,
+}
+
+impl PartialOrd for FruitType {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FruitType {
+    fn cmp(&self, other: &Self) -> Ordering {
+        (self.score_value()).cmp(&other.score_value())
+    }
 }
 
 impl FruitType {

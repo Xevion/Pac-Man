@@ -10,7 +10,7 @@ use tracing::{debug, trace, warn};
 
 use crate::{
     constants,
-    systems::{movement::Position, AudioEvent, DyingSequence, GameStage, Ghost, ScoreResource, SpawnTrigger},
+    systems::{movement::Position, AudioEvent, DyingSequence, FruitSprites, GameStage, Ghost, ScoreResource, SpawnTrigger},
 };
 use crate::{error::GameError, systems::GhostState};
 use crate::{
@@ -188,6 +188,7 @@ pub fn item_collision_observer(
     mut pellet_count: ResMut<PelletCount>,
     item_query: Query<(Entity, &EntityType, &Position), With<ItemCollider>>,
     mut ghost_query: Query<&mut GhostState, With<GhostCollider>>,
+    mut fruit_sprites: ResMut<FruitSprites>,
     mut events: EventWriter<AudioEvent>,
 ) {
     if let CollisionTrigger::ItemCollision { item } = *trigger {
@@ -213,7 +214,9 @@ pub fn item_collision_observer(
                 }
 
                 // Trigger bonus points effect if a fruit is collected
-                if matches!(*entity_type, EntityType::Fruit(_)) {
+                if let EntityType::Fruit(fruit) = *entity_type {
+                    fruit_sprites.0.push(fruit);
+
                     commands.trigger(SpawnTrigger::Bonus {
                         position: *position,
                         value: entity_type.score_value().unwrap(),
