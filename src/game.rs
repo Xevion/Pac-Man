@@ -19,8 +19,8 @@ use crate::systems::{
     BackbufferResource, Blinking, BufferedDirection, Collider, DebugState, DebugTextureResource, DeltaTime, DirectionalAnimation,
     EntityType, Frozen, FruitSprites, GameStage, Ghost, GhostAnimation, GhostAnimations, GhostBundle, GhostCollider, GhostState,
     GlobalState, ItemBundle, ItemCollider, LastAnimationState, LinearAnimation, MapTextureResource, MovementModifiers, NodeId,
-    PacmanCollider, PlayerAnimation, PlayerBundle, PlayerControlled, PlayerDeathAnimation, PlayerLives, Position, RenderDirty,
-    Renderable, ScoreResource, StartupSequence, SystemId, SystemTimings, Timing, TouchState, Velocity, Visibility,
+    PacmanCollider, Paused, PlayerAnimation, PlayerBundle, PlayerControlled, PlayerDeathAnimation, PlayerLives, Position,
+    RenderDirty, Renderable, ScoreResource, StartupSequence, SystemId, SystemTimings, Timing, TouchState, Velocity, Visibility,
 };
 
 use crate::texture::animated::{DirectionalTiles, TileSequence};
@@ -443,6 +443,7 @@ impl Game {
         world.insert_resource(GameStage::Starting(StartupSequence::TextOnly {
             remaining_ticks: constants::startup::STARTUP_FRAMES,
         }));
+        world.insert_resource(Paused(false));
 
         world.insert_non_send_resource(event_pump);
         world.insert_non_send_resource::<&mut Canvas<Window>>(Box::leak(Box::new(canvas)));
@@ -457,6 +458,7 @@ impl Game {
     fn configure_schedule(schedule: &mut Schedule) {
         let stage_system = profile(SystemId::Stage, systems::stage_system);
         let input_system = profile(SystemId::Input, systems::input::input_system);
+        let pause_system = profile(SystemId::Input, systems::handle_pause_command);
         let player_control_system = profile(SystemId::PlayerControls, systems::player_control_system);
         let player_movement_system = profile(SystemId::PlayerMovement, systems::player_movement_system);
         let player_tunnel_slowdown_system = profile(SystemId::PlayerMovement, systems::player::player_tunnel_slowdown_system);
@@ -483,6 +485,7 @@ impl Game {
                 *local % 2 == 0
             }),
             player_control_system,
+            pause_system,
         )
             .chain();
 
@@ -525,9 +528,9 @@ impl Game {
             ))
             .configure_sets((
                 GameplaySet::Input,
-                GameplaySet::Update,
-                GameplaySet::Respond,
-                RenderSet::Animation,
+                GameplaySet::Update.run_if(|paused: Res<Paused>| !paused.0),
+                GameplaySet::Respond.run_if(|paused: Res<Paused>| !paused.0),
+                RenderSet::Animation.run_if(|paused: Res<Paused>| !paused.0),
                 RenderSet::Draw,
                 RenderSet::Present,
             ));

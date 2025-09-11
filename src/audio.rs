@@ -191,6 +191,20 @@ impl Audio {
         }
     }
 
+    /// Pauses all currently playing audio channels.
+    pub fn pause_all(&mut self) {
+        if !self.disabled {
+            mixer::Channel::all().pause();
+        }
+    }
+
+    /// Resumes all currently playing audio channels.
+    pub fn resume_all(&mut self) {
+        if !self.disabled {
+            mixer::Channel::all().resume();
+        }
+    }
+
     /// Instantly mutes or unmutes all audio channels by adjusting their volume.
     ///
     /// Sets all 4 mixer channels to zero volume when muting, or restores them to

@@ -1,5 +1,5 @@
 use std::mem::discriminant;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::constants;
 use crate::events::StageTransition;
@@ -19,6 +19,8 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Query, Res, ResMut, Single},
 };
+
+use crate::events::{GameCommand, GameEvent};
 
 #[derive(Resource, Clone)]
 pub struct PlayerAnimation(pub DirectionalAnimation);
@@ -43,6 +45,28 @@ pub enum GameStage {
     PlayerDying(DyingSequence),
     /// The game has ended.
     GameOver,
+}
+
+#[derive(Resource, Debug, Default)]
+pub struct Paused(pub bool);
+
+pub fn handle_pause_command(
+    mut events: EventReader<GameEvent>,
+    mut paused: ResMut<Paused>,
+    mut audio_events: EventWriter<AudioEvent>,
+) {
+    for event in events.read() {
+        if let GameEvent::Command(GameCommand::TogglePause) = event {
+            paused.0 = !paused.0;
+            if paused.0 {
+                info!("Game paused");
+                audio_events.write(AudioEvent::Pause);
+            } else {
+                info!("Game resumed");
+                audio_events.write(AudioEvent::Resume);
+            }
+        }
+    }
 }
 
 pub trait TooSimilar {
@@ -161,7 +185,7 @@ pub fn stage_system(
     mut ghost_query: Query<(Entity, &Ghost, &mut Position, &mut GhostState), (With<GhostCollider>, Without<PlayerControlled>)>,
 ) {
     let old_state = *game_state;
-    let mut new_state: Option<GameStage> = None;
+    let mut new_state_opt: Option<GameStage> = None;
 
     // Handle stage transition requests before normal ticking
     for event in stage_event_reader.read() {
@@ -172,7 +196,7 @@ pub fn stage_system(
         let pac_node = player.1.current_node();
 
         debug!(ghost = ?ghost_type, node = pac_node, "Ghost eaten, entering pause state");
-        new_state = Some(GameStage::GhostEatenPause {
+        new_state_opt = Some(GameStage::GhostEatenPause {
             remaining_ticks: 30,
             ghost_entity,
             ghost_type,
@@ -180,29 +204,11 @@ pub fn stage_system(
         });
     }
 
-    let new_state: GameStage = match new_state.unwrap_or(*game_state) {
-        GameStage::Starting(startup) => match startup {
-            StartupSequence::TextOnly { remaining_ticks } => {
-                if remaining_ticks > 0 {
-                    GameStage::Starting(StartupSequence::TextOnly {
-                        remaining_ticks: remaining_ticks - 1,
-                    })
-                } else {
-                    GameStage::Starting(StartupSequence::CharactersVisible { remaining_ticks: 60 })
-                }
-            }
-            StartupSequence::CharactersVisible { remaining_ticks } => {
-                if remaining_ticks > 0 {
-                    GameStage::Starting(StartupSequence::CharactersVisible {
-                        remaining_ticks: remaining_ticks - 1,
-                    })
-                } else {
-                    info!("Startup sequence completed, beginning gameplay");
-                    GameStage::Playing
-                }
-            }
-        },
-        GameStage::Playing => GameStage::Playing,
+    let new_state: GameStage = new_state_opt.unwrap_or_else(|| match *game_state {
+        GameStage::Playing => {
+            // This is the default state, do nothing
+            *game_state
+        }
         GameStage::GhostEatenPause {
             remaining_ticks,
             ghost_entity,
@@ -221,11 +227,32 @@ pub fn stage_system(
                 GameStage::Playing
             }
         }
-        GameStage::PlayerDying(dying) => match dying {
+        GameStage::Starting(sequence) => match sequence {
+            StartupSequence::TextOnly { remaining_ticks } => {
+                if remaining_ticks > 0 {
+                    GameStage::Starting(StartupSequence::TextOnly {
+                        remaining_ticks: remaining_ticks.saturating_sub(1),
+                    })
+                } else {
+                    GameStage::Starting(StartupSequence::CharactersVisible { remaining_ticks: 60 })
+                }
+            }
+            StartupSequence::CharactersVisible { remaining_ticks } => {
+                if remaining_ticks > 0 {
+                    GameStage::Starting(StartupSequence::CharactersVisible {
+                        remaining_ticks: remaining_ticks.saturating_sub(1),
+                    })
+                } else {
+                    info!("Startup sequence completed, beginning gameplay");
+                    GameStage::Playing
+                }
+            }
+        },
+        GameStage::PlayerDying(sequence) => match sequence {
             DyingSequence::Frozen { remaining_ticks } => {
                 if remaining_ticks > 0 {
                     GameStage::PlayerDying(DyingSequence::Frozen {
-                        remaining_ticks: remaining_ticks - 1,
+                        remaining_ticks: remaining_ticks.saturating_sub(1),
                     })
                 } else {
                     let death_animation = &player_death_animation.0;
@@ -237,7 +264,7 @@ pub fn stage_system(
             DyingSequence::Animating { remaining_ticks } => {
                 if remaining_ticks > 0 {
                     GameStage::PlayerDying(DyingSequence::Animating {
-                        remaining_ticks: remaining_ticks - 1,
+                        remaining_ticks: remaining_ticks.saturating_sub(1),
                     })
                 } else {
                     GameStage::PlayerDying(DyingSequence::Hidden { remaining_ticks: 60 })
@@ -246,7 +273,7 @@ pub fn stage_system(
             DyingSequence::Hidden { remaining_ticks } => {
                 if remaining_ticks > 0 {
                     GameStage::PlayerDying(DyingSequence::Hidden {
-                        remaining_ticks: remaining_ticks - 1,
+                        remaining_ticks: remaining_ticks.saturating_sub(1),
                     })
                 } else {
                     player_lives.0 = player_lives.0.saturating_sub(1);
@@ -255,14 +282,14 @@ pub fn stage_system(
                         info!(remaining_lives = player_lives.0, "Player died, returning to startup sequence");
                         GameStage::Starting(StartupSequence::CharactersVisible { remaining_ticks: 60 })
                     } else {
-                        warn!("All lives lost, game over");
+                        info!("All lives lost, game over");
                         GameStage::GameOver
                     }
                 }
             }
         },
-        GameStage::GameOver => GameStage::GameOver,
-    };
+        GameStage::GameOver => *game_state,
+    });
 
     if old_state == new_state {
         return;

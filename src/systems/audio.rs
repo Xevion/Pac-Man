@@ -31,6 +31,10 @@ pub enum AudioEvent {
     PlayDeath,
     /// Stop all currently playing sounds
     StopAll,
+    /// Pause all sounds
+    Pause,
+    /// Resume all sounds
+    Resume,
 }
 
 /// Non-send resource wrapper for SDL2 audio system
@@ -90,6 +94,22 @@ pub fn audio_system(
                     audio.0.stop_all();
                 } else {
                     debug!("Audio disabled, ignoring stop all request");
+                }
+            }
+            AudioEvent::Pause => {
+                if !audio.0.is_disabled() {
+                    debug!("Pausing all audio");
+                    audio.0.pause_all();
+                } else {
+                    debug!("Audio disabled, ignoring pause all request");
+                }
+            }
+            AudioEvent::Resume => {
+                if !audio.0.is_disabled() {
+                    debug!("Resuming all audio");
+                    audio.0.resume_all();
+                } else {
+                    debug!("Audio disabled, ignoring resume all request");
                 }
             }
         }
