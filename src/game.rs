@@ -11,6 +11,7 @@ use crate::error::{GameError, GameResult};
 use crate::events::{CollisionTrigger, GameEvent, StageTransition};
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
+use crate::systems::item::PelletCount;
 use crate::systems::state::IntroPlayed;
 use crate::systems::{
     self, audio_system, blinking_system, collision_system, combined_render_system, directional_render_system,
@@ -431,7 +432,7 @@ impl Game {
         world.insert_resource(GlobalState { exit: false });
         world.insert_resource(PlayerLives::default());
         world.insert_resource(ScoreResource(0));
-        world.insert_resource(crate::systems::item::PelletCount(0));
+        world.insert_resource(PelletCount(0));
         world.insert_resource(SystemTimings::default());
         world.insert_resource(Timing::default());
         world.insert_resource(Bindings::default());

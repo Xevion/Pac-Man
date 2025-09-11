@@ -50,6 +50,7 @@ A comprehensive list of features needed to complete the Pac-Man emulation, organ
   - [x] Sound effect playback
   - [x] Audio muting controls
 - [ ] Background Music
+  - [x] Intro jingle
   - [ ] Continuous gameplay music
   - [ ] Escalating siren based on remaining pellets
   - [ ] Power pellet mode music
@@ -57,6 +58,8 @@ A comprehensive list of features needed to complete the Pac-Man emulation, organ
 - [x] Sound Effects
   - [x] Pellet eating sounds
   - [x] Fruit collection sounds
+  - [x] Ghost eaten sounds
+  - [x] Pac-Man Death
   - [ ] Ghost movement sounds
   - [ ] Level completion fanfare
 
@@ -78,8 +81,8 @@ A comprehensive list of features needed to complete the Pac-Man emulation, organ
   - [x] Keyboard controls
   - [x] Direction buffering for responsive controls
   - [x] Touch controls for mobile
-- [ ] Pause System
-  - [ ] Pause/unpause functionality
+- [x] Pause System
+  - [x] Pause/unpause functionality
   - [ ] Pause menu with options
 - [ ] Input System
   - [ ] Input remapping
