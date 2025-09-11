@@ -54,7 +54,6 @@ pub enum AssetError {
 #[derive(thiserror::Error, Debug)]
 pub enum PlatformError {
     #[error("Console initialization failed: {0}")]
-    #[cfg(any(windows, target_os = "emscripten"))]
     ConsoleInit(String),
 }
 

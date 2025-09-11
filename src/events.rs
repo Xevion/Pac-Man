@@ -22,6 +22,7 @@ pub enum GameCommand {
     /// TODO: Display pause state, fix debug rendering pause distress
     TogglePause,
     /// Toggle fullscreen mode (desktop only)
+    #[cfg(not(target_os = "emscripten"))]
     ToggleFullscreen,
 }
 

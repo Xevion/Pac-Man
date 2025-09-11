@@ -42,3 +42,6 @@ web *args:
 fix:
     cargo fix --workspace --lib --allow-dirty
     cargo fmt --all
+
+push:
+    git push origin --tags && git push
