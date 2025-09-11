@@ -10,10 +10,7 @@ use strum_macros::EnumIter;
 /// binary-embedded data or embedded filesystem (Emscripten).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum Asset {
-    Wav1,
-    Wav2,
-    Wav3,
-    Wav4,
+    Waka(u8),
     /// Main sprite atlas containing all game graphics (atlas.png)
     AtlasImage,
     /// Terminal Vector font for text rendering (TerminalVector.ttf)
@@ -32,13 +29,13 @@ impl Asset {
     pub fn path(&self) -> &str {
         use Asset::*;
         match self {
-            Wav1 => "sound/waka/1.ogg",
-            Wav2 => "sound/waka/2.ogg",
-            Wav3 => "sound/waka/3.ogg",
-            Wav4 => "sound/waka/4.ogg",
+            Waka(0) => "sound/pacman/waka/1.ogg",
+            Waka(1) => "sound/pacman/waka/2.ogg",
+            Waka(2) => "sound/pacman/waka/3.ogg",
+            Waka(3..=u8::MAX) => "sound/pacman/waka/4.ogg",
+            DeathSound => "sound/pacman/death.ogg",
             AtlasImage => "atlas.png",
             Font => "TerminalVector.ttf",
-            DeathSound => "sound/pacman_death.wav",
         }
     }
 }

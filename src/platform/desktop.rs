@@ -59,13 +59,13 @@ pub fn init_console() -> Result<(), PlatformError> {
 
 pub fn get_asset_bytes(asset: Asset) -> Result<Cow<'static, [u8]>, AssetError> {
     match asset {
-        Asset::Wav1 => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/waka/1.ogg"))),
-        Asset::Wav2 => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/waka/2.ogg"))),
-        Asset::Wav3 => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/waka/3.ogg"))),
-        Asset::Wav4 => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/waka/4.ogg"))),
+        Asset::Waka(0) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/1.ogg"))),
+        Asset::Waka(1) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/2.ogg"))),
+        Asset::Waka(2) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/3.ogg"))),
+        Asset::Waka(3..=u8::MAX) => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/waka/4.ogg"))),
         Asset::AtlasImage => Ok(Cow::Borrowed(include_bytes!("../../assets/game/atlas.png"))),
         Asset::Font => Ok(Cow::Borrowed(include_bytes!("../../assets/game/TerminalVector.ttf"))),
-        Asset::DeathSound => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman_death.wav"))),
+        Asset::DeathSound => Ok(Cow::Borrowed(include_bytes!("../../assets/game/sound/pacman/death.ogg"))),
     }
 }
 

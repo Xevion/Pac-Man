@@ -5,7 +5,7 @@ use sdl2::{
     rwops::RWops,
 };
 
-const SOUND_ASSETS: [Asset; 4] = [Asset::Wav1, Asset::Wav2, Asset::Wav3, Asset::Wav4];
+const SOUND_ASSETS: [Asset; 4] = [Asset::Waka(0), Asset::Waka(1), Asset::Waka(2), Asset::Waka(3)];
 
 /// The audio system for the game.
 ///
