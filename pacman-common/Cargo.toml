@@ -1,0 +1,16 @@
+[package]
+name = "pacman-common"
+version = "0.1.1"
+authors.workspace = true
+edition.workspace = true
+rust-version = "1.86.0"
+description = "A meta crate for sharing common code between the `pacman` and `pacman-server` crates"
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
+
+[dependencies]

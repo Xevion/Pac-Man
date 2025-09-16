@@ -1,17 +1,17 @@
 [package]
 name = "pacman"
-version = "0.81.0"
-authors = ["Xevion"]
-edition = "2021"
+version = "0.81.1"
+authors.workspace = true
+edition.workspace = true
 rust-version = "1.86.0"
 description = "A cross-platform retro Pac-Man clone, written in Rust and supported by SDL2"
-readme = true
-homepage = "https://pacman.xevion.dev"
-repository = "https://github.com/Xevion/Pac-Man"
-license = "GPL-3.0-or-later"
-keywords = ["game", "pacman", "arcade", "sdl2"]
-categories = ["games", "emulators"]
-publish = false
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
 exclude = ["/assets/unpacked/**", "/assets/site/**", "/bacon.toml", "/Justfile"]
 default-run = "pacman"
 
@@ -67,8 +67,8 @@ speculoos = "0.13.0"
 
 [build-dependencies]
 phf = { version = "0.13.1", features = ["macros"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.143"
+serde = { version = "1.0.225", features = ["derive"] }
+serde_json = "1.0.145"
 
 # phf generates runtime code which machete will not detect
 [package.metadata.cargo-machete]

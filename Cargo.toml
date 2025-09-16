@@ -1,5 +1,5 @@
 [workspace]
-members = ["pacman"]
+members = ["pacman", "pacman-common", "pacman-server"]
 resolver = "2"
 
 [workspace.package]
