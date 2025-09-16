@@ -35,8 +35,8 @@ samply:
 
 # Build the project for Emscripten
 web *args:
-    bun run web.build.ts {{args}};
-    caddy file-server --root dist
+    bun run pacman/web.build.ts {{args}};
+    caddy file-server --root pacman/dist
 
 # Run cargo fix
 fix:

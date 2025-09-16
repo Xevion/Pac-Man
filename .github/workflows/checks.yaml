@@ -34,7 +34,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: target/vcpkg
-          key: A-vcpkg-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
+          key: A-vcpkg-${{ runner.os }}-${{ hashFiles('pacman/Cargo.toml', 'pacman/Cargo.lock') }}
           restore-keys: |
             A-vcpkg-${{ runner.os }}-
 
@@ -47,14 +47,18 @@ jobs:
         run: |
           cargo install cargo-vcpkg
           cargo vcpkg -v build
+        working-directory: pacman
 
       - name: Run clippy
         run: cargo clippy -- -D warnings
+        working-directory: pacman
 
       - name: Check formatting
         run: cargo fmt -- --check
+        working-directory: pacman
 
       - uses: taiki-e/install-action@cargo-audit
 
       - name: Run security audit
         run: cargo audit
+        working-directory: pacman

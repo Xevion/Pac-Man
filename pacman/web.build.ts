@@ -70,10 +70,10 @@ async function build(release: boolean, env: Record<string, string> | null) {
     .exhaustive();
 
   logger.debug(`Invoking ${tailwindExecutable}...`);
-  await $`${tailwindExecutable} --minify --input styles.css --output build.css --cwd assets/site`;
+  await $`${tailwindExecutable} --minify --input styles.css --output build.css --cwd pacman/assets/site`;
 
   const buildType = release ? "release" : "debug";
-  const siteFolder = resolve("assets/site");
+  const siteFolder = resolve("pacman/assets/site");
   const outputFolder = resolve(`target/wasm32-unknown-emscripten/${buildType}`);
   const dist = resolve("dist");
 
@@ -527,7 +527,7 @@ async function main() {
     }
   }
 
-  const emsdkDir = resolve("./emsdk");
+  const emsdkDir = resolve(__dirname, "../emsdk");
 
   // Activate the Emscripten SDK (returns null if already activated)
   const vars = match(await activateEmsdk(emsdkDir))

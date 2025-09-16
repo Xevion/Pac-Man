@@ -30,14 +30,14 @@ repos:
 
       - id: cargo-check
         name: cargo check
-        entry: cargo check --all-targets
+        entry: cargo check --workspace --all-targets
         language: system
         types_or: [rust, cargo, cargo-lock]
         pass_filenames: false
 
       - id: cargo-check-wasm
         name: cargo check for wasm32-unknown-emscripten
-        entry: cargo check --all-targets --target=wasm32-unknown-emscripten
+        entry: cargo check -p pacman --all-targets --target=wasm32-unknown-emscripten
         language: system
         types_or: [rust, cargo, cargo-lock]
         pass_filenames: false

@@ -10,7 +10,7 @@ emsdk/
 
 # Site build f iles
 tailwindcss-*
-assets/site/build.css
+pacman/assets/site/build.css
 
 # Coverage reports
 lcov.info

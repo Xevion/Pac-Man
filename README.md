@@ -2,7 +2,7 @@
 <!-- markdownlint-disable MD041 -->
 
 <div align="center">
-  <img src="assets/repo/banner.png" alt="Pac-Man Banner Screenshot">
+  <img src="assets/banner.png" alt="Pac-Man Banner Screenshot">
 </div>
 
 # Pac-Man
@@ -49,16 +49,16 @@ However, every commit has build artifacts, so you can grab the [latest build art
 ## Screenshots
 
 <div align="center">
-  <img src="assets/repo/screenshots/0.png" alt="Screenshot 0 - Starting Game">
+  <img src="assets/screenshots/0.png" alt="Screenshot 0 - Starting Game">
   <p><em>Starting a new game</em></p>
 
-  <img src="assets/repo/screenshots/1.png" alt="Screenshot 1 - Eating Dots">
+  <img src="assets/screenshots/1.png" alt="Screenshot 1 - Eating Dots">
   <p><em>Pac-Man collecting dots and avoiding ghosts</em></p>
 
-  <img src="assets/repo/screenshots/2.png" alt="Screenshot 2 - Game Over">
+  <img src="assets/screenshots/2.png" alt="Screenshot 2 - Game Over">
   <p><em>Game over screen after losing all lives</em></p>
 
-  <img src="assets/repo/screenshots/3.png" alt="Screenshot 3 - Debug Mode">
+  <img src="assets/screenshots/3.png" alt="Screenshot 3 - Debug Mode">
   <p><em>Debug mode showing hitboxes, node graph, and performance details.</em></p>
 </div>
 

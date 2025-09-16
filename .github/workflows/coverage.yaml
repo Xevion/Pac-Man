@@ -32,7 +32,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: target/vcpkg
-          key: A-vcpkg-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
+          key: A-vcpkg-${{ runner.os }}-${{ hashFiles('pacman/Cargo.toml', 'pacman/Cargo.lock') }}
           restore-keys: |
             A-vcpkg-${{ runner.os }}-
 
@@ -45,6 +45,7 @@ jobs:
         run: |
           cargo install cargo-vcpkg
           cargo vcpkg -v build
+        working-directory: pacman
 
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
@@ -53,6 +54,7 @@ jobs:
       - name: Generate coverage report
         run: |
           just coverage
+        working-directory: pacman
 
       - name: Coveralls upload
         uses: coverallsapp/github-action@v2
