@@ -3,12 +3,15 @@ members = ["pacman"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+authors = ["Xevion"]
 edition = "2021"
-authors = ["Xevion <xevion@xevion.dev>"]
-license = "MIT"
+readme = true
+homepage = "https://pacman.xevion.dev"
 repository = "https://github.com/Xevion/Pac-Man"
-description = "A Pac-Man game written in Rust"
+license = "GPL-3.0-or-later"
+keywords = ["game", "pacman", "arcade", "sdl2"]
+categories = ["games", "emulators"]
+publish = false
 
 [workspace.dependencies]
 # Common dependencies that might be shared across crates

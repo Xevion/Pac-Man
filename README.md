@@ -85,7 +85,8 @@ You can read the [roadmap](ROADMAP.md) file for more details on the project's go
 
 Since this project is still in progress, I'm only going to cover non-obvious build details. By reading the code, build scripts, and copying the online build workflows, you should be able to replicate the build process.
 
-- Install `cargo-vcpkg` with `cargo install cargo-vcpkg`, then run `cargo vcpkg build` to build the requisite dependencies via vcpkg.
+- Install `cargo-vcpkg` with `cargo install cargo-vcpkg`, then run `cargo vcpkg build --manifest-path pacman/Cargo.toml` to build the requisite dependencies via vcpkg.
+  - `--manifest-path` is only required if you run it from the root directory; you can omit it if you `cd` into the `pacman` directory first.
   - This is only required for the desktop builds, not the web build.
 - We use rustc 1.86.0 for the build, due to bulk-memory-opt related issues on wasm32-unknown-emscripten.
   - Technically, we could probably use stable or even nightly on desktop targets, but using different versions for different targets is a pain, mainly because of clippy warnings changing between versions.
