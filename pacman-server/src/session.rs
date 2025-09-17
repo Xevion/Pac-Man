@@ -11,19 +11,19 @@ pub const JWT_TTL_SECS: u64 = 60 * 60; // 1 hour
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Claims {
-    pub sub: String,
+    pub sub: String, // format: "{provider}:{provider_user_id}"
     pub name: Option<String>,
     pub iat: usize,
     pub exp: usize,
 }
 
-pub fn create_jwt_for_user(user: &AuthUser, encoding_key: &EncodingKey) -> String {
+pub fn create_jwt_for_user(provider: &str, user: &AuthUser, encoding_key: &EncodingKey) -> String {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("time went backwards")
         .as_secs() as usize;
     let claims = Claims {
-        sub: user.username.clone(),
+        sub: format!("{}:{}", provider, user.id),
         name: user.name.clone(),
         iat: now,
         exp: now + JWT_TTL_SECS as usize,
@@ -33,14 +33,14 @@ pub fn create_jwt_for_user(user: &AuthUser, encoding_key: &EncodingKey) -> Strin
     token
 }
 
-pub fn verify_jwt(token: &str, decoding_key: &DecodingKey) -> bool {
+pub fn decode_jwt(token: &str, decoding_key: &DecodingKey) -> Option<Claims> {
     let mut validation = Validation::new(Algorithm::HS256);
     validation.leeway = 30;
     match decode::<Claims>(token, decoding_key, &validation) {
-        Ok(_) => true,
+        Ok(data) => Some(data.claims),
         Err(e) => {
             warn!(error = %e, "Session JWT verification failed");
-            false
+            None
         }
     }
 }

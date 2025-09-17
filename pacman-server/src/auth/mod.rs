@@ -57,7 +57,7 @@ impl AuthRegistry {
         self.providers.get(id)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&'static str, &Arc<dyn provider::OAuthProvider>)> {
-        self.providers.iter().map(|(k, v)| (*k, v))
+    pub fn values(&self) -> impl Iterator<Item = &Arc<dyn provider::OAuthProvider>> {
+        self.providers.values()
     }
 }

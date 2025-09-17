@@ -9,6 +9,7 @@ mod routes;
 mod app;
 mod auth;
 mod config;
+mod data;
 mod errors;
 mod session;
 use std::sync::Arc;
@@ -36,6 +37,11 @@ async fn main() {
     let addr = std::net::SocketAddr::new(config.host, config.port);
     let shutdown_timeout = std::time::Duration::from_secs(config.shutdown_timeout_seconds as u64);
     let auth = AuthRegistry::new(&config).expect("auth initializer");
+    let db = data::pool::create_pool(&config.database_url, 10).await;
+    // Run database migrations at startup
+    if let Err(e) = sqlx::migrate!("./migrations").run(&db).await {
+        panic!("failed to run database migrations: {}", e);
+    }
 
     let app = Router::new()
         .route("/", get(|| async { "Hello, World! Visit /auth/github to start OAuth flow." }))
@@ -44,7 +50,7 @@ async fn main() {
         .route("/auth/{provider}/callback", get(routes::oauth_callback_handler))
         .route("/logout", get(routes::logout_handler))
         .route("/profile", get(routes::profile_handler))
-        .with_state(AppState::new(config, auth))
+        .with_state(AppState::new(config, auth, db))
         .layer(CookieLayer::default());
 
     info!(%addr, "Starting HTTP server bind");
@@ -90,8 +96,8 @@ async fn main() {
             if let Some(signaled_at) = *rx_signal.borrow() {
                 let elapsed = now.duration_since(signaled_at);
                 if elapsed < shutdown_timeout {
-                    let remaining = shutdown_timeout - elapsed;
-                    info!(remaining = ?remaining, "Graceful shutdown complete");
+                    let remaining = format!("{:.2?}", shutdown_timeout - elapsed);
+                    info!(remaining = remaining, "Graceful shutdown complete");
                 }
             }
             res.unwrap();

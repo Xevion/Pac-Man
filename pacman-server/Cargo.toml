@@ -26,6 +26,7 @@ sqlx = { version = "0.8", features = [
     "postgres",
     "chrono",
 ] }
+chrono = { version = "0.4", features = ["serde", "clock"] }
 figment = { version = "0.10", features = ["env"] }
 dotenvy = "0.15"
 dashmap = "6.1"
