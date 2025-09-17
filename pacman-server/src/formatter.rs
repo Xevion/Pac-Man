@@ -112,8 +112,7 @@ where
                 message: &'a mut Option<String>,
                 fields: &'a mut Map<String, Value>,
             }
-
-            impl<'a> Visit for FieldVisitor<'a> {
+            impl Visit for FieldVisitor<'_> {
                 fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
                     let key = field.name();
                     if key == "message" {

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use async_trait::async_trait;
 use serde::Serialize;
 
@@ -24,5 +22,5 @@ pub trait OAuthProvider: Send + Sync {
 
     async fn authorize(&self) -> axum::response::Response;
 
-    async fn handle_callback(&self, query: &HashMap<String, String>) -> Result<AuthUser, ErrorResponse>;
+    async fn handle_callback(&self, code: &str, state: &str) -> Result<AuthUser, ErrorResponse>;
 }

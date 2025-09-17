@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -72,26 +70,30 @@ pub async fn oauth_callback_handler(
         return ErrorResponse::bad_request(error, params.error_description).into_response();
     }
 
-    let mut q = HashMap::new();
-    if let Some(v) = params.code {
-        q.insert("code".to_string(), v);
-    }
-    if let Some(v) = params.state {
-        q.insert("state".to_string(), v);
-    }
-    let user = match prov.handle_callback(&q).await {
+    // Acquire required parameters
+    let Some(code) = params.code.as_deref() else {
+        return ErrorResponse::bad_request("invalid_request", Some("missing code".into())).into_response();
+    };
+    let Some(state) = params.state.as_deref() else {
+        return ErrorResponse::bad_request("invalid_request", Some("missing state".into())).into_response();
+    };
+
+    // Handle callback from provider
+    let user = match prov.handle_callback(code, state).await {
         Ok(u) => u,
         Err(e) => {
             warn!(%provider, "OAuth callback handling failed");
             return e.into_response();
         }
     };
+
     // Linking or sign-in flow. Determine link intent from cookie (set at authorize time)
     let link_cookie = cookie.get("link").map(|c| c.value().to_string());
     if link_cookie.is_some() {
         cookie.remove("link");
     }
     let email = user.email.as_deref();
+
     // Determine linking intent with a valid session
     let is_link = if link_cookie.as_deref() == Some("1") {
         match session::get_session_token(&cookie).and_then(|t| session::decode_jwt(&t, &app_state.jwt_decoding_key)) {
@@ -213,6 +215,7 @@ pub async fn oauth_callback_handler(
         }
     };
 
+    // Create session token
     let session_token = session::create_jwt_for_user(&provider, &user, &app_state.jwt_encoding_key);
     session::set_session_cookie(&cookie, &session_token);
     info!(%provider, "Signed in successfully");

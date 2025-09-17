@@ -85,23 +85,8 @@ impl OAuthProvider for DiscordProvider {
         Redirect::to(authorize_url.as_str()).into_response()
     }
 
-    async fn handle_callback(&self, query: &std::collections::HashMap<String, String>) -> Result<AuthUser, ErrorResponse> {
-        if let Some(err) = query.get("error") {
-            warn!(error = %err, desc = query.get("error_description").map(|s| s.as_str()), "OAuth callback contained an error");
-            return Err(ErrorResponse::bad_request(
-                err.clone(),
-                query.get("error_description").cloned(),
-            ));
-        }
-        let code = query
-            .get("code")
-            .cloned()
-            .ok_or_else(|| ErrorResponse::bad_request("invalid_request", Some("missing code".into())))?;
-        let state = query
-            .get("state")
-            .cloned()
-            .ok_or_else(|| ErrorResponse::bad_request("invalid_request", Some("missing state".into())))?;
-        let Some(verifier) = self.pkce.take_verifier(&state) else {
+    async fn handle_callback(&self, code: &str, state: &str) -> Result<AuthUser, ErrorResponse> {
+        let Some(verifier) = self.pkce.take_verifier(state) else {
             warn!(%state, "Missing or expired PKCE verifier for state parameter");
             return Err(ErrorResponse::bad_request(
                 "invalid_request",
@@ -111,7 +96,7 @@ impl OAuthProvider for DiscordProvider {
 
         let token = self
             .client
-            .exchange_code(AuthorizationCode::new(code))
+            .exchange_code(AuthorizationCode::new(code.to_string()))
             .set_pkce_verifier(PkceCodeVerifier::new(verifier))
             .request_async(&self.http)
             .await
