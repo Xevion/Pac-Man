@@ -7,12 +7,20 @@ This crate is a webserver that hosts an OAuth login and leaderboard API for the 
 ## Features
 
 - [x] Axum Webserver
+  - [x] Health Check
+  - [ ] Inbound Rate Limiting
+  - [ ] Outbound Rate Limiting
+  - [ ] Provider Circuit Breaker
 - [x] Database
 - [x] OAuth
   - [x] Discord
   - [x] GitHub
-  - [ ] Google (?)
-- [ ] Leaderboard API
+  - [ ] Google
+- [ ] Leaderboard
+  - [ ] Score Submission
+  - [ ] Score Listings
+    - [ ] Pagination
+    - [ ] Global / Daily
 - [ ] Name Restrictions & Flagging
 - [ ] Avatars
   - [ ] 8-bit Conversion

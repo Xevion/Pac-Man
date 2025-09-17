@@ -19,6 +19,9 @@ use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::{watch, Notify};
 use tracing::{info, trace, warn};
 
+// Constant value for the Server header: "<crate>/<version>"
+const SERVER_HEADER_VALUE: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+
 #[tokio::main]
 async fn main() {
     // Load environment variables
@@ -60,7 +63,8 @@ async fn main() {
         .route("/logout", get(routes::logout_handler))
         .route("/profile", get(routes::profile_handler))
         .with_state(app_state.clone())
-        .layer(CookieLayer::default());
+        .layer(CookieLayer::default())
+        .layer(axum::middleware::from_fn(inject_server_header));
 
     info!(%addr, "Starting HTTP server bind");
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
@@ -171,4 +175,16 @@ async fn shutdown_signal() -> Instant {
         _ = ctrl_c => { Instant::now() }
         _ = sigterm => { Instant::now() }
     }
+}
+
+async fn inject_server_header(
+    req: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> Result<axum::response::Response, axum::http::StatusCode> {
+    let mut res = next.run(req).await;
+    res.headers_mut().insert(
+        axum::http::header::SERVER,
+        axum::http::HeaderValue::from_static(SERVER_HEADER_VALUE),
+    );
+    Ok(res)
 }
