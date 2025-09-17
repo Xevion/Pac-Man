@@ -12,8 +12,8 @@ mod config;
 mod data;
 mod errors;
 mod session;
-use std::sync::Arc;
 use std::time::Instant;
+use std::{sync::Arc, time::Duration};
 #[cfg(unix)]
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::{watch, Notify};
@@ -44,14 +44,22 @@ async fn main() {
         panic!("failed to run database migrations: {}", e);
     }
 
+    let app_state = AppState::new(config, auth, db);
+    {
+        // migrations succeeded
+        let mut h = app_state.health.write().await;
+        h.set_migrations(true);
+    }
+
     let app = Router::new()
         .route("/", get(|| async { "Hello, World! Visit /auth/github to start OAuth flow." }))
+        .route("/health", get(routes::health_handler))
         .route("/auth/providers", get(routes::list_providers_handler))
         .route("/auth/{provider}", get(routes::oauth_authorize_handler))
         .route("/auth/{provider}/callback", get(routes::oauth_callback_handler))
         .route("/logout", get(routes::logout_handler))
         .route("/profile", get(routes::profile_handler))
-        .with_state(AppState::new(config, auth, db))
+        .with_state(app_state.clone())
         .layer(CookieLayer::default());
 
     info!(%addr, "Starting HTTP server bind");
@@ -61,6 +69,42 @@ async fn main() {
     // coordinated graceful shutdown with timeout
     let notify = Arc::new(Notify::new());
     let (tx_signal, rx_signal) = watch::channel::<Option<Instant>>(None);
+
+    // Spawn background health checker (listens for shutdown via notify)
+    {
+        let health_state = app_state.health.clone();
+        let db_pool = app_state.db.clone();
+        let notify_for_health = notify.clone();
+        tokio::spawn(async move {
+            trace!("Health checker task started");
+            let mut backoff: u32 = 1;
+            let mut next_sleep = Duration::from_secs(0);
+            loop {
+                tokio::select! {
+                    _ = notify_for_health.notified() => {
+                        trace!("Health checker received shutdown notification; exiting");
+                        break;
+                    }
+                    _ = tokio::time::sleep(next_sleep) => {
+                        let ok = sqlx::query("SELECT 1").execute(&*db_pool).await.is_ok();
+                        {
+                            let mut h = health_state.write().await;
+                            h.set_database(ok);
+                        }
+                        if ok {
+                            trace!(database_ok = true, "Health check succeeded; scheduling next run in 90s");
+                            backoff = 1;
+                            next_sleep = Duration::from_secs(90);
+                        } else {
+                            backoff = (backoff.saturating_mul(2)).min(60);
+                            trace!(database_ok = false, backoff, "Health check failed; backing off");
+                            next_sleep = Duration::from_secs(backoff as u64);
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     {
         let notify = notify.clone();

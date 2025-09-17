@@ -1,6 +1,9 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "deploy": {
-    "drainingSeconds": 10
+    "drainingSeconds": 10,
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 90,
+    "restartPolicyMaxRetries": 3
   }
 }

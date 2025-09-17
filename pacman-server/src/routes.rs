@@ -300,3 +300,10 @@ pub async fn list_providers_handler(State(app_state): State<AppState>) -> axum::
         .collect();
     axum::Json(providers).into_response()
 }
+
+pub async fn health_handler(State(app_state): State<AppState>) -> axum::response::Response {
+    let ok = app_state.health.read().await.ok();
+    let status = if ok { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
+    let body = serde_json::json!({ "ok": ok });
+    (status, axum::Json(body)).into_response()
+}
