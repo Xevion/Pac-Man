@@ -5,8 +5,12 @@ use oauth2::{basic::BasicClient, EndpointNotSet, EndpointSet};
 
 use crate::config::Config;
 
+pub mod discord;
 pub mod github;
 pub mod provider;
+
+type OAuthClient =
+    BasicClient<oauth2::EndpointSet, oauth2::EndpointNotSet, oauth2::EndpointNotSet, oauth2::EndpointNotSet, oauth2::EndpointSet>;
 
 pub struct AuthRegistry {
     providers: HashMap<&'static str, Arc<dyn provider::OAuthProvider>>,
@@ -32,7 +36,19 @@ impl AuthRegistry {
                 );
 
         let mut providers: HashMap<&'static str, Arc<dyn provider::OAuthProvider>> = HashMap::new();
-        providers.insert("github", github::GitHubProvider::new(github_client, http));
+        providers.insert("github", github::GitHubProvider::new(github_client, http.clone()));
+
+        // Discord OAuth client
+        let discord_client: BasicClient<EndpointSet, EndpointNotSet, EndpointNotSet, EndpointNotSet, EndpointSet> =
+            BasicClient::new(oauth2::ClientId::new(config.discord_client_id.clone()))
+                .set_client_secret(oauth2::ClientSecret::new(config.discord_client_secret.clone()))
+                .set_auth_uri(oauth2::AuthUrl::new("https://discord.com/api/oauth2/authorize".to_string())?)
+                .set_token_uri(oauth2::TokenUrl::new("https://discord.com/api/oauth2/token".to_string())?)
+                .set_redirect_uri(
+                    oauth2::RedirectUrl::new(format!("{}/auth/discord/callback", config.public_base_url))
+                        .expect("Invalid redirect URI"),
+                );
+        providers.insert("discord", discord::DiscordProvider::new(discord_client, http));
 
         Ok(Self { providers })
     }

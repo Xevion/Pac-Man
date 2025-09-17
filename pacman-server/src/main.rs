@@ -39,6 +39,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(|| async { "Hello, World! Visit /auth/github to start OAuth flow." }))
+        .route("/auth/providers", get(routes::list_providers_handler))
         .route("/auth/{provider}", get(routes::oauth_authorize_handler))
         .route("/auth/{provider}/callback", get(routes::oauth_callback_handler))
         .route("/logout", get(routes::logout_handler))

@@ -8,52 +8,39 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::{trace, warn};
 
-use crate::{
-    auth::provider::{AuthUser, OAuthProvider},
-    errors::ErrorResponse,
-};
+use crate::auth::provider::{AuthUser, OAuthProvider};
+use crate::errors::ErrorResponse;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GitHubUser {
-    pub id: u64,
-    pub login: String,
-    pub name: Option<String>,
+pub struct DiscordUser {
+    pub id: String,
+    pub username: String,
+    pub global_name: Option<String>,
     pub email: Option<String>,
-    pub avatar_url: String,
-    pub html_url: String,
+    pub avatar: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GitHubEmail {
-    pub email: String,
-    pub primary: bool,
-    pub verified: bool,
-    pub visibility: Option<String>,
-}
-
-/// Fetch user information from GitHub API
-pub async fn fetch_github_user(
+pub async fn fetch_discord_user(
     http_client: &reqwest::Client,
     access_token: &str,
-) -> Result<GitHubUser, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<DiscordUser, Box<dyn std::error::Error + Send + Sync>> {
     let response = http_client
-        .get("https://api.github.com/user")
+        .get("https://discord.com/api/users/@me")
         .header("Authorization", format!("Bearer {}", access_token))
-        .header("Accept", "application/vnd.github.v3+json")
         .header("User-Agent", crate::config::USER_AGENT)
         .send()
         .await?;
 
     if !response.status().is_success() {
-        warn!(status = %response.status(), endpoint = "/user", "GitHub API returned an error");
-        return Err(format!("GitHub API error: {}", response.status()).into());
+        warn!(status = %response.status(), endpoint = "/users/@me", "Discord API returned an error");
+        return Err(format!("Discord API error: {}", response.status()).into());
     }
 
-    let user: GitHubUser = response.json().await?;
+    let user: DiscordUser = response.json().await?;
     Ok(user)
 }
 
-pub struct GitHubProvider {
+pub struct DiscordProvider {
     pub client: super::OAuthClient,
     pub http: reqwest::Client,
     pkce: DashMap<String, PkceRecord>,
@@ -67,7 +54,7 @@ struct PkceRecord {
     created_at: Instant,
 }
 
-impl GitHubProvider {
+impl DiscordProvider {
     pub fn new(client: super::OAuthClient, http: reqwest::Client) -> Arc<Self> {
         Arc::new(Self {
             client,
@@ -77,107 +64,7 @@ impl GitHubProvider {
             pkce_additions: AtomicU32::new(0),
         })
     }
-}
 
-#[async_trait::async_trait]
-impl OAuthProvider for GitHubProvider {
-    fn id(&self) -> &'static str {
-        "github"
-    }
-    fn label(&self) -> &'static str {
-        "GitHub"
-    }
-
-    async fn authorize(&self) -> axum::response::Response {
-        let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
-        let (authorize_url, csrf_state) = self
-            .client
-            .authorize_url(CsrfToken::new_random)
-            .set_pkce_challenge(pkce_challenge)
-            .add_scope(Scope::new("user:email".to_string()))
-            .add_scope(Scope::new("read:user".to_string()))
-            .url();
-        trace!(state = %csrf_state.secret(), "Generated OAuth authorization URL");
-        // Insert PKCE verifier with timestamp and purge when needed
-        self.pkce.insert(
-            csrf_state.secret().to_string(),
-            PkceRecord {
-                verifier: pkce_verifier.secret().to_string(),
-                created_at: Instant::now(),
-            },
-        );
-        self.pkce_additions.fetch_add(1, Ordering::Relaxed);
-        self.maybe_purge_stale_pkce_entries();
-        Redirect::to(authorize_url.as_str()).into_response()
-    }
-
-    async fn handle_callback(&self, query: &std::collections::HashMap<String, String>) -> Result<AuthUser, ErrorResponse> {
-        if let Some(err) = query.get("error") {
-            warn!(error = %err, desc = query.get("error_description").map(|s| s.as_str()), "OAuth callback contained an error");
-            return Err(ErrorResponse::bad_request(
-                err.clone(),
-                query.get("error_description").cloned(),
-            ));
-        }
-        let code = query
-            .get("code")
-            .cloned()
-            .ok_or_else(|| ErrorResponse::bad_request("invalid_request", Some("missing code".into())))?;
-        let state = query
-            .get("state")
-            .cloned()
-            .ok_or_else(|| ErrorResponse::bad_request("invalid_request", Some("missing state".into())))?;
-        let Some(rec) = self.pkce.remove(&state).map(|e| e.1) else {
-            warn!("Missing PKCE verifier for state parameter");
-            return Err(ErrorResponse::bad_request(
-                "invalid_request",
-                Some("missing pkce verifier for state".into()),
-            ));
-        };
-        // Verify PKCE TTL
-        if Instant::now().duration_since(rec.created_at) > Duration::from_secs(5 * 60) {
-            warn!("PKCE verifier expired for state parameter");
-            return Err(ErrorResponse::bad_request(
-                "invalid_request",
-                Some("expired pkce verifier for state".into()),
-            ));
-        }
-
-        let token = self
-            .client
-            .exchange_code(AuthorizationCode::new(code))
-            .set_pkce_verifier(PkceCodeVerifier::new(rec.verifier))
-            .request_async(&self.http)
-            .await
-            .map_err(|e| {
-                warn!(error = %e, "Token exchange with GitHub failed");
-                ErrorResponse::bad_gateway("token_exchange_failed", Some(e.to_string()))
-            })?;
-
-        let user = fetch_github_user(&self.http, token.access_token().secret())
-            .await
-            .map_err(|e| {
-                warn!(error = %e, "Failed to fetch GitHub user profile");
-                ErrorResponse::bad_gateway("github_api_error", Some(format!("failed to fetch user: {}", e)))
-            })?;
-        let _emails = fetch_github_emails(&self.http, token.access_token().secret())
-            .await
-            .map_err(|e| {
-                warn!(error = %e, "Failed to fetch GitHub user emails");
-                ErrorResponse::bad_gateway("github_api_error", Some(format!("failed to fetch emails: {}", e)))
-            })?;
-
-        Ok(AuthUser {
-            id: user.id.to_string(),
-            username: user.login,
-            name: user.name,
-            email: user.email,
-            avatar_url: Some(user.avatar_url),
-        })
-    }
-}
-
-impl GitHubProvider {
     fn maybe_purge_stale_pkce_entries(&self) {
         // Purge when at least 5 minutes passed or more than 128 additions occurred
         const PURGE_INTERVAL_SECS: u32 = 5 * 60;
@@ -206,25 +93,109 @@ impl GitHubProvider {
         self.pkce_additions.store(0, Ordering::Relaxed);
         self.last_purge_at_secs.store(now_secs, Ordering::Relaxed);
     }
+
+    fn avatar_url_for(user_id: &str, avatar_hash: &str) -> String {
+        let ext = if avatar_hash.starts_with("a_") { "gif" } else { "png" };
+        format!("https://cdn.discordapp.com/avatars/{}/{}.{}", user_id, avatar_hash, ext)
+    }
 }
 
-/// Fetch user emails from GitHub API
-pub async fn fetch_github_emails(
-    http_client: &reqwest::Client,
-    access_token: &str,
-) -> Result<Vec<GitHubEmail>, Box<dyn std::error::Error + Send + Sync>> {
-    let response = http_client
-        .get("https://api.github.com/user/emails")
-        .header("Authorization", format!("Bearer {}", access_token))
-        .header("Accept", "application/vnd.github.v3+json")
-        .header("User-Agent", crate::config::USER_AGENT)
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        return Err(format!("GitHub API error: {}", response.status()).into());
+#[async_trait::async_trait]
+impl OAuthProvider for DiscordProvider {
+    fn id(&self) -> &'static str {
+        "discord"
+    }
+    fn label(&self) -> &'static str {
+        "Discord"
     }
 
-    let emails: Vec<GitHubEmail> = response.json().await?;
-    Ok(emails)
+    async fn authorize(&self) -> axum::response::Response {
+        let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
+        let (authorize_url, csrf_state) = self
+            .client
+            .authorize_url(CsrfToken::new_random)
+            .set_pkce_challenge(pkce_challenge)
+            .add_scope(Scope::new("identify".to_string()))
+            .add_scope(Scope::new("email".to_string()))
+            .url();
+        trace!(state = %csrf_state.secret(), "Generated OAuth authorization URL");
+
+        // Insert PKCE verifier with timestamp and purge when needed
+        self.pkce.insert(
+            csrf_state.secret().to_string(),
+            PkceRecord {
+                verifier: pkce_verifier.secret().to_string(),
+                created_at: Instant::now(),
+            },
+        );
+        self.pkce_additions.fetch_add(1, Ordering::Relaxed);
+        self.maybe_purge_stale_pkce_entries();
+
+        Redirect::to(authorize_url.as_str()).into_response()
+    }
+
+    async fn handle_callback(&self, query: &std::collections::HashMap<String, String>) -> Result<AuthUser, ErrorResponse> {
+        if let Some(err) = query.get("error") {
+            warn!(error = %err, desc = query.get("error_description").map(|s| s.as_str()), "OAuth callback contained an error");
+            return Err(ErrorResponse::bad_request(
+                err.clone(),
+                query.get("error_description").cloned(),
+            ));
+        }
+        let code = query
+            .get("code")
+            .cloned()
+            .ok_or_else(|| ErrorResponse::bad_request("invalid_request", Some("missing code".into())))?;
+        let state = query
+            .get("state")
+            .cloned()
+            .ok_or_else(|| ErrorResponse::bad_request("invalid_request", Some("missing state".into())))?;
+        let Some(rec) = self.pkce.remove(&state).map(|e| e.1) else {
+            warn!("Missing PKCE verifier for state parameter");
+            return Err(ErrorResponse::bad_request(
+                "invalid_request",
+                Some("missing pkce verifier for state".into()),
+            ));
+        };
+
+        // Verify PKCE TTL
+        if Instant::now().duration_since(rec.created_at) > Duration::from_secs(5 * 60) {
+            warn!("PKCE verifier expired for state parameter");
+            return Err(ErrorResponse::bad_request(
+                "invalid_request",
+                Some("expired pkce verifier for state".into()),
+            ));
+        }
+
+        let token = self
+            .client
+            .exchange_code(AuthorizationCode::new(code))
+            .set_pkce_verifier(PkceCodeVerifier::new(rec.verifier))
+            .request_async(&self.http)
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "Token exchange with Discord failed");
+                ErrorResponse::bad_gateway("token_exchange_failed", Some(e.to_string()))
+            })?;
+
+        let user = fetch_discord_user(&self.http, token.access_token().secret())
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "Failed to fetch Discord user profile");
+                ErrorResponse::bad_gateway("discord_api_error", Some(format!("failed to fetch user: {}", e)))
+            })?;
+
+        let avatar_url = match (&user.id, &user.avatar) {
+            (id, Some(hash)) => Some(Self::avatar_url_for(id, hash)),
+            _ => None,
+        };
+
+        Ok(AuthUser {
+            id: user.id,
+            username: user.username,
+            name: user.global_name,
+            email: user.email,
+            avatar_url,
+        })
+    }
 }

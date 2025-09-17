@@ -4,6 +4,7 @@ use axum::{
     response::{IntoResponse, Redirect},
 };
 use axum_cookie::CookieManager;
+use serde::Serialize;
 use tracing::{debug, info, trace, warn};
 
 use crate::{app::AppState, errors::ErrorResponse, session};
@@ -90,4 +91,22 @@ pub async fn logout_handler(State(app_state): State<AppState>, cookie: CookieMan
     session::clear_session_cookie(&cookie);
     info!("Signed out successfully");
     (StatusCode::FOUND, Redirect::to("/")).into_response()
+}
+
+#[derive(Serialize)]
+struct ProviderInfo {
+    provider: &'static str,
+    active: bool,
+}
+
+pub async fn list_providers_handler(State(app_state): State<AppState>) -> axum::response::Response {
+    let providers: Vec<ProviderInfo> = app_state
+        .auth
+        .iter()
+        .map(|(id, provider)| ProviderInfo {
+            provider: id,
+            active: provider.active(),
+        })
+        .collect();
+    axum::Json(providers).into_response()
 }

@@ -18,6 +18,9 @@ pub struct AuthUser {
 pub trait OAuthProvider: Send + Sync {
     fn id(&self) -> &'static str;
     fn label(&self) -> &'static str;
+    fn active(&self) -> bool {
+        true
+    }
 
     async fn authorize(&self) -> axum::response::Response;
 
