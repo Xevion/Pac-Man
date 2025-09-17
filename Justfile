@@ -1,24 +1,25 @@
 set shell := ["bash", "-c"]
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
-
 binary_extension := if os() == "windows" { ".exe" } else { "" }
 
-# !!! --ignore-filename-regex should be used on both reports & coverage testing
-# !!! --remap-path-prefix prevents the absolute path from being used in the generated report
+# Display available recipes
+default:
+    just --list
 
-# Generate HTML report (for humans, source line inspection)
+# Open HTML coverage report
 html: coverage
     cargo llvm-cov report \
+    # prevents the absolute path from being used in the generated report
     --remap-path-prefix \
     --html \
     --open
 
-# Display report (for humans)
+# Display coverage report
 report-coverage: coverage
     cargo llvm-cov report --remap-path-prefix
 
-# Run & generate LCOV report (as base report)
+# Generate baseline LCOV report
 coverage:
     cargo +nightly llvm-cov \
     --lcov \
@@ -28,7 +29,7 @@ coverage:
     --profile coverage \
     --no-fail-fast nextest
 
-# Profile the project using 'samply'
+# Profile the project using samply
 samply:
     cargo build --profile profile
     samply record ./target/profile/pacman{{ binary_extension }}
@@ -38,11 +39,36 @@ web *args:
     bun run pacman/web.build.ts {{args}};
     caddy file-server --root pacman/dist
 
-# Run cargo fix
+# Fix linting errors & formatting
 fix:
     cargo fix --workspace --lib --allow-dirty
     cargo fmt --all
 
+# Push commits & tags
 push:
     git push origin --tags;
     git push
+
+# Build the server image
+server-image:
+    # build the server image
+    docker build \
+    --platform linux/amd64 \
+    --file ./pacman-server/Dockerfile \
+    --tag pacman-server \
+    .
+
+# Build and run the server in a Docker container
+run-server: server-image
+    # remove the server container if it exists
+    docker rm --force --volumes pacman-server
+
+    # run the server container
+    docker run \
+    --rm \
+    --stop-timeout 2 \
+    --name pacman-server \
+    --publish 3000:3000 \
+    --env PORT=3000 \
+    --env-file pacman-server/.env \
+    pacman-server
