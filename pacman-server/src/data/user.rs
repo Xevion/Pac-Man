@@ -23,7 +23,7 @@ pub struct OAuthAccount {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-pub async fn get_user_by_email(pool: &sqlx::PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
+pub async fn find_user_by_email(pool: &sqlx::PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as::<_, User>(
         r#"
         SELECT id, email, created_at, updated_at
@@ -115,7 +115,7 @@ pub async fn get_oauth_account_count_for_user(pool: &sqlx::PgPool, user_id: i64)
     Ok(rec.0)
 }
 
-pub async fn get_user_by_provider_id(
+pub async fn find_user_by_provider_id(
     pool: &sqlx::PgPool,
     provider: &str,
     provider_user_id: &str,

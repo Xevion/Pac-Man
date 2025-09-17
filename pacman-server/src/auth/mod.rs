@@ -7,6 +7,7 @@ use crate::config::Config;
 
 pub mod discord;
 pub mod github;
+pub mod pkce;
 pub mod provider;
 
 type OAuthClient =

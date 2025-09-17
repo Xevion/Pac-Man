@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -42,6 +44,7 @@ pub async fn oauth_authorize_handler(
                 .http_only(true)
                 .same_site(axum_cookie::prelude::SameSite::Lax)
                 .path("/")
+                .max_age(std::time::Duration::from_secs(120))
                 .build(),
         );
     }
@@ -57,15 +60,19 @@ pub async fn oauth_callback_handler(
     Query(params): Query<AuthQuery>,
     cookie: CookieManager,
 ) -> axum::response::Response {
+    // Validate provider
     let Some(prov) = app_state.auth.get(&provider) else {
         warn!(%provider, "Unknown OAuth provider");
         return ErrorResponse::bad_request("invalid_provider", Some(provider)).into_response();
     };
+
+    // Process callback-returned errors from provider
     if let Some(error) = params.error {
         warn!(%provider, error = %error, desc = ?params.error_description, "OAuth callback returned an error");
         return ErrorResponse::bad_request(error, params.error_description).into_response();
     }
-    let mut q = std::collections::HashMap::new();
+
+    let mut q = HashMap::new();
     if let Some(v) = params.code {
         q.insert("code".to_string(), v);
     }
@@ -85,49 +92,56 @@ pub async fn oauth_callback_handler(
         cookie.remove("link");
     }
     let email = user.email.as_deref();
-    let _db_user = if link_cookie.as_deref() == Some("1") {
-        // Must be logged in already to link
-        let Some(session_token) = session::get_session_token(&cookie) else {
-            return ErrorResponse::bad_request("invalid_request", Some("must be signed in to link provider".into()))
-                .into_response();
-        };
-        let Some(claims) = session::decode_jwt(&session_token, &app_state.jwt_decoding_key) else {
-            return ErrorResponse::bad_request("invalid_request", Some("invalid session token".into())).into_response();
-        };
-        // Resolve current user from session
-        let (cur_prov, cur_id) = claims.sub.split_once(':').unwrap_or(("", ""));
-        let current_user = match user_repo::get_user_by_provider_id(&app_state.db, cur_prov, cur_id).await {
-            Ok(Some(u)) => u,
-            Ok(None) => {
-                return ErrorResponse::bad_request("invalid_request", Some("current session user not found".into()))
-                    .into_response();
+    // Determine linking intent with a valid session
+    let is_link = if link_cookie.as_deref() == Some("1") {
+        match session::get_session_token(&cookie).and_then(|t| session::decode_jwt(&t, &app_state.jwt_decoding_key)) {
+            Some(c) => {
+                // Perform linking with current session user
+                let (cur_prov, cur_id) = c.sub.split_once(':').unwrap_or(("", ""));
+                let current_user = match user_repo::find_user_by_provider_id(&app_state.db, cur_prov, cur_id).await {
+                    Ok(Some(u)) => u,
+                    Ok(None) => {
+                        warn!("Current session user not found; proceeding as normal sign-in");
+                        return ErrorResponse::bad_request("invalid_request", Some("current session user not found".into()))
+                            .into_response();
+                    }
+                    Err(_) => {
+                        return ErrorResponse::with_status(StatusCode::INTERNAL_SERVER_ERROR, "database_error", None)
+                            .into_response();
+                    }
+                };
+                if let Err(e) = user_repo::link_oauth_account(
+                    &app_state.db,
+                    current_user.id,
+                    &provider,
+                    &user.id,
+                    email,
+                    Some(&user.username),
+                    user.name.as_deref(),
+                    user.avatar_url.as_deref(),
+                )
+                .await
+                {
+                    warn!(error = %e, %provider, "Failed to link OAuth account");
+                    return ErrorResponse::with_status(StatusCode::INTERNAL_SERVER_ERROR, "database_error", None).into_response();
+                }
+                return (StatusCode::FOUND, Redirect::to("/profile")).into_response();
             }
-            Err(_) => {
-                return ErrorResponse::with_status(StatusCode::INTERNAL_SERVER_ERROR, "database_error", None).into_response();
+            None => {
+                warn!(%provider, "Link intent present but session missing/invalid; proceeding as normal sign-in");
+                false
             }
-        };
-
-        // Link provider to current user
-        if let Err(e) = user_repo::link_oauth_account(
-            &app_state.db,
-            current_user.id,
-            &provider,
-            &user.id,
-            email,
-            Some(&user.username),
-            user.name.as_deref(),
-            user.avatar_url.as_deref(),
-        )
-        .await
-        {
-            warn!(error = %e, %provider, "Failed to link OAuth account");
-            return ErrorResponse::with_status(StatusCode::INTERNAL_SERVER_ERROR, "database_error", None).into_response();
         }
-        current_user
+    } else {
+        false
+    };
+
+    if is_link {
+        unreachable!(); // handled via early return above
     } else {
         // Normal sign-in: do NOT auto-link by email (security). If email exists, require linking flow.
         if let Some(e) = email {
-            if let Ok(Some(existing)) = user_repo::get_user_by_email(&app_state.db, e).await {
+            if let Ok(Some(existing)) = user_repo::find_user_by_email(&app_state.db, e).await {
                 // Only block if the user already has at least one linked provider.
                 // NOTE: We do not check whether providers are currently active. If a user has exactly one provider and it is inactive,
                 // this may lock them out until the provider is reactivated or a manual admin link is performed.
@@ -198,9 +212,11 @@ pub async fn oauth_callback_handler(
             .into_response();
         }
     };
+
     let session_token = session::create_jwt_for_user(&provider, &user, &app_state.jwt_encoding_key);
     session::set_session_cookie(&cookie, &session_token);
     info!(%provider, "Signed in successfully");
+
     (StatusCode::FOUND, Redirect::to("/profile")).into_response()
 }
 
@@ -222,7 +238,7 @@ pub async fn profile_handler(State(app_state): State<AppState>, cookie: CookieMa
             return ErrorResponse::unauthorized("invalid session token").into_response();
         }
     };
-    match user_repo::get_user_by_provider_id(&app_state.db, prov, prov_user_id).await {
+    match user_repo::find_user_by_provider_id(&app_state.db, prov, prov_user_id).await {
         Ok(Some(db_user)) => {
             // Include linked providers in the profile payload
             match user_repo::list_user_providers(&app_state.db, db_user.id).await {
