@@ -4,49 +4,115 @@ use sqlx::FromRow;
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct User {
     pub id: i64,
+    pub email: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct OAuthAccount {
+    pub id: i64,
+    pub user_id: i64,
     pub provider: String,
     pub provider_user_id: String,
-    pub username: String,
-    pub display_name: Option<String>,
     pub email: Option<String>,
+    pub username: Option<String>,
+    pub display_name: Option<String>,
     pub avatar_url: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-pub async fn upsert_user(
+pub async fn get_user_by_email(pool: &sqlx::PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
+    sqlx::query_as::<_, User>(
+        r#"
+        SELECT id, email, created_at, updated_at
+        FROM users WHERE email = $1
+        "#,
+    )
+    .bind(email)
+    .fetch_optional(pool)
+    .await
+}
+
+pub async fn link_oauth_account(
     pool: &sqlx::PgPool,
+    user_id: i64,
     provider: &str,
     provider_user_id: &str,
+    email: Option<&str>,
+    username: Option<&str>,
+    display_name: Option<&str>,
+    avatar_url: Option<&str>,
+) -> Result<OAuthAccount, sqlx::Error> {
+    sqlx::query_as::<_, OAuthAccount>(
+        r#"
+        INSERT INTO oauth_accounts (user_id, provider, provider_user_id, email, username, display_name, avatar_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (provider, provider_user_id)
+        DO UPDATE SET email = EXCLUDED.email, username = EXCLUDED.username, display_name = EXCLUDED.display_name, avatar_url = EXCLUDED.avatar_url, user_id = EXCLUDED.user_id, updated_at = NOW()
+        RETURNING id, user_id, provider, provider_user_id, email, username, display_name, avatar_url, created_at, updated_at
+        "#,
+    )
+    .bind(user_id)
+    .bind(provider)
+    .bind(provider_user_id)
+    .bind(email)
+    .bind(username)
+    .bind(display_name)
+    .bind(avatar_url)
+    .fetch_one(pool)
+    .await
+}
+
+pub async fn create_user(
+    pool: &sqlx::PgPool,
     username: &str,
     display_name: Option<&str>,
     email: Option<&str>,
     avatar_url: Option<&str>,
+    provider: &str,
+    provider_user_id: &str,
 ) -> Result<User, sqlx::Error> {
-    let rec = sqlx::query_as::<_, User>(
+    let user = sqlx::query_as::<_, User>(
         r#"
-        INSERT INTO users (provider, provider_user_id, username, display_name, email, avatar_url)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (provider, provider_user_id)
-        DO UPDATE SET
-            username = EXCLUDED.username,
-            display_name = EXCLUDED.display_name,
-            email = EXCLUDED.email,
-            avatar_url = EXCLUDED.avatar_url,
-            updated_at = NOW()
-        RETURNING id, provider, provider_user_id, username, display_name, email, avatar_url, created_at, updated_at
+        INSERT INTO users (email)
+        VALUES ($1)
+        RETURNING id, email, created_at, updated_at
         "#,
     )
-    .bind(provider)
-    .bind(provider_user_id)
-    .bind(username)
-    .bind(display_name)
     .bind(email)
-    .bind(avatar_url)
     .fetch_one(pool)
     .await?;
 
-    Ok(rec)
+    // Create oauth link
+    let _ = link_oauth_account(
+        pool,
+        user.id,
+        provider,
+        provider_user_id,
+        email,
+        Some(username),
+        display_name,
+        avatar_url,
+    )
+    .await?;
+
+    Ok(user)
+}
+
+pub async fn get_oauth_account_count_for_user(pool: &sqlx::PgPool, user_id: i64) -> Result<i64, sqlx::Error> {
+    let rec: (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*)::BIGINT AS count
+        FROM oauth_accounts
+        WHERE user_id = $1
+        "#,
+    )
+    .bind(user_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(rec.0)
 }
 
 pub async fn get_user_by_provider_id(
@@ -56,9 +122,10 @@ pub async fn get_user_by_provider_id(
 ) -> Result<Option<User>, sqlx::Error> {
     let rec = sqlx::query_as::<_, User>(
         r#"
-        SELECT id, provider, provider_user_id, username, display_name, email, avatar_url, created_at, updated_at
-        FROM users
-        WHERE provider = $1 AND provider_user_id = $2
+        SELECT u.id, u.email, u.created_at, u.updated_at
+        FROM users u
+        JOIN oauth_accounts oa ON oa.user_id = u.id
+        WHERE oa.provider = $1 AND oa.provider_user_id = $2
         "#,
     )
     .bind(provider)
@@ -66,4 +133,29 @@ pub async fn get_user_by_provider_id(
     .fetch_optional(pool)
     .await?;
     Ok(rec)
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct ProviderPublic {
+    pub provider: String,
+    pub provider_user_id: String,
+    pub email: Option<String>,
+    pub username: Option<String>,
+    pub display_name: Option<String>,
+    pub avatar_url: Option<String>,
+}
+
+pub async fn list_user_providers(pool: &sqlx::PgPool, user_id: i64) -> Result<Vec<ProviderPublic>, sqlx::Error> {
+    let recs = sqlx::query_as::<_, ProviderPublic>(
+        r#"
+        SELECT provider, provider_user_id, email, username, display_name, avatar_url
+        FROM oauth_accounts
+        WHERE user_id = $1
+        ORDER BY provider
+        "#,
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(recs)
 }
