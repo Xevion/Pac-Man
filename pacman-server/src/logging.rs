@@ -7,8 +7,8 @@ use crate::formatter;
 /// Configure and initialize logging for the application
 pub fn setup_logging(_config: &Config) {
     // Allow RUST_LOG to override levels; default to info for our crate and warn elsewhere
-    let filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn,pacman_server=info,pacman_server::auth=info"));
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new(format!("warn,{name}=info,{name}::auth=info", name = env!("CARGO_CRATE_NAME"))));
 
     // Default to pretty for local dev; switchable later if we add CLI
     let use_pretty = cfg!(debug_assertions);
