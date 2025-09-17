@@ -1,0 +1,16 @@
+# Build artifacts
+/target
+/dist
+/emsdk
+*.exe
+
+/pacman/assets
+/assets
+
+# Development files
+/.git
+/*.md
+/Justfile
+/bacon.toml
+/rust-toolchain.toml
+/rustfmt.toml

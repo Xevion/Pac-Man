@@ -23,3 +23,6 @@ flamegraph.svg
 
 # Logs
 *.log
+
+# Sensitive
+*.env
