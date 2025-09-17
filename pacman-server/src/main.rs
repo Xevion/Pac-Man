@@ -2,6 +2,8 @@ use axum::{routing::get, Router};
 use axum_cookie::CookieLayer;
 
 use crate::{app::AppState, auth::AuthRegistry, config::Config};
+mod formatter;
+mod logging;
 mod routes;
 
 mod app;
@@ -10,7 +12,7 @@ mod config;
 mod errors;
 mod session;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 #[cfg(unix)]
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::{watch, Notify};
@@ -25,6 +27,9 @@ async fn main() {
 
     // Load configuration
     let config: Config = config::load_config();
+
+    // Initialize tracing subscriber
+    logging::setup_logging(&config);
 
     let addr = std::net::SocketAddr::new(config.host, config.port);
     let shutdown_timeout = std::time::Duration::from_secs(config.shutdown_timeout_seconds as u64);

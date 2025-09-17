@@ -1,6 +1,6 @@
 [package]
 name = "pacman-server"
-version = "0.1.1"
+version = "0.3.2"
 authors.workspace = true
 edition.workspace = true
 rust-version = "1.86.0"
@@ -32,4 +32,8 @@ dashmap = "6.1"
 axum-cookie = "0.2"
 async-trait = "0.1"
 jsonwebtoken = { version = "9.3", default-features = false }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
+time = { version = "0.3", features = ["macros", "formatting"] }
+yansi = "1"
 # validator = { version = "0.16", features = ["derive"] }
