@@ -4,6 +4,7 @@ use axum::{
     response::{IntoResponse, Redirect},
 };
 use axum_cookie::CookieManager;
+use tracing::{debug, info, trace, warn};
 
 use crate::{app::AppState, errors::ErrorResponse, session};
 
@@ -20,9 +21,13 @@ pub async fn oauth_authorize_handler(
     Path(provider): Path<String>,
 ) -> axum::response::Response {
     let Some(prov) = app_state.auth.get(&provider) else {
+        warn!(%provider, "Unknown OAuth provider");
         return ErrorResponse::bad_request("invalid_provider", Some(provider)).into_response();
     };
-    prov.authorize().await
+    trace!(provider = %provider, "Starting OAuth authorization");
+    let resp = prov.authorize().await;
+    trace!(provider = %provider, "Redirecting to provider authorization page");
+    resp
 }
 
 pub async fn oauth_callback_handler(
@@ -32,9 +37,11 @@ pub async fn oauth_callback_handler(
     cookie: CookieManager,
 ) -> axum::response::Response {
     let Some(prov) = app_state.auth.get(&provider) else {
+        warn!(%provider, "Unknown OAuth provider");
         return ErrorResponse::bad_request("invalid_provider", Some(provider)).into_response();
     };
     if let Some(error) = params.error {
+        warn!(%provider, error = %error, desc = ?params.error_description, "OAuth callback returned an error");
         return ErrorResponse::bad_request(error, params.error_description).into_response();
     }
     let mut q = std::collections::HashMap::new();
@@ -46,24 +53,32 @@ pub async fn oauth_callback_handler(
     }
     let user = match prov.handle_callback(&q).await {
         Ok(u) => u,
-        Err(e) => return e.into_response(),
+        Err(e) => {
+            warn!(%provider, "OAuth callback handling failed");
+            return e.into_response();
+        }
     };
     let session_token = session::create_jwt_for_user(&user, &app_state.jwt_encoding_key);
     app_state.sessions.insert(session_token.clone(), user);
     session::set_session_cookie(&cookie, &session_token);
+    info!(%provider, "Signed in successfully");
     (StatusCode::FOUND, Redirect::to("/profile")).into_response()
 }
 
 pub async fn profile_handler(State(app_state): State<AppState>, cookie: CookieManager) -> axum::response::Response {
     let Some(token_str) = session::get_session_token(&cookie) else {
+        debug!("Missing session cookie");
         return ErrorResponse::unauthorized("missing session cookie").into_response();
     };
     if !session::verify_jwt(&token_str, &app_state.jwt_decoding_key) {
+        debug!("Invalid session token");
         return ErrorResponse::unauthorized("invalid session token").into_response();
     }
     if let Some(user) = app_state.sessions.get(&token_str) {
+        trace!("Fetched user profile");
         return axum::Json(&*user).into_response();
     }
+    debug!("Session not found");
     ErrorResponse::unauthorized("session not found").into_response()
 }
 
@@ -73,5 +88,6 @@ pub async fn logout_handler(State(app_state): State<AppState>, cookie: CookieMan
         app_state.sessions.remove(&token_str);
     }
     session::clear_session_cookie(&cookie);
+    info!("Signed out successfully");
     (StatusCode::FOUND, Redirect::to("/")).into_response()
 }

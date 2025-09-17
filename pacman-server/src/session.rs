@@ -4,6 +4,7 @@ use axum_cookie::{cookie::Cookie, prelude::SameSite, CookieManager};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 
 use crate::auth::provider::AuthUser;
+use tracing::{trace, warn};
 
 pub const SESSION_COOKIE_NAME: &str = "session";
 pub const JWT_TTL_SECS: u64 = 60 * 60; // 1 hour
@@ -27,7 +28,9 @@ pub fn create_jwt_for_user(user: &AuthUser, encoding_key: &EncodingKey) -> Strin
         iat: now,
         exp: now + JWT_TTL_SECS as usize,
     };
-    encode(&Header::new(Algorithm::HS256), &claims, encoding_key).expect("jwt sign")
+    let token = encode(&Header::new(Algorithm::HS256), &claims, encoding_key).expect("jwt sign");
+    trace!(sub = %claims.sub, exp = claims.exp, "Created session JWT");
+    token
 }
 
 pub fn verify_jwt(token: &str, decoding_key: &DecodingKey) -> bool {
@@ -36,7 +39,7 @@ pub fn verify_jwt(token: &str, decoding_key: &DecodingKey) -> bool {
     match decode::<Claims>(token, decoding_key, &validation) {
         Ok(_) => true,
         Err(e) => {
-            println!("JWT verification failed: {:?}", e);
+            warn!(error = %e, "Session JWT verification failed");
             false
         }
     }

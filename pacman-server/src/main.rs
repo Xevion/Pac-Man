@@ -16,6 +16,7 @@ use std::time::Instant;
 #[cfg(unix)]
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::{watch, Notify};
+use tracing::{info, trace, warn};
 
 #[tokio::main]
 async fn main() {
@@ -30,6 +31,7 @@ async fn main() {
 
     // Initialize tracing subscriber
     logging::setup_logging(&config);
+    trace!(host = %config.host, port = config.port, shutdown_timeout_seconds = config.shutdown_timeout_seconds, "Loaded server configuration");
 
     let addr = std::net::SocketAddr::new(config.host, config.port);
     let shutdown_timeout = std::time::Duration::from_secs(config.shutdown_timeout_seconds as u64);
@@ -44,7 +46,9 @@ async fn main() {
         .with_state(AppState::new(config, auth))
         .layer(CookieLayer::default());
 
+    info!(%addr, "Starting HTTP server bind");
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    info!(%addr, "HTTP server listening");
 
     // coordinated graceful shutdown with timeout
     let notify = Arc::new(Notify::new());
@@ -69,7 +73,7 @@ async fn main() {
             }
         }
         tokio::time::sleep(shutdown_timeout).await;
-        eprintln!("shutdown timeout elapsed (>{:.2?}) - forcing exit", shutdown_timeout);
+        warn!(timeout = ?shutdown_timeout, "Shutdown timeout elapsed; forcing exit");
         std::process::exit(1);
     };
 
@@ -86,7 +90,7 @@ async fn main() {
                 let elapsed = now.duration_since(signaled_at);
                 if elapsed < shutdown_timeout {
                     let remaining = shutdown_timeout - elapsed;
-                    eprintln!("graceful shutdown complete, remaining time: {:.2?}", remaining);
+                    info!(remaining = ?remaining, "Graceful shutdown complete");
                 }
             }
             res.unwrap();
@@ -98,14 +102,14 @@ async fn main() {
 async fn shutdown_signal() -> Instant {
     let ctrl_c = async {
         tokio::signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
-        eprintln!("received Ctrl+C, shutting down");
+        warn!(signal = "ctrl_c", "Received Ctrl+C; shutting down");
     };
 
     #[cfg(unix)]
     let sigterm = async {
         let mut term_stream = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
         term_stream.recv().await;
-        eprintln!("received SIGTERM, shutting down");
+        warn!(signal = "sigterm", "Received SIGTERM; shutting down");
     };
 
     #[cfg(not(unix))]

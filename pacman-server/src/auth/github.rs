@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tracing::{trace, warn};
 
 use crate::{
     auth::provider::{AuthUser, OAuthProvider},
@@ -43,6 +44,7 @@ pub async fn fetch_github_user(
         .await?;
 
     if !response.status().is_success() {
+        warn!(status = %response.status(), endpoint = "/user", "GitHub API returned an error");
         return Err(format!("GitHub API error: {}", response.status()).into());
     }
 
@@ -110,11 +112,13 @@ impl OAuthProvider for GitHubProvider {
                 self.pkce.remove(entry.key());
             }
         }
+        trace!(state = %csrf_state.secret(), "Generated OAuth authorization URL");
         Redirect::to(authorize_url.as_str()).into_response()
     }
 
     async fn handle_callback(&self, query: &std::collections::HashMap<String, String>) -> Result<AuthUser, ErrorResponse> {
         if let Some(err) = query.get("error") {
+            warn!(error = %err, desc = query.get("error_description").map(|s| s.as_str()), "OAuth callback contained an error");
             return Err(ErrorResponse::bad_request(
                 err.clone(),
                 query.get("error_description").cloned(),
@@ -129,6 +133,7 @@ impl OAuthProvider for GitHubProvider {
             .cloned()
             .ok_or_else(|| ErrorResponse::bad_request("invalid_request", Some("missing state".into())))?;
         let Some((verifier, created_at)) = self.pkce.remove(&state).map(|e| e.1) else {
+            warn!("Missing PKCE verifier for state parameter");
             return Err(ErrorResponse::bad_request(
                 "invalid_request",
                 Some("missing pkce verifier for state".into()),
@@ -136,6 +141,7 @@ impl OAuthProvider for GitHubProvider {
         };
         // Verify PKCE TTL
         if Instant::now().duration_since(created_at) > Duration::from_secs(5 * 60) {
+            warn!("PKCE verifier expired for state parameter");
             return Err(ErrorResponse::bad_request(
                 "invalid_request",
                 Some("expired pkce verifier for state".into()),
@@ -148,14 +154,23 @@ impl OAuthProvider for GitHubProvider {
             .set_pkce_verifier(PkceCodeVerifier::new(verifier))
             .request_async(&self.http)
             .await
-            .map_err(|e| ErrorResponse::bad_gateway("token_exchange_failed", Some(e.to_string())))?;
+            .map_err(|e| {
+                warn!(error = %e, "Token exchange with GitHub failed");
+                ErrorResponse::bad_gateway("token_exchange_failed", Some(e.to_string()))
+            })?;
 
         let user = fetch_github_user(&self.http, token.access_token().secret())
             .await
-            .map_err(|e| ErrorResponse::bad_gateway("github_api_error", Some(format!("failed to fetch user: {}", e))))?;
+            .map_err(|e| {
+                warn!(error = %e, "Failed to fetch GitHub user profile");
+                ErrorResponse::bad_gateway("github_api_error", Some(format!("failed to fetch user: {}", e)))
+            })?;
         let _emails = fetch_github_emails(&self.http, token.access_token().secret())
             .await
-            .map_err(|e| ErrorResponse::bad_gateway("github_api_error", Some(format!("failed to fetch emails: {}", e))))?;
+            .map_err(|e| {
+                warn!(error = %e, "Failed to fetch GitHub user emails");
+                ErrorResponse::bad_gateway("github_api_error", Some(format!("failed to fetch emails: {}", e)))
+            })?;
 
         Ok(AuthUser {
             id: user.id.to_string(),
