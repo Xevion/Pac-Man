@@ -25,7 +25,19 @@ pub struct Config {
     pub host: std::net::IpAddr,
     #[serde(default = "default_shutdown_timeout")]
     pub shutdown_timeout_seconds: u32,
+    // Public base URL used for OAuth redirect URIs
+    pub public_base_url: String,
+    // JWT
+    pub jwt_secret: String,
 }
+
+// Standard User-Agent: name/version (+site)
+pub const USER_AGENT: &str = concat!(
+    env!("CARGO_PKG_NAME"),
+    "/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://pacman.xevion.dev)"
+);
 
 fn default_host() -> std::net::IpAddr {
     "0.0.0.0".parse().unwrap()
@@ -57,7 +69,7 @@ pub fn load_config() -> Config {
     Figment::new()
         .merge(Env::raw().map(|key| {
             if key == UncasedStr::new("RAILWAY_DEPLOYMENT_DRAINING_SECONDS") {
-                "SHUTDOWN_TIMEOUT".into()
+                "SHUTDOWN_TIMEOUT_SECONDS".into()
             } else {
                 key.into()
             }

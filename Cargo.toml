@@ -13,8 +13,6 @@ keywords = ["game", "pacman", "arcade", "sdl2"]
 categories = ["games", "emulators"]
 publish = false
 
-[workspace.dependencies]
-
 [profile.dev]
 incremental = true
 
