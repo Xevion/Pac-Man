@@ -9,6 +9,8 @@ mod auth;
 mod config;
 mod errors;
 mod session;
+#[cfg(unix)]
+use tokio::signal::unix::{signal, SignalKind};
 
 #[tokio::main]
 async fn main() {
@@ -34,5 +36,30 @@ async fn main() {
         .layer(CookieLayer::default());
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
+        eprintln!("received Ctrl+C, shutting down");
+    };
+
+    #[cfg(unix)]
+    let sigterm = async {
+        let mut term_stream = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
+        term_stream.recv().await;
+        eprintln!("received SIGTERM, shutting down");
+    };
+
+    #[cfg(not(unix))]
+    let sigterm = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {}
+        _ = sigterm => {}
+    }
 }
