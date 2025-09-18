@@ -3,7 +3,7 @@ name = "pacman-server"
 version = "0.4.0"
 authors.workspace = true
 edition.workspace = true
-rust-version = "1.86.0"
+rust-version = "1.87.0"
 description = "A leaderboard API for the Pac-Man game"
 readme.workspace = true
 homepage.workspace = true
@@ -35,6 +35,12 @@ async-trait = "0.1"
 jsonwebtoken = { version = "9.3", default-features = false }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
+tracing-futures = { version = "0.2.5", features = ["tokio"] }
 time = { version = "0.3", features = ["macros", "formatting"] }
 yansi = "1"
+s3-tokio = { version = "0.39.6", default-features = false }
+rustls = { version = "0.23", features = ["ring"] }
+fast_image_resize = { version = "5.3", features = ["image"] }
+image = { version = "0.25", features = ["png", "jpeg"] }
+sha2 = "0.10"
 # validator = { version = "0.16", features = ["derive"] }

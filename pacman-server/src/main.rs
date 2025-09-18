@@ -1,23 +1,24 @@
+use crate::{app::AppState, auth::AuthRegistry, config::Config};
 use axum::{routing::get, Router};
 use axum_cookie::CookieLayer;
+use std::time::Instant;
+use std::{sync::Arc, time::Duration};
+use tracing::{info, trace, warn};
 
-use crate::{app::AppState, auth::AuthRegistry, config::Config};
-mod formatter;
-mod logging;
-mod routes;
+#[cfg(unix)]
+use tokio::signal::unix::{signal, SignalKind};
+use tokio::sync::{watch, Notify};
 
 mod app;
 mod auth;
 mod config;
 mod data;
 mod errors;
+mod formatter;
+mod image;
+mod logging;
+mod routes;
 mod session;
-use std::time::Instant;
-use std::{sync::Arc, time::Duration};
-#[cfg(unix)]
-use tokio::signal::unix::{signal, SignalKind};
-use tokio::sync::{watch, Notify};
-use tracing::{info, trace, warn};
 
 // Constant value for the Server header: "<crate>/<version>"
 const SERVER_HEADER_VALUE: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));

@@ -16,8 +16,8 @@ pub struct Config {
     // S3 Credentials
     pub s3_access_key: String,
     pub s3_secret_access_key: String,
-    pub s3_endpoint: String,
-    pub s3_region: String,
+    pub s3_bucket_name: String,
+    pub s3_public_base_url: String,
     // Server Details
     #[serde(default = "default_port")]
     pub port: u16,

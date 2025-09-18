@@ -5,7 +5,7 @@ use axum::{
 };
 use axum_cookie::CookieManager;
 use serde::Serialize;
-use tracing::{debug, info, instrument, trace, warn};
+use tracing::{debug, info, instrument, span, trace, warn};
 
 use crate::data::user as user_repo;
 use crate::{app::AppState, errors::ErrorResponse, session};
@@ -51,7 +51,6 @@ pub async fn oauth_authorize_handler(
     resp
 }
 
-#[instrument(skip_all, fields(provider = %provider))]
 pub async fn oauth_callback_handler(
     State(app_state): State<AppState>,
     Path(provider): Path<String>,
@@ -78,6 +77,8 @@ pub async fn oauth_callback_handler(
         return ErrorResponse::bad_request("invalid_request", Some("missing state".into())).into_response();
     };
 
+    span!(tracing::Level::DEBUG, "oauth_callback_handler",  provider = %provider, code = %code, state = %state);
+
     // Handle callback from provider
     let user = match prov.handle_callback(code, state).await {
         Ok(u) => u,
@@ -96,6 +97,8 @@ pub async fn oauth_callback_handler(
 
     // Determine linking intent with a valid session
     let is_link = if link_cookie.as_deref() == Some("1") {
+        debug!("Link intent present");
+
         match session::get_session_token(&cookie).and_then(|t| session::decode_jwt(&t, &app_state.jwt_decoding_key)) {
             Some(c) => {
                 // Perform linking with current session user
@@ -149,14 +152,35 @@ pub async fn oauth_callback_handler(
                 // this may lock them out until the provider is reactivated or a manual admin link is performed.
                 match user_repo::get_oauth_account_count_for_user(&app_state.db, existing.id).await {
                     Ok(count) if count > 0 => {
-                        return ErrorResponse::bad_request(
-                            "account_exists",
-                            Some(format!(
-                                "An account already exists for {}. Sign in with your existing provider, then visit /auth/{}?link=true to add this provider.",
-                                e, provider
-                            )),
-                        )
-                        .into_response();
+                        // Check if the "new" provider is already linked to the user
+                        match user_repo::find_user_by_provider_id(&app_state.db, &provider, &user.id).await {
+                            Ok(Some(_)) => {
+                                debug!(
+                                    %provider,
+                                    %existing.id,
+                                    "Provider already linked to user, signing in normally");
+                            }
+                            Ok(None) => {
+                                debug!(
+                                    %provider,
+                                    %existing.id,
+                                    "Provider not linked to user, failing"
+                                );
+                                return ErrorResponse::bad_request(
+                                    "account_exists",
+                                    Some(format!(
+                                        "An account already exists for {}. Sign in with your existing provider, then visit /auth/{}?link=true to add this provider.",
+                                        e, provider
+                                    )),
+                                )
+                                .into_response();
+                            }
+                            Err(e) => {
+                                warn!(error = %e, %provider, "Failed to find user by provider ID");
+                                return ErrorResponse::with_status(StatusCode::INTERNAL_SERVER_ERROR, "database_error", None)
+                                    .into_response();
+                            }
+                        }
                     }
                     Ok(_) => {
                         // No providers linked yet: safe to associate this provider
@@ -176,7 +200,6 @@ pub async fn oauth_callback_handler(
                             return ErrorResponse::with_status(StatusCode::INTERNAL_SERVER_ERROR, "database_error", None)
                                 .into_response();
                         }
-                        existing
                     }
                     Err(e) => {
                         warn!(error = %e, "Failed to count oauth accounts for user");
@@ -203,7 +226,7 @@ pub async fn oauth_callback_handler(
                         return ErrorResponse::with_status(StatusCode::INTERNAL_SERVER_ERROR, "database_error", None)
                             .into_response();
                     }
-                }
+                };
             }
         } else {
             // No email available: disallow sign-in for safety
@@ -220,10 +243,38 @@ pub async fn oauth_callback_handler(
     session::set_session_cookie(&cookie, &session_token);
     info!(%provider, "Signed in successfully");
 
+    // Process avatar asynchronously (don't block the response)
+    if let Some(avatar_url) = user.avatar_url.as_deref() {
+        let image_storage = app_state.image_storage.clone();
+        let user_public_id = user.id.clone();
+        let avatar_url = avatar_url.to_string();
+        debug!(%user_public_id, %avatar_url, "Processing avatar");
+
+        tokio::spawn(async move {
+            match image_storage.process_avatar(&user_public_id, &avatar_url).await {
+                Ok(avatar_urls) => {
+                    info!(
+                        user_id = %user_public_id,
+                        original_url = %avatar_urls.original_url,
+                        mini_url = %avatar_urls.mini_url,
+                        "Avatar processed successfully"
+                    );
+                }
+                Err(e) => {
+                    warn!(
+                        user_id = %user_public_id,
+                        avatar_url = %avatar_url,
+                        error = %e,
+                        "Failed to process avatar"
+                    );
+                }
+            }
+        });
+    }
+
     (StatusCode::FOUND, Redirect::to("/profile")).into_response()
 }
 
-#[instrument(skip_all)]
 pub async fn profile_handler(State(app_state): State<AppState>, cookie: CookieManager) -> axum::response::Response {
     let Some(token_str) = session::get_session_token(&cookie) else {
         debug!("Missing session cookie");
