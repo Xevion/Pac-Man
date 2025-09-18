@@ -45,3 +45,19 @@ This crate is a webserver that hosts an OAuth login and leaderboard API for the 
 13. API Rate Limiting (inbound requests, by IP, by User)
 14. Provider Circuit Breaker
 15. Merge migration files
+
+## Notes
+
+### Image Handling
+
+Avatar images are stored in S3 as follows:
+
+- `avatars/{user_public_id}/{avatar_hash}.original.png`
+- `avatars/{user_public_id}/{avatar_hash}.mini.png`
+
+- The original image is converted to PNG and resized to a maximum of 512x512 pixels.
+  - Ideally, non-square images are fitted to a square.
+- The mini image is converted to PNG and resized to a maximum of 16x16, 24x24, or 32x32 pixels. TBD.
+- All images receive a Content-Type header of `image/png`.
+
+Image processing is handled immediately asynchronously, allowing a valid presigned URL to be generated immediately.
