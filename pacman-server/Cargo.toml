@@ -47,6 +47,7 @@ rustls = { version = "0.23", features = ["ring"] }
 fast_image_resize = { version = "5.3", features = ["image"] }
 image = { version = "0.25", features = ["png", "jpeg"] }
 sha2 = "0.10"
+mockall = "0.13.1"
 # validator = { version = "0.16", features = ["derive"] }
 
 [dev-dependencies]

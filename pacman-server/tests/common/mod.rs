@@ -4,16 +4,18 @@ use pacman_server::{
     auth::AuthRegistry,
     config::Config,
 };
+use std::sync::Arc;
 use testcontainers::{
     core::{IntoContainerPort, WaitFor},
     runners::AsyncRunner,
     ContainerAsync, GenericImage, ImageExt,
 };
+use tokio::sync::Notify;
 
 /// Test configuration for integration tests
 pub struct TestConfig {
     pub database_url: String,
-    pub _container: ContainerAsync<GenericImage>,
+    pub container: ContainerAsync<GenericImage>,
     pub config: Config,
 }
 
@@ -45,7 +47,7 @@ impl TestConfig {
 
         Self {
             database_url,
-            _container: container,
+            container,
             config,
         }
     }
@@ -87,7 +89,8 @@ pub async fn create_test_app_state(test_config: &TestConfig) -> AppState {
     let auth = AuthRegistry::new(&test_config.config).expect("Failed to create auth registry");
 
     // Create app state
-    let app_state = AppState::new(test_config.config.clone(), auth, db);
+    let notify = Arc::new(Notify::new());
+    let app_state = AppState::new(test_config.config.clone(), auth, db, notify).await;
 
     // Set health status to true for tests (migrations and database are both working)
     {

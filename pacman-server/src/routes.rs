@@ -371,7 +371,16 @@ pub async fn list_providers_handler(State(app_state): State<AppState>) -> axum::
     axum::Json(providers).into_response()
 }
 
-pub async fn health_handler(State(app_state): State<AppState>) -> axum::response::Response {
+pub async fn health_handler(
+    State(app_state): State<AppState>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> axum::response::Response {
+    // Force health check in debug mode
+    #[cfg(debug_assertions)]
+    if params.get("force").is_some() {
+        app_state.check_health().await;
+    }
+
     let ok = app_state.health.read().await.ok();
     let status = if ok { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
     let body = serde_json::json!({ "ok": ok });

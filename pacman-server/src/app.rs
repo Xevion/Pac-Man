@@ -3,25 +3,20 @@ use axum_cookie::CookieLayer;
 use dashmap::DashMap;
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::time::Duration;
+use tokio::sync::{Notify, RwLock};
+use tokio::task::JoinHandle;
 
 use crate::data::pool::PgPool;
 use crate::{auth::AuthRegistry, config::Config, image::ImageStorage, routes};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Health {
     migrations: bool,
     database: bool,
 }
 
 impl Health {
-    pub fn new() -> Self {
-        Self {
-            migrations: false,
-            database: false,
-        }
-    }
-
     pub fn ok(&self) -> bool {
         self.migrations && self.database
     }
@@ -44,10 +39,11 @@ pub struct AppState {
     pub db: Arc<PgPool>,
     pub health: Arc<RwLock<Health>>,
     pub image_storage: Arc<ImageStorage>,
+    pub healthchecker_task: Arc<RwLock<Option<JoinHandle<()>>>>,
 }
 
 impl AppState {
-    pub fn new(config: Config, auth: AuthRegistry, db: PgPool) -> Self {
+    pub async fn new(config: Config, auth: AuthRegistry, db: PgPool, shutdown_notify: Arc<Notify>) -> Self {
         let jwt_secret = config.jwt_secret.clone();
 
         // Initialize image storage
@@ -60,15 +56,71 @@ impl AppState {
             }
         };
 
-        Self {
+        let app_state = Self {
             auth: Arc::new(auth),
             sessions: Arc::new(DashMap::new()),
             jwt_encoding_key: Arc::new(EncodingKey::from_secret(jwt_secret.as_bytes())),
             jwt_decoding_key: Arc::new(DecodingKey::from_secret(jwt_secret.as_bytes())),
             db: Arc::new(db),
-            health: Arc::new(RwLock::new(Health::new())),
+            health: Arc::new(RwLock::new(Health::default())),
             image_storage,
+            healthchecker_task: Arc::new(RwLock::new(None)),
+        };
+
+        // Start the healthchecker task
+        {
+            let health_state = app_state.health.clone();
+            let db_pool = app_state.db.clone();
+            let healthchecker_task = app_state.healthchecker_task.clone();
+
+            let task = tokio::spawn(async move {
+                tracing::trace!("Health checker task started");
+                let mut backoff: u32 = 1;
+                let mut next_sleep = Duration::from_secs(0);
+                loop {
+                    tokio::select! {
+                        _ = shutdown_notify.notified() => {
+                            tracing::trace!("Health checker received shutdown notification; exiting");
+                            break;
+                        }
+
+                        _ = tokio::time::sleep(next_sleep) => {
+                            // Run health check
+                        }
+                    }
+
+                    // Run the actual health check
+                    let ok = sqlx::query("SELECT 1").execute(&*db_pool).await.is_ok();
+                    {
+                        let mut h = health_state.write().await;
+                        h.set_database(ok);
+                    }
+                    if ok {
+                        tracing::trace!(database_ok = true, "Health check succeeded; scheduling next run in 90s");
+                        backoff = 1;
+                        next_sleep = Duration::from_secs(90);
+                    } else {
+                        backoff = (backoff.saturating_mul(2)).min(60);
+                        tracing::trace!(database_ok = false, backoff, "Health check failed; backing off");
+                        next_sleep = Duration::from_secs(backoff as u64);
+                    }
+                }
+            });
+
+            // Store the task handle
+            let mut task_handle = healthchecker_task.write().await;
+            *task_handle = Some(task);
         }
+
+        app_state
+    }
+
+    /// Force an immediate health check (debug mode only)
+    pub async fn check_health(&self) -> bool {
+        let ok = sqlx::query("SELECT 1").execute(&*self.db).await.is_ok();
+        let mut h = self.health.write().await;
+        h.set_database(ok);
+        ok
     }
 }
 

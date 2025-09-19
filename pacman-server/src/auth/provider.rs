@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use mockall::automock;
 use serde::Serialize;
 
 use crate::errors::ErrorResponse;
@@ -12,6 +13,7 @@ pub struct AuthUser {
     pub avatar_url: Option<String>,
 }
 
+#[automock]
 #[async_trait]
 pub trait OAuthProvider: Send + Sync {
     fn id(&self) -> &'static str;

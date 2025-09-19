@@ -3,8 +3,8 @@ use crate::{
     auth::AuthRegistry,
     config::Config,
 };
+use std::sync::Arc;
 use std::time::Instant;
-use std::{sync::Arc, time::Duration};
 use tracing::{info, trace, warn};
 
 #[cfg(unix)]
@@ -47,16 +47,15 @@ async fn main() {
         panic!("failed to run database migrations: {}", e);
     }
 
-    let app_state = AppState::new(config, auth, db);
+    // Create the shutdown notification before creating AppState
+    let notify = Arc::new(Notify::new());
+
+    let app_state = AppState::new(config, auth, db, notify.clone()).await;
     {
         // migrations succeeded
         let mut h = app_state.health.write().await;
         h.set_migrations(true);
     }
-
-    // Extract needed parts for health checker before moving app_state
-    let health_state = app_state.health.clone();
-    let db_pool = app_state.db.clone();
 
     let app = create_router(app_state);
 
@@ -65,44 +64,7 @@ async fn main() {
     info!(%addr, "HTTP server listening");
 
     // coordinated graceful shutdown with timeout
-    let notify = Arc::new(Notify::new());
     let (tx_signal, rx_signal) = watch::channel::<Option<Instant>>(None);
-
-    // Spawn background health checker (listens for shutdown via notify)
-    {
-        let health_state = health_state.clone();
-        let db_pool = db_pool.clone();
-        let notify_for_health = notify.clone();
-        tokio::spawn(async move {
-            trace!("Health checker task started");
-            let mut backoff: u32 = 1;
-            let mut next_sleep = Duration::from_secs(0);
-            loop {
-                tokio::select! {
-                    _ = notify_for_health.notified() => {
-                        trace!("Health checker received shutdown notification; exiting");
-                        break;
-                    }
-                    _ = tokio::time::sleep(next_sleep) => {
-                        let ok = sqlx::query("SELECT 1").execute(&*db_pool).await.is_ok();
-                        {
-                            let mut h = health_state.write().await;
-                            h.set_database(ok);
-                        }
-                        if ok {
-                            trace!(database_ok = true, "Health check succeeded; scheduling next run in 90s");
-                            backoff = 1;
-                            next_sleep = Duration::from_secs(90);
-                        } else {
-                            backoff = (backoff.saturating_mul(2)).min(60);
-                            trace!(database_ok = false, backoff, "Health check failed; backing off");
-                            next_sleep = Duration::from_secs(backoff as u64);
-                        }
-                    }
-                }
-            }
-        });
-    }
 
     {
         let notify = notify.clone();
@@ -127,9 +89,8 @@ async fn main() {
         std::process::exit(1);
     };
 
-    let notify_for_server = notify.clone();
     let server = axum::serve(listener, app).with_graceful_shutdown(async move {
-        notify_for_server.notified().await;
+        notify.notified().await;
     });
 
     tokio::select! {
