@@ -46,7 +46,7 @@ pub async fn oauth_authorize_handler(
                 .build(),
         );
     }
-    let resp = prov.authorize().await;
+    let resp = prov.authorize(&cookie, &app_state.jwt_encoding_key).await;
     trace!("Redirecting to provider authorization page");
     resp
 }
@@ -80,7 +80,7 @@ pub async fn oauth_callback_handler(
     span!(tracing::Level::DEBUG, "oauth_callback_handler",  provider = %provider, code = %code, state = %state);
 
     // Handle callback from provider
-    let user = match prov.handle_callback(code, state).await {
+    let user = match prov.handle_callback(code, state, &cookie, &app_state.jwt_decoding_key).await {
         Ok(u) => u,
         Err(e) => {
             warn!(%provider, "OAuth callback handling failed");
