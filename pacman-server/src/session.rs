@@ -11,10 +11,13 @@ pub const JWT_TTL_SECS: u64 = 60 * 60; // 1 hour
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Claims {
-    pub sub: String, // format: "{provider}:{provider_user_id}"
+    #[serde(rename = "sub")]
+    pub subject: String, // format: "{provider}:{provider_user_id}"
     pub name: Option<String>,
-    pub iat: usize,
-    pub exp: usize,
+    #[serde(rename = "iat")]
+    pub issued_at: usize,
+    #[serde(rename = "exp")]
+    pub expiration: usize,
     // PKCE flow fields - only present during OAuth flow
     #[serde(rename = "ver", skip_serializing_if = "Option::is_none")]
     pub pkce_verifier: Option<String>,
@@ -28,15 +31,15 @@ pub fn create_jwt_for_user(provider: &str, user: &AuthUser, encoding_key: &Encod
         .expect("time went backwards")
         .as_secs() as usize;
     let claims = Claims {
-        sub: format!("{}:{}", provider, user.id),
+        subject: format!("{}:{}", provider, user.id),
         name: user.name.clone(),
-        iat: now,
-        exp: now + JWT_TTL_SECS as usize,
+        issued_at: now,
+        expiration: now + JWT_TTL_SECS as usize,
         pkce_verifier: None,
         csrf_state: None,
     };
     let token = encode(&Header::new(Algorithm::HS256), &claims, encoding_key).expect("jwt sign");
-    trace!(sub = %claims.sub, exp = claims.exp, "Created session JWT");
+    trace!(sub = %claims.subject, exp = claims.expiration, "Created session JWT");
     token
 }
 
@@ -47,10 +50,10 @@ pub fn create_pkce_session(pkce_verifier: &str, csrf_state: &str, encoding_key: 
         .expect("time went backwards")
         .as_secs() as usize;
     let claims = Claims {
-        sub: "pkce_flow".to_string(), // Special marker for PKCE flow
+        subject: "pkce_flow".to_string(), // Special marker for PKCE flow
         name: None,
-        iat: now,
-        exp: now + JWT_TTL_SECS as usize,
+        issued_at: now,
+        expiration: now + JWT_TTL_SECS as usize,
         pkce_verifier: Some(pkce_verifier.to_string()),
         csrf_state: Some(csrf_state.to_string()),
     };
@@ -61,7 +64,7 @@ pub fn create_pkce_session(pkce_verifier: &str, csrf_state: &str, encoding_key: 
 
 /// Checks if a session is a PKCE flow session
 pub fn is_pkce_session(claims: &Claims) -> bool {
-    claims.sub == "pkce_flow" && claims.pkce_verifier.is_some() && claims.csrf_state.is_some()
+    claims.subject == "pkce_flow" && claims.pkce_verifier.is_some() && claims.csrf_state.is_some()
 }
 
 pub fn decode_jwt(token: &str, decoding_key: &DecodingKey) -> Option<Claims> {

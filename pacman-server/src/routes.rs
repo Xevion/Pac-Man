@@ -107,7 +107,7 @@ pub async fn oauth_callback_handler(
         match session::get_session_token(&cookie).and_then(|t| session::decode_jwt(&t, &app_state.jwt_decoding_key)) {
             Some(c) => {
                 // Perform linking with current session user
-                let (cur_prov, cur_id) = c.sub.split_once(':').unwrap_or(("", ""));
+                let (cur_prov, cur_id) = c.subject.split_once(':').unwrap_or(("", ""));
                 let current_user = match user_repo::find_user_by_provider_id(&app_state.db, cur_prov, cur_id).await {
                     Ok(Some(u)) => u,
                     Ok(None) => {
@@ -290,7 +290,7 @@ pub async fn profile_handler(State(app_state): State<AppState>, cookie: CookieMa
         return ErrorResponse::unauthorized("invalid session token").into_response();
     };
     // sub format: provider:provider_user_id
-    let (prov, prov_user_id) = match claims.sub.split_once(':') {
+    let (prov, prov_user_id) = match claims.subject.split_once(':') {
         Some((p, id)) => (p, id),
         None => {
             debug!("Malformed session token subject");
