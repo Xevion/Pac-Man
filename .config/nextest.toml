@@ -1,13 +1,22 @@
 [profile.default]
 fail-fast = false
-slow-timeout = { period = "5s", terminate-after = 6 }
+slow-timeout = { period = "5s", terminate-after = 6 } # max 30 seconds
 
+# CI machines are pretty slow, so we need to increase the timeout
+[profile.ci]
+slow-timeout = { period = "30s", terminate-after = 4 } # max 2 minutes for slow tests
+
+# Coverage works even slower, so we need to increase the timeout
 [profile.coverage]
+slow-timeout = { period = "45s", terminate-after = 5 } # max 3.75 minutes for slow tests
 status-level = "none"
 
 [[profile.default.overrides]]
+# Integration tests in SDL2 run serially (may not be required)
 filter = 'test(pacman::game::)'
 test-group = 'serial'
 
+
 [test-groups]
+# Ensure serial tests don't run in parallel
 serial = { max-threads = 1 }
