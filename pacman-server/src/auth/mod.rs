@@ -1,3 +1,5 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -5,7 +7,9 @@ use oauth2::{basic::BasicClient, EndpointNotSet, EndpointSet};
 
 use crate::config::Config;
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 pub mod discord;
+#[cfg_attr(coverage_nightly, coverage(off))]
 pub mod github;
 pub mod provider;
 

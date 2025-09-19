@@ -1,3 +1,6 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+#![cfg_attr(coverage_nightly, coverage(off))]
+
 use crate::{
     app::{create_router, AppState},
     auth::AuthRegistry,
@@ -11,12 +14,16 @@ use tracing::{info, trace, warn};
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::{watch, Notify};
 
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod config;
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod errors;
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod formatter;
+
 mod app;
 mod auth;
-mod config;
 mod data;
-mod errors;
-mod formatter;
 mod image;
 mod logging;
 mod routes;

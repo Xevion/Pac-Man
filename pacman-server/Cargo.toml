@@ -64,3 +64,9 @@ axum-test = "18.1.0"
 pretty_assertions = "1.4.1"
 testcontainers = "0.25.0"
 bon = "3.7.2"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(coverage,coverage_nightly)',
+    'cfg(use_console)',
+] }
