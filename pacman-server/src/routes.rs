@@ -377,7 +377,7 @@ pub async fn health_handler(
 ) -> axum::response::Response {
     // Force health check in debug mode
     #[cfg(debug_assertions)]
-    if params.get("force").is_some() {
+    if params.contains_key("force") {
         app_state.check_health().await;
     }
 

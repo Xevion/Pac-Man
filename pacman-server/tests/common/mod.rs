@@ -14,22 +14,34 @@ use tokio::sync::Notify;
 
 /// Test configuration for integration tests
 pub struct TestConfig {
-    pub database_url: String,
-    pub container: ContainerAsync<GenericImage>,
+    pub database_url: Option<String>,
+    pub container: Option<ContainerAsync<GenericImage>>,
     pub config: Config,
 }
 
 impl TestConfig {
     /// Create a test configuration with a test database
     pub async fn new() -> Self {
+        Self::new_with_database(true).await
+    }
+
+    /// Create a test configuration with optional database setup
+    pub async fn new_with_database(use_database: bool) -> Self {
         rustls::crypto::ring::default_provider()
             .install_default()
             .expect("Failed to install default crypto provider");
 
-        let (database_url, container) = setup_test_database("testdb", "testuser", "testpass").await;
+        let (database_url, container) = if use_database {
+            let (url, container) = setup_test_database("testdb", "testuser", "testpass").await;
+            (Some(url), Some(container))
+        } else {
+            (None, None)
+        };
 
         let config = Config {
-            database_url: database_url.clone(),
+            database_url: database_url
+                .clone()
+                .unwrap_or_else(|| "postgresql://dummy:dummy@localhost:5432/dummy?sslmode=disable".to_string()),
             discord_client_id: "test_discord_client_id".to_string(),
             discord_client_secret: "test_discord_client_secret".to_string(),
             github_client_id: "test_github_client_id".to_string(),
@@ -76,27 +88,44 @@ async fn setup_test_database(db: &str, user: &str, password: &str) -> (String, C
 
 /// Create a test app state with database and auth registry
 pub async fn create_test_app_state(test_config: &TestConfig) -> AppState {
-    // Create database pool
-    let db = pacman_server::data::pool::create_pool(&test_config.database_url, 5).await;
+    create_test_app_state_with_database(test_config, true).await
+}
 
-    // Run migrations
-    sqlx::migrate!("./migrations")
-        .run(&db)
-        .await
-        .expect("Failed to run database migrations");
+/// Create a test app state with optional database setup
+pub async fn create_test_app_state_with_database(test_config: &TestConfig, use_database: bool) -> AppState {
+    let db = if use_database {
+        // Create database pool
+        let db_url = test_config
+            .database_url
+            .as_ref()
+            .expect("Database URL required when use_database is true");
+        let db = pacman_server::data::pool::create_pool(use_database, db_url, 5).await;
+
+        // Run migrations
+        sqlx::migrate!("./migrations")
+            .run(&db)
+            .await
+            .expect("Failed to run database migrations");
+
+        db
+    } else {
+        // Create a dummy database pool that will fail gracefully
+        let dummy_url = "postgresql://dummy:dummy@localhost:5432/dummy?sslmode=disable";
+        pacman_server::data::pool::create_pool(false, dummy_url, 1).await
+    };
 
     // Create auth registry
     let auth = AuthRegistry::new(&test_config.config).expect("Failed to create auth registry");
 
     // Create app state
     let notify = Arc::new(Notify::new());
-    let app_state = AppState::new(test_config.config.clone(), auth, db, notify).await;
+    let app_state = AppState::new_with_database(test_config.config.clone(), auth, db, notify, use_database).await;
 
-    // Set health status to true for tests (migrations and database are both working)
+    // Set health status based on database usage
     {
         let mut health = app_state.health.write().await;
-        health.set_migrations(true);
-        health.set_database(true);
+        health.set_migrations(use_database);
+        health.set_database(use_database);
     }
 
     app_state

@@ -51,7 +51,7 @@ impl DiscordProvider {
         Arc::new(Self {
             client,
             http,
-            pkce: PkceManager::new(),
+            pkce: PkceManager::default(),
         })
     }
 

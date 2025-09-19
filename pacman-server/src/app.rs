@@ -44,6 +44,16 @@ pub struct AppState {
 
 impl AppState {
     pub async fn new(config: Config, auth: AuthRegistry, db: PgPool, shutdown_notify: Arc<Notify>) -> Self {
+        Self::new_with_database(config, auth, db, shutdown_notify, true).await
+    }
+
+    pub async fn new_with_database(
+        config: Config,
+        auth: AuthRegistry,
+        db: PgPool,
+        shutdown_notify: Arc<Notify>,
+        use_database: bool,
+    ) -> Self {
         let jwt_secret = config.jwt_secret.clone();
 
         // Initialize image storage
@@ -67,8 +77,8 @@ impl AppState {
             healthchecker_task: Arc::new(RwLock::new(None)),
         };
 
-        // Start the healthchecker task
-        {
+        // Start the healthchecker task only if database is being used
+        if use_database {
             let health_state = app_state.health.clone();
             let db_pool = app_state.db.clone();
             let healthchecker_task = app_state.healthchecker_task.clone();

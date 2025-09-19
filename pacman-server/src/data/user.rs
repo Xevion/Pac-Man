@@ -35,6 +35,7 @@ pub async fn find_user_by_email(pool: &sqlx::PgPool, email: &str) -> Result<Opti
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn link_oauth_account(
     pool: &sqlx::PgPool,
     user_id: i64,

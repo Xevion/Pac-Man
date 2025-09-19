@@ -40,7 +40,7 @@ async fn main() {
     let addr = std::net::SocketAddr::new(config.host, config.port);
     let shutdown_timeout = std::time::Duration::from_secs(config.shutdown_timeout_seconds as u64);
     let auth = AuthRegistry::new(&config).expect("auth initializer");
-    let db = data::pool::create_pool(&config.database_url, 10).await;
+    let db = data::pool::create_pool(true, &config.database_url, 10).await;
 
     // Run database migrations at startup
     if let Err(e) = sqlx::migrate!("./migrations").run(&db).await {

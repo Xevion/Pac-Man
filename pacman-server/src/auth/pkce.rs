@@ -10,6 +10,7 @@ pub struct PkceRecord {
     pub created_at: Instant,
 }
 
+#[derive(Default)]
 pub struct PkceManager {
     pkce: DashMap<String, PkceRecord>,
     last_purge_at_secs: AtomicU32,
@@ -17,14 +18,6 @@ pub struct PkceManager {
 }
 
 impl PkceManager {
-    pub fn new() -> Self {
-        Self {
-            pkce: DashMap::new(),
-            last_purge_at_secs: AtomicU32::new(0),
-            pkce_additions: AtomicU32::new(0),
-        }
-    }
-
     pub fn generate_challenge(&self) -> (PkceCodeChallenge, String) {
         let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
         trace!("PKCE challenge generated");
