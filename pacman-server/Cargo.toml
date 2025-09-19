@@ -3,7 +3,7 @@ name = "pacman-server"
 version = "0.4.0"
 authors.workspace = true
 edition.workspace = true
-rust-version = "1.87.0"
+rust-version = "1.85.0"
 description = "A leaderboard API for the Pac-Man game"
 readme.workspace = true
 homepage.workspace = true
@@ -17,6 +17,10 @@ default-run = "pacman-server"
 [lib]
 name = "pacman_server"
 path = "src/lib.rs"
+
+# I have no idea why s3-tokio isn't being detected as a dependency, but it's not.
+[package.metadata.cargo-machete]
+ignored = ["s3-tokio"]
 
 [dependencies]
 axum = { version = "0.8", features = ["macros"] }
@@ -44,7 +48,6 @@ time = { version = "0.3", features = ["macros", "formatting"] }
 yansi = "1"
 s3-tokio = { version = "0.39.6", default-features = false }
 rustls = { version = "0.23", features = ["ring"] }
-fast_image_resize = { version = "5.3", features = ["image"] }
 image = { version = "0.25", features = ["png", "jpeg"] }
 sha2 = "0.10"
 mockall = "0.13.1"

@@ -1,4 +1,4 @@
 [toolchain]
 # we are unfortunately pinned to 1.86.0 for some reason, bulk-memory-opt related issues on wasm32-unknown-emscripten
-channel = "1.87.0"
+channel = "1.86.0"
 components = ["rustfmt", "llvm-tools-preview", "clippy"]

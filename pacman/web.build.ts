@@ -52,7 +52,7 @@ async function build(release: boolean, env: Record<string, string> | null) {
       release ? "release" : "debug"
     }`
   );
-  await $`cargo build --target=wasm32-unknown-emscripten ${
+  await $`cargo build --target=wasm32-unknown-emscripten --package pacman ${
     release ? "--release" : ""
   }`.env(env ?? undefined);
 

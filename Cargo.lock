@@ -1228,15 +1228,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "document-features"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95249b50c6c185bee49034bcb378a49dc2b5dff0be90ff6616d31d64febab05d"
-dependencies = [
- "litrs",
-]
-
-[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1414,20 +1405,6 @@ dependencies = [
  "rayon-core",
  "smallvec 1.15.1",
  "zune-inflate",
-]
-
-[[package]]
-name = "fast_image_resize"
-version = "5.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bd1eda71e8af93f8b00e189404235d82f4de77ea4a0d182b44a7f03994d647c"
-dependencies = [
- "bytemuck",
- "cfg-if 1.0.3",
- "document-features",
- "image",
- "num-traits",
- "thiserror 2.0.16",
 ]
 
 [[package]]
@@ -2514,12 +2491,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "241eaef5fd12c88705a01fc1066c48c4b36e0dd4377dcdc7ec3942cea7a69956"
 
 [[package]]
-name = "litrs"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5e54036fe321fd421e10d732f155734c4e4afd610dd556d9a82833ab3ee0bed"
-
-[[package]]
 name = "lock_api"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3078,7 +3049,6 @@ dependencies = [
  "chrono",
  "dashmap",
  "dotenvy",
- "fast_image_resize",
  "figment",
  "http",
  "hyper",
