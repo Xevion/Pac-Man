@@ -24,13 +24,22 @@ pub struct AuthUser {
     pub avatar_url: Option<String>,
 }
 
+// Information required to begin an OAuth authorization flow.
+#[derive(Debug)]
+pub struct AuthorizeInfo {
+    // The URL to redirect the user to for authorization.
+    pub authorize_url: oauth2::url::Url,
+    // A session token to be stored in the user's session cookie.
+    pub session_token: String,
+}
+
 #[automock]
 #[async_trait]
 pub trait OAuthProvider: Send + Sync {
-    // Builds a server response to redirect the user to the provider's authorization page.
+    // Builds the necessary information to redirect the user to the provider's authorization page.
     // This generally also includes beginning a PKCE flow (proof key for code exchange).
-    // The cookie manager is used to store the PKCE verifier in the session.
-    async fn authorize(&self, cookie: &CookieManager, encoding_key: &EncodingKey) -> axum::response::Response;
+    // The returned session token should be stored in the user's session cookie.
+    async fn authorize(&self, encoding_key: &EncodingKey) -> Result<AuthorizeInfo, ErrorResponse>;
 
     // Handles the callback from the provider after the user has authorized the app.
     // This generally also includes completing the PKCE flow (proof key for code exchange).

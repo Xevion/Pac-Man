@@ -46,9 +46,14 @@ pub async fn oauth_authorize_handler(
                 .build(),
         );
     }
-    let resp = prov.authorize(&cookie, &app_state.jwt_encoding_key).await;
+    let auth_info = match prov.authorize(&app_state.jwt_encoding_key).await {
+        Ok(info) => info,
+        Err(e) => return e.into_response(),
+    };
+
+    session::set_session_cookie(&cookie, &auth_info.session_token);
     trace!("Redirecting to provider authorization page");
-    resp
+    Redirect::to(auth_info.authorize_url.as_str()).into_response()
 }
 
 pub async fn oauth_callback_handler(

@@ -1,5 +1,3 @@
-use axum::{response::IntoResponse, response::Redirect};
-use axum_cookie::CookieManager;
 use jsonwebtoken::EncodingKey;
 use oauth2::{AuthorizationCode, CsrfToken, PkceCodeVerifier, Scope, TokenResponse};
 use serde::{Deserialize, Serialize};
@@ -7,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{trace, warn};
 
-use crate::auth::provider::{AuthUser, OAuthProvider};
+use crate::auth::provider::{AuthUser, AuthorizeInfo, OAuthProvider};
 use crate::errors::ErrorResponse;
 use crate::session;
 
@@ -65,7 +63,7 @@ impl OAuthProvider for DiscordProvider {
         "Discord"
     }
 
-    async fn authorize(&self, cookie: &CookieManager, encoding_key: &EncodingKey) -> axum::response::Response {
+    async fn authorize(&self, encoding_key: &EncodingKey) -> Result<AuthorizeInfo, ErrorResponse> {
         let (pkce_challenge, pkce_verifier) = oauth2::PkceCodeChallenge::new_random_sha256();
         let (authorize_url, csrf_state) = self
             .client
@@ -77,10 +75,12 @@ impl OAuthProvider for DiscordProvider {
 
         // Store PKCE verifier and CSRF state in session
         let session_token = session::create_pkce_session(pkce_verifier.secret(), csrf_state.secret(), encoding_key);
-        session::set_session_cookie(cookie, &session_token);
 
         trace!(state = %csrf_state.secret(), "Generated OAuth authorization URL");
-        Redirect::to(authorize_url.as_str()).into_response()
+        Ok(AuthorizeInfo {
+            authorize_url,
+            session_token,
+        })
     }
 
     async fn exchange_code_for_token(&self, code: &str, verifier: &str) -> Result<String, ErrorResponse> {

@@ -17,7 +17,7 @@ type OAuthClient =
     BasicClient<oauth2::EndpointSet, oauth2::EndpointNotSet, oauth2::EndpointNotSet, oauth2::EndpointNotSet, oauth2::EndpointSet>;
 
 pub struct AuthRegistry {
-    providers: HashMap<&'static str, Arc<dyn provider::OAuthProvider>>,
+    pub providers: HashMap<&'static str, Arc<dyn provider::OAuthProvider>>,
 }
 
 impl AuthRegistry {

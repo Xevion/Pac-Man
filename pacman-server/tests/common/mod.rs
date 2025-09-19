@@ -26,7 +26,7 @@ pub struct TestContext {
 }
 
 #[builder]
-pub async fn test_context(use_database: bool) -> TestContext {
+pub async fn test_context(use_database: bool, auth_registry: Option<AuthRegistry>) -> TestContext {
     CRYPTO_INIT.call_once(|| {
         rustls::crypto::ring::default_provider()
             .install_default()
@@ -74,7 +74,7 @@ pub async fn test_context(use_database: bool) -> TestContext {
     };
 
     // Create auth registry
-    let auth = AuthRegistry::new(&config).expect("Failed to create auth registry");
+    let auth = auth_registry.unwrap_or_else(|| AuthRegistry::new(&config).expect("Failed to create auth registry"));
 
     // Create app state
     let notify = Arc::new(Notify::new());

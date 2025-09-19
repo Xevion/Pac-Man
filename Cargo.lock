@@ -3108,6 +3108,7 @@ dependencies = [
  "bon",
  "bytes 1.10.1",
  "chrono",
+ "cookie",
  "dashmap",
  "dotenvy",
  "figment",

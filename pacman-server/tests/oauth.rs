@@ -1,3 +1,9 @@
+use std::{collections::HashMap, sync::Arc};
+
+use pacman_server::auth::{
+    provider::{MockOAuthProvider, OAuthProvider},
+    AuthRegistry,
+};
 use pretty_assertions::assert_eq;
 
 mod common;
@@ -34,17 +40,51 @@ async fn test_oauth_callback_handling() {
 /// Test OAuth authorization flow
 #[tokio::test]
 async fn test_oauth_authorization_flow() {
-    let TestContext { server, .. } = test_context().use_database(false).call().await;
+    let mut mock = MockOAuthProvider::new();
+    mock.expect_authorize().returning(|_| {
+        Ok(pacman_server::auth::provider::AuthorizeInfo {
+            authorize_url: "https://example.com".parse().unwrap(),
+            session_token: "a_token".to_string(),
+        })
+    });
 
-    // TODO: Test that the OAuth authorize handler redirects to the provider's authorization page for valid providers
-    // TODO: Test that the OAuth authorize handler returns an error for unknown providers
-    // TODO: Test that the OAuth authorize handler sets a link cookie when the link parameter is true
+    let provider: Arc<dyn OAuthProvider> = Arc::new(mock);
+    let mock_registry = AuthRegistry {
+        providers: HashMap::from([("mock", provider)]),
+    };
+
+    let TestContext { server, .. } = test_context().use_database(false).auth_registry(mock_registry).call().await;
+
+    // Test that valid handlers redirect
+    let response = server.get("/auth/mock").await;
+    assert_eq!(response.status_code(), 303); // Redirect to GitHub OAuth
+
+    // Test that unknown handlers return an error
+    let response = server.get("/auth/unknown").await;
+    assert_eq!(response.status_code(), 400); // Bad request for unknown provider
+
+    // Test that session cookie is set
+    let response = server.get("/auth/mock").await;
+    assert_eq!(response.status_code(), 303);
+    let cookies = {
+        let cookies = response.cookies();
+        cookies.iter().cloned().collect::<Vec<_>>()
+    };
+    assert_eq!(cookies.len(), 1);
+    assert_eq!(cookies[0].name(), "session");
+    assert_eq!(cookies[0].value(), "a_token");
+
+    // Test that link parameter redirects and sets a link cookie
+    let response = server.get("/auth/mock?link=true").await;
+    assert_eq!(response.status_code(), 303);
+    assert_eq!(response.maybe_cookie("link").is_some(), true);
+    assert_eq!(response.maybe_cookie("link").unwrap().value(), "1");
 }
 
 /// Test OAuth callback validation
 #[tokio::test]
 async fn test_oauth_callback_validation() {
-    let TestContext { server, .. } = test_context().use_database(false).call().await;
+    let TestContext { server: _server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth callback handler validates the provider exists before processing
     // TODO: Test that the OAuth callback handler returns an error when the provider returns an OAuth error
@@ -55,7 +95,7 @@ async fn test_oauth_callback_validation() {
 /// Test OAuth callback processing
 #[tokio::test]
 async fn test_oauth_callback_processing() {
-    let TestContext { server, .. } = test_context().use_database(false).call().await;
+    let TestContext { server: _server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth callback handler exchanges the authorization code for user information successfully
     // TODO: Test that the OAuth callback handler handles provider callback errors gracefully
@@ -67,7 +107,7 @@ async fn test_oauth_callback_processing() {
 /// Test account linking flow
 #[tokio::test]
 async fn test_account_linking_flow() {
-    let TestContext { server, .. } = test_context().use_database(false).call().await;
+    let TestContext { server: _server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth callback handler links a new provider to an existing user when link intent is present and session is valid
     // TODO: Test that the OAuth callback handler redirects to profile after successful account linking
@@ -77,7 +117,7 @@ async fn test_account_linking_flow() {
 /// Test new user registration
 #[tokio::test]
 async fn test_new_user_registration() {
-    let TestContext { server, .. } = test_context().use_database(false).call().await;
+    let TestContext { server: _server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth callback handler creates a new user account when no existing user is found
     // TODO: Test that the OAuth callback handler requires an email address for all sign-ins
@@ -87,7 +127,7 @@ async fn test_new_user_registration() {
 /// Test existing user sign-in
 #[tokio::test]
 async fn test_existing_user_sign_in() {
-    let TestContext { server, .. } = test_context().use_database(false).call().await;
+    let TestContext { server: _server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth callback handler allows sign-in when the provider is already linked to an existing user
     // TODO: Test that the OAuth callback handler requires explicit linking when a user with the same email exists and has other providers linked
@@ -97,7 +137,7 @@ async fn test_existing_user_sign_in() {
 /// Test avatar processing
 #[tokio::test]
 async fn test_avatar_processing() {
-    let TestContext { server, .. } = test_context().use_database(false).call().await;
+    let TestContext { server: _server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth callback handler processes user avatars asynchronously without blocking the response
     // TODO: Test that the OAuth callback handler handles avatar processing errors gracefully
@@ -106,7 +146,7 @@ async fn test_avatar_processing() {
 /// Test profile access
 #[tokio::test]
 async fn test_profile_access() {
-    let TestContext { server, .. } = test_context().use_database(false).call().await;
+    let TestContext { server: _server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the profile handler returns user information when a valid session exists
     // TODO: Test that the profile handler returns an error when no session cookie is present
@@ -118,7 +158,7 @@ async fn test_profile_access() {
 /// Test logout functionality
 #[tokio::test]
 async fn test_logout_functionality() {
-    let TestContext { server, .. } = test_context().use_database(false).call().await;
+    let TestContext { server: _server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the logout handler clears the session if a session was there
     // TODO: Test that the logout handler removes the session from memory storage
@@ -129,7 +169,7 @@ async fn test_logout_functionality() {
 /// Test provider configuration
 #[tokio::test]
 async fn test_provider_configuration() {
-    let TestContext { server, .. } = test_context().use_database(false).call().await;
+    let TestContext { server: _server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the providers list handler returns all configured OAuth providers
     // TODO: Test that the providers list handler includes provider status (active/inactive)
