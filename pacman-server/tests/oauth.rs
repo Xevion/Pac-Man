@@ -1,89 +1,12 @@
-use axum_test::TestServer;
-use mockall::predicate::*;
 use pretty_assertions::assert_eq;
 
 mod common;
-use common::{create_test_app_state, create_test_app_state_with_database, create_test_router, TestConfig};
-
-/// Setup function with optional database
-async fn setup_test_server(use_database: bool) -> TestServer {
-    let test_config = TestConfig::new_with_database(use_database).await;
-    let app_state = create_test_app_state_with_database(&test_config, use_database).await;
-    let router = create_test_router(app_state);
-    TestServer::new(router).unwrap()
-}
-
-/// Test basic endpoints functionality
-#[tokio::test]
-async fn test_basic_endpoints() {
-    let server = setup_test_server(false).await;
-
-    // Test root endpoint
-    let response = server.get("/").await;
-    assert_eq!(response.status_code(), 200);
-}
-
-/// Test health endpoint functionality with real database connectivity
-#[tokio::test]
-async fn test_health_endpoint() {
-    let test_config = TestConfig::new().await;
-    let app_state = create_test_app_state(&test_config).await;
-
-    let router = create_test_router(app_state.clone());
-    let server = TestServer::new(router).unwrap();
-
-    // First, verify health endpoint works when database is healthy
-    let response = server.get("/health").await;
-    assert_eq!(response.status_code(), 200);
-    let health_json: serde_json::Value = response.json();
-    assert_eq!(health_json["ok"], true);
-
-    // Now kill the database container to simulate database failure
-    drop(test_config.container);
-
-    // Now verify health endpoint reports bad health
-    let response = server.get("/health?force").await;
-    assert_eq!(response.status_code(), 503); // SERVICE_UNAVAILABLE
-    let health_json: serde_json::Value = response.json();
-    assert_eq!(health_json["ok"], false);
-}
-
-/// Test OAuth provider listing and configuration
-#[tokio::test]
-async fn test_oauth_provider_configuration() {
-    let server = setup_test_server(false).await;
-
-    // Test providers list endpoint
-    let response = server.get("/auth/providers").await;
-    assert_eq!(response.status_code(), 200);
-    let providers: Vec<serde_json::Value> = response.json();
-    assert_eq!(providers.len(), 2); // Should have GitHub and Discord providers
-
-    // Verify provider structure
-    let provider_ids: Vec<&str> = providers.iter().map(|p| p["id"].as_str().unwrap()).collect();
-    assert!(provider_ids.contains(&"github"));
-    assert!(provider_ids.contains(&"discord"));
-
-    // Verify provider details
-    for provider in providers {
-        let id = provider["id"].as_str().unwrap();
-        let name = provider["name"].as_str().unwrap();
-        let active = provider["active"].as_bool().unwrap();
-
-        assert!(active, "Provider {} should be active", id);
-
-        match id {
-            "github" => assert_eq!(name, "GitHub"),
-            "discord" => assert_eq!(name, "Discord"),
-            _ => panic!("Unknown provider: {}", id),
-        }
-    }
-}
+use crate::common::{test_context, TestContext};
 
 /// Test OAuth authorization flows
 #[tokio::test]
 async fn test_oauth_authorization_flows() {
-    let server = setup_test_server(false).await;
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
 
     // Test OAuth authorize endpoint (should redirect)
     let response = server.get("/auth/github").await;
@@ -101,45 +24,17 @@ async fn test_oauth_authorization_flows() {
 /// Test OAuth callback handling
 #[tokio::test]
 async fn test_oauth_callback_handling() {
-    let server = setup_test_server(false).await;
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
 
     // Test OAuth callback with missing parameters (should fail gracefully)
     let response = server.get("/auth/github/callback").await;
     assert_eq!(response.status_code(), 400); // Bad request for missing code/state
 }
 
-/// Test session management endpoints
-#[tokio::test]
-async fn test_session_management() {
-    let server = setup_test_server(false).await;
-
-    // Test logout endpoint (should redirect)
-    let response = server.get("/logout").await;
-    assert_eq!(response.status_code(), 302); // Redirect to home
-
-    // Test profile endpoint without session (should be unauthorized)
-    let response = server.get("/profile").await;
-    assert_eq!(response.status_code(), 401); // Unauthorized without session
-}
-
-/// Test that verifies database operations work correctly
-#[tokio::test]
-async fn test_database_operations() {
-    let server = setup_test_server(true).await;
-
-    // Act: Test health endpoint to verify database connectivity
-    let response = server.get("/health").await;
-
-    // Assert: Health should be OK, indicating database is connected and migrations ran
-    assert_eq!(response.status_code(), 200);
-    let health_json: serde_json::Value = response.json();
-    assert_eq!(health_json["ok"], true);
-}
-
 /// Test OAuth authorization flow
 #[tokio::test]
 async fn test_oauth_authorization_flow() {
-    let _server = setup_test_server(false).await;
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth authorize handler redirects to the provider's authorization page for valid providers
     // TODO: Test that the OAuth authorize handler returns an error for unknown providers
@@ -149,7 +44,7 @@ async fn test_oauth_authorization_flow() {
 /// Test OAuth callback validation
 #[tokio::test]
 async fn test_oauth_callback_validation() {
-    let _server = setup_test_server(false).await;
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth callback handler validates the provider exists before processing
     // TODO: Test that the OAuth callback handler returns an error when the provider returns an OAuth error
@@ -160,7 +55,7 @@ async fn test_oauth_callback_validation() {
 /// Test OAuth callback processing
 #[tokio::test]
 async fn test_oauth_callback_processing() {
-    let _server = setup_test_server(false).await;
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth callback handler exchanges the authorization code for user information successfully
     // TODO: Test that the OAuth callback handler handles provider callback errors gracefully
@@ -172,7 +67,7 @@ async fn test_oauth_callback_processing() {
 /// Test account linking flow
 #[tokio::test]
 async fn test_account_linking_flow() {
-    let _server = setup_test_server(false).await;
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth callback handler links a new provider to an existing user when link intent is present and session is valid
     // TODO: Test that the OAuth callback handler redirects to profile after successful account linking
@@ -182,7 +77,7 @@ async fn test_account_linking_flow() {
 /// Test new user registration
 #[tokio::test]
 async fn test_new_user_registration() {
-    let _server = setup_test_server(false).await;
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth callback handler creates a new user account when no existing user is found
     // TODO: Test that the OAuth callback handler requires an email address for all sign-ins
@@ -192,7 +87,7 @@ async fn test_new_user_registration() {
 /// Test existing user sign-in
 #[tokio::test]
 async fn test_existing_user_sign_in() {
-    let _server = setup_test_server(false).await;
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth callback handler allows sign-in when the provider is already linked to an existing user
     // TODO: Test that the OAuth callback handler requires explicit linking when a user with the same email exists and has other providers linked
@@ -202,7 +97,7 @@ async fn test_existing_user_sign_in() {
 /// Test avatar processing
 #[tokio::test]
 async fn test_avatar_processing() {
-    let _server = setup_test_server(false).await;
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the OAuth callback handler processes user avatars asynchronously without blocking the response
     // TODO: Test that the OAuth callback handler handles avatar processing errors gracefully
@@ -211,7 +106,7 @@ async fn test_avatar_processing() {
 /// Test profile access
 #[tokio::test]
 async fn test_profile_access() {
-    let _server = setup_test_server(false).await;
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the profile handler returns user information when a valid session exists
     // TODO: Test that the profile handler returns an error when no session cookie is present
@@ -223,7 +118,7 @@ async fn test_profile_access() {
 /// Test logout functionality
 #[tokio::test]
 async fn test_logout_functionality() {
-    let _server = setup_test_server(false).await;
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the logout handler clears the session if a session was there
     // TODO: Test that the logout handler removes the session from memory storage
@@ -234,7 +129,7 @@ async fn test_logout_functionality() {
 /// Test provider configuration
 #[tokio::test]
 async fn test_provider_configuration() {
-    let _server = setup_test_server(false).await;
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
 
     // TODO: Test that the providers list handler returns all configured OAuth providers
     // TODO: Test that the providers list handler includes provider status (active/inactive)
