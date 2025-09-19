@@ -1,5 +1,6 @@
 [profile.default]
 fail-fast = false
+slow-timeout = { period = "5s", terminate-after = 6 }
 
 [profile.coverage]
 status-level = "none"
