@@ -93,6 +93,8 @@ pub async fn oauth_callback_handler(
         }
     };
 
+    debug!(cookies = ?cookie.cookie().iter().collect::<Vec<_>>(), "Cookies");
+
     // Linking or sign-in flow. Determine link intent from cookie (set at authorize time)
     let link_cookie = cookie.get("link").map(|c| c.value().to_string());
     if link_cookie.is_some() {

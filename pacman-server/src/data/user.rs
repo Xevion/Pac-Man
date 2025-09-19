@@ -68,10 +68,10 @@ pub async fn link_oauth_account(
 
 pub async fn create_user(
     pool: &sqlx::PgPool,
-    username: &str,
-    display_name: Option<&str>,
-    email: Option<&str>,
-    avatar_url: Option<&str>,
+    provider_username: &str,
+    provider_display_name: Option<&str>,
+    provider_email: Option<&str>,
+    provider_avatar_url: Option<&str>,
     provider: &str,
     provider_user_id: &str,
 ) -> Result<User, sqlx::Error> {
@@ -82,20 +82,20 @@ pub async fn create_user(
         RETURNING id, email, created_at, updated_at
         "#,
     )
-    .bind(email)
+    .bind(provider_email)
     .fetch_one(pool)
     .await?;
 
     // Create oauth link
-    let _ = link_oauth_account(
+    let _linked = link_oauth_account(
         pool,
         user.id,
         provider,
         provider_user_id,
-        email,
-        Some(username),
-        display_name,
-        avatar_url,
+        provider_email,
+        Some(provider_username),
+        provider_display_name,
+        provider_avatar_url,
     )
     .await?;
 

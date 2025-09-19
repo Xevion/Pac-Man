@@ -3130,6 +3130,7 @@ dependencies = [
  "testcontainers",
  "time",
  "tokio 1.47.1",
+ "tower-http",
  "tracing",
  "tracing-futures",
  "tracing-subscriber",
@@ -5474,6 +5475,7 @@ dependencies = [
  "tower",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]

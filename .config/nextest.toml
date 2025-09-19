@@ -1,6 +1,7 @@
 [profile.default]
 fail-fast = false
-slow-timeout = { period = "5s", terminate-after = 6 } # max 30 seconds
+slow-timeout = { period = "5s", terminate-after = 3 } # max 15 seconds
+retries = 2
 
 # CI machines are pretty slow, so we need to increase the timeout
 [profile.ci]
@@ -11,12 +12,18 @@ slow-timeout = { period = "30s", terminate-after = 4 } # max 2 minutes for slow 
 slow-timeout = { period = "45s", terminate-after = 5 } # max 3.75 minutes for slow tests
 status-level = "none"
 
-[[profile.default.overrides]]
 # Integration tests in SDL2 run serially (may not be required)
+[[profile.default.overrides]]
 filter = 'test(pacman::game::)'
 test-group = 'serial'
 
+# Integration tests run max 4 at a time
+[[profile.default.overrides]]
+filter = 'test(pacman-server::tests::oauth)'
+test-group = 'integration'
+retries = 3
 
 [test-groups]
 # Ensure serial tests don't run in parallel
 serial = { max-threads = 1 }
+integration = { max-threads = 4 }

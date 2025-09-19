@@ -12,6 +12,7 @@ use testcontainers::{
     ContainerAsync, GenericImage, ImageExt,
 };
 use tokio::sync::Notify;
+use tracing::{debug, debug_span, Instrument};
 
 static CRYPTO_INIT: Once = Once::new();
 
@@ -26,16 +27,40 @@ pub struct TestContext {
 }
 
 #[builder]
-pub async fn test_context(use_database: bool, auth_registry: Option<AuthRegistry>) -> TestContext {
+pub async fn test_context(#[builder(default = false)] use_database: bool, auth_registry: Option<AuthRegistry>) -> TestContext {
     CRYPTO_INIT.call_once(|| {
         rustls::crypto::ring::default_provider()
             .install_default()
             .expect("Failed to install default crypto provider");
     });
 
+    // Set up logging
+    std::env::set_var("RUST_LOG", "debug,sqlx=info");
+    pacman_server::logging::setup_logging();
     let (database_url, container) = if use_database {
-        let (url, container) = setup_test_database("testdb", "testuser", "testpass").await;
-        (Some(url), Some(container))
+        let db = "testdb";
+        let user = "testuser";
+        let password = "testpass";
+
+        // Create container request
+        let container_request = GenericImage::new("postgres", "15")
+            .with_exposed_port(5432.tcp())
+            .with_wait_for(WaitFor::message_on_stderr("database system is ready to accept connections"))
+            .with_env_var("POSTGRES_DB", db)
+            .with_env_var("POSTGRES_USER", user)
+            .with_env_var("POSTGRES_PASSWORD", password);
+
+        tracing::trace!(request = ?container_request, "Acquiring postgres testcontainer");
+        let container = container_request.start().await.unwrap();
+        let host = container.get_host().await.unwrap();
+        let port = container.get_host_port_ipv4(5432).await.unwrap();
+
+        tracing::debug!(host = %host, port = %port, "Test database ready");
+
+        (
+            Some(format!("postgresql://{user}:{password}@{host}:{port}/{db}?sslmode=disable")),
+            Some(container),
+        )
     } else {
         (None, None)
     };
@@ -63,8 +88,10 @@ pub async fn test_context(use_database: bool, auth_registry: Option<AuthRegistry
         // Run migrations
         sqlx::migrate!("./migrations")
             .run(&db)
+            .instrument(debug_span!("running_migrations"))
             .await
             .expect("Failed to run database migrations");
+        debug!("Database migrations ran successfully");
 
         db
     } else {
@@ -88,32 +115,13 @@ pub async fn test_context(use_database: bool, auth_registry: Option<AuthRegistry
     }
 
     let router = create_router(app_state.clone());
+    let mut server = TestServer::new(router).unwrap();
+    server.save_cookies();
 
     TestContext {
-        server: TestServer::new(router).unwrap(),
+        server,
         app_state,
         config,
         container,
     }
-}
-
-/// Set up a test PostgreSQL database using testcontainers
-async fn setup_test_database(db: &str, user: &str, password: &str) -> (String, ContainerAsync<GenericImage>) {
-    let container = GenericImage::new("postgres", "15")
-        .with_exposed_port(5432.tcp())
-        .with_wait_for(WaitFor::message_on_stderr("database system is ready to accept connections"))
-        .with_env_var("POSTGRES_DB", db)
-        .with_env_var("POSTGRES_USER", user)
-        .with_env_var("POSTGRES_PASSWORD", password)
-        .start()
-        .await
-        .unwrap();
-
-    let host = container.get_host().await.unwrap();
-    let port = container.get_host_port_ipv4(5432).await.unwrap();
-
-    (
-        format!("postgresql://{user}:{password}@{host}:{port}/{db}?sslmode=disable"),
-        container,
-    )
 }

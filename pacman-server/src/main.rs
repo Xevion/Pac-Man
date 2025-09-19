@@ -45,7 +45,7 @@ async fn main() {
     let config: Config = config::load_config();
 
     // Initialize tracing subscriber
-    logging::setup_logging(&config);
+    logging::setup_logging();
     trace!(host = %config.host, port = config.port, shutdown_timeout_seconds = config.shutdown_timeout_seconds, "Loaded server configuration");
 
     let addr = std::net::SocketAddr::new(config.host, config.port);
