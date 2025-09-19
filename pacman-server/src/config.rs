@@ -1,7 +1,7 @@
 use figment::{providers::Env, value::UncasedStr, Figment};
 use serde::{Deserialize, Deserializer};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     // Database URL
     pub database_url: String,

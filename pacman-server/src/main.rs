@@ -1,6 +1,8 @@
-use crate::{app::AppState, auth::AuthRegistry, config::Config};
-use axum::{routing::get, Router};
-use axum_cookie::CookieLayer;
+use crate::{
+    app::{create_router, AppState},
+    auth::AuthRegistry,
+    config::Config,
+};
 use std::time::Instant;
 use std::{sync::Arc, time::Duration};
 use tracing::{info, trace, warn};
@@ -19,9 +21,6 @@ mod image;
 mod logging;
 mod routes;
 mod session;
-
-// Constant value for the Server header: "<crate>/<version>"
-const SERVER_HEADER_VALUE: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 #[tokio::main]
 async fn main() {
@@ -55,17 +54,11 @@ async fn main() {
         h.set_migrations(true);
     }
 
-    let app = Router::new()
-        .route("/", get(|| async { "Hello, World! Visit /auth/github to start OAuth flow." }))
-        .route("/health", get(routes::health_handler))
-        .route("/auth/providers", get(routes::list_providers_handler))
-        .route("/auth/{provider}", get(routes::oauth_authorize_handler))
-        .route("/auth/{provider}/callback", get(routes::oauth_callback_handler))
-        .route("/logout", get(routes::logout_handler))
-        .route("/profile", get(routes::profile_handler))
-        .with_state(app_state.clone())
-        .layer(CookieLayer::default())
-        .layer(axum::middleware::from_fn(inject_server_header));
+    // Extract needed parts for health checker before moving app_state
+    let health_state = app_state.health.clone();
+    let db_pool = app_state.db.clone();
+
+    let app = create_router(app_state);
 
     info!(%addr, "Starting HTTP server bind");
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
@@ -77,8 +70,8 @@ async fn main() {
 
     // Spawn background health checker (listens for shutdown via notify)
     {
-        let health_state = app_state.health.clone();
-        let db_pool = app_state.db.clone();
+        let health_state = health_state.clone();
+        let db_pool = db_pool.clone();
         let notify_for_health = notify.clone();
         tokio::spawn(async move {
             trace!("Health checker task started");
@@ -176,16 +169,4 @@ async fn shutdown_signal() -> Instant {
         _ = ctrl_c => { Instant::now() }
         _ = sigterm => { Instant::now() }
     }
-}
-
-async fn inject_server_header(
-    req: axum::http::Request<axum::body::Body>,
-    next: axum::middleware::Next,
-) -> Result<axum::response::Response, axum::http::StatusCode> {
-    let mut res = next.run(req).await;
-    res.headers_mut().insert(
-        axum::http::header::SERVER,
-        axum::http::HeaderValue::from_static(SERVER_HEADER_VALUE),
-    );
-    Ok(res)
 }
