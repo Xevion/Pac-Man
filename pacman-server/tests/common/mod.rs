@@ -50,13 +50,14 @@ pub async fn test_context(#[builder(default = false)] use_database: bool, auth_r
             .with_env_var("POSTGRES_USER", user)
             .with_env_var("POSTGRES_PASSWORD", password);
 
-        tracing::trace!(request = ?container_request, "Acquiring postgres testcontainer");
+        tracing::debug!(request_image = ?container_request.image(), "Acquiring postgres testcontainer");
+        let start = std::time::Instant::now();
         let container = container_request.start().await.unwrap();
+        let duration: std::time::Duration = start.elapsed();
         let host = container.get_host().await.unwrap();
         let port = container.get_host_port_ipv4(5432).await.unwrap();
 
-        tracing::debug!(host = %host, port = %port, "Test database ready");
-
+        tracing::debug!(host = %host, port = %port, duration = ?duration, "Test database ready");
         (
             Some(format!("postgresql://{user}:{password}@{host}:{port}/{db}?sslmode=disable")),
             Some(container),
