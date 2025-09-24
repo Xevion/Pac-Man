@@ -1,7 +1,7 @@
 [profile.default]
 fail-fast = false
 slow-timeout = { period = "5s", terminate-after = 3 } # max 15 seconds
-retries = 2
+retries = 1
 
 # CI machines are pretty slow, so we need to increase the timeout
 [profile.ci]
@@ -21,7 +21,6 @@ test-group = 'serial'
 [[profile.default.overrides]]
 filter = 'test(pacman-server::tests::oauth)'
 test-group = 'integration'
-retries = 3
 
 [test-groups]
 # Ensure serial tests don't run in parallel
