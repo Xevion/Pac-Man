@@ -1,7 +1,7 @@
 mod common;
-use crate::common::{test_context, TestContext};
+use crate::common::test_context;
 use cookie::Cookie;
-use pacman_server::session;
+use pacman_server::{data::user as user_repo, session};
 
 use pretty_assertions::assert_eq;
 
@@ -9,25 +9,30 @@ use pretty_assertions::assert_eq;
 async fn test_session_management() {
     let context = test_context().use_database(true).call().await;
 
-    // 1. Create a user
-    let user =
-        pacman_server::data::user::create_user(&context.app_state.db, "testuser", None, None, None, "test_provider", "123")
-            .await
-            .unwrap();
+    // 1. Create a user and link a provider account
+    let user = user_repo::create_user(&context.app_state.db, Some("test@example.com"))
+        .await
+        .unwrap();
+    let provider_account = user_repo::link_oauth_account(
+        &context.app_state.db,
+        user.id,
+        "test_provider",
+        "123",
+        Some("test@example.com"),
+        Some("testuser"),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
 
     // 2. Create a session token for the user
-    let provider_account = pacman_server::data::user::list_user_providers(&context.app_state.db, user.id)
-        .await
-        .unwrap()
-        .into_iter()
-        .find(|p| p.provider == "test_provider")
-        .unwrap();
-
     let auth_user = pacman_server::auth::provider::AuthUser {
         id: provider_account.provider_user_id,
         username: provider_account.username.unwrap(),
         name: provider_account.display_name,
         email: user.email,
+        email_verified: true,
         avatar_url: provider_account.avatar_url,
     };
     let token = session::create_jwt_for_user("test_provider", &auth_user, &context.app_state.jwt_encoding_key);

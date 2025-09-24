@@ -16,6 +16,10 @@ publish = false
 [profile.dev]
 incremental = true
 
+# Improve build times by optimizing sqlx-macros
+[profile.dev.package.sqlx-macros]
+opt-level = 3
+
 # Release profile for profiling (essentially the default 'release' profile with debug enabled)
 [profile.profile]
 inherits = "release"

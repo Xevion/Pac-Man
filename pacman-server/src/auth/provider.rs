@@ -20,6 +20,8 @@ pub struct AuthUser {
     pub name: Option<String>,
     // An email address for the user. Not always available.
     pub email: Option<String>,
+    // Whether the email address has been verified by the provider.
+    pub email_verified: bool,
     // An avatar URL for the user. Not always available.
     pub avatar_url: Option<String>,
 }

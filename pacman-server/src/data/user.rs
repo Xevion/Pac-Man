@@ -66,54 +66,18 @@ pub async fn link_oauth_account(
     .await
 }
 
-pub async fn create_user(
-    pool: &sqlx::PgPool,
-    provider_username: &str,
-    provider_display_name: Option<&str>,
-    provider_email: Option<&str>,
-    provider_avatar_url: Option<&str>,
-    provider: &str,
-    provider_user_id: &str,
-) -> Result<User, sqlx::Error> {
-    let user = sqlx::query_as::<_, User>(
+pub async fn create_user(pool: &sqlx::PgPool, email: Option<&str>) -> Result<User, sqlx::Error> {
+    sqlx::query_as::<_, User>(
         r#"
         INSERT INTO users (email)
         VALUES ($1)
+        ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
         RETURNING id, email, created_at, updated_at
         "#,
     )
-    .bind(provider_email)
+    .bind(email)
     .fetch_one(pool)
-    .await?;
-
-    // Create oauth link
-    let _linked = link_oauth_account(
-        pool,
-        user.id,
-        provider,
-        provider_user_id,
-        provider_email,
-        Some(provider_username),
-        provider_display_name,
-        provider_avatar_url,
-    )
-    .await?;
-
-    Ok(user)
-}
-
-pub async fn get_oauth_account_count_for_user(pool: &sqlx::PgPool, user_id: i64) -> Result<i64, sqlx::Error> {
-    let rec: (i64,) = sqlx::query_as(
-        r#"
-        SELECT COUNT(*)::BIGINT AS count
-        FROM oauth_accounts
-        WHERE user_id = $1
-        "#,
-    )
-    .bind(user_id)
-    .fetch_one(pool)
-    .await?;
-    Ok(rec.0)
+    .await
 }
 
 pub async fn find_user_by_provider_id(

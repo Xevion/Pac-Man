@@ -15,6 +15,7 @@ pub struct DiscordUser {
     pub username: String,
     pub global_name: Option<String>,
     pub email: Option<String>,
+    pub verified: Option<bool>,
     pub avatar: Option<String>,
 }
 
@@ -109,11 +110,17 @@ impl OAuthProvider for DiscordProvider {
             _ => None,
         };
 
+        let (email, email_verified) = match (&user.email, user.verified) {
+            (Some(e), Some(true)) => (Some(e.clone()), true),
+            _ => (None, false),
+        };
+
         Ok(AuthUser {
             id: user.id,
             username: user.username,
             name: user.global_name,
-            email: user.email,
+            email,
+            email_verified,
             avatar_url,
         })
     }
