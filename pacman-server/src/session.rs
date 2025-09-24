@@ -64,7 +64,7 @@ pub fn create_pkce_session(pkce_verifier: &str, csrf_state: &str, encoding_key: 
 
 /// Checks if a session is a PKCE flow session
 pub fn is_pkce_session(claims: &Claims) -> bool {
-    claims.subject == "pkce_flow" && claims.pkce_verifier.is_some() && claims.csrf_state.is_some()
+    claims.pkce_verifier.is_some() && claims.csrf_state.is_some()
 }
 
 pub fn decode_jwt(token: &str, decoding_key: &DecodingKey) -> Option<Claims> {

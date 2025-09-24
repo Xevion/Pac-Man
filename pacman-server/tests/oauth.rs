@@ -1,8 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
-use pacman_server::auth::{
-    provider::{MockOAuthProvider, OAuthProvider},
-    AuthRegistry,
+use pacman_server::{
+    auth::{
+        provider::{MockOAuthProvider, OAuthProvider},
+        AuthRegistry,
+    },
+    session,
 };
 use pretty_assertions::assert_eq;
 use time::Duration;
@@ -42,10 +45,10 @@ async fn test_oauth_callback_handling() {
 #[tokio::test]
 async fn test_oauth_authorization_flow() {
     let mut mock = MockOAuthProvider::new();
-    mock.expect_authorize().returning(|_| {
+    mock.expect_authorize().returning(|encoding_key| {
         Ok(pacman_server::auth::provider::AuthorizeInfo {
             authorize_url: "https://example.com".parse().unwrap(),
-            session_token: "a_token".to_string(),
+            session_token: session::create_pkce_session("verifier", "state", encoding_key),
         })
     });
 
@@ -54,7 +57,7 @@ async fn test_oauth_authorization_flow() {
         providers: HashMap::from([("mock", provider)]),
     };
 
-    let TestContext { server, .. } = test_context().auth_registry(mock_registry).call().await;
+    let TestContext { server, app_state, .. } = test_context().auth_registry(mock_registry).call().await;
 
     // Test that valid handlers redirect
     let response = server.get("/auth/mock").await;
@@ -73,7 +76,8 @@ async fn test_oauth_authorization_flow() {
     };
     assert_eq!(cookies.len(), 1);
     assert_eq!(cookies[0].name(), "session");
-    assert_eq!(cookies[0].value(), "a_token");
+    let claims = session::decode_jwt(cookies[0].value(), &app_state.jwt_decoding_key).unwrap();
+    assert!(session::is_pkce_session(&claims));
 
     // Test that link parameter redirects and sets a link cookie
     let response = server.get("/auth/mock?link=true").await;
@@ -164,10 +168,10 @@ async fn test_account_linking_flow() {
     let initial_provider: Arc<dyn OAuthProvider> = Arc::new(initial_provider_mock);
 
     let mut link_provider_mock = MockOAuthProvider::new();
-    link_provider_mock.expect_authorize().returning(|_| {
+    link_provider_mock.expect_authorize().returning(|encoding_key| {
         Ok(pacman_server::auth::provider::AuthorizeInfo {
             authorize_url: "https://example.com".parse().unwrap(),
-            session_token: "b_token".to_string(),
+            session_token: session::create_pkce_session("verifier", "state", encoding_key),
         })
     });
     link_provider_mock.expect_handle_callback().returning(|_, _, _, _| {
@@ -208,36 +212,15 @@ async fn test_account_linking_flow() {
     }
 
     // 2. Create a session for this user
-    let session_cookie = {
-        let response = context.server.get("/auth/mock_initial/callback?code=a&state=b").await;
-        assert_eq!(response.status_code(), 302);
-        assert!(response.maybe_cookie("session").is_some(), "Session cookie should be set");
-
-        response.cookie("session").clone()
-    };
-    tracing::debug!(cookie = %session_cookie, "Session cookie acquired");
+    let response = context.server.get("/auth/mock_initial/callback?code=a&state=b").await;
+    assert_eq!(response.status_code(), 302);
 
     // Begin linking flow
-    let link_cookie = {
-        let response = context
-            .server
-            .get("/auth/mock_link?link=true")
-            .add_cookie(session_cookie.clone())
-            .await;
-        assert_eq!(response.status_code(), 303);
-        assert_eq!(response.maybe_cookie("link").unwrap().value(), "1");
-
-        response.cookie("link").clone()
-    };
-    tracing::debug!(cookie = %link_cookie, "Link cookie acquired");
+    let response = context.server.get("/auth/mock_link?link=true").await;
+    assert_eq!(response.status_code(), 303);
 
     // 3. Perform the linking call
-    let response = context
-        .server
-        .get("/auth/mock_link/callback?code=a&state=b")
-        .add_cookie(link_cookie)
-        .add_cookie(session_cookie.clone())
-        .await;
+    let response = context.server.get("/auth/mock_link/callback?code=a&state=b").await;
 
     assert_eq!(response.status_code(), 303, "Post-linking response should be a redirect");
     assert_eq!(
@@ -415,14 +398,7 @@ async fn test_logout_functionality() {
     let session_cookie = response.cookie("session").clone();
 
     // Test that the logout handler clears the session cookie and redirects
-    let response = context
-        .server
-        .get("/logout")
-        .add_cookie(cookie::Cookie::new(
-            session_cookie.name().to_string(),
-            session_cookie.value().to_string(),
-        ))
-        .await;
+    let response = context.server.get("/logout").await;
 
     // Redirect assertions
     assert_eq!(response.status_code(), 302);

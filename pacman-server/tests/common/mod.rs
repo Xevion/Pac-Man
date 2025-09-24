@@ -17,6 +17,7 @@ use tracing::{debug, debug_span, Instrument};
 static CRYPTO_INIT: Once = Once::new();
 
 /// Test configuration for integration tests
+/// Do not destructure this struct if you need the database, it will be dropped implicitly, which will kill the database container prematurely.
 #[allow(dead_code)]
 pub struct TestContext {
     pub config: Config,
