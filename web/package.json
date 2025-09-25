@@ -1,0 +1,42 @@
+{
+  "scripts": {
+    "dev": "vike dev",
+    "build": "vike build",
+    "preview": "vike preview",
+    "lint": "eslint ."
+  },
+  "name": "pacman-web",
+  "description": "A web frontend for the Pac-Man game, including leaderboards and OAuth.",
+  "dependencies": {
+    "@fontsource/nunito": "^5.2.7",
+    "@fontsource/pixelify-sans": "^5.2.7",
+    "@mantine/core": "^8.2.8",
+    "@mantine/hooks": "^8.2.8",
+    "@tabler/icons-react": "^3.35.0",
+    "@vitejs/plugin-react": "^5.0.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "vike": "^0.4.240",
+    "vike-react": "^0.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "@tailwindcss/vite": "^4.1.13",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^16.3.0",
+    "postcss": "^8.5.6",
+    "postcss-preset-mantine": "^1.18.0",
+    "postcss-simple-vars": "^7.0.1",
+    "prettier": "^3.6.2",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.42.0",
+    "vite": "^7.1.4"
+  },
+  "type": "module"
+}
