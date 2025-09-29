@@ -124,7 +124,7 @@ impl Asset {
         use sdl2::rwops::RWops;
         use std::io::{self, Read};
 
-        let path = format!("assets/game/{}", self.path());
+        let path = format!("pacman/assets/game/{}", self.path());
         let mut rwops = RWops::from_file(&path, "rb").map_err(|_| AssetError::NotFound(self.path().to_string()))?;
 
         let len = rwops.len().ok_or_else(|| AssetError::NotFound(self.path().to_string()))?;
