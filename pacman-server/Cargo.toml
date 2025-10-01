@@ -40,7 +40,7 @@ dotenvy = "0.15"
 dashmap = "6.1"
 axum-cookie = "0.2"
 async-trait = "0.1"
-jsonwebtoken = { version = "9.3", default-features = false }
+jsonwebtoken = { version = "10.0", default-features = false }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
 tracing-futures = { version = "0.2.5", features = ["tokio"] }
