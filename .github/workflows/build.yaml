@@ -82,7 +82,7 @@ jobs:
         working-directory: pacman
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: "pacman-${{ steps.get_version.outputs.version }}-${{ matrix.target }}"
           path: ./target/release/${{ matrix.artifact_name }}
