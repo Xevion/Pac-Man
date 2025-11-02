@@ -74,9 +74,11 @@ jobs:
           sudo apt-get install -y libltdl-dev
 
       - name: Setup vcpkg
+        shell: bash
         run: |
           cargo install cargo-vcpkg
           cargo vcpkg -v build
+          echo "VCPKG_ROOT=${{ github.workspace }}/target/vcpkg" >> $GITHUB_ENV
         working-directory: pacman
 
       - name: Build
