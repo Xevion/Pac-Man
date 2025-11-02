@@ -49,25 +49,23 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Cache cargo-vcpkg (Non-macOS)
-        if: runner.os != 'macOS'
-        uses: actions/cache@v4
-        with:
-          path: target/vcpkg
-          key: A-vcpkg-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
-          restore-keys: |
-            A-vcpkg-${{ runner.os }}-${{ matrix.target }}-
+      - name: Get vcpkg baseline
+        id: vcpkg_version
+        shell: bash
+        run: |
+          VCPKG_REV=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "pacman") | .metadata.vcpkg.rev // "unknown"')
+          echo "version=$VCPKG_REV" >> $GITHUB_OUTPUT
+        working-directory: pacman
 
-      - name: Cache vcpkg (macOS)
-        if: runner.os == 'macOS'
+      - name: Cache vcpkg
         uses: actions/cache@v4
         with:
           path: |
-            ${{ github.workspace }}/vcpkg/installed
-            ${{ github.workspace }}/vcpkg/packages
-          key: vcpkg-2025.10.17-${{ matrix.target }}
+            target/vcpkg
+            ~/.cargo/bin/cargo-vcpkg
+          key: vcpkg-${{ steps.vcpkg_version.outputs.version }}-${{ runner.os }}-${{ matrix.target }}
           restore-keys: |
-            vcpkg-2025.10.17-
+            vcpkg-${{ steps.vcpkg_version.outputs.version }}-${{ runner.os }}-
 
       - name: Vcpkg Linux Dependencies
         if: runner.os == 'Linux'
@@ -75,39 +73,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libltdl-dev
 
-      - name: Setup vcpkg (macOS - Manual)
-        if: runner.os == 'macOS'
-        run: |
-          # Clone vcpkg at latest stable release
-          git clone https://github.com/microsoft/vcpkg.git ${{ github.workspace }}/vcpkg
-          cd ${{ github.workspace }}/vcpkg
-          git checkout 2025.10.17
-
-          # Bootstrap vcpkg
-          ./bootstrap-vcpkg.sh -disableMetrics
-
-          # Determine triplet based on target
-          if [ "${{ matrix.target }}" = "aarch64-apple-darwin" ]; then
-            TRIPLET="arm64-osx"
-          else
-            TRIPLET="x64-osx"
-          fi
-
-          # Install SDL2 packages
-          ./vcpkg install sdl2 sdl2-image sdl2-ttf sdl2-gfx sdl2-mixer --triplet=$TRIPLET
-
-          # Set VCPKG_ROOT for rust-sdl2 to find it
-          echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $GITHUB_ENV
-
-      - name: Setup vcpkg (macOS - cargo-vcpkg A/B Test)
-        if: runner.os == 'macOS'
-        run: |
-          cargo install cargo-vcpkg
-          cargo vcpkg -v build
-        working-directory: pacman
-
-      - name: Vcpkg (Non-macOS)
-        if: runner.os != 'macOS'
+      - name: Setup vcpkg
         run: |
           cargo install cargo-vcpkg
           cargo vcpkg -v build
