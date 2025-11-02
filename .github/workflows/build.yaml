@@ -75,7 +75,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libltdl-dev
 
-      - name: Setup vcpkg (macOS)
+      - name: Setup vcpkg (macOS - Manual)
         if: runner.os == 'macOS'
         run: |
           # Clone vcpkg at latest stable release
@@ -98,6 +98,13 @@ jobs:
 
           # Set VCPKG_ROOT for rust-sdl2 to find it
           echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $GITHUB_ENV
+
+      - name: Setup vcpkg (macOS - cargo-vcpkg A/B Test)
+        if: runner.os == 'macOS'
+        run: |
+          cargo install cargo-vcpkg
+          cargo vcpkg -v build
+        working-directory: pacman
 
       - name: Vcpkg (Non-macOS)
         if: runner.os != 'macOS'
