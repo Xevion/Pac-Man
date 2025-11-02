@@ -1,0 +1,8 @@
+{
+  "name": "pacman",
+  "type": "module",
+  "devDependencies": {
+    "ts-pattern": "^5.5.0",
+    "@logtape/logtape": "^0.8.0"
+  }
+}

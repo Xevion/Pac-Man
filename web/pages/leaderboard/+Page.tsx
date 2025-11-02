@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Container, Title, Table, Tabs, Avatar, Text, Group, Badge, Stack, Paper } from "@mantine/core";
 import { IconTrophy, IconCalendar } from "@tabler/icons-react";
+import { clientOnly } from "vike-react/clientOnly";
+
+const AnimatedNumbers = clientOnly(() => import("react-animated-numbers"));
 
 interface LeaderboardEntry {
   id: number;
@@ -220,75 +222,83 @@ const mockMonthlyData: LeaderboardEntry[] = [
 ];
 
 function LeaderboardTable({ data }: { data: LeaderboardEntry[] }) {
-  const rows = data.map((entry) => (
-    <Table.Tr
-      key={entry.id}
-      style={{
-        backgroundColor: "#000",
-        marginBottom: "8px",
-      }}
-    >
-      <Table.Td>
-        <Group gap="sm">
-          <Avatar src={entry.avatar} size="md" radius="sm" alt={entry.name} />
-          <Stack gap={2}>
-            <Text fw={600} size="lg" c="yellow.4">
-              {entry.name}
-            </Text>
-            <Text size="xs" c="dimmed">
-              {entry.submittedAt}
-            </Text>
-          </Stack>
-        </Group>
-      </Table.Td>
-      <Table.Td>
-        <Text fw={500} size="lg" c="yellow.3">
-          {entry.score.toLocaleString()}
-        </Text>
-      </Table.Td>
-      <Table.Td>
-        <Text size="md" c="gray.3">
-          {entry.duration}
-        </Text>
-      </Table.Td>
-      <Table.Td>Level {entry.levelCount}</Table.Td>
-    </Table.Tr>
-  ));
-
   return (
-    <Table>
-      <Table.Tbody>{rows}</Table.Tbody>
-    </Table>
+    <table className="w-full border-separate border-spacing-y-2">
+      <tbody>
+        {data.map((entry, entryIndex) => (
+          <tr key={entry.id} className="bg-black">
+            <td className="py-2">
+              <div className="flex items-center gap-2">
+                <img src={entry.avatar} alt={entry.name} className="w-9 h-9 rounded-sm" loading="lazy" />
+                <div className="flex flex-col">
+                  <span className="text-yellow-400 font-semibold text-lg">{entry.name}</span>
+                  <span className="text-xs text-gray-400">{entry.submittedAt}</span>
+                </div>
+              </div>
+            </td>
+            <td className="py-2">
+              <span className="text-yellow-300 font-[600] text-lg">
+                <AnimatedNumbers
+                  fallback={<span className="text-transparent">{entry.score.toLocaleString()}</span>}
+                  useThousandsSeparator
+                  transitions={(digitIndex) => ({
+                    type: "easeIn",
+                    duration: 0.75 + digitIndex * 0.25 + entryIndex * 0.2,
+                  })}
+                  animateToNumber={entry.score}
+                />
+              </span>
+            </td>
+            <td className="py-2">
+              <span className="text-gray-300">{entry.duration}</span>
+            </td>
+            <td className="py-2">Level {entry.levelCount}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
 export default function Page() {
-  const [activeTab, setActiveTab] = useState<string | null>("global");
+  const [activeTab, setActiveTab] = useState<"global" | "monthly">("global");
 
   return (
-    <Container size="md" py="xl">
-      <Stack gap="xl">
-        <Paper shadow="lg" p="xl" radius="md" bg="none">
-          <Tabs value={activeTab} onChange={setActiveTab}>
-            <Tabs.List>
-              <Tabs.Tab value="global" leftSection={<IconTrophy size={16} />}>
-                Global
-              </Tabs.Tab>
-              <Tabs.Tab value="monthly" leftSection={<IconCalendar size={16} />}>
-                Monthly
-              </Tabs.Tab>
-            </Tabs.List>
+    <div className="mx-auto max-w-3xl py-8 px-4">
+      <div className="space-y-6">
+        <div className="border border-yellow-400/20 rounded-md bg-transparent p-6 shadow-[0_4px_20px_rgba(250,204,21,0.08)]">
+          <div className="flex gap-2 border-b border-yellow-400/20 pb-2 mb-4">
+            <button
+              onClick={() => setActiveTab("global")}
+              className={
+                activeTab === "global"
+                  ? "inline-flex items-center gap-1 px-3 py-1 rounded border border-yellow-400/40 text-yellow-300"
+                  : "inline-flex items-center gap-1 px-3 py-1 rounded border border-transparent text-gray-300 hover:text-yellow-200"
+              }
+            >
+              <IconTrophy size={16} />
+              Global
+            </button>
+            <button
+              onClick={() => setActiveTab("monthly")}
+              className={
+                activeTab === "monthly"
+                  ? "inline-flex items-center gap-1 px-3 py-1 rounded border border-yellow-400/40 text-yellow-300"
+                  : "inline-flex items-center gap-1 px-3 py-1 rounded border border-transparent text-gray-300 hover:text-yellow-200"
+              }
+            >
+              <IconCalendar size={16} />
+              Monthly
+            </button>
+          </div>
 
-            <Tabs.Panel value="global" pt="md">
-              <LeaderboardTable data={mockGlobalData} />
-            </Tabs.Panel>
-
-            <Tabs.Panel value="monthly" pt="md">
-              <LeaderboardTable data={mockMonthlyData} />
-            </Tabs.Panel>
-          </Tabs>
-        </Paper>
-      </Stack>
-    </Container>
+          {activeTab === "global" ? (
+            <LeaderboardTable data={mockGlobalData} />
+          ) : (
+            <LeaderboardTable data={mockMonthlyData} />
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

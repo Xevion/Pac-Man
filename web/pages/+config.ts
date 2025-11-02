@@ -12,6 +12,6 @@ export default {
   // https://vike.dev/head-tags
   title: "Pac-Man",
   description: "A Pac-Man game built with Rust and React.",
-
+  prerender: true,
   extends: vikeReact,
 } satisfies Config;

@@ -5,8 +5,7 @@ import { basename, dirname, join, relative, resolve } from "path";
 import { match, P } from "ts-pattern";
 import { configure, getConsoleSink, getLogger } from "@logtape/logtape";
 
-// Constants
-const TAILWIND_UPDATE_WINDOW_DAYS = 60; // 2 months
+// No frontend asset build here; this script only builds the Emscripten outputs
 
 await configure({
   sinks: { console: getConsoleSink() },
@@ -56,39 +55,12 @@ async function build(release: boolean, env: Record<string, string> | null) {
     release ? "--release" : ""
   }`.env(env ?? undefined);
 
-  // Download the Tailwind CSS CLI for rendering the CSS
-  const tailwindExecutable = match(
-    await downloadTailwind(process.cwd(), {
-      version: "latest",
-      force: false,
-    })
-  )
-    .with({ path: P.select() }, (path) => path)
-    .with({ err: P.select() }, (err) => {
-      throw new Error(err);
-    })
-    .exhaustive();
-
-  logger.debug(`Invoking ${tailwindExecutable}...`);
-  await $`${tailwindExecutable} --minify --input styles.css --output build.css --cwd pacman/assets/site`;
-
   const buildType = release ? "release" : "debug";
-  const siteFolder = resolve("pacman/assets/site");
   const outputFolder = resolve(`target/wasm32-unknown-emscripten/${buildType}`);
-  const dist = resolve("dist");
+  const dist = resolve("web/public");
 
   // The files to copy into 'dist'
   const files = [
-    ...[
-      "index.html",
-      "favicon.ico",
-      "build.css",
-      "../game/TerminalVector.ttf",
-    ].map((file) => ({
-      src: resolve(join(siteFolder, file)),
-      dest: join(dist, basename(file)),
-      optional: false,
-    })),
     ...["pacman.wasm", "pacman.js", "deps/pacman.data"].map((file) => ({
       src: join(outputFolder, file),
       dest: join(dist, basename(file)),
@@ -116,7 +88,7 @@ async function build(release: boolean, env: Record<string, string> | null) {
   );
 
   // Copy the files to the dist folder
-  logger.debug("Copying files into dist");
+  logger.debug("Copying Emscripten build artifacts into web/dist");
   await Promise.all(
     files.map(async ({ optional, src, dest }) => {
       match({ optional, exists: await fs.exists(src) })
@@ -139,247 +111,7 @@ async function build(release: boolean, env: Record<string, string> | null) {
   );
 }
 
-/**
- * Download the Tailwind CSS CLI to the specified directory.
- * @param dir - The directory to download the Tailwind CSS CLI to.
- * @returns The path to the downloaded Tailwind CSS CLI, or an error message if the download fails.
- */
-async function downloadTailwind(
-  dir: string,
-  options?: Partial<{
-    version: string; // The version of Tailwind CSS to download. If not specified, the latest version will be downloaded.
-    force: boolean; // Whether to force the download even if the file already exists.
-  }>
-): Promise<{ path: string } | { err: string }> {
-  const asset = match(os)
-    .with({ type: "linux" }, () => "tailwindcss-linux-x64")
-    .with({ type: "macos" }, () => "tailwindcss-macos-arm64")
-    .with({ type: "windows" }, () => "tailwindcss-windows-x64.exe")
-    .exhaustive();
-
-  const version = options?.version ?? "latest";
-  const force = options?.force ?? false;
-
-  const url =
-    version === "latest" || version == null
-      ? `https://github.com/tailwindlabs/tailwindcss/releases/latest/download/${asset}`
-      : `https://github.com/tailwindlabs/tailwindcss/releases/download/${version}/${asset}`;
-
-  // If the GITHUB_TOKEN environment variable is set, use it for Bearer authentication
-  const headers: Record<string, string> = {};
-  if (process.env.GITHUB_TOKEN) {
-    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  }
-
-  // Check if the file already exists
-  const path = join(dir, asset);
-  const exists = await fs.exists(path);
-
-  // Check if we should download based on timestamps
-  let shouldDownload = force || !exists;
-
-  if (exists && !force) {
-    try {
-      const fileStats = await fs.stat(path);
-      const fileModifiedTime = fileStats.mtime;
-      const now = new Date();
-
-      // Check if file is older than the update window
-      const updateWindowAgo = new Date(
-        now.getTime() - TAILWIND_UPDATE_WINDOW_DAYS * 24 * 60 * 60 * 1000
-      );
-
-      if (fileModifiedTime < updateWindowAgo) {
-        logger.debug(
-          `File is older than ${TAILWIND_UPDATE_WINDOW_DAYS} days, checking for updates...`
-        );
-        shouldDownload = true;
-      } else {
-        logger.debug(
-          `File is recent (${fileModifiedTime.toISOString()}), checking if newer version available...`
-        );
-      }
-    } catch (error) {
-      logger.debug(
-        `Error checking file timestamp: ${error}, will download anyway`
-      );
-      shouldDownload = true;
-    }
-  }
-
-  // If we need to download, check the server's last-modified header
-  if (shouldDownload) {
-    const response = await fetch(url, {
-      headers,
-      method: "HEAD",
-      redirect: "follow",
-    });
-
-    if (response.ok) {
-      const lastModified = response.headers.get("last-modified");
-      if (lastModified) {
-        const serverTime = new Date(lastModified);
-        const now = new Date();
-
-        // If server timestamp is in the future, something is wrong - download anyway
-        if (serverTime > now) {
-          logger.debug(
-            `Server timestamp is in the future (${serverTime.toISOString()}), downloading anyway`
-          );
-          shouldDownload = true;
-        } else if (exists) {
-          // Compare with local file timestamp (both in UTC)
-          const fileStats = await fs.stat(path);
-          const fileModifiedTime = new Date(fileStats.mtime.getTime());
-
-          if (serverTime > fileModifiedTime) {
-            logger.debug(
-              `Server has newer version (${serverTime.toISOString()} vs local ${fileModifiedTime.toISOString()})`
-            );
-            shouldDownload = true;
-          } else {
-            logger.debug(
-              `Local file is up to date (${fileModifiedTime.toISOString()})`
-            );
-            shouldDownload = false;
-          }
-        }
-      } else {
-        logger.debug(
-          `No last-modified header available, downloading to be safe`
-        );
-        shouldDownload = true;
-      }
-    } else {
-      logger.debug(
-        `Failed to check server headers: ${response.status} ${response.statusText}`
-      );
-      shouldDownload = true;
-    }
-  }
-
-  if (exists && !shouldDownload) {
-    const displayPath = match(relative(process.cwd(), path))
-      // If the path is not a subpath of cwd, display the absolute path
-      .with(P.string.startsWith(".."), (_relative) => path)
-      // Otherwise, display the relative path
-      .otherwise((relative) => relative);
-
-    logger.debug(
-      `Tailwind CSS CLI already exists and is up to date at ${displayPath}`
-    );
-    return { path };
-  }
-
-  if (exists) {
-    const displayPath = match(relative(process.cwd(), path))
-      // If the path is not a subpath of cwd, display the absolute path
-      .with(P.string.startsWith(".."), (_relative) => path)
-      // Otherwise, display the relative path
-      .otherwise((relative) => relative);
-
-    if (force) {
-      logger.debug(`Overwriting Tailwind CSS CLI at ${displayPath}`);
-    } else {
-      logger.debug(`Downloading updated Tailwind CSS CLI to ${displayPath}`);
-    }
-  } else {
-    logger.debug(`Downloading Tailwind CSS CLI to ${path}`);
-  }
-
-  try {
-    logger.debug(`Fetching ${url}...`);
-    const response = await fetch(url, { headers });
-
-    if (!response.ok) {
-      return {
-        err: `Failed to download Tailwind CSS: ${response.status} ${response.statusText} for '${url}'`,
-      };
-    } else if (!response.body) {
-      return { err: `No response body received for '${url}'` };
-    }
-
-    // Validate Content-Length if available
-    const contentLength = response.headers.get("content-length");
-    if (contentLength) {
-      const expectedSize = parseInt(contentLength, 10);
-      if (isNaN(expectedSize)) {
-        return { err: `Invalid Content-Length header: ${contentLength}` };
-      }
-      logger.debug(`Expected file size: ${expectedSize} bytes`);
-    }
-
-    logger.debug(`Writing to ${path}...`);
-    await fs.mkdir(dir, { recursive: true });
-
-    const file = Bun.file(path);
-    const writer = file.writer();
-
-    const reader = response.body.getReader();
-    let downloadedBytes = 0;
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        writer.write(value);
-        downloadedBytes += value.length;
-      }
-    } finally {
-      reader.releaseLock();
-      await writer.end();
-    }
-
-    // Validate downloaded file size
-    if (contentLength) {
-      const expectedSize = parseInt(contentLength, 10);
-      const actualSize = downloadedBytes;
-
-      if (actualSize !== expectedSize) {
-        // Clean up the corrupted file
-        try {
-          await fs.unlink(path);
-        } catch (unlinkError) {
-          logger.debug(
-            `Warning: Failed to clean up corrupted file: ${unlinkError}`
-          );
-        }
-
-        return {
-          err: `File size mismatch: expected ${expectedSize} bytes, got ${actualSize} bytes. File may be corrupted.`,
-        };
-      }
-
-      logger.debug(`File size validation passed: ${actualSize} bytes`);
-    }
-
-    // Make the file executable on Unix-like systems
-    if (os.type !== "windows") {
-      await $`chmod +x ${path}`;
-    }
-
-    // Ensure file is not locked; sometimes the runtime is too fast and the file is executed before the lock is released
-    const timeout = Date.now() + 2500; // 2.5s timeout
-    do {
-      try {
-        if ((await fs.stat(path)).size > 0) break;
-      } catch {
-        // File might not be ready yet
-        logger.debug(`File ${path} is not ready yet, waiting...`);
-      }
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    } while (Date.now() < timeout);
-
-    // All done!
-    return { path };
-  } catch (error) {
-    return {
-      err: `Download failed: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    };
-  }
-}
+// (Tailwind-related code removed; this script is now focused solely on the Emscripten build)
 
 /**
  * Checks to see if the Emscripten SDK is activated for a Windows or *nix machine by looking for a .exe file and the equivalent file on Linux/macOS. Returns both results for handling.
