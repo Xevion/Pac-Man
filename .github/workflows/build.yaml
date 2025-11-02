@@ -49,7 +49,8 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Cache vcpkg
+      - name: Cache cargo-vcpkg (Non-macOS)
+        if: runner.os != 'macOS'
         uses: actions/cache@v4
         with:
           path: target/vcpkg
@@ -57,13 +58,49 @@ jobs:
           restore-keys: |
             A-vcpkg-${{ runner.os }}-${{ matrix.target }}-
 
+      - name: Cache vcpkg (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/vcpkg/installed
+            ${{ github.workspace }}/vcpkg/packages
+          key: vcpkg-2025.10.17-${{ matrix.target }}
+          restore-keys: |
+            vcpkg-2025.10.17-
+
       - name: Vcpkg Linux Dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libltdl-dev
 
-      - name: Vcpkg
+      - name: Setup vcpkg (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # Clone vcpkg at latest stable release
+          git clone https://github.com/microsoft/vcpkg.git ${{ github.workspace }}/vcpkg
+          cd ${{ github.workspace }}/vcpkg
+          git checkout 2025.10.17
+
+          # Bootstrap vcpkg
+          ./bootstrap-vcpkg.sh -disableMetrics
+
+          # Determine triplet based on target
+          if [ "${{ matrix.target }}" = "aarch64-apple-darwin" ]; then
+            TRIPLET="arm64-osx"
+          else
+            TRIPLET="x64-osx"
+          fi
+
+          # Install SDL2 packages
+          ./vcpkg install sdl2 sdl2-image sdl2-ttf sdl2-gfx sdl2-mixer --triplet=$TRIPLET
+
+          # Set VCPKG_ROOT for rust-sdl2 to find it
+          echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg" >> $GITHUB_ENV
+
+      - name: Vcpkg (Non-macOS)
+        if: runner.os != 'macOS'
         run: |
           cargo install cargo-vcpkg
           cargo vcpkg -v build
