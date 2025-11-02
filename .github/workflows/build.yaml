@@ -173,11 +173,21 @@ jobs:
             fi
           done
 
+      - name: Install web dependencies
+        shell: bash
+        run: bun install
+        working-directory: web
+
+      - name: Build web frontend
+        shell: bash
+        run: bun run build
+        working-directory: web
+
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v4
         if: github.ref == 'refs/heads/master' && github.event_name == 'push'
         with:
-          path: "./dist/"
+          path: "./web/dist/"
           retention-days: 7
 
       - name: Deploy
