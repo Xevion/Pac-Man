@@ -78,7 +78,7 @@ ignored = ["phf"]
 [package.metadata.vcpkg]
 dependencies = ["sdl2", "sdl2-image", "sdl2-ttf", "sdl2-gfx", "sdl2-mixer"]
 git = "https://github.com/microsoft/vcpkg"
-rev = "2024.05.24" # to check for a new one, check https://github.com/microsoft/vcpkg/releases
+rev = "2024.11.16" # to check for a new one, check https://github.com/microsoft/vcpkg/releases
 
 [package.metadata.vcpkg.target]
 x86_64-pc-windows-msvc = { triplet = "x64-windows-static-md" }
