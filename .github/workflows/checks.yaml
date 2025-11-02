@@ -34,7 +34,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: target/vcpkg
-          key: A-vcpkg-${{ runner.os }}-${{ hashFiles('pacman/Cargo.toml', 'pacman/Cargo.lock') }}
+          key: A-vcpkg-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
           restore-keys: |
             A-vcpkg-${{ runner.os }}-
 

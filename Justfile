@@ -37,7 +37,7 @@ samply:
 # Build the project for Emscripten
 web *args:
 	bun run pacman/web.build.ts {{args}};
-	caddy file-server --root pacman/dist
+	caddy file-server --root web/dist/client
 
 # Fix linting errors & formatting
 fix:
