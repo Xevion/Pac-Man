@@ -175,7 +175,7 @@ pub async fn oauth_callback_handler(
         });
     }
 
-    (StatusCode::FOUND, Redirect::to("/profile")).into_response()
+    (StatusCode::FOUND, Redirect::to("/api/profile")).into_response()
 }
 
 /// Handles the request to the profile endpoint.

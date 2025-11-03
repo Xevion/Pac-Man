@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{Notify, RwLock};
 use tokio::task::JoinHandle;
+use tower_http::normalize_path::NormalizePathLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::info_span;
 
@@ -191,7 +192,12 @@ pub fn create_router(app_state: AppState) -> Router {
         .layer(axum::middleware::from_fn(inject_server_header));
 
     // Create main router with API routes nested under /api
-    let router = Router::new().nest("/api", api_router);
+    let router = Router::new()
+        .route(
+            "/api/",
+            get(|| async { "Pac-Man API Server. Visit /api/auth/github to start OAuth flow." }),
+        )
+        .nest("/api", api_router);
 
     // Add static file serving if the directory exists
     let router = if static_path.exists() {
@@ -203,7 +209,7 @@ pub fn create_router(app_state: AppState) -> Router {
     };
 
     // Add tracing layer to the entire router
-    router.layer(
+    router.layer(NormalizePathLayer::trim_trailing_slash()).layer(
         tower_http::trace::TraceLayer::new_for_http()
             .make_span_with(make_span)
             .on_request(|_request: &axum::http::Request<axum::body::Body>, _span: &tracing::Span| {
