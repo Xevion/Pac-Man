@@ -7,7 +7,7 @@ use crate::common::{test_context, TestContext};
 // A basic test of all the server's routes that aren't covered by other tests.
 #[tokio::test]
 async fn test_basic_routes() {
-    let routes = vec!["/", "/auth/providers"];
+    let routes = vec!["/api/", "/api/auth/providers"];
 
     for route in routes {
         let TestContext { server, .. } = test_context().use_database(false).call().await;

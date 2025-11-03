@@ -40,16 +40,16 @@ async fn test_session_management() {
     // 3. Make a request to the protected route WITH the session, expect success
     let response = context
         .server
-        .get("/profile")
+        .get("/api/profile")
         .add_cookie(Cookie::new(session::SESSION_COOKIE_NAME, token))
         .await;
     assert_eq!(response.status_code(), 200);
 
     // 4. Sign out
-    let response = context.server.get("/logout").await;
+    let response = context.server.get("/api/logout").await;
     assert_eq!(response.status_code(), 302); // Redirect after logout
 
     // 5. Make a request to the protected route without a session, expect failure
-    let response = context.server.get("/profile").await;
+    let response = context.server.get("/api/profile").await;
     assert_eq!(response.status_code(), 401); // Unauthorized without session
 }

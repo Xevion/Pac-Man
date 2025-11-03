@@ -32,7 +32,7 @@ async fn test_oauth_authorization_redirect() {
 
     let TestContext { server, app_state, .. } = test_context().auth_registry(mock_registry).call().await;
 
-    let response = server.get("/auth/mock").await;
+    let response = server.get("/api/auth/mock").await;
     assert_eq!(response.status_code(), 303);
     assert_eq!(response.headers().get("location").unwrap(), "https://example.com/auth");
 
@@ -63,9 +63,9 @@ async fn test_new_user_registration() {
 
     let context = test_context().use_database(true).auth_registry(mock_registry).call().await;
 
-    let response = context.server.get("/auth/mock/callback?code=a&state=b").await;
+    let response = context.server.get("/api/auth/mock/callback?code=a&state=b").await;
     assert_eq!(response.status_code(), 302);
-    assert_eq!(response.headers().get("location").unwrap(), "/profile");
+    assert_eq!(response.headers().get("location").unwrap(), "/api/profile");
 
     // Verify user and oauth_account were created
     let user = user_repo::find_user_by_email(&context.app_state.db, "new@example.com")
@@ -119,9 +119,9 @@ async fn test_existing_user_signin() {
     .await
     .unwrap();
 
-    let response = context.server.get("/auth/mock/callback?code=a&state=b").await;
+    let response = context.server.get("/api/auth/mock/callback?code=a&state=b").await;
     assert_eq!(response.status_code(), 302, "Should sign in successfully");
-    assert_eq!(response.headers().get("location").unwrap(), "/profile");
+    assert_eq!(response.headers().get("location").unwrap(), "/api/profile");
 
     // Verify no new user was created
     let users = sqlx::query("SELECT * FROM users")
@@ -169,7 +169,7 @@ async fn test_implicit_account_linking() {
     let context = test_context().use_database(true).auth_registry(mock_registry).call().await;
 
     // Action 1: Sign in with provider-a, creating the initial user
-    let response1 = context.server.get("/auth/provider-a/callback?code=a&state=b").await;
+    let response1 = context.server.get("/api/auth/provider-a/callback?code=a&state=b").await;
     assert_eq!(response1.status_code(), 302);
 
     let user = user_repo::find_user_by_email(&context.app_state.db, "shared@example.com")
@@ -181,7 +181,7 @@ async fn test_implicit_account_linking() {
     assert_eq!(providers1[0].provider, "provider-a");
 
     // Action 2: Sign in with provider-b
-    let response2 = context.server.get("/auth/provider-b/callback?code=a&state=b").await;
+    let response2 = context.server.get("/api/auth/provider-b/callback?code=a&state=b").await;
     assert_eq!(response2.status_code(), 302);
 
     // Assertions: No new user, but a new provider link
@@ -224,7 +224,7 @@ async fn test_unverified_email_creates_new_account() {
         .await
         .unwrap();
 
-    let response = context.server.get("/auth/mock/callback?code=a&state=b").await;
+    let response = context.server.get("/api/auth/mock/callback?code=a&state=b").await;
     assert_eq!(response.status_code(), 302);
 
     // Should create a second user because the email wasn't trusted for linking
@@ -257,11 +257,11 @@ async fn test_logout_functionality() {
     let context = test_context().use_database(true).auth_registry(mock_registry).call().await;
 
     // Sign in to establish a session
-    let response = context.server.get("/auth/mock/callback?code=a&state=b").await;
+    let response = context.server.get("/api/auth/mock/callback?code=a&state=b").await;
     assert_eq!(response.status_code(), 302);
 
     // Test that the logout handler clears the session cookie and redirects
-    let response = context.server.get("/logout").await;
+    let response = context.server.get("/api/logout").await;
 
     assert_eq!(response.status_code(), 302);
     assert!(response.headers().contains_key("location"));
