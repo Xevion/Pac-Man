@@ -81,31 +81,8 @@ jobs:
             fi
           done
 
-      # ========== Frontend Build ==========
-      - name: Install web dependencies
-        shell: bash
-        run: bun install
-        working-directory: web
-
-      - name: Build web frontend
-        shell: bash
-        run: bun run build
-        working-directory: web
-        env:
-          # API URL is relative (/api) since frontend and backend are on same domain
-          VITE_API_URL: /api
-
-      - name: Verify frontend build output
-        shell: bash
-        run: |
-          if [ ! -d "web/dist/client" ]; then
-            echo "::error::Frontend build output not found at web/dist/client"
-            exit 1
-          fi
-          echo "Frontend build successful, files ready for Docker image"
-          ls -la web/dist/client
-
       # ========== Docker Build and Push ==========
+      # Note: Frontend is now built inside Docker using multi-stage build
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

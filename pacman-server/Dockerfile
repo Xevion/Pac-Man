@@ -9,7 +9,21 @@ FROM chef AS planner
 COPY . .
 RUN cargo chef prepare --bin pacman-server --recipe-path recipe.json
 
-# -- Builder stage --
+# -- Frontend builder stage --
+FROM oven/bun:1 AS frontend-builder
+WORKDIR /app
+
+# Copy frontend package files first for layer caching
+COPY web/package.json web/bun.lock* ./
+RUN bun install --frozen-lockfile
+
+# Copy all frontend source including public directory (contains WASM files)
+COPY web/ ./
+
+# Build the frontend (Vite will copy public/ contents to dist/client/)
+RUN bun run build
+
+# -- Backend builder stage --
 FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --bin pacman-server --recipe-path recipe.json
@@ -26,9 +40,8 @@ FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 COPY --from=builder /app/target/release/pacman-server /usr/local/bin/pacman-server
 
-# Copy frontend static files (built by GitHub Actions)
-# These files should be in web/dist/client/ in the build context
-COPY web/dist/client /app/static
+# Copy frontend static files from frontend-builder stage
+COPY --from=frontend-builder /app/dist/client /app/static
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
