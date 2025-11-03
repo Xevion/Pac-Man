@@ -1,4 +1,5 @@
 ARG RUST_VERSION=1.89.0
+ARG GIT_COMMIT_SHA
 
 FROM lukemathwalker/cargo-chef:latest-rust-${RUST_VERSION} AS chef
 WORKDIR /app
@@ -25,6 +26,10 @@ FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 COPY --from=builder /app/target/release/pacman-server /usr/local/bin/pacman-server
 
+# Copy frontend static files (built by GitHub Actions)
+# These files should be in web/dist/client/ in the build context
+COPY web/dist/client /app/static
+
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -35,12 +40,15 @@ ARG TZ=Etc/UTC
 ENV TZ=${TZ}
 
 # Optional build-time environment variable for embedding the Git commit SHA
-ARG RAILWAY_GIT_COMMIT_SHA
-ENV RAILWAY_GIT_COMMIT_SHA=${RAILWAY_GIT_COMMIT_SHA}
+ARG GIT_COMMIT_SHA
+ENV GIT_COMMIT_SHA=${GIT_COMMIT_SHA}
 
 # Specify PORT at build-time or run-time, default to 3000
 ARG PORT=3000
 ENV PORT=${PORT}
 EXPOSE ${PORT}
+
+# Set static files directory for the server to serve
+ENV STATIC_FILES_DIR=/app/static
 
 CMD ["sh", "-c", "exec /usr/local/bin/pacman-server"]

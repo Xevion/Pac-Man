@@ -2,10 +2,12 @@ use axum::{routing::get, Router};
 use axum_cookie::CookieLayer;
 use dashmap::DashMap;
 use jsonwebtoken::{DecodingKey, EncodingKey};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{Notify, RwLock};
 use tokio::task::JoinHandle;
+use tower_http::services::{ServeDir, ServeFile};
 use tracing::info_span;
 
 use crate::data::pool::PgPool;
@@ -159,8 +161,25 @@ pub fn make_span<B>(request: &axum::http::Request<B>) -> tracing::Span {
 
 /// Create the application router with all routes and middleware
 pub fn create_router(app_state: AppState) -> Router {
-    Router::new()
-        .route("/", get(|| async { "Hello, World! Visit /auth/github to start OAuth flow." }))
+    // Get static files directory from environment variable
+    // Default to /app/static for production (Docker), or web/dist/client for local dev
+    let static_dir = std::env::var("STATIC_FILES_DIR").unwrap_or_else(|_| {
+        if std::path::Path::new("/app/static").exists() {
+            "/app/static".to_string()
+        } else {
+            "web/dist/client".to_string()
+        }
+    });
+
+    let static_path = PathBuf::from(&static_dir);
+    let index_path = static_path.join("index.html");
+
+    // Create API router with all backend routes
+    let api_router = Router::new()
+        .route(
+            "/",
+            get(|| async { "Pac-Man API Server. Visit /api/auth/github to start OAuth flow." }),
+        )
         .route("/health", get(routes::health_handler))
         .route("/auth/providers", get(routes::list_providers_handler))
         .route("/auth/{provider}", get(routes::oauth_authorize_handler))
@@ -169,14 +188,28 @@ pub fn create_router(app_state: AppState) -> Router {
         .route("/profile", get(routes::profile_handler))
         .with_state(app_state)
         .layer(CookieLayer::default())
-        .layer(axum::middleware::from_fn(inject_server_header))
-        .layer(
-            tower_http::trace::TraceLayer::new_for_http()
-                .make_span_with(make_span)
-                .on_request(|_request: &axum::http::Request<axum::body::Body>, _span: &tracing::Span| {
-                    // Disable request logging by doing nothing
-                }),
-        )
+        .layer(axum::middleware::from_fn(inject_server_header));
+
+    // Create main router with API routes nested under /api
+    let router = Router::new().nest("/api", api_router);
+
+    // Add static file serving if the directory exists
+    let router = if static_path.exists() {
+        tracing::info!(path = %static_dir, "Serving static files from directory");
+        router.fallback_service(ServeDir::new(&static_path).not_found_service(ServeFile::new(&index_path)))
+    } else {
+        tracing::warn!(path = %static_dir, "Static files directory not found, serving API only");
+        router
+    };
+
+    // Add tracing layer to the entire router
+    router.layer(
+        tower_http::trace::TraceLayer::new_for_http()
+            .make_span_with(make_span)
+            .on_request(|_request: &axum::http::Request<axum::body::Body>, _span: &tracing::Span| {
+                // Disable request logging by doing nothing
+            }),
+    )
 }
 
 /// Inject the server header into responses

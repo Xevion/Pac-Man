@@ -8,4 +8,14 @@ export default defineConfig({
   build: {
     target: "es2022",
   },
+  server: {
+    // Proxy API requests to the backend server during local development
+    // In production, both frontend and API are served from the same origin
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_TARGET || 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
+  },
 });

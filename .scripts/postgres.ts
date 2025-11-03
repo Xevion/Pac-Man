@@ -4,6 +4,10 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { createInterface } from "readline";
 
+// Constants for container and volume names
+const CONTAINER_NAME = "pacman-server-postgres";
+const VOLUME_NAME = "pacman-postgres-data";
+
 // Helper function to get user input
 async function getUserChoice(
   prompt: string,
@@ -122,9 +126,9 @@ if (databaseUrlLine !== -1) {
 // Check if container exists
 console.log("Checking for existing container...");
 const containerExists =
-  await $`docker ps -a --filter name=pacman-server-postgres --format "{{.Names}}"`
+  await $`docker ps -a --filter name=${CONTAINER_NAME} --format "{{.Names}}"`
     .text()
-    .then((names) => names.trim() === "pacman-server-postgres")
+    .then((names) => names.trim() === CONTAINER_NAME)
     .catch(() => false);
 
 let shouldReplaceContainer = false;
@@ -142,7 +146,13 @@ if (containerExists) {
 
   if (shouldReplaceContainer) {
     console.log("Removing existing container...");
-    await $`docker rm --force --volumes pacman-server-postgres`;
+    await $`docker rm --force --volumes ${CONTAINER_NAME}`;
+
+    // Explicitly remove the named volume to ensure clean state
+    console.log("Removing volume...");
+    await $`docker volume rm ${VOLUME_NAME}`.catch(() => {
+      console.log("Volume doesn't exist or already removed");
+    });
   } else {
     console.log("Using existing container");
   }
@@ -151,12 +161,12 @@ if (containerExists) {
 // Create container if needed
 if (!containerExists || shouldReplaceContainer) {
   console.log("Creating PostgreSQL container...");
-  await $`docker run --detach --name pacman-server-postgres --publish 5432:5432 --env POSTGRES_USER=postgres --env POSTGRES_PASSWORD=postgres --env POSTGRES_DB=pacman-server postgres:17`;
+  await $`docker run --detach --name ${CONTAINER_NAME} --publish 5432:5432 --volume ${VOLUME_NAME}:/var/lib/postgresql/data --env POSTGRES_USER=postgres --env POSTGRES_PASSWORD=postgres --env POSTGRES_DB=pacman-server postgres:17`;
 }
 
 // Format DATABASE_URL
 const databaseUrl =
-  "postgresql://postgres:postgres@localhost:5432/pacman-server";
+  "postgresql://postgres:postgres@127.0.0.1:5432/pacman-server";
 
 // Handle the final action based on user choice
 if (userChoice === "2") {

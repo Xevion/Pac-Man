@@ -2,11 +2,8 @@
   "$schema": "https://railway.com/railway.schema.json",
   "deploy": {
     "drainingSeconds": 10,
-    "healthcheckPath": "/health",
+    "healthcheckPath": "/api/health",
     "healthcheckTimeout": 90,
     "restartPolicyMaxRetries": 3
-  },
-  "build": {
-    "dockerfilePath": "/pacman-server/Dockerfile"
   }
 }
