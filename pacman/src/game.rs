@@ -521,7 +521,7 @@ impl Game {
                 stage_system.in_set(GameplaySet::Respond),
                 (
                     (|mut dirty: ResMut<RenderDirty>, score: Res<ScoreResource>, stage: Res<GameStage>| {
-                        dirty.0 = score.is_changed() || stage.is_changed();
+                        dirty.0 |= score.is_changed() || stage.is_changed();
                     }),
                     dirty_render_system.run_if(|dirty: Res<RenderDirty>| dirty.0.not()),
                     combined_render_system,

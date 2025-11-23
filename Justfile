@@ -36,7 +36,8 @@ samply:
 
 # Build the project for Emscripten
 web *args:
-	bun run pacman/web.build.ts {{args}};
+	bun run pacman/web.build.ts {{args}}
+	bun run --cwd web build
 	caddy file-server --root web/dist/client
 
 # Fix linting errors & formatting

@@ -2,32 +2,27 @@ import { useEffect } from "react";
 
 export default function Page() {
   useEffect(() => {
-    // Only setup Module if not already configured (prevents double-initialization on hot reload)
     if (!(window as any).Module) {
       const canvas = document.getElementById("canvas");
 
-      // Simple Module configuration matching the original working approach
       (window as any).Module = {
         canvas: canvas,
         locateFile: (path: string) => {
-          // Return absolute paths for all resources
           return path.startsWith("/") ? path : `/${path}`;
         },
         preRun: [],
       };
 
-      // Load the Emscripten script
       const script = document.createElement("script");
       script.src = "/pacman.js";
-      script.async = false; // Load synchronously to ensure Module is configured first
+      script.async = false;
       document.body.appendChild(script);
 
-      // Cleanup function (runs when component unmounts)
       return () => {
         script.remove();
       };
     }
-  }, []); // Empty dependency array = run once on mount
+  }, []);
 
   return (
     <div className="mt-4 flex justify-center h-[calc(100vh-120px)]">
