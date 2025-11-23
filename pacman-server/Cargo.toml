@@ -51,7 +51,7 @@ s3-tokio = { version = "0.39.6", default-features = false }
 rustls = { version = "0.23", features = ["ring"] }
 image = { version = "0.25", features = ["png", "jpeg"] }
 sha2 = "0.10"
-mockall = "0.13.1"
+mockall = "0.14.0"
 # validator = { version = "0.16", features = ["derive"] }
 
 [dev-dependencies]
