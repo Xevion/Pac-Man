@@ -1,8 +1,5 @@
 import { useState } from "react";
 import { IconTrophy, IconCalendar } from "@tabler/icons-react";
-import { clientOnly } from "vike-react/clientOnly";
-
-const AnimatedNumbers = clientOnly(() => import("react-animated-numbers"));
 
 interface LeaderboardEntry {
   id: number;
@@ -238,15 +235,7 @@ function LeaderboardTable({ data }: { data: LeaderboardEntry[] }) {
             </td>
             <td className="py-2">
               <span className="text-yellow-300 font-[600] text-lg">
-                <AnimatedNumbers
-                  fallback={<span className="text-transparent">{entry.score.toLocaleString()}</span>}
-                  useThousandsSeparator
-                  transitions={(digitIndex) => ({
-                    type: "easeIn",
-                    duration: 0.75 + digitIndex * 0.25 + entryIndex * 0.2,
-                  })}
-                  animateToNumber={entry.score}
-                />
+                {entry.score.toLocaleString()}
               </span>
             </td>
             <td className="py-2">
