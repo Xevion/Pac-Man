@@ -120,10 +120,14 @@ jobs:
       - name: Wait for registry propagation
         run: sleep 5
 
-      # Deploy to Railway
+  # Deploy to Railway - separate job to use container properly
+  deploy:
+    name: Deploy to Railway
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
       - name: Deploy to Railway
-        uses: docker://ghcr.io/railwayapp/cli:latest
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        with:
-          args: up --service pac-man
+        run: railway up --service pac-man
