@@ -52,7 +52,7 @@ push:
 
 # Create a postgres container for the server
 server-postgres:
-	bun run .scripts/postgres.ts
+	bun run pacman-server/scripts/postgres.ts
 
 # Build the server image
 server-image:
