@@ -2,9 +2,10 @@ use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
 use crate::systems::{
     debug_render_system, BatchedLinesResource, Collider, CursorPosition, DebugState, DebugTextureResource, Position, SystemId,
-    SystemTimings, TtfAtlasResource,
+    SystemTimings, TouchState, TtfAtlasResource,
 };
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
+use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
@@ -92,8 +93,10 @@ pub fn dirty_render_system(
     mut dirty: ResMut<RenderDirty>,
     changed: Query<(), Or<(Changed<Renderable>, Changed<Position>, Changed<Visibility>)>>,
     removed_renderables: RemovedComponents<Renderable>,
+    cursor: Res<CursorPosition>,
+    touch_state: Res<TouchState>,
 ) {
-    if changed.iter().count() > 0 || !removed_renderables.is_empty() {
+    if changed.iter().count() > 0 || !removed_renderables.is_empty() || cursor.is_changed() || touch_state.is_changed() {
         dirty.0 = true;
     }
 }
