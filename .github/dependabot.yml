@@ -4,135 +4,40 @@
 # Strategy:
 # - Weekly checks for faster vulnerability detection
 # - Separate patch/minor/major updates to prevent blocking
-# - Group by crate (game vs server) for easier review
 # - Auto-merge patches via GitHub branch protection rules
 # - Limit concurrent PRs to avoid spam
 
 version: 2
 updates:
-  # Game: Patch updates (auto-mergeable)
+  # Cargo workspace (all Rust crates)
   - package-ecosystem: "cargo"
-    directory: "/pacman"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
-    groups:
-      game-patches:
-        applies-to: "version-updates"
-        update-types:
-          - "patch"
     ignore:
-      # Bevy ECS 0.17+ requires API migration - ignore until manual update
+      # Bevy ECS 0.17+ requires API migration
       - dependency-name: "bevy_ecs"
         versions: ["0.17.x", "0.18.x", "0.19.x"]
-    labels:
-      - "dependencies"
-      - "dependencies:patch"
-      - "game"
-
-  # Game: Minor updates (grouped, manual review)
-  - package-ecosystem: "cargo"
-    directory: "/pacman"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    groups:
-      game-minor:
-        applies-to: "version-updates"
-        update-types:
-          - "minor"
-    ignore:
-      - dependency-name: "bevy_ecs"
-        versions: ["0.17.x", "0.18.x", "0.19.x"]
-    labels:
-      - "dependencies"
-      - "dependencies:minor"
-      - "game"
-
-  # Game: Major updates (separate PRs, manual review)
-  - package-ecosystem: "cargo"
-    directory: "/pacman"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    groups:
-      game-major:
-        applies-to: "version-updates"
-        update-types:
-          - "major"
-    ignore:
-      - dependency-name: "bevy_ecs"
-        versions: ["0.17.x", "0.18.x", "0.19.x"]
-    labels:
-      - "dependencies"
-      - "dependencies:major"
-      - "game"
-
-  # Server: Patch updates (auto-mergeable)
-  - package-ecosystem: "cargo"
-    directory: "/pacman-server"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    groups:
-      server-patches:
-        applies-to: "version-updates"
-        update-types:
-          - "patch"
-    ignore:
-      # jsonwebtoken 10+ requires crypto backend feature flag - ignore until manual migration
+      # jsonwebtoken 10+ requires crypto backend feature flag
       - dependency-name: "jsonwebtoken"
         versions: ["10.x", "11.x"]
-    labels:
-      - "dependencies"
-      - "dependencies:patch"
-      - "server"
-
-  # Server: Minor updates (grouped, manual review)
-  - package-ecosystem: "cargo"
-    directory: "/pacman-server"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
     groups:
-      server-minor:
+      rust-patches:
         applies-to: "version-updates"
-        update-types:
-          - "minor"
-    ignore:
-      - dependency-name: "jsonwebtoken"
-        versions: ["10.x", "11.x"]
+        update-types: ["patch"]
+      rust-minor:
+        applies-to: "version-updates"
+        update-types: ["minor"]
+      rust-major:
+        applies-to: "version-updates"
+        update-types: ["major"]
     labels:
       - "dependencies"
-      - "dependencies:minor"
-      - "server"
+      - "rust"
 
-  # Server: Major updates (separate PRs, manual review)
-  - package-ecosystem: "cargo"
-    directory: "/pacman-server"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    groups:
-      server-major:
-        applies-to: "version-updates"
-        update-types:
-          - "major"
-    ignore:
-      - dependency-name: "jsonwebtoken"
-        versions: ["10.x", "11.x"]
-    labels:
-      - "dependencies"
-      - "dependencies:major"
-      - "server"
-
-  # Frontend: Patch updates (auto-mergeable)
+  # Frontend (web/)
   - package-ecosystem: "npm"
     directory: "/web"
     schedule:
@@ -142,65 +47,21 @@ updates:
     groups:
       frontend-patches:
         applies-to: "version-updates"
-        update-types:
-          - "patch"
-    labels:
-      - "dependencies"
-      - "dependencies:patch"
-      - "frontend"
-
-  # Frontend: Minor updates (grouped, manual review)
-  - package-ecosystem: "npm"
-    directory: "/web"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    groups:
+        update-types: ["patch"]
       frontend-minor:
         applies-to: "version-updates"
-        update-types:
-          - "minor"
-    labels:
-      - "dependencies"
-      - "dependencies:minor"
-      - "frontend"
-
-  # Frontend: Major updates (separate PRs for critical deps)
-  - package-ecosystem: "npm"
-    directory: "/web"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    groups:
+        update-types: ["minor"]
       frontend-major-framework:
         applies-to: "version-updates"
-        update-types:
-          - "major"
+        update-types: ["major"]
         patterns:
           - "react"
           - "react-dom"
           - "vike"
           - "vite"
-    labels:
-      - "dependencies"
-      - "dependencies:major"
-      - "frontend"
-      - "framework"
-
-  # Frontend: Other major updates (grouped)
-  - package-ecosystem: "npm"
-    directory: "/web"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    groups:
       frontend-major-other:
         applies-to: "version-updates"
-        update-types:
-          - "major"
+        update-types: ["major"]
         exclude-patterns:
           - "react"
           - "react-dom"
@@ -208,10 +69,9 @@ updates:
           - "vite"
     labels:
       - "dependencies"
-      - "dependencies:major"
       - "frontend"
 
-  # GitHub Actions: All updates grouped (low risk)
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -220,8 +80,7 @@ updates:
     open-pull-requests-limit: 5
     groups:
       github-actions:
-        patterns:
-          - "*"
+        patterns: ["*"]
     labels:
       - "dependencies"
       - "github-actions"
