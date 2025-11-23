@@ -115,3 +115,15 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             GIT_COMMIT_SHA=${{ github.sha }}
+
+      # Wait for ghcr.io propagation (paranoid safety)
+      - name: Wait for registry propagation
+        run: sleep 5
+
+      # Deploy to Railway
+      - name: Deploy to Railway
+        uses: docker://ghcr.io/railwayapp/cli:latest
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        with:
+          args: up --service pac-man
