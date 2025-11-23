@@ -130,4 +130,4 @@ jobs:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
       - name: Deploy to Railway
-        run: railway up --service pac-man
+        run: railway redeploy --service pac-man -y
