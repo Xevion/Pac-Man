@@ -132,8 +132,17 @@ jobs:
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
+      - name: Check Railway Token
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::warning::RAILWAY_TOKEN not available - deployment skipped (common for Dependabot PRs)"
+            exit 0
+          fi
+
       - name: Generate proxy Dockerfile
+        if: env.RAILWAY_TOKEN != ''
         run: echo "FROM ghcr.io/xevion/pac-man@${{ needs.build-and-deploy.outputs.digest }}" > Dockerfile
 
       - name: Deploy to Railway
+        if: env.RAILWAY_TOKEN != ''
         run: railway up --service pac-man
