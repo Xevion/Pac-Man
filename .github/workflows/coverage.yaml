@@ -29,7 +29,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Cache vcpkg
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: target/vcpkg
           key: A-vcpkg-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
