@@ -783,9 +783,13 @@ impl Game {
             let new_tick = timing.increment_tick();
             timings.add_total_timing(total_duration, new_tick);
 
+            // Calculate dynamic threshold based on actual frame budget
+            // Use dt to determine expected frame time, with 80% as threshold to account for normal variance
+            // Desktop uses LOOP_TIME (~16.67ms), WebAssembly adapts to requestAnimationFrame timing
+            let frame_budget_ms = (dt * 1000.0 * 1.2) as u128;
+            
             // Log performance warnings for slow frames
-            if total_duration.as_millis() > 17 {
-                // Warn if frame takes too long
+            if total_duration.as_millis() > frame_budget_ms {
                 let slowest_systems = timings.get_slowest_systems();
                 let systems_context = if slowest_systems.is_empty() {
                     "No specific systems identified".to_string()
@@ -801,6 +805,7 @@ impl Game {
                     total = format!("{:.3?}", total_duration),
                     tick = new_tick,
                     systems = systems_context,
+                    budget = format!("{:.1}ms", frame_budget_ms),
                     "Frame took longer than expected"
                 );
             }
