@@ -48,6 +48,7 @@ use crate::{
     asset::Asset,
     events::GameCommand,
     map::render::MapRenderer,
+    platform,
     systems::{BatchedLinesResource, Bindings, CursorPosition, TtfAtlasResource},
     texture::sprite::{AtlasMapper, SpriteAtlas},
 };
@@ -116,18 +117,27 @@ impl Game {
         debug!("Setting up textures and fonts");
         let (backbuffer, mut map_texture, debug_texture, ttf_atlas) =
             Self::setup_textures_and_fonts(&mut canvas, &texture_creator, ttf_context)?;
+        trace!("Yielding after texture setup");
+        platform::yield_to_browser();
 
         debug!("Initializing audio subsystem");
         let audio = crate::audio::Audio::new();
+        trace!("Yielding after audio init");
+        platform::yield_to_browser();
 
         debug!("Loading sprite atlas and map tiles");
         let (mut atlas, map_tiles) = Self::load_atlas_and_map_tiles(&texture_creator)?;
+        trace!("Yielding after atlas load");
+        platform::yield_to_browser();
+
         debug!("Rendering static map to texture cache");
         canvas
             .with_texture_canvas(&mut map_texture, |map_canvas| {
                 MapRenderer::render_map(map_canvas, &mut atlas, &map_tiles);
             })
             .map_err(|e| GameError::Sdl(e.to_string()))?;
+        trace!("Yielding after map render");
+        platform::yield_to_browser();
 
         debug!("Building navigation graph from map layout");
         let map = Map::new(constants::RAW_BOARD)?;
@@ -235,30 +245,41 @@ impl Game {
         sdl2::render::Texture,
         crate::texture::ttf::TtfAtlas,
     )> {
+        trace!("Creating backbuffer texture");
         let mut backbuffer = texture_creator
             .create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
         backbuffer.set_scale_mode(ScaleMode::Nearest);
+        platform::yield_to_browser();
 
+        trace!("Creating map texture");
         let mut map_texture = texture_creator
             .create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
         map_texture.set_scale_mode(ScaleMode::Nearest);
+        platform::yield_to_browser();
 
+        trace!("Creating debug texture");
         let output_size = constants::LARGE_CANVAS_SIZE;
         let mut debug_texture = texture_creator
             .create_texture_target(Some(sdl2::pixels::PixelFormatEnum::ARGB8888), output_size.x, output_size.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
         debug_texture.set_blend_mode(BlendMode::Blend);
         debug_texture.set_scale_mode(ScaleMode::Nearest);
+        platform::yield_to_browser();
 
+        trace!("Loading font");
         let font_data: &'static [u8] = Asset::Font.get_bytes()?.to_vec().leak();
         let font_asset = RWops::from_bytes(font_data).map_err(|_| GameError::Sdl("Failed to load font".to_string()))?;
         let debug_font = ttf_context
             .load_font_from_rwops(font_asset, constants::ui::DEBUG_FONT_SIZE)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
 
+        trace!("Creating TTF atlas");
         let mut ttf_atlas = crate::texture::ttf::TtfAtlas::new(texture_creator, &debug_font)?;
+        platform::yield_to_browser();
+
+        trace!("Populating TTF atlas");
         ttf_atlas.populate_atlas(canvas, texture_creator, &debug_font)?;
 
         Ok((backbuffer, map_texture, debug_texture, ttf_atlas))

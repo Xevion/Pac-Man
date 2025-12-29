@@ -49,6 +49,15 @@ pub fn sleep(duration: Duration, _focused: bool) {
     }
 }
 
+/// Yields control to browser event loop without delay.
+/// Allows page transitions, animations, and events to process during initialization.
+/// Uses ASYNCIFY to pause/resume WASM execution.
+pub fn yield_to_browser() {
+    unsafe {
+        emscripten_sleep(0);
+    }
+}
+
 pub fn init_console(_force_console: bool) -> Result<(), PlatformError> {
     use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter};
 

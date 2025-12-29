@@ -1,10 +1,10 @@
 import type { OnPageTransitionEndAsync } from "vike/types";
 import { getPacmanWindow } from "@/lib/pacman";
+import { setPendingNavigation } from "@/lib/navigation";
 
-export const onPageTransitionEnd: OnPageTransitionEndAsync = async (
-  pageContext
-) => {
+export const onPageTransitionEnd: OnPageTransitionEndAsync = async (pageContext) => {
   console.log("Page transition end");
+  setPendingNavigation(null);
   document.querySelector("body")?.classList.remove("page-is-transitioning");
 
   // Restart the game loop when returning to the game page

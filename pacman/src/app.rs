@@ -32,11 +32,16 @@ impl App {
     pub fn new() -> GameResult<Self> {
         info!("Initializing SDL2 application");
         let sdl_context = sdl2::init().map_err(|e| GameError::Sdl(e.to_string()))?;
+        trace!("Yielding after SDL init");
+        platform::yield_to_browser();
+
         debug!("Initializing SDL2 subsystems");
         let ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
         let video_subsystem = sdl_context.video().map_err(|e| GameError::Sdl(e.to_string()))?;
         let audio_subsystem = sdl_context.audio().map_err(|e| GameError::Sdl(e.to_string()))?;
         let event_pump = sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
+        trace!("Yielding after subsystem init");
+        platform::yield_to_browser();
 
         trace!(
             width = (CANVAS_SIZE.x as f32 * SCALE).round() as u32,
@@ -96,6 +101,8 @@ impl App {
             // .index(index)
             .build()
             .map_err(|e| GameError::Sdl(e.to_string()))?;
+        trace!("Yielding after canvas creation");
+        platform::yield_to_browser();
 
         trace!(
             logical_width = CANVAS_SIZE.x,
@@ -106,12 +113,16 @@ impl App {
             .set_logical_size(CANVAS_SIZE.x, CANVAS_SIZE.y)
             .map_err(|e| GameError::Sdl(e.to_string()))?;
         debug!(renderer_info = ?canvas.info(), "Canvas renderer initialized");
+        trace!("Yielding after logical size");
+        platform::yield_to_browser();
 
         trace!("Creating texture factory");
         let texture_creator = canvas.texture_creator();
 
         info!("Starting game initialization");
         let game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
+        trace!("Yielding after game init");
+        platform::yield_to_browser();
 
         info!("Application initialization completed successfully");
         Ok(App {

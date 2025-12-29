@@ -5,11 +5,20 @@ export interface PacmanModule {
   _restart_game?: () => void;
   locateFile: (path: string) => string;
   preRun: unknown[];
+  // Emscripten error hooks
+  onAbort?: (what: unknown) => void;
+  onRuntimeInitialized?: () => void;
 }
+
+export type LoadingError =
+  | { type: "timeout" }
+  | { type: "script"; message: string }
+  | { type: "runtime"; message: string };
 
 export interface PacmanWindow extends Window {
   Module?: PacmanModule;
   pacmanReady?: () => void;
+  pacmanError?: (error: LoadingError) => void;
   SDL_CANVAS_ID?: string;
 }
 

@@ -20,6 +20,10 @@ pub fn sleep(duration: Duration, focused: bool) {
     }
 }
 
+/// No-op on desktop - only needed for browser event loop yielding.
+#[inline]
+pub fn yield_to_browser() {}
+
 #[allow(unused_variables)]
 pub fn init_console(force_console: bool) -> Result<(), PlatformError> {
     use crate::formatter::CustomFormatter;

@@ -10,6 +10,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "."),
     },
+    dedupe: ["react", "react-dom"],
   },
   build: {
     target: "es2022",
@@ -18,8 +19,8 @@ export default defineConfig({
     // Proxy API requests to the backend server during local development
     // In production, both frontend and API are served from the same origin
     proxy: {
-      '/api': {
-        target: process.env.VITE_API_TARGET || 'http://localhost:3001',
+      "/api": {
+        target: process.env.VITE_API_TARGET || "http://localhost:3001",
         changeOrigin: true,
       },
     },

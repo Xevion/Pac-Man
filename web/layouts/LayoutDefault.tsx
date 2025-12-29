@@ -9,6 +9,32 @@ import { useState, useEffect } from "react";
 import { usePageContext } from "vike-react/usePageContext";
 import { IconBrandGithub, IconDownload, IconDeviceGamepad3, IconTrophy } from "@tabler/icons-react";
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
+import { usePendingNavigation } from "@/lib/navigation";
+
+function ClientOnlyScrollbars({ children, className }: { children: React.ReactNode; className?: string }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) {
+    return <div className={`${className} overflow-auto`}>{children}</div>;
+  }
+
+  return (
+    <OverlayScrollbarsComponent
+      defer
+      options={{
+        scrollbars: {
+          theme: "os-theme-light",
+          autoHide: "scroll",
+          autoHideDelay: 1300,
+        },
+      }}
+      className={className}
+    >
+      {children}
+    </OverlayScrollbarsComponent>
+  );
+}
 
 const links = [
   {
@@ -36,18 +62,17 @@ const links = [
 export function Link({ href, label, icon }: { href: string; label: string; icon?: React.ReactNode }) {
   const pageContext = usePageContext();
   const { urlPathname } = pageContext;
-  const isActive = href === "/" ? urlPathname === href : urlPathname.startsWith(href);
+  const pendingUrl = usePendingNavigation();
+  const effectiveUrl = pendingUrl ?? urlPathname;
+  const isActive = href === "/" ? effectiveUrl === href : effectiveUrl.startsWith(href);
   return (
-    <a 
-      href={href} 
+    <a
+      href={href}
       className={`
         flex items-center gap-1.5 
         tracking-wide
         transition-colors duration-200
-        ${isActive 
-          ? "text-white" 
-          : "text-gray-500 hover:text-gray-300"
-        }
+        ${isActive ? "text-white" : "text-gray-500 hover:text-gray-300"}
       `}
     >
       {icon}
@@ -60,12 +85,12 @@ export default function LayoutDefault({ children }: { children: React.ReactNode 
   const [opened, setOpened] = useState(false);
   const toggle = () => setOpened((v) => !v);
   const close = () => setOpened(false);
-  
+
   const pageContext = usePageContext();
   const { urlPathname } = pageContext;
-  const isIndexPage = urlPathname === "/";
-  const isLeaderboardPage = urlPathname.startsWith("/leaderboard");
-  const isDownloadPage = urlPathname.startsWith("/download");
+  const pendingUrl = usePendingNavigation();
+  const effectiveUrl = pendingUrl ?? urlPathname;
+  const isIndexPage = effectiveUrl === "/";
 
   const sourceLinks = links
     .filter((link) => !link.href.startsWith("/"))
@@ -93,11 +118,11 @@ export default function LayoutDefault({ children }: { children: React.ReactNode 
             <span className="sr-only">Toggle menu</span>
             <div className="w-5 h-0.5 bg-yellow-400" />
           </button>
-          
+
           <div className="flex items-center gap-8">
             <Link href="/leaderboard" label="Leaderboard" icon={<IconTrophy size={18} />} />
-            
-            <a 
+
+            <a
               href="/"
               onClick={(e) => {
                 if (isIndexPage) {
@@ -105,38 +130,27 @@ export default function LayoutDefault({ children }: { children: React.ReactNode 
                 }
               }}
             >
-              <h1 
-                className={`text-3xl tracking-[0.3em] title-hover ${
-                  isIndexPage 
-                    ? 'text-yellow-400' 
-                    : 'glimmer-text'
+              <h1
+                className={`text-3xl tracking-[0.3em] text-yellow-400 title-base ${
+                  isIndexPage ? "" : "title-glimmer title-hover"
                 }`}
-                style={{ fontFamily: 'Russo One' }}
+                style={{ fontFamily: "Russo One" }}
+                data-text="PAC-MAN"
               >
                 PAC-MAN
               </h1>
             </a>
-            
+
             <Link href="/download" label="Download" icon={<IconDownload size={18} />} />
           </div>
-          
+
           <div className="absolute right-4 hidden sm:flex gap-4 items-center">{sourceLinks}</div>
         </div>
       </header>
-      
-      <OverlayScrollbarsComponent 
-        defer
-        options={{
-          scrollbars: {
-            theme: 'os-theme-light',
-            autoHide: 'scroll',
-            autoHideDelay: 1300,
-          },
-        }}
-        className="flex-1"
-      >
+
+      <ClientOnlyScrollbars className="flex-1">
         <main>{children}</main>
-      </OverlayScrollbarsComponent>
+      </ClientOnlyScrollbars>
 
       {opened && (
         <div className="fixed inset-0 z-30">

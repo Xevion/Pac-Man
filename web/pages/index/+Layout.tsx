@@ -1,5 +1,3 @@
-import "../../layouts/tailwind.css";
-
 export default function GameLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="bg-black text-yellow-400 h-full flex flex-col overflow-hidden">

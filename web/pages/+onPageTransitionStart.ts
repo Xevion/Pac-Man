@@ -1,10 +1,13 @@
 import type { OnPageTransitionStartAsync } from "vike/types";
 import { getPacmanWindow } from "@/lib/pacman";
+import { setPendingNavigation } from "@/lib/navigation";
 
+// Must match --transition-duration in layouts/tailwind.css
 const TRANSITION_DURATION = 200;
 
-export const onPageTransitionStart: OnPageTransitionStartAsync = async () => {
+export const onPageTransitionStart: OnPageTransitionStartAsync = async (pageContext) => {
   console.log("Page transition start");
+  setPendingNavigation(pageContext.urlPathname);
   document.querySelector("body")?.classList.add("page-is-transitioning");
 
   // Stop the game loop when navigating away from the game page
