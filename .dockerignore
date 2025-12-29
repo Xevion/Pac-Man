@@ -6,6 +6,14 @@
 /pacman/assets
 /assets
 
+# Web/Node artifacts
+node_modules
+/web/node_modules
+/web/dist
+.next
+.nuxt
+.cache
+
 # Development files
 /.git
 /*.md

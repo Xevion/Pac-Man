@@ -40,7 +40,7 @@ const os: Os = match(platform())
   });
 
 /**
- * Build the application with Emscripten, generate the CSS, and copy the files into 'dist'.
+ * Build the application with Emscripten and copy the files into 'dist'.
  *
  * @param release - Whether to build in release mode.
  * @param env - The environment variables to inject into build commands.
@@ -88,7 +88,7 @@ async function build(release: boolean, env: Record<string, string> | null) {
   );
 
   // Copy the files to the dist folder
-  logger.debug("Copying Emscripten build artifacts into web/dist");
+  logger.debug("Copying Emscripten build artifacts into web/public");
   await Promise.all(
     files.map(async ({ optional, src, dest }) => {
       match({ optional, exists: await fs.exists(src) })
@@ -109,6 +109,8 @@ async function build(release: boolean, env: Record<string, string> | null) {
         .otherwise(async () => await fs.copyFile(src, dest));
     })
   );
+
+  logger.info("Emscripten build complete");
 }
 
 // (Tailwind-related code removed; this script is now focused solely on the Emscripten build)

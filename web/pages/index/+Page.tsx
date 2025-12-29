@@ -63,12 +63,20 @@ export default function Page() {
       return;
     }
 
+    // Get version from build-time injected environment variable
+    const version = import.meta.env.VITE_PACMAN_VERSION;
+    console.log(`Loading Pacman with version: ${version}`);
+
     win.Module = {
       canvas,
       locateFile: (path: string) => {
-        return path.startsWith("/") ? path : `/${path}`;
+        const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+        return `${normalizedPath}?v=${version}`;
       },
       preRun: [],
+      onRuntimeInitialized: () => {
+        console.log("Emscripten runtime initialized, filesystem ready");
+      },
       // Emscripten calls this on fatal errors (abort/trap/etc)
       onAbort: (what: unknown) => {
         const message = typeof what === "string" ? what : "WebAssembly execution aborted";
@@ -78,7 +86,7 @@ export default function Page() {
     };
 
     const script = document.createElement("script");
-    script.src = "/pacman.js";
+    script.src = `/pacman.js?v=${version}`;
     script.async = false;
 
     // Handle script load errors
