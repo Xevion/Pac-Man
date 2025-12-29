@@ -22,7 +22,7 @@ mod keyboard_tests {
     #[test]
     fn key_down_emits_non_movement_commands() {
         let mut bindings = Bindings::default();
-        let events = process_simple_key_events(&mut bindings, &[SimpleKeyEvent::KeyDown(Keycode::P)]);
+        let events = process_simple_key_events(&mut bindings, &[SimpleKeyEvent::KeyDown(Keycode::Escape)]);
         assert_that(&events).contains(GameEvent::Command(GameCommand::TogglePause));
     }
 
