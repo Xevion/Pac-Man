@@ -40,6 +40,14 @@ web *args:
 	bun run --cwd web build
 	caddy file-server --root web/dist/client --listen :8547
 
+# Run strict multi-platform lints (desktop + wasm)
+lint:
+	@echo "Running clippy for desktop target..."
+	@cargo clippy --all-targets --all-features --quiet -- -D warnings
+	@echo "Running clippy for wasm target..."
+	@cargo clippy -p pacman --target wasm32-unknown-emscripten --all-features --quiet -- -D warnings
+	@echo "All lints passed!"
+
 # Fix linting errors & formatting
 fix:
 	cargo fix --workspace --lib --allow-dirty

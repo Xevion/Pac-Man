@@ -75,7 +75,7 @@ impl AppState {
             sessions: Arc::new(DashMap::new()),
             jwt_encoding_key: Arc::new(EncodingKey::from_secret(jwt_secret.as_bytes())),
             jwt_decoding_key: Arc::new(DecodingKey::from_secret(jwt_secret.as_bytes())),
-            db: db,
+            db,
             health: Arc::new(RwLock::new(Health::default())),
             image_storage,
             healthchecker_task: Arc::new(RwLock::new(None)),

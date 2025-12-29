@@ -43,6 +43,7 @@ pub struct IntroPlayed(pub bool);
 pub enum GameStage {
     /// Waiting for user interaction before starting (Emscripten only).
     /// Game is rendered but audio/gameplay are paused until the user clicks or presses a key.
+    #[cfg(target_os = "emscripten")]
     WaitingForInteraction,
     Starting(StartupSequence),
     /// The main gameplay loop is active.
@@ -186,7 +187,15 @@ impl TooSimilar for GameStage {
     fn too_similar(&self, other: &Self) -> bool {
         discriminant(self) == discriminant(other) && {
             // These states are very simple, so they're 'too similar' automatically
-            if matches!(self, GameStage::Playing | GameStage::GameOver | GameStage::WaitingForInteraction) {
+            #[cfg(target_os = "emscripten")]
+            if matches!(
+                self,
+                GameStage::Playing | GameStage::GameOver | GameStage::WaitingForInteraction
+            ) {
+                return true;
+            }
+            #[cfg(not(target_os = "emscripten"))]
+            if matches!(self, GameStage::Playing | GameStage::GameOver) {
                 return true;
             }
 
@@ -210,7 +219,10 @@ impl TooSimilar for GameStage {
                     },
                 ) => ghost_entity == other_ghost_entity && ghost_type == other_ghost_type && node == other_node,
                 // Already handled, but kept to properly exhaust the match
+                #[cfg(target_os = "emscripten")]
                 (GameStage::Playing, _) | (GameStage::GameOver, _) | (GameStage::WaitingForInteraction, _) => unreachable!(),
+                #[cfg(not(target_os = "emscripten"))]
+                (GameStage::Playing, _) | (GameStage::GameOver, _) => unreachable!(),
                 _ => unreachable!(),
             }
         }
@@ -315,6 +327,7 @@ pub fn stage_system(
     }
 
     let new_state: GameStage = new_state_opt.unwrap_or_else(|| match *game_state {
+        #[cfg(target_os = "emscripten")]
         GameStage::WaitingForInteraction => {
             // Stay in this state until JS calls start_game()
             *game_state

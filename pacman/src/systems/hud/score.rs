@@ -89,7 +89,7 @@ pub fn hud_render_system(
         if pause_state.active() {
             // Enable blending for transparency
             canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
-            
+
             // Draw semi-transparent black overlay
             canvas.set_draw_color(Color::RGBA(0, 0, 0, 160));
             let _ = canvas.fill_rect(Rect::new(0, 0, constants::CANVAS_SIZE.x, constants::CANVAS_SIZE.y));
@@ -101,7 +101,7 @@ pub fn hud_render_system(
             let paused_height = paused_renderer.text_height();
             let paused_position = glam::UVec2::new(
                 (constants::CANVAS_SIZE.x - paused_width) / 2,
-                (constants::CANVAS_SIZE.y - paused_height) / 2
+                (constants::CANVAS_SIZE.y - paused_height) / 2,
             );
             if let Err(e) = paused_renderer.render_with_color(canvas, &mut atlas, paused_text, paused_position, Color::YELLOW) {
                 errors.write(TextureError::RenderFailed(format!("Failed to render PAUSED text: {}", e)).into());

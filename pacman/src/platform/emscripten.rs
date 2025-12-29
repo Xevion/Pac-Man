@@ -23,12 +23,7 @@ extern "C" {
     /// - `arg`: user data pointer passed to callback
     /// - `fps`: target FPS (0 = use requestAnimationFrame)
     /// - `simulate_infinite_loop`: if 1, never returns (standard for games)
-    pub fn emscripten_set_main_loop_arg(
-        func: EmMainLoopCallback,
-        arg: *mut c_void,
-        fps: c_int,
-        simulate_infinite_loop: c_int,
-    );
+    pub fn emscripten_set_main_loop_arg(func: EmMainLoopCallback, arg: *mut c_void, fps: c_int, simulate_infinite_loop: c_int);
 
     /// Execute JavaScript code from Rust
     fn emscripten_run_script(script: *const i8);

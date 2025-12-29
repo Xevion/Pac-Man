@@ -22,8 +22,11 @@ use crate::systems::{
     EntityType, Frozen, FruitSprites, GameStage, Ghost, GhostAnimation, GhostAnimations, GhostBundle, GhostCollider, GhostState,
     GlobalState, ItemBundle, ItemCollider, LastAnimationState, LinearAnimation, MapTextureResource, MovementModifiers, NodeId,
     PacmanCollider, PlayerAnimation, PlayerBundle, PlayerControlled, PlayerDeathAnimation, PlayerLives, Position, RenderDirty,
-    Renderable, ScoreResource, StartupSequence, SystemId, SystemTimings, Timing, TouchState, Velocity, Visibility,
+    Renderable, ScoreResource, SystemId, SystemTimings, Timing, TouchState, Velocity, Visibility,
 };
+
+#[cfg(not(target_os = "emscripten"))]
+use crate::systems::StartupSequence;
 
 use crate::texture::animated::{DirectionalTiles, TileSequence};
 use crate::texture::sprite::AtlasTile;
@@ -787,7 +790,7 @@ impl Game {
             // Use dt to determine expected frame time, with 80% as threshold to account for normal variance
             // Desktop uses LOOP_TIME (~16.67ms), WebAssembly adapts to requestAnimationFrame timing
             let frame_budget_ms = (dt * 1000.0 * 1.2) as u128;
-            
+
             // Log performance warnings for slow frames
             if total_duration.as_millis() > frame_budget_ms {
                 let slowest_systems = timings.get_slowest_systems();

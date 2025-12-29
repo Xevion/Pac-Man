@@ -56,11 +56,18 @@ pub struct Audio {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AudioState {
-    Enabled { volume: u8 },
-    Muted { previous_volume: u8 },
+    Enabled {
+        volume: u8,
+    },
+    Muted {
+        previous_volume: u8,
+    },
     /// Audio is suspended until user interaction unlocks it (browser autoplay policy).
     /// On Emscripten, audio starts in this state and transitions to Enabled when unlock() is called.
-    Suspended { volume: u8 },
+    #[cfg(target_os = "emscripten")]
+    Suspended {
+        volume: u8,
+    },
     Disabled,
 }
 
@@ -264,6 +271,7 @@ impl Audio {
     ///
     /// Transitions from Suspended to Enabled state, allowing audio to play.
     /// Called when the user clicks or presses a key to satisfy browser autoplay policy.
+    #[cfg(target_os = "emscripten")]
     pub fn unlock(&mut self) {
         if let AudioState::Suspended { volume } = self.state {
             tracing::info!("Audio unlocked after user interaction");
@@ -275,11 +283,15 @@ impl Audio {
     ///
     /// Returns `true` if audio is in the Enabled state, `false` if suspended,
     /// muted, or disabled.
+    #[cfg(target_os = "emscripten")]
+    #[allow(dead_code)]
     pub fn is_ready(&self) -> bool {
         matches!(self.state, AudioState::Enabled { .. })
     }
 
     /// Returns whether audio is suspended waiting for user interaction.
+    #[cfg(target_os = "emscripten")]
+    #[allow(dead_code)]
     pub fn is_suspended(&self) -> bool {
         matches!(self.state, AudioState::Suspended { .. })
     }
