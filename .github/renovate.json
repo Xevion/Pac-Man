@@ -1,0 +1,199 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    ":semanticCommits"
+  ],
+  "description": "Renovate configuration for Pac-Man project with logical dependency grouping",
+  "schedule": ["at any time"],
+  "timezone": "America/Chicago",
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 4,
+  "separateMajorMinor": true,
+  "separateMultipleMajor": true,
+  "labels": ["dependencies"],
+  "minimumReleaseAge": "3 days",
+  "packageRules": [
+    {
+      "description": "Game core dependencies from pacman crate",
+      "groupName": "game-core",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": [
+        "bevy*",
+        "glam",
+        "sdl2",
+        "pathfinding",
+        "rand",
+        "smallvec",
+        "bitflags",
+        "phf",
+        "micromap",
+        "strum*",
+        "thousands",
+        "num-width",
+        "circular-buffer"
+      ],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "rust", "game"]
+    },
+    {
+      "description": "Server core dependencies from pacman-server crate",
+      "groupName": "server-core",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": [
+        "axum*",
+        "tower-http",
+        "oauth2",
+        "sqlx",
+        "reqwest",
+        "jsonwebtoken",
+        "s3-tokio",
+        "rustls",
+        "dashmap",
+        "figment",
+        "dotenvy",
+        "chrono",
+        "async-trait",
+        "yansi",
+        "mockall",
+        "image",
+        "sha2"
+      ],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "rust", "server"]
+    },
+    {
+      "description": "Tokio async runtime ecosystem",
+      "groupName": "tokio-ecosystem",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["tokio", "hyper*", "http", "bytes"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "rust", "tokio"]
+    },
+    {
+      "description": "Serde serialization ecosystem",
+      "groupName": "serde-ecosystem",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["serde*"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "rust", "serde"]
+    },
+    {
+      "description": "Tracing and logging infrastructure",
+      "groupName": "tracing",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["tracing*"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "rust", "tracing"]
+    },
+    {
+      "description": "Error handling libraries",
+      "groupName": "error-handling",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["thiserror", "anyhow", "tracing-error"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "rust"]
+    },
+    {
+      "description": "Platform and system-level dependencies",
+      "groupName": "platform-deps",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["windows*", "libc", "parking_lot", "time"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "rust", "platform"]
+    },
+    {
+      "description": "Rust dev and test dependencies",
+      "groupName": "rust-dev-deps",
+      "matchManagers": ["cargo"],
+      "matchDepTypes": ["dev-dependencies"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "rust", "dev"]
+    },
+    {
+      "description": "Rust major version updates - create individual PRs without automerge",
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["major"],
+      "labels": ["dependencies", "rust", "major"]
+    },
+    {
+      "description": "Block bevy_ecs 0.17+ until API migration is done",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["bevy_ecs"],
+      "allowedVersions": "<0.17.0"
+    },
+    {
+      "description": "Block jsonwebtoken 10+ until crypto backend feature flag is configured",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["jsonwebtoken"],
+      "allowedVersions": "<10.0.0"
+    },
+    {
+      "description": "Frontend framework dependencies",
+      "groupName": "frontend-framework",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["react*", "vike*", "vite", "@vitejs/*"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "frontend", "framework"]
+    },
+    {
+      "description": "Frontend styling and CSS tooling",
+      "groupName": "frontend-styling",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["tailwindcss", "postcss*", "@tailwindcss/*"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "frontend", "styling"]
+    },
+    {
+      "description": "Frontend fonts",
+      "groupName": "frontend-fonts",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["@fontsource/*"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "frontend"]
+    },
+    {
+      "description": "ESLint and code quality tools",
+      "groupName": "frontend-linting",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["eslint*", "prettier", "@eslint/*"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "frontend", "dev"]
+    },
+    {
+      "description": "TypeScript and type definitions",
+      "groupName": "frontend-types",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["typescript", "@types/*", "typescript-eslint"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "frontend", "types"]
+    },
+    {
+      "description": "Frontend major version updates - create individual PRs without automerge",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "labels": ["dependencies", "frontend", "major"]
+    },
+    {
+      "description": "GitHub Actions updates - automerge patch and minor",
+      "groupName": "github-actions",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "labels": ["dependencies", "github-actions"],
+      "automerge": true
+    },
+    {
+      "description": "GitHub Actions major updates - individual PRs without automerge",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["major"],
+      "labels": ["dependencies", "github-actions", "major"]
+    },
+    {
+      "description": "Enable bun package manager support",
+      "matchManagers": ["bun"],
+      "enabled": true,
+      "labels": ["dependencies", "bun"]
+    }
+  ]
+}
