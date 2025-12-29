@@ -10,11 +10,18 @@ export const onPageTransitionStart: OnPageTransitionStartAsync = async (pageCont
   setPendingNavigation(pageContext.urlPathname);
   document.querySelector("body")?.classList.add("page-is-transitioning");
 
-  // Stop the game loop when navigating away from the game page
-  const win = getPacmanWindow();
-  if (win.Module?._stop_game) {
-    console.log("Stopping game loop for page transition");
-    win.Module._stop_game();
+  // Only stop the game when navigating AWAY FROM the game page
+  // Don't stop when navigating between other pages (e.g., /leaderboard <-> /download)
+  if (window.location.pathname === "/") {
+    const win = getPacmanWindow();
+    if (win.Module?._stop_game) {
+      try {
+        console.log("Stopping game loop for page transition");
+        win.Module._stop_game();
+      } catch (error) {
+        console.warn("Failed to stop game (game may have already crashed):", error);
+      }
+    }
   }
 
   // Wait for fade-out animation to complete before page content changes
