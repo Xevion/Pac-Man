@@ -104,9 +104,14 @@ unsafe extern "C" fn main_loop_callback(_arg: *mut std::ffi::c_void) {
 /// This function initializes SDL, the window, the game state, and then enters
 /// the main game loop.
 pub fn main() {
-    // Parse command line arguments
-    let args: Vec<String> = env::args().collect();
-    let force_console = args.iter().any(|arg| arg == "--console" || arg == "-c");
+    // Parse command line arguments (only on desktop - Emscripten ignores force_console)
+    #[cfg(not(target_os = "emscripten"))]
+    let force_console = {
+        let args: Vec<String> = env::args().collect();
+        args.iter().any(|arg| arg == "--console" || arg == "-c")
+    };
+    #[cfg(target_os = "emscripten")]
+    let force_console = false;
 
     // On Emscripten, this connects the subscriber to the browser console
     platform::init_console(force_console).expect("Could not initialize console");
