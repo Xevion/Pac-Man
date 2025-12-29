@@ -443,6 +443,12 @@ impl Game {
         world.insert_resource(IntroPlayed::default());
         world.insert_resource(CursorPosition::default());
         world.insert_resource(TouchState::default());
+        // On Emscripten, start in WaitingForInteraction state due to browser autoplay policy.
+        // The game will transition to Starting when the user clicks or presses a key.
+        #[cfg(target_os = "emscripten")]
+        world.insert_resource(GameStage::WaitingForInteraction);
+
+        #[cfg(not(target_os = "emscripten"))]
         world.insert_resource(GameStage::Starting(StartupSequence::TextOnly {
             remaining_ticks: constants::startup::STARTUP_FRAMES,
         }));
@@ -718,6 +724,30 @@ impl Game {
         };
 
         Ok(GhostAnimations::new(animations, eyes, frightened, frightened_flashing))
+    }
+
+    /// Starts the game after user interaction (Emscripten only).
+    ///
+    /// Transitions from WaitingForInteraction to Starting state and unlocks audio.
+    /// Called from JavaScript when the user clicks or presses a key.
+    #[cfg(target_os = "emscripten")]
+    pub fn start(&mut self) {
+        use crate::systems::state::{GameStage, StartupSequence};
+
+        // Unlock audio now that user has interacted
+        if let Some(mut audio) = self.world.get_non_send_resource_mut::<AudioResource>() {
+            audio.0.unlock();
+        }
+
+        // Transition to Starting state if we're waiting
+        if let Some(mut stage) = self.world.get_resource_mut::<GameStage>() {
+            if matches!(*stage, GameStage::WaitingForInteraction) {
+                tracing::info!("User interaction detected, starting game");
+                *stage = GameStage::Starting(StartupSequence::TextOnly {
+                    remaining_ticks: constants::startup::STARTUP_FRAMES,
+                });
+            }
+        }
     }
 
     /// Executes one frame of game logic by running all scheduled ECS systems.

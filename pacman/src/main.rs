@@ -29,6 +29,31 @@ mod map;
 mod systems;
 mod texture;
 
+// Emscripten-specific: static storage for the App instance
+// Required because emscripten_set_main_loop_arg needs a persistent pointer
+#[cfg(target_os = "emscripten")]
+static mut APP: Option<App> = None;
+
+/// Called from JavaScript when the user interacts with the page.
+/// Transitions the game from WaitingForInteraction to Starting state.
+#[cfg(target_os = "emscripten")]
+#[no_mangle]
+pub extern "C" fn start_game() {
+    unsafe {
+        if let Some(ref mut app) = APP {
+            app.game.start();
+        }
+    }
+}
+
+/// Emscripten main loop callback - runs once per frame
+#[cfg(target_os = "emscripten")]
+unsafe extern "C" fn main_loop_callback(_arg: *mut std::ffi::c_void) {
+    if let Some(ref mut app) = APP {
+        let _ = app.run();
+    }
+}
+
 /// The main entry point of the application.
 ///
 /// This function initializes SDL, the window, the game state, and then enters
@@ -41,13 +66,37 @@ pub fn main() {
     // On Emscripten, this connects the subscriber to the browser console
     platform::init_console(force_console).expect("Could not initialize console");
 
-    let mut app = App::new().expect("Could not create app");
+    let app = App::new().expect("Could not create app");
 
     info!(loop_time = ?LOOP_TIME, "Starting game loop");
 
-    loop {
-        if !app.run() {
-            break;
+    #[cfg(target_os = "emscripten")]
+    {
+        use std::ptr;
+
+        // Store app in static for callback access
+        unsafe {
+            APP = Some(app);
+        }
+
+        // Signal to JavaScript that the game is ready for interaction
+        platform::run_script("if (window.pacmanReady) window.pacmanReady()");
+
+        // Use emscripten_set_main_loop_arg for browser-friendly loop
+        // fps=0 means use requestAnimationFrame for optimal performance
+        // simulate_infinite_loop=1 means this call won't return
+        unsafe {
+            platform::emscripten_set_main_loop_arg(main_loop_callback, ptr::null_mut(), 0, 1);
+        }
+    }
+
+    #[cfg(not(target_os = "emscripten"))]
+    {
+        let mut app = app;
+        loop {
+            if !app.run() {
+                break;
+            }
         }
     }
 }

@@ -58,6 +58,9 @@ pub struct Audio {
 enum AudioState {
     Enabled { volume: u8 },
     Muted { previous_volume: u8 },
+    /// Audio is suspended until user interaction unlocks it (browser autoplay policy).
+    /// On Emscripten, audio starts in this state and transitions to Enabled when unlock() is called.
+    Suspended { volume: u8 },
     Disabled,
 }
 
@@ -133,11 +136,19 @@ impl Audio {
             return Err(anyhow!("No sounds loaded successfully"));
         }
 
+        // On Emscripten, start suspended due to browser autoplay policy.
+        // Audio will be unlocked when the user interacts with the page.
+        #[cfg(target_os = "emscripten")]
+        let initial_state = AudioState::Suspended { volume: DEFAULT_VOLUME };
+
+        #[cfg(not(target_os = "emscripten"))]
+        let initial_state = AudioState::Enabled { volume: DEFAULT_VOLUME };
+
         Ok(Audio {
             _mixer_context: Some(mixer_context),
             sounds,
             next_waka_index: 0u8,
-            state: AudioState::Enabled { volume: DEFAULT_VOLUME },
+            state: initial_state,
         })
     }
 
@@ -188,21 +199,21 @@ impl Audio {
 
     /// Halts all currently playing audio channels.
     pub fn stop_all(&mut self) {
-        if self.state != AudioState::Disabled {
+        if matches!(self.state, AudioState::Enabled { .. } | AudioState::Muted { .. }) {
             mixer::Channel::all().halt();
         }
     }
 
     /// Pauses all currently playing audio channels.
     pub fn pause_all(&mut self) {
-        if self.state != AudioState::Disabled {
+        if matches!(self.state, AudioState::Enabled { .. } | AudioState::Muted { .. }) {
             mixer::Channel::all().pause();
         }
     }
 
     /// Resumes all currently playing audio channels.
     pub fn resume_all(&mut self) {
-        if self.state != AudioState::Disabled {
+        if matches!(self.state, AudioState::Enabled { .. } | AudioState::Muted { .. }) {
             mixer::Channel::all().resume();
         }
     }
@@ -247,5 +258,29 @@ impl Audio {
     /// audio operations become no-ops.
     pub fn is_disabled(&self) -> bool {
         matches!(self.state, AudioState::Disabled)
+    }
+
+    /// Unlocks audio after user interaction (Emscripten only).
+    ///
+    /// Transitions from Suspended to Enabled state, allowing audio to play.
+    /// Called when the user clicks or presses a key to satisfy browser autoplay policy.
+    pub fn unlock(&mut self) {
+        if let AudioState::Suspended { volume } = self.state {
+            tracing::info!("Audio unlocked after user interaction");
+            self.state = AudioState::Enabled { volume };
+        }
+    }
+
+    /// Returns whether audio is ready to play.
+    ///
+    /// Returns `true` if audio is in the Enabled state, `false` if suspended,
+    /// muted, or disabled.
+    pub fn is_ready(&self) -> bool {
+        matches!(self.state, AudioState::Enabled { .. })
+    }
+
+    /// Returns whether audio is suspended waiting for user interaction.
+    pub fn is_suspended(&self) -> bool {
+        matches!(self.state, AudioState::Suspended { .. })
     }
 }

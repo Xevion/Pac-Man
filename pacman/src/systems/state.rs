@@ -41,6 +41,9 @@ pub struct IntroPlayed(pub bool);
 /// A resource to track the overall stage of the game from a high-level perspective.
 #[derive(Resource, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum GameStage {
+    /// Waiting for user interaction before starting (Emscripten only).
+    /// Game is rendered but audio/gameplay are paused until the user clicks or presses a key.
+    WaitingForInteraction,
     Starting(StartupSequence),
     /// The main gameplay loop is active.
     Playing,
@@ -183,7 +186,7 @@ impl TooSimilar for GameStage {
     fn too_similar(&self, other: &Self) -> bool {
         discriminant(self) == discriminant(other) && {
             // These states are very simple, so they're 'too similar' automatically
-            if matches!(self, GameStage::Playing | GameStage::GameOver) {
+            if matches!(self, GameStage::Playing | GameStage::GameOver | GameStage::WaitingForInteraction) {
                 return true;
             }
 
@@ -207,7 +210,7 @@ impl TooSimilar for GameStage {
                     },
                 ) => ghost_entity == other_ghost_entity && ghost_type == other_ghost_type && node == other_node,
                 // Already handled, but kept to properly exhaust the match
-                (GameStage::Playing, _) | (GameStage::GameOver, _) => unreachable!(),
+                (GameStage::Playing, _) | (GameStage::GameOver, _) | (GameStage::WaitingForInteraction, _) => unreachable!(),
                 _ => unreachable!(),
             }
         }
@@ -312,6 +315,10 @@ pub fn stage_system(
     }
 
     let new_state: GameStage = new_state_opt.unwrap_or_else(|| match *game_state {
+        GameStage::WaitingForInteraction => {
+            // Stay in this state until JS calls start_game()
+            *game_state
+        }
         GameStage::Playing => {
             // This is the default state, do nothing
             *game_state

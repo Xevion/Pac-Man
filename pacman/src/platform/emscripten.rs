@@ -7,10 +7,41 @@ use std::ffi::CString;
 use std::io::{self, Write};
 use std::time::Duration;
 
+use std::ffi::c_void;
+use std::os::raw::c_int;
+
+/// Callback function type for emscripten main loop
+pub type EmMainLoopCallback = unsafe extern "C" fn(*mut c_void);
+
 // Emscripten FFI functions
 extern "C" {
     fn emscripten_sleep(ms: u32);
     fn printf(format: *const u8, ...) -> i32;
+
+    /// Set up a browser-friendly main loop with argument passing.
+    /// - `func`: callback to run each frame
+    /// - `arg`: user data pointer passed to callback
+    /// - `fps`: target FPS (0 = use requestAnimationFrame)
+    /// - `simulate_infinite_loop`: if 1, never returns (standard for games)
+    pub fn emscripten_set_main_loop_arg(
+        func: EmMainLoopCallback,
+        arg: *mut c_void,
+        fps: c_int,
+        simulate_infinite_loop: c_int,
+    );
+
+    /// Execute JavaScript code from Rust
+    fn emscripten_run_script(script: *const i8);
+}
+
+/// Execute a JavaScript snippet from Rust.
+/// Useful for signaling events to the frontend.
+pub fn run_script(script: &str) {
+    if let Ok(cstr) = CString::new(script) {
+        unsafe {
+            emscripten_run_script(cstr.as_ptr());
+        }
+    }
 }
 
 pub fn sleep(duration: Duration, _focused: bool) {
