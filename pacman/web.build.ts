@@ -147,11 +147,40 @@ async function activateEmsdk(
     return { vars: null };
   }
 
-  // Check if the emsdk directory exists
+  // Check if the emsdk directory exists, clone and install if not
   if (!(await fs.exists(emsdkDir))) {
-    return {
-      err: `Emscripten SDK directory not found at ${emsdkDir}. Please install or clone 'emsdk' and try again.`,
-    };
+    logger.info("Emscripten SDK not found, cloning and installing...");
+
+    // Clone the emsdk repository
+    logger.debug("Cloning emsdk repository...");
+    const cloneResult =
+      await $`git clone https://github.com/emscripten-core/emsdk.git ${emsdkDir}`.quiet();
+    if (cloneResult.exitCode !== 0) {
+      return {
+        err: `Failed to clone emsdk: ${cloneResult.stderr.toString()}`,
+      };
+    }
+
+    // Install latest version
+    logger.debug("Installing latest Emscripten version...");
+    const emsdkBinary = join(emsdkDir, os.type === "windows" ? "emsdk.bat" : "emsdk");
+    const installResult = await $`${emsdkBinary} install latest`.quiet();
+    if (installResult.exitCode !== 0) {
+      return {
+        err: `Failed to install emsdk: ${installResult.stderr.toString()}`,
+      };
+    }
+
+    // Activate latest version
+    logger.debug("Activating latest Emscripten version...");
+    const activateResult = await $`${emsdkBinary} activate latest`.quiet();
+    if (activateResult.exitCode !== 0) {
+      return {
+        err: `Failed to activate emsdk: ${activateResult.stderr.toString()}`,
+      };
+    }
+
+    logger.info("Emscripten SDK installed and activated successfully");
   }
 
   // Check if the emsdk directory is activated/installed properly for the current OS

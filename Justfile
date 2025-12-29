@@ -38,7 +38,7 @@ samply:
 web *args:
 	bun run pacman/web.build.ts {{args}}
 	bun run --cwd web build
-	caddy file-server --root web/dist/client
+	caddy file-server --root web/dist/client --listen :8547
 
 # Fix linting errors & formatting
 fix:
