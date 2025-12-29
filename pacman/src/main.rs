@@ -46,6 +46,51 @@ pub extern "C" fn start_game() {
     }
 }
 
+/// Called from JavaScript when navigating away from the game page.
+/// Stops the Emscripten main loop and halts all audio.
+#[cfg(target_os = "emscripten")]
+#[no_mangle]
+pub extern "C" fn stop_game() {
+    tracing::info!("Stopping game loop and halting audio");
+    unsafe {
+        platform::emscripten_cancel_main_loop();
+        sdl2::mixer::Channel::all().halt();
+    }
+}
+
+/// Called from JavaScript to restart the game after navigating back.
+/// Creates a fresh App instance with the new canvas and starts the main loop.
+#[cfg(target_os = "emscripten")]
+#[no_mangle]
+pub extern "C" fn restart_game() {
+    use std::ptr;
+
+    tracing::info!("Restarting game with fresh App instance");
+
+    unsafe {
+        // Drop old App to clean up resources
+        APP = None;
+
+        // Reinitialize audio subsystem for fresh state
+        sdl2::mixer::close_audio();
+
+        // Create fresh App with new canvas
+        match App::new() {
+            Ok(app) => {
+                APP = Some(app);
+                tracing::info!("Game restarted successfully");
+
+                // Signal ready and start the main loop
+                platform::run_script("if (window.pacmanReady) window.pacmanReady()");
+                platform::emscripten_set_main_loop_arg(main_loop_callback, ptr::null_mut(), 0, 1);
+            }
+            Err(e) => {
+                tracing::error!("Failed to restart game: {}", e);
+            }
+        }
+    }
+}
+
 /// Emscripten main loop callback - runs once per frame
 #[cfg(target_os = "emscripten")]
 unsafe extern "C" fn main_loop_callback(_arg: *mut std::ffi::c_void) {

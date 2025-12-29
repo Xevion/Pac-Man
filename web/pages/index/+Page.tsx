@@ -1,44 +1,58 @@
 import { useCallback, useEffect, useState } from "react";
+import { getPacmanWindow } from "@/lib/pacman";
 
 export default function Page() {
   const [gameReady, setGameReady] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
 
   useEffect(() => {
-    // Set up callback for when WASM signals it's ready
-    (window as any).pacmanReady = () => {
+    const win = getPacmanWindow();
+    
+    // Always set up the ready callback (restart_game will call it too)
+    win.pacmanReady = () => {
       setGameReady(true);
     };
 
-    if (!(window as any).Module) {
-      const canvas = document.getElementById("canvas");
+    const module = win.Module;
 
-      (window as any).Module = {
-        canvas: canvas,
-        locateFile: (path: string) => {
-          return path.startsWith("/") ? path : `/${path}`;
-        },
-        preRun: [],
-      };
-
-      const script = document.createElement("script");
-      script.src = "/pacman.js";
-      script.async = false;
-      document.body.appendChild(script);
-
-      return () => {
-        script.remove();
-        delete (window as any).pacmanReady;
-      };
+    // If Module already exists (returning after navigation),
+    // the onPageTransitionEnd hook handles calling restart_game
+    if (module?._restart_game) {
+      setGameStarted(false);
+      // Don't delete pacmanReady here - restart_game needs it
+      return;
     }
+
+    // First time initialization
+    const canvas = document.getElementById("canvas") as HTMLCanvasElement | null;
+    if (!canvas) {
+      console.error("Canvas element not found");
+      return;
+    }
+
+    win.Module = {
+      canvas,
+      locateFile: (path: string) => {
+        return path.startsWith("/") ? path : `/${path}`;
+      },
+      preRun: [],
+    };
+
+    const script = document.createElement("script");
+    script.src = "/pacman.js";
+    script.async = false;
+    document.body.appendChild(script);
+
+    return () => {
+      delete win.pacmanReady;
+    };
   }, []);
 
   const handleInteraction = useCallback(() => {
     if (gameReady && !gameStarted) {
-      // Call the exported Rust function to start the game
-      const module = (window as any).Module;
-      if (module && module._start_game) {
-        module._start_game();
+      const win = getPacmanWindow();
+      if (win.Module?._start_game) {
+        win.Module._start_game();
         setGameStarted(true);
       }
     }

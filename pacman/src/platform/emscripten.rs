@@ -25,6 +25,10 @@ extern "C" {
     /// - `simulate_infinite_loop`: if 1, never returns (standard for games)
     pub fn emscripten_set_main_loop_arg(func: EmMainLoopCallback, arg: *mut c_void, fps: c_int, simulate_infinite_loop: c_int);
 
+    /// Cancel the currently running main loop.
+    /// After calling this, the loop callback will no longer be invoked.
+    pub fn emscripten_cancel_main_loop();
+
     /// Execute JavaScript code from Rust
     fn emscripten_run_script(script: *const i8);
 }
