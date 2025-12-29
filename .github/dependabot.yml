@@ -37,7 +37,7 @@ updates:
       - "dependencies"
       - "rust"
 
-  # Frontend (web/)
+  # Frontend (web/) - Uses bun, but npm ecosystem for Dependabot compatibility
   - package-ecosystem: "npm"
     directory: "/web"
     schedule:
