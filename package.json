@@ -2,6 +2,9 @@
   "name": "pacman",
   "type": "module",
   "packageManager": "bun@^1.3.5",
+  "config": {
+    "emsdkVersion": "4.0.22"
+  },
   "engines": {
     "bun": ">=1.3.5"
   },

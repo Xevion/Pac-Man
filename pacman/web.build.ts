@@ -21,6 +21,16 @@ await configure({
 
 const logger = getLogger("web");
 
+// Read emsdk version from package.json (single source of truth)
+const packageJson = JSON.parse(
+  await fs.readFile(resolve(__dirname, "../package.json"), "utf-8")
+);
+const EMSDK_VERSION = packageJson.config?.emsdkVersion;
+if (!EMSDK_VERSION) {
+  logger.error("emsdkVersion not found in package.json config");
+  process.exit(1);
+}
+
 type Os =
   | { type: "linux"; wsl: boolean }
   | { type: "windows" }
@@ -163,19 +173,19 @@ async function activateEmsdk(
       };
     }
 
-    // Install latest version
-    logger.debug("Installing latest Emscripten version...");
+    // Install emsdk version from package.json
+    logger.debug(`Installing emsdk version ${EMSDK_VERSION}...`);
     const emsdkBinary = join(emsdkDir, os.type === "windows" ? "emsdk.bat" : "emsdk");
-    const installResult = await $`${emsdkBinary} install latest`.quiet();
+    const installResult = await $`${emsdkBinary} install ${EMSDK_VERSION}`.quiet();
     if (installResult.exitCode !== 0) {
       return {
         err: `Failed to install emsdk: ${installResult.stderr.toString()}`,
       };
     }
 
-    // Activate latest version
-    logger.debug("Activating latest Emscripten version...");
-    const activateResult = await $`${emsdkBinary} activate latest`.quiet();
+    // Activate emsdk version from package.json
+    logger.debug(`Activating emsdk version ${EMSDK_VERSION}...`);
+    const activateResult = await $`${emsdkBinary} activate ${EMSDK_VERSION}`.quiet();
     if (activateResult.exitCode !== 0) {
       return {
         err: `Failed to activate emsdk: ${activateResult.stderr.toString()}`,

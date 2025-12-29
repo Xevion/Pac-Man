@@ -91,11 +91,23 @@ Since this project is still in progress, I'm only going to cover non-obvious bui
 - We use rustc 1.86.0 for the build, due to bulk-memory-opt related issues on wasm32-unknown-emscripten.
   - Technically, we could probably use stable or even nightly on desktop targets, but using different versions for different targets is a pain, mainly because of clippy warnings changing between versions.
 - For the WASM build, you need to have the Emscripten SDK cloned; you can do so with `git clone https://github.com/emscripten-core/emsdk.git`
-  - The first time you clone, you'll need to install the SDK with `./emsdk install latest` and then activate it with `./emsdk activate latest`. On Windows, use `./emsdk/emsdk.ps1` instead.
-    - Occasionally, the build will fail due to dependencies failing to download. I even have a retry mechanism in the build workflow due to this.
+  - The project's emsdk version is specified in `package.json` (`config.emsdkVersion`, currently 4.0.22)
+  - To install manually:
+    ```bash
+    # Linux/macOS
+    EMSDK_VERSION=$(jq -r '.config.emsdkVersion' package.json)
+    ./emsdk install $EMSDK_VERSION && ./emsdk activate $EMSDK_VERSION
+    
+    # Windows PowerShell
+    $EMSDK_VERSION = (Get-Content package.json | ConvertFrom-Json).config.emsdkVersion
+    ./emsdk/emsdk.ps1 install $EMSDK_VERSION
+    ./emsdk/emsdk.ps1 activate $EMSDK_VERSION
+    ```
+  - Or simply run `bun run pacman/web.build.ts` which automatically installs the correct version
   - You can then activate the Emscripten SDK with `source ./emsdk/emsdk_env.sh` or `./emsdk/emsdk_env.ps1` or `./emsdk/emsdk_env.bat` depending on your OS/terminal.
   - While using the `web.build.ts` is not technically required, it simplifies the build process and is very helpful.
     - It is intended to be run with `bun`, which you can acquire at [bun.sh](https://bun.sh/)
+    - Occasionally, the build will fail due to dependencies failing to download.
   - Tip: You can launch a fileserver with `python` or `caddy` to serve the files in the `dist` folder.
     - `python3 -m http.server 8080 -d dist`
     - `caddy file-server --root dist` (install with `[sudo apt|brew|choco] install caddy` or [a dozen other ways](https://caddyserver.com/docs/install))

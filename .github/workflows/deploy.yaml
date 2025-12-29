@@ -24,67 +24,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Emscripten SDK
-        uses: pyodide/setup-emsdk@v15
-        with:
-          version: latest
-          actions-cache-folder: "emsdk-cache-b"
-
-      - name: Setup Rust (WASM32 Emscripten)
-        uses: dtolnay/rust-toolchain@master
-        with:
-          target: wasm32-unknown-emscripten
-          toolchain: 1.86.0
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      # ========== WASM Build ==========
-      - name: Build WASM with Emscripten
-        shell: bash
+      - name: Read emsdk version from package.json
+        id: versions
         run: |
-          # Retry mechanism for Emscripten build - only retry on specific hash errors
-          MAX_RETRIES=3
-          RETRY_DELAY=30
-
-          for attempt in $(seq 1 $MAX_RETRIES); do
-            echo "Build attempt $attempt of $MAX_RETRIES"
-
-            # Capture output and check for specific error while preserving real-time output
-            if bun run -i pacman/web.build.ts 2>&1 | tee /tmp/build_output.log; then
-              echo "Build successful on attempt $attempt"
-              break
-            else
-              echo "Build failed on attempt $attempt"
-
-              # Check if the failure was due to the specific hash error
-              if grep -q "emcc: error: Unexpected hash:" /tmp/build_output.log; then
-                echo "::warning::Detected 'emcc: error: Unexpected hash:' error - will retry (attempt $attempt of $MAX_RETRIES)"
-
-                if [ $attempt -eq $MAX_RETRIES ]; then
-                  echo "::error::All retry attempts failed. Exiting with error."
-                  exit 1
-                fi
-
-                echo "Waiting $RETRY_DELAY seconds before retry..."
-                sleep $RETRY_DELAY
-
-                # Exponential backoff: double the delay for next attempt
-                RETRY_DELAY=$((RETRY_DELAY * 2))
-              else
-                echo "Build failed but not due to hash error - not retrying"
-                exit 1
-              fi
-            fi
-          done
+          EMSDK_VERSION=$(jq -r '.config.emsdkVersion' package.json)
+          if [ -z "$EMSDK_VERSION" ] || [ "$EMSDK_VERSION" = "null" ]; then
+            echo "::error::emsdkVersion not found in package.json config"
+            exit 1
+          fi
+          echo "emsdk=$EMSDK_VERSION" >> $GITHUB_OUTPUT
 
       # ========== Docker Build and Push ==========
-      # Note: Frontend is now built inside Docker using multi-stage build
+      # Note: WASM and frontend are built inside Docker using multi-stage build
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -118,6 +69,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             GIT_COMMIT_SHA=${{ github.sha }}
+            EMSDK_VERSION=${{ steps.versions.outputs.emsdk }}
 
       # Wait for ghcr.io propagation (paranoid safety)
       - name: Wait for registry propagation

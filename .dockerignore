@@ -3,8 +3,9 @@
 /emsdk
 *.exe
 
-/pacman/assets
-/assets
+# Exclude unpacked assets but keep packed game assets
+/pacman/assets/unpacked
+/pacman/assets/site
 
 # Web/Node artifacts
 node_modules
@@ -16,8 +17,13 @@ node_modules
 
 # Development files
 /.git
+/.github
 /*.md
 /Justfile
 /bacon.toml
-/rust-toolchain.toml
 /rustfmt.toml
+/.pre-commit-config.yaml
+
+# Test files (not needed in Docker builds)
+/pacman/tests
+/pacman-server/tests
