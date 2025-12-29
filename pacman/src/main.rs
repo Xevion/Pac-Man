@@ -3,6 +3,7 @@
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 
+#[cfg(not(target_os = "emscripten"))]
 use std::env;
 
 use crate::{app::App, constants::LOOP_TIME};

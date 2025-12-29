@@ -27,7 +27,7 @@ jobs:
       - name: Setup Emscripten SDK
         uses: pyodide/setup-emsdk@v15
         with:
-          version: 3.1.43
+          version: latest
           actions-cache-folder: "emsdk-cache-b"
 
       - name: Setup Rust (WASM32 Emscripten)

@@ -91,8 +91,7 @@ Since this project is still in progress, I'm only going to cover non-obvious bui
 - We use rustc 1.86.0 for the build, due to bulk-memory-opt related issues on wasm32-unknown-emscripten.
   - Technically, we could probably use stable or even nightly on desktop targets, but using different versions for different targets is a pain, mainly because of clippy warnings changing between versions.
 - For the WASM build, you need to have the Emscripten SDK cloned; you can do so with `git clone https://github.com/emscripten-core/emsdk.git`
-  - The first time you clone, you'll need to install the appropriate SDK version with `./emsdk install 3.1.43` and then activate it with `./emsdk activate 3.1.43`. On Windows, use `./emsdk/emsdk.ps1` instead.
-    - I'm still not sure _why_ 3.1.43 is required, but it is. Perhaps in the future I will attempt to use a more modern version.
+  - The first time you clone, you'll need to install the SDK with `./emsdk install latest` and then activate it with `./emsdk activate latest`. On Windows, use `./emsdk/emsdk.ps1` instead.
     - Occasionally, the build will fail due to dependencies failing to download. I even have a retry mechanism in the build workflow due to this.
   - You can then activate the Emscripten SDK with `source ./emsdk/emsdk_env.sh` or `./emsdk/emsdk_env.ps1` or `./emsdk/emsdk_env.bat` depending on your OS/terminal.
   - While using the `web.build.ts` is not technically required, it simplifies the build process and is very helpful.
