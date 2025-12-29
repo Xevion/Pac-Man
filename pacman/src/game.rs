@@ -541,9 +541,9 @@ impl Game {
             ))
             .configure_sets((
                 GameplaySet::Input,
-                GameplaySet::Update.run_if(|paused: Res<PauseState>| paused.active()),
-                GameplaySet::Respond.run_if(|paused: Res<PauseState>| paused.active()),
-                RenderSet::Animation.run_if(|paused: Res<PauseState>| paused.active()),
+                GameplaySet::Update.run_if(|paused: Res<PauseState>| !paused.active()),
+                GameplaySet::Respond.run_if(|paused: Res<PauseState>| !paused.active()),
+                RenderSet::Animation.run_if(|paused: Res<PauseState>| !paused.active()),
                 RenderSet::Draw,
                 RenderSet::Present,
             ));

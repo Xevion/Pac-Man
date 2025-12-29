@@ -1,11 +1,12 @@
 use crate::constants;
 use crate::error::{GameError, TextureError};
-use crate::systems::{BackbufferResource, GameStage, ScoreResource, StartupSequence};
+use crate::systems::{BackbufferResource, GameStage, PauseState, ScoreResource, StartupSequence};
 use crate::texture::sprite::SpriteAtlas;
 use crate::texture::text::TextTexture;
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::{NonSendMut, Res};
 use sdl2::pixels::Color;
+use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 
@@ -17,6 +18,7 @@ pub fn hud_render_system(
     mut atlas: NonSendMut<SpriteAtlas>,
     score: Res<ScoreResource>,
     stage: Res<GameStage>,
+    pause_state: Res<PauseState>,
     mut errors: EventWriter<GameError>,
 ) {
     let _ = canvas.with_texture_canvas(&mut backbuffer.0, |canvas| {
@@ -80,6 +82,29 @@ pub fn hud_render_system(
                 {
                     errors.write(TextureError::RenderFailed(format!("Failed to render PLAYER ONE text: {}", e)).into());
                 }
+            }
+        }
+
+        // Render pause overlay when game is paused (allowed during any stage)
+        if pause_state.active() {
+            // Enable blending for transparency
+            canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
+            
+            // Draw semi-transparent black overlay
+            canvas.set_draw_color(Color::RGBA(0, 0, 0, 160));
+            let _ = canvas.fill_rect(Rect::new(0, 0, constants::CANVAS_SIZE.x, constants::CANVAS_SIZE.y));
+
+            // Render "PAUSED" text centered and larger (2.5x scale)
+            let mut paused_renderer = TextTexture::new(2.5);
+            let paused_text = "PAUSED";
+            let paused_width = paused_renderer.text_width(paused_text);
+            let paused_height = paused_renderer.text_height();
+            let paused_position = glam::UVec2::new(
+                (constants::CANVAS_SIZE.x - paused_width) / 2,
+                (constants::CANVAS_SIZE.y - paused_height) / 2
+            );
+            if let Err(e) = paused_renderer.render_with_color(canvas, &mut atlas, paused_text, paused_position, Color::YELLOW) {
+                errors.write(TextureError::RenderFailed(format!("Failed to render PAUSED text: {}", e)).into());
             }
         }
     });

@@ -68,7 +68,7 @@ pub enum PauseState {
 
 impl Default for PauseState {
     fn default() -> Self {
-        Self::Active { remaining_ticks: None }
+        Self::Inactive
     }
 }
 

@@ -81,7 +81,7 @@ impl Default for Bindings {
         key_bindings.insert(Keycode::D, GameCommand::MovePlayer(Direction::Right));
 
         // Game actions
-        key_bindings.insert(Keycode::P, GameCommand::TogglePause);
+        key_bindings.insert(Keycode::Escape, GameCommand::TogglePause);
         key_bindings.insert(Keycode::Space, GameCommand::ToggleDebug);
         key_bindings.insert(Keycode::M, GameCommand::MuteAudio);
         key_bindings.insert(Keycode::R, GameCommand::ResetLevel);
@@ -89,7 +89,6 @@ impl Default for Bindings {
 
         #[cfg(not(target_os = "emscripten"))]
         {
-            key_bindings.insert(Keycode::Escape, GameCommand::Exit);
             key_bindings.insert(Keycode::Q, GameCommand::Exit);
             // Desktop-only fullscreen toggle
             key_bindings.insert(Keycode::F, GameCommand::ToggleFullscreen);
