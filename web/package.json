@@ -10,9 +10,13 @@
   "description": "A web frontend for the Pac-Man game, including leaderboards and OAuth.",
   "dependencies": {
     "@fontsource/nunito": "^5.2.7",
+    "@fontsource/outfit": "^5.2.8",
     "@fontsource/pixelify-sans": "^5.2.7",
+    "@fontsource/russo-one": "^5.2.7",
     "@tabler/icons-react": "^3.35.0",
     "@vitejs/plugin-react": "^5.0.2",
+    "overlayscrollbars": "^2.13.0",
+    "overlayscrollbars-react": "^0.5.6",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "vike": "^0.4.240",

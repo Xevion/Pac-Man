@@ -7,6 +7,7 @@
       "dependencies": {
         "@fontsource/nunito": "^5.2.7",
         "@fontsource/pixelify-sans": "^5.2.7",
+        "@fontsource/russo-one": "^5.2.7",
         "@tabler/icons-react": "^3.35.0",
         "@vitejs/plugin-react": "^5.0.2",
         "react": "^19.1.1",
@@ -156,6 +157,8 @@
     "@fontsource/nunito": ["@fontsource/nunito@5.2.7", "", {}, "sha512-pmtBq0H9ex9nk+RtJYEJOD9pag393iHETnl/PVKleF4i06cd0ttngK5ZCTgYb5eOqR3Xdlrjtev8m7bmgYprew=="],
 
     "@fontsource/pixelify-sans": ["@fontsource/pixelify-sans@5.2.7", "", {}, "sha512-F/UuV2M9poAj/BJ5/6u95mOy6ptp8/+dpfnxh4TFzKeAB+vdanAjQ8fLJcS0q+WHYgesRRxPwNFr2Pqm18CVGg=="],
+
+    "@fontsource/russo-one": ["@fontsource/russo-one@5.2.7", "", {}, "sha512-/VyiuTzAFUjxwpJdtwR9ByC9BggUFWS5Hw/JT8ziEtNAd++BNfh/fDrKCC6oayFG69gfP0zhS5+0UenYcOK3UQ=="],
 
     "@humanfs/core": ["@humanfs/core@0.19.1", "", {}, "sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA=="],
 

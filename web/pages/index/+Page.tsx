@@ -71,12 +71,11 @@ export default function Page() {
   }, [gameReady, gameStarted, handleInteraction]);
 
   return (
-    <div className="mt-4 flex justify-center h-[calc(100vh-120px)]">
+    <div className="flex justify-center items-center h-full pt-4">
       <div
-        className="relative block border-1 border-yellow-400/50 aspect-[5/6] h-[min(calc(100vh-120px),_calc(95vw_*_6/5))] w-auto"
+        className="relative block aspect-[5/6]"
         style={{
-          boxShadow:
-            "0 0 12px rgba(250, 204, 21, 0.35), 0 0 2px rgba(255, 255, 255, 0.25)",
+          height: "min(calc(100vh - 96px), calc((100vw - 32px) * 6 / 5))",
         }}
         onClick={handleInteraction}
       >

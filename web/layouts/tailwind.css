@@ -1,9 +1,26 @@
 @import "tailwindcss";
 
 @layer base {
+  /* Page transitions */
+  body {
+    --transition-duration: 200ms;
+  }
+  
+  body main {
+    opacity: 1;
+    transform: translateY(0);
+    transition: 
+      opacity var(--transition-duration) ease-out,
+      transform var(--transition-duration) ease-out;
+  }
+  
+  body.page-is-transitioning main {
+    opacity: 0;
+    transform: translateY(8px);
+  }
   :root {
     font-family:
-      "Nunito",
+      "Outfit",
       ui-sans-serif,
       system-ui,
       -apple-system,
@@ -24,6 +41,57 @@
   h4,
   h5,
   h6 {
-    font-weight: 800;
+    font-weight: 500;
+  }
+  
+  .os-scrollbar-handle {
+    background: rgb(250 204 21 / 0.25) !important;
+  }
+  
+  .os-scrollbar-handle:hover {
+    background: rgb(250 204 21 / 0.4) !important;
+  }
+  
+  .os-scrollbar-track {
+    background: transparent !important;
+  }
+}
+
+@keyframes glimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+
+
+@layer utilities {
+  .title-hover {
+    transition: transform 0.2s ease-out, filter 0.2s ease-out;
+  }
+  
+  .title-hover:hover {
+    transform: scale(1.03);
+    filter: brightness(1.15);
+  }
+
+  .glimmer-text {
+    background: linear-gradient(
+      90deg,
+      rgb(156 163 175) 0%,
+      rgb(156 163 175) 35%,
+      rgb(250 204 21) 45%,
+      rgb(250 204 21) 55%,
+      rgb(156 163 175) 65%,
+      rgb(156 163 175) 100%
+    );
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: glimmer 3s ease-in-out infinite;
   }
 }
