@@ -15,19 +15,21 @@ A comprehensive list of features needed to complete the Pac-Man emulation, organ
   - [ ] Pinky (Pink): Target 4 tiles ahead of Pac-Man
   - [ ] Inky (Cyan): Complex behavior based on Blinky's position
   - [ ] Clyde (Orange): Chase when far, flee when close
-- [x] Mode Switching System
+- [ ] Mode Switching System
   - [ ] Scatter/Chase pattern with proper timing
   - [x] Frightened mode transitions
   - [ ] Ghost house entry/exit mechanics
-- [x] Ghost House Behavior
-  - [x] Proper spawning sequence
-  - [ ] Exit timing and patterns
-  - [ ] House-specific movement rules
+- [ ] Ghost House Behavior
+  - [x] Basic spawning in ghost house
+  - [ ] Proper exit timing sequence
+  - [ ] Dot counter for ghost release
+  - [ ] Global dot counter reset
+  - [ ] House-specific pathfinding
 
 ### Fruit Bonus System
 
 - [x] Fruit Spawning Mechanics
-  - [x] Spawn at pellet counts 70 and 170
+  - [x] Spawn at pellet counts 5 and 170 (TODO: verify if should be 70 and 170 for arcade accuracy)
   - [x] Fruit display in bottom-right corner
   - [x] Fruit collection and scoring
   - [x] Bonus point display system
@@ -78,15 +80,31 @@ A comprehensive list of features needed to complete the Pac-Man emulation, organ
 ### Game Polish
 
 - [x] Core Input System
-  - [x] Keyboard controls
+  - [x] Keyboard controls (WASD + Arrow keys)
   - [x] Direction buffering for responsive controls
   - [x] Touch controls for mobile
+  - [x] Mouse controls (mouse-as-touch for desktop testing)
 - [x] Pause System
-  - [x] Pause/unpause functionality
-  - [ ] Pause menu with options
-- [ ] Input System
-  - [ ] Input remapping
-  - [ ] Multiple input methods
+  - [x] Pause/unpause functionality (Escape key)
+  - [x] Visual pause overlay with semi-transparent background
+  - [ ] Interactive pause menu with options
+- [ ] Advanced Input System
+  - [ ] Input remapping/key rebinding
+  - [ ] Customizable control schemes
+
+## Web Platform Features
+
+### Browser Compatibility
+
+- [x] Core Web Support
+  - [x] WASM compilation and deployment
+  - [x] Emscripten platform integration
+  - [x] Browser autoplay policy compliance (click-to-start)
+  - [x] WASM loading states and smooth transitions
+- [x] Mobile Web Support
+  - [x] Touch controls for mobile browsers
+  - [x] Responsive touch input handling
+  - [x] Mobile-optimized UI
 
 ## Advanced Features (Lower Priority)
 
@@ -111,16 +129,22 @@ A comprehensive list of features needed to complete the Pac-Man emulation, organ
 
 - [x] Performance details
 - [x] Core Debug Infrastructure
-  - [x] Debug mode toggle
+  - [x] Debug mode toggle (Space key)
   - [x] Comprehensive game event logging
-  - [x] Performance profiling tools
+  - [x] Per-system performance profiling with timing breakdown
+  - [x] FPS and frame timing display
+  - [x] Single-tick stepping (T key for frame-by-frame)
+- [x] Maze Visualization
+  - [x] Navigation graph rendering (red lines)
+  - [x] Node visualization (blue dots)
+  - [x] Node hover inspection with ID display
+  - [x] Collision hitbox display (green boxes)
 - [ ] Game State Visualization
-  - [ ] Ghost AI state display
-  - [ ] Pathfinding visualization
-  - [ ] Collision detection display
+  - [ ] Ghost AI state display (target tiles, modes)
+  - [ ] Ghost pathfinding visualization (current path)
+  - [ ] Ghost personality indicators
 - [ ] Game Speed Controls
   - [ ] Variable game speed for testing
-  - [ ] Frame-by-frame stepping
 
 ## Customization & Extensions
 
@@ -132,8 +156,9 @@ A comprehensive list of features needed to complete the Pac-Man emulation, organ
   - [x] Animation system
   - [x] HUD rendering
 - [ ] Display Options
-  - [x] Fullscreen support
-  - [x] Window resizing
+  - [x] Fullscreen support (Desktop only - F key toggle)
+  - [ ] Fullscreen support (Web - F key + pinch-to-zoom gestures)
+  - [x] Window resizing with aspect ratio preservation
     - [ ] Pause while resizing (SDL2 limitation mitigation)
   - [ ] Multiple resolution support
 
@@ -151,14 +176,20 @@ A comprehensive list of features needed to complete the Pac-Man emulation, organ
 
 ### Scoreboard System
 
-- [ ] Backend Infrastructure
-  - [ ] Axum server with database
-  - [ ] OAuth2 authentication
-  - [ ] GitHub/Discord/Google auth
+- [x] Backend Infrastructure
+  - [x] Axum server with PostgreSQL database
+  - [x] Optional OAuth2 authentication (GitHub/Discord)
+  - [x] Session management with cookies
+  - [x] Health check and API endpoints
 - [ ] Profile Features
   - [ ] Optional avatars (8-bit aesthetic)
   - [ ] Custom names (3-14 chars, filtered)
+  - [ ] User profile pages
+- [ ] Leaderboard Features
+  - [ ] Global high score board
+  - [ ] Personal best tracking
+  - [ ] Score submission from game client
 - [ ] Client Implementation
-  - [ ] Zero-config client
-  - [ ] Default API endpoint
-  - [ ] Manual override available
+  - [ ] Zero-config client with default endpoint
+  - [ ] Score upload integration
+  - [ ] Manual API endpoint override
