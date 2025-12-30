@@ -74,11 +74,6 @@ RUN cargo build --release --target wasm32-unknown-emscripten --bin pacman
 FROM oven/bun:1 AS frontend-builder
 WORKDIR /app
 
-# Install binaryen for wasm-opt (WASM size optimization)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends binaryen && \
-    rm -rf /var/lib/apt/lists/*
-
 # Copy package files for dependency installation
 COPY web/package.json web/bun.lock* ./
 RUN bun install --frozen-lockfile
@@ -91,12 +86,6 @@ COPY web/ ./
 COPY --from=wasm-builder /app/target/wasm32-unknown-emscripten/release/pacman.wasm ./static/pacman.wasm
 COPY --from=wasm-builder /app/target/wasm32-unknown-emscripten/release/pacman.js ./static/pacman.js
 COPY --from=wasm-builder /app/target/wasm32-unknown-emscripten/release/deps/pacman.data ./static/pacman.data
-
-# Optimize WASM binary for size (typically 5-15% reduction)
-RUN ORIGINAL_SIZE=$(stat -c%s ./static/pacman.wasm) && \
-    wasm-opt -Oz --strip-debug ./static/pacman.wasm -o ./static/pacman.wasm && \
-    OPTIMIZED_SIZE=$(stat -c%s ./static/pacman.wasm) && \
-    echo "WASM optimized: ${ORIGINAL_SIZE} -> ${OPTIMIZED_SIZE} bytes ($(( (ORIGINAL_SIZE - OPTIMIZED_SIZE) * 100 / ORIGINAL_SIZE ))% reduction)"
 
 # Verify WASM artifacts exist and have reasonable sizes
 RUN test -f ./static/pacman.wasm && \
