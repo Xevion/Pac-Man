@@ -1,0 +1,23 @@
+set shell := ["bash", "-c"]
+
+# Run the dev server
+dev:
+    bun run dev
+
+# Build and preview the frontend
+up:
+    bun run build
+    bun run preview
+
+# Build the web version (game + frontend)
+[no-cd]
+build *args:
+    bun run pacman/web.build.ts {{args}}
+    bun run --cwd web build
+
+# Build and serve with caddy
+[no-cd]
+serve *args:
+    bun run pacman/web.build.ts {{args}}
+    bun run --cwd web build
+    caddy file-server --root web/dist/client --listen :8547

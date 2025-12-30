@@ -1,0 +1,27 @@
+set shell := ["bash", "-c"]
+
+# Create a postgres container for the server
+postgres:
+    bun run scripts/postgres.ts
+
+# Build the server docker image
+[no-cd]
+image:
+    docker build \
+        --platform linux/amd64 \
+        --file ./pacman-server/Dockerfile \
+        --tag pacman-server \
+        .
+
+# Build and run the server in a Docker container
+[no-cd]
+run: image
+    docker rm --force --volumes pacman-server 2>/dev/null || true
+    docker run \
+        --rm \
+        --stop-timeout 2 \
+        --name pacman-server \
+        --publish 3000:3000 \
+        --env PORT=3000 \
+        --env-file pacman-server/.env \
+        pacman-server

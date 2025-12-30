@@ -1,0 +1,59 @@
+set shell := ["bash", "-c"]
+
+binary_extension := if os() == "windows" { ".exe" } else { "" }
+
+# Run the game, pass args (e.g., `just pacman::run -r` for release)
+run *args:
+    cargo run -p pacman {{args}}
+
+# Run all checks (clippy for desktop + wasm, warns on format)
+check:
+    @echo "Checking format..."
+    @cargo fmt --all -- --check || echo "⚠ Format issues detected (run \`just format\` to fix)"
+    @echo "Running clippy for desktop target..."
+    @cargo clippy --all-targets --all-features --quiet -- -D warnings
+    @echo "Running clippy for wasm target..."
+    @cargo clippy -p pacman --target wasm32-unknown-emscripten --all-targets --all-features --quiet -- -D warnings
+    @echo "Running frontend checks..."
+    @bun run --cwd web check
+    @bun run --cwd web lint
+    @echo "All checks passed!"
+
+# Run tests with nextest
+test:
+    cargo nextest run --no-fail-fast
+
+# Auto-format code
+format:
+    cargo fmt --all
+
+# Fix linting errors & formatting
+fix:
+    cargo fix --workspace --lib --allow-dirty
+    cargo fmt --all
+
+# Profile using samply
+samply:
+    cargo build --profile profile
+    samply record ./target/profile/pacman{{binary_extension}}
+
+# Generate baseline LCOV report
+coverage:
+    cargo +nightly llvm-cov \
+        --lcov \
+        --remap-path-prefix \
+        --workspace \
+        --output-path lcov.info \
+        --profile coverage \
+        --no-fail-fast nextest
+
+# Display coverage report
+report-coverage: coverage
+    cargo llvm-cov report --remap-path-prefix
+
+# Open HTML coverage report
+html: coverage
+    cargo llvm-cov report \
+        --remap-path-prefix \
+        --html \
+        --open
