@@ -6,7 +6,7 @@ pub type PgPool = Pool<Postgres>;
 /// Create a PostgreSQL database pool.
 ///
 /// - `immediate`: If true, establishes connection immediately (panics on failure).
-///                If false, uses lazy connection (for tests or when database may not be needed).
+///   If false, uses lazy connection (for tests or when database may not be needed).
 /// - `database_url`: The database connection URL.
 /// - `max_connections`: Maximum number of connections in the pool.
 pub async fn create_pool(immediate: bool, database_url: &str, max_connections: u32) -> PgPool {

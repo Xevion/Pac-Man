@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 function isFont(font: Font | FontCollection): font is Font {
 	return 'glyphForCodePoint' in font;
 }
-import { readFile, writeFile, mkdir, copyFile, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { normalizePath } from 'vite';
@@ -73,16 +73,6 @@ function logInfo(message: string): void {
 
 function logWarning(message: string): void {
 	console.warn(`[vite-plugin-font-subset] WARNING: ${message}`);
-}
-
-function logError(context: string, error: Error, isProduction: boolean): void {
-	console.error(`\n[vite-plugin-font-subset] ERROR: ${context}`);
-	console.error(error.message);
-
-	if (!isProduction && error.stack) {
-		console.error('\nStack trace:');
-		console.error(error.stack);
-	}
 }
 
 // ============================================================================
@@ -231,6 +221,7 @@ async function extractFontMetadata(
 		// OpenType name table IDs:
 		// ID 16 = Typographic/Preferred Family (base family without weight/style)
 		// ID 1 = Font Family (may include weight/style for compatibility)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const nameTable = (font as any).name;
 		const preferredFamily = nameTable?.records?.preferredFamily?.en;
 		const fontFamily = nameTable?.records?.fontFamily?.en;

@@ -202,7 +202,7 @@
 			</div>
 
 			<div class="absolute right-4 hidden sm:flex gap-4 items-center">
-				{#each sourceLinks as link}
+				{#each sourceLinks as link (link.href)}
 					<a
 						href={link.href}
 						title={link.label}
@@ -266,7 +266,7 @@
 					</button>
 				</div>
 				<div class="flex flex-col gap-3">
-					{#each links as link}
+					{#each links as link (link.href)}
 						<NavLink
 							href={link.href}
 							icon={link.icon}

@@ -3,7 +3,7 @@
 
 	let {
 		href,
-		icon,
+		icon: Icon,
 		label,
 		active = false,
 		size = 18
@@ -23,6 +23,6 @@
 </script>
 
 <a {href} class={navLinkClass(active)}>
-	<icon {size}></icon>
+	<Icon {size} />
 	<span>{label}</span>
 </a>

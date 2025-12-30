@@ -41,7 +41,7 @@
 		}
 	}
 
-	function handleKeyDown(e: KeyboardEvent) {
+	function handleKeyDown() {
 		if (!gameReady || gameStarted) return;
 		handleInteraction();
 	}

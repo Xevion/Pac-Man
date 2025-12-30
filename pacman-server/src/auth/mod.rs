@@ -84,4 +84,9 @@ impl AuthRegistry {
     pub fn len(&self) -> usize {
         self.providers.len()
     }
+
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        self.providers.is_empty()
+    }
 }
