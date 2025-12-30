@@ -1,75 +1,85 @@
-import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
-import vike from "vike/plugin";
-import { defineConfig, Plugin } from "vite";
-import path from "path";
-import { execSync } from "child_process";
+import { sveltekit } from '@sveltejs/kit/vite';
+import tailwindcss from '@tailwindcss/vite';
+import { defineConfig, type Plugin } from 'vite';
+import { execSync } from 'child_process';
+import { fontSubsetPlugin, type FontSubsetConfig } from './vite-plugin-font-subset';
+
+// Character sets for font subsetting
+const TITLE_CHARS = 'PACMN-';
+const COMMON_CHARS =
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?':;-_()\/@#&*+=%<>";
+
+const fontConfig: FontSubsetConfig = {
+	fonts: [
+		{
+			source: '@fontsource/russo-one/files/russo-one-latin-400-normal.woff2',
+			whitelist: TITLE_CHARS
+		},
+		{
+			source: '@fontsource/outfit/files/outfit-latin-400-normal.woff2',
+			whitelist: COMMON_CHARS,
+			family: 'Outfit'
+		},
+		{
+			source: '@fontsource/outfit/files/outfit-latin-500-normal.woff2',
+			whitelist: COMMON_CHARS,
+			family: 'Outfit'
+		}
+	]
+};
 
 /**
  * Vite plugin that injects the Pacman version hash at build time.
  * Uses git commit hash in production/dev, falls back to timestamp if git unavailable.
  */
 function pacmanVersionPlugin(): Plugin {
-  let version: string;
+	function getVersion(mode: string): string {
+		if (mode === 'development') {
+			return 'dev';
+		}
 
-  function getVersion(mode: string): string {
-    // Development mode uses fixed "dev" string
-    if (mode === "development") {
-      return "dev";
-    }
+		try {
+			const hash = execSync('git rev-parse --short HEAD', {
+				encoding: 'utf8',
+				stdio: ['pipe', 'pipe', 'pipe']
+			}).trim();
 
-    // Try to get git commit hash
-    try {
-      const hash = execSync("git rev-parse --short HEAD", {
-        encoding: "utf8",
-        stdio: ["pipe", "pipe", "pipe"],
-      }).trim();
-      
-      if (hash) {
-        return hash;
-      }
-    } catch {
-      // Git not available or command failed
-    }
+			if (hash) {
+				return hash;
+			}
+		} catch {
+			// Git not available or command failed
+		}
 
-    // Fallback to timestamp
-    return Date.now().toString(36);
-  }
+		return Date.now().toString(36);
+	}
 
-  return {
-    name: "pacman-version",
-    config(_, { mode }) {
-      version = getVersion(mode);
-      console.log(`[pacman-version] Using version: ${version}`);
+	return {
+		name: 'pacman-version',
+		config(_, { mode }) {
+			const version = getVersion(mode);
+			console.log(`[pacman-version] Using version: ${version}`);
 
-      return {
-        define: {
-          "import.meta.env.VITE_PACMAN_VERSION": JSON.stringify(version),
-        },
-      };
-    },
-  };
+			return {
+				define: {
+					'import.meta.env.VITE_PACMAN_VERSION': JSON.stringify(version)
+				}
+			};
+		}
+	};
 }
 
 export default defineConfig({
-  plugins: [pacmanVersionPlugin(), vike(), react(), tailwindcss()],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "."),
-    },
-    dedupe: ["react", "react-dom"],
-  },
-  build: {
-    target: "es2022",
-  },
-  server: {
-    // Proxy API requests to the backend server during local development
-    // In production, both frontend and API are served from the same origin
-    proxy: {
-      "/api": {
-        target: process.env.VITE_API_TARGET || "http://localhost:3001",
-        changeOrigin: true,
-      },
-    },
-  },
+	plugins: [fontSubsetPlugin(fontConfig), pacmanVersionPlugin(), sveltekit(), tailwindcss()],
+	build: {
+		target: 'es2022'
+	},
+	server: {
+		proxy: {
+			'/api': {
+				target: process.env.VITE_API_TARGET || 'http://localhost:3001',
+				changeOrigin: true
+			}
+		}
+	}
 });

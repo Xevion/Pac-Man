@@ -74,31 +74,41 @@ RUN cargo build --release --target wasm32-unknown-emscripten --bin pacman
 FROM oven/bun:1 AS frontend-builder
 WORKDIR /app
 
+# Install binaryen for wasm-opt (WASM size optimization)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends binaryen && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy package files for dependency installation
 COPY web/package.json web/bun.lock* ./
 RUN bun install --frozen-lockfile
 
-# Copy WASM artifacts from wasm-builder stage
+# Copy frontend source first (so we have the static/ directory)
+COPY web/ ./
+
+# Copy WASM artifacts from wasm-builder stage to SvelteKit's static folder
 # Note: .wasm and .js are in release/, but .data (preloaded assets) is in release/deps/
-RUN mkdir -p ./public
-COPY --from=wasm-builder /app/target/wasm32-unknown-emscripten/release/pacman.wasm ./public/pacman.wasm
-COPY --from=wasm-builder /app/target/wasm32-unknown-emscripten/release/pacman.js ./public/pacman.js
-COPY --from=wasm-builder /app/target/wasm32-unknown-emscripten/release/deps/pacman.data ./public/pacman.data
+COPY --from=wasm-builder /app/target/wasm32-unknown-emscripten/release/pacman.wasm ./static/pacman.wasm
+COPY --from=wasm-builder /app/target/wasm32-unknown-emscripten/release/pacman.js ./static/pacman.js
+COPY --from=wasm-builder /app/target/wasm32-unknown-emscripten/release/deps/pacman.data ./static/pacman.data
+
+# Optimize WASM binary for size (typically 5-15% reduction)
+RUN ORIGINAL_SIZE=$(stat -c%s ./static/pacman.wasm) && \
+    wasm-opt -Oz --strip-debug ./static/pacman.wasm -o ./static/pacman.wasm && \
+    OPTIMIZED_SIZE=$(stat -c%s ./static/pacman.wasm) && \
+    echo "WASM optimized: ${ORIGINAL_SIZE} -> ${OPTIMIZED_SIZE} bytes ($(( (ORIGINAL_SIZE - OPTIMIZED_SIZE) * 100 / ORIGINAL_SIZE ))% reduction)"
 
 # Verify WASM artifacts exist and have reasonable sizes
-RUN test -f ./public/pacman.wasm && \
-    test -f ./public/pacman.js && \
-    test -f ./public/pacman.data && \
-    [ $(stat -c%s ./public/pacman.wasm) -gt $((1024 * 1024)) ] && \
-    [ $(stat -c%s ./public/pacman.js) -gt $((100 * 1024)) ] && \
-    [ $(stat -c%s ./public/pacman.data) -gt $((10 * 1024)) ] && \
+RUN test -f ./static/pacman.wasm && \
+    test -f ./static/pacman.js && \
+    test -f ./static/pacman.data && \
+    [ $(stat -c%s ./static/pacman.wasm) -gt $((1024 * 1024)) ] && \
+    [ $(stat -c%s ./static/pacman.js) -gt $((100 * 1024)) ] && \
+    [ $(stat -c%s ./static/pacman.data) -gt $((10 * 1024)) ] && \
     echo "WASM artifacts verified (wasm >1MiB, js >100KiB, data >10KiB)" || \
     (echo "WASM artifacts missing or too small!" && exit 1)
 
-# Copy frontend source
-COPY web/ ./
-
-# Build frontend (Vite bundles WASM files from public/)
+# Build frontend (SvelteKit bundles WASM files from static/)
 RUN bun run build
 
 # ========== Stage 5: Backend Chef ==========
