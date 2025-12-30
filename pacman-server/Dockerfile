@@ -2,19 +2,24 @@ ARG RUST_VERSION=1.86.0
 ARG EMSDK_VERSION=4.0.22
 ARG GIT_COMMIT_SHA
 
-# ========== Stage 1: WASM Planner ==========
-FROM emscripten/emsdk:${EMSDK_VERSION} AS wasm-planner
+# ========== Stage 1: WASM Base (shared toolchain) ==========
+# This stage installs Rust and cargo-chef once, then is reused by other WASM stages
+FROM emscripten/emsdk:${EMSDK_VERSION} AS wasm-base
 ARG RUST_VERSION
 WORKDIR /app
 
-# Install Rust and cargo-chef for dependency caching
+# Install Rust with WASM target and cargo-chef (cached layer)
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     --default-toolchain ${RUST_VERSION} \
     --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN cargo install cargo-chef --locked
+RUN rustup target add wasm32-unknown-emscripten && \
+    cargo install cargo-chef --locked
 
-# Copy workspace for recipe generation
+# ========== Stage 2: WASM Planner ==========
+FROM wasm-base AS wasm-planner
+
+# Copy workspace for recipe generation (minimal files needed)
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY .cargo/ ./.cargo/
 COPY pacman-common/ ./pacman-common/
@@ -24,18 +29,8 @@ COPY pacman-server/ ./pacman-server/
 # Generate dependency recipe
 RUN cargo chef prepare --bin pacman --recipe-path recipe.json
 
-# ========== Stage 2: WASM Dependency Builder ==========
-FROM emscripten/emsdk:${EMSDK_VERSION} AS wasm-deps
-ARG RUST_VERSION
-WORKDIR /app
-
-# Install Rust with WASM target and cargo-chef
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
-    --default-toolchain ${RUST_VERSION} \
-    --profile minimal
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup target add wasm32-unknown-emscripten && \
-    cargo install cargo-chef --locked
+# ========== Stage 3: WASM Dependency Builder ==========
+FROM wasm-base AS wasm-deps
 
 # Cook dependencies only (this layer is cached until Cargo.toml/Cargo.lock change)
 # Note: Assets are required during linking due to --preload-file in rustflags
@@ -44,17 +39,8 @@ COPY .cargo/ ./.cargo/
 COPY pacman/assets/game/ ./pacman/assets/game/
 RUN cargo chef cook --release --target wasm32-unknown-emscripten --recipe-path recipe.json
 
-# ========== Stage 3: WASM Builder ==========
-FROM emscripten/emsdk:${EMSDK_VERSION} AS wasm-builder
-ARG RUST_VERSION
-WORKDIR /app
-
-# Install Rust with WASM target (minimal, no cargo-chef needed)
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
-    --default-toolchain ${RUST_VERSION} \
-    --profile minimal
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup target add wasm32-unknown-emscripten
+# ========== Stage 4: WASM Builder ==========
+FROM wasm-base AS wasm-builder
 
 # Copy cached dependencies from wasm-deps
 COPY --from=wasm-deps /app/target target
@@ -70,11 +56,11 @@ COPY pacman-server/ ./pacman-server/
 # Build WASM binary (dependencies already cached)
 RUN cargo build --release --target wasm32-unknown-emscripten --bin pacman
 
-# ========== Stage 4: Frontend Builder ==========
+# ========== Stage 5: Frontend Builder ==========
 FROM oven/bun:1 AS frontend-builder
 WORKDIR /app
 
-# Copy package files for dependency installation
+# Copy package files for dependency installation (cached until package.json/bun.lock change)
 COPY web/package.json web/bun.lock* ./
 RUN bun install --frozen-lockfile
 
@@ -100,30 +86,32 @@ RUN test -f ./static/pacman.wasm && \
 # Build frontend (SvelteKit bundles WASM files from static/)
 RUN bun run build
 
-# ========== Stage 5: Backend Chef ==========
+# ========== Stage 6: Backend Chef ==========
 FROM lukemathwalker/cargo-chef:latest-rust-${RUST_VERSION} AS chef
 WORKDIR /app
 
-# ========== Stage 6: Backend Planner ==========
+# Install build dependencies FIRST (cached layer - rarely changes)
+RUN apt-get update && \
+    apt-get install -y pkg-config libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# ========== Stage 7: Backend Planner ==========
 FROM chef AS planner
 COPY . .
 RUN cargo chef prepare --bin pacman-server --recipe-path recipe.json
 
-# ========== Stage 7: Backend Builder ==========
+# ========== Stage 8: Backend Builder ==========
 FROM chef AS builder
+
+# Cook dependencies first (cached until Cargo.toml/Cargo.lock change)
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --bin pacman-server --recipe-path recipe.json
 
-# Copy source code
+# Copy source code and build (only this layer invalidates on code changes)
 COPY . .
-
-# Install build dependencies and compile server
-RUN apt-get update && \
-    apt-get install -y pkg-config libssl-dev && \
-    rm -rf /var/lib/apt/lists/*
 RUN cargo build --package pacman-server --release --bin pacman-server
 
-# ========== Stage 8: Runtime ==========
+# ========== Stage 9: Runtime ==========
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 
