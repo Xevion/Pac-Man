@@ -1,0 +1,19 @@
+# Build output
+dist/
+build/
+.svelte-kit/
+
+# Dependencies
+node_modules/
+
+# Generated files
+.vercel/
+.netlify/
+static/pacman.data
+static/pacman.js
+static/pacman.wasm
+static/pacman.wasm.map
+
+# Package manager
+pnpm-lock.yaml
+bun.lockb

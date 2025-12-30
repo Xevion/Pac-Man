@@ -10,26 +10,23 @@ vcpkg:
 run *args:
     cargo run -p pacman {{args}}
 
-# Run all checks (clippy for desktop + wasm, warns on format)
+# Run all checks (clippy for desktop + wasm, warns on format) for pacman package
 check:
     @echo "Checking format..."
-    @cargo fmt --all -- --check || echo "⚠ Format issues detected (run \`just format\` to fix)"
+    @cargo fmt -p pacman -- --check || echo "⚠ Format issues detected (run \`just format\` to fix)"
     @echo "Running clippy for desktop target..."
-    @cargo clippy --all-targets --all-features --quiet -- -D warnings
+    @cargo clippy -p pacman --all-targets --all-features --quiet -- -D warnings
     @echo "Running clippy for wasm target..."
     @cargo clippy -p pacman --target wasm32-unknown-emscripten --all-targets --all-features --quiet -- -D warnings
-    @echo "Running frontend checks..."
-    @bun run --cwd web check
-    @bun run --cwd web lint
     @echo "All checks passed!"
 
-# Run tests with nextest
+# Run tests with nextest for pacman package
 test:
-    cargo nextest run --no-fail-fast
+    cargo nextest run -p pacman --no-fail-fast
 
-# Auto-format code
+# Auto-format code for pacman package
 format:
-    cargo fmt --all
+    cargo fmt -p pacman
 
 # Fix linting errors & formatting
 fix:

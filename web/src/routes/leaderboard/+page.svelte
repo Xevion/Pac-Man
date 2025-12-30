@@ -20,12 +20,7 @@
 				<tr class="bg-black">
 					<td class="py-2">
 						<div class="flex items-center gap-2">
-							<img
-								src={entry.avatar}
-								alt={entry.name}
-								class="w-9 h-9 rounded-sm"
-								loading="lazy"
-							/>
+							<img src={entry.avatar} alt={entry.name} class="w-9 h-9 rounded-sm" loading="lazy" />
 							<div class="flex flex-col">
 								<span class="text-yellow-400 font-semibold text-lg">{entry.name}</span>
 								<span class="text-xs text-gray-400">{entry.submittedAt}</span>
@@ -49,7 +44,10 @@
 	<div class="space-y-6">
 		<div class="card">
 			<div class="flex gap-2 border-b border-yellow-400/20 pb-2 mb-4">
-				<button onclick={() => (activeTab = 'global')} class={tabButtonClass(activeTab === 'global')}>
+				<button
+					onclick={() => (activeTab = 'global')}
+					class={tabButtonClass(activeTab === 'global')}
+				>
 					<IconTrophy size={16} />
 					Global
 				</button>

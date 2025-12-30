@@ -25,3 +25,15 @@ run: image
         --env PORT=3000 \
         --env-file pacman-server/.env \
         pacman-server
+
+# Run checks (clippy) for server package
+check:
+    cargo clippy -p pacman-server --all-targets --all-features --quiet -- -D warnings
+
+# Format code for server package
+format:
+    cargo fmt -p pacman-server
+
+# Run tests for server package
+test:
+    cargo nextest run -p pacman-server --no-fail-fast

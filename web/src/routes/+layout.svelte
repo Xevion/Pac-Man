@@ -167,7 +167,12 @@
 			</button>
 
 			<div class="flex items-center gap-8">
-				<NavLink href="/leaderboard" icon={IconTrophy} label="Leaderboard" active={isActive('/leaderboard')} />
+				<NavLink
+					href="/leaderboard"
+					icon={IconTrophy}
+					label="Leaderboard"
+					active={isActive('/leaderboard')}
+				/>
 
 				<a
 					href="/"
@@ -188,7 +193,12 @@
 					</h1>
 				</a>
 
-				<NavLink href="/download" icon={IconDownload} label="Download" active={isActive('/download')} />
+				<NavLink
+					href="/download"
+					icon={IconDownload}
+					label="Download"
+					active={isActive('/download')}
+				/>
 			</div>
 
 			<div class="absolute right-4 hidden sm:flex gap-4 items-center">
@@ -257,7 +267,13 @@
 				</div>
 				<div class="flex flex-col gap-3">
 					{#each links as link}
-						<NavLink href={link.href} icon={link.icon} label={link.label} active={isActive(link.href)} size={28} />
+						<NavLink
+							href={link.href}
+							icon={link.icon}
+							label={link.label}
+							active={isActive(link.href)}
+							size={28}
+						/>
 					{/each}
 				</div>
 			</div>

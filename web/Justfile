@@ -21,3 +21,16 @@ serve *args:
     bun run pacman/web.build.ts {{args}}
     bun run --cwd web build
     caddy file-server --root web/dist/client --listen :8547
+
+# Run checks (type-checking and linting)
+check:
+    bun run check
+    bun run lint
+
+# Format code
+format:
+    bun run format
+
+# Run tests
+test:
+    bun run test
