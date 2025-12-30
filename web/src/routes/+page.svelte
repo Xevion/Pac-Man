@@ -12,22 +12,21 @@
 	let loadError = $state<LoadingError | null>(null);
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-	// Fade out loading overlay when game becomes ready
-	$effect(() => {
-		if (gameReady && loadingVisible) {
-			const timer = setTimeout(() => {
-				loadingVisible = false;
-			}, LOADING_FADE_DURATION);
-			return () => clearTimeout(timer);
-		}
-	});
-
-	// Clear timeout when game is ready or error occurs
+	// Manage loading overlay fade and timeout cleanup
 	$effect(() => {
 		if (gameReady || loadError) {
+			// Clear loading timeout when ready or error
 			if (timeoutId) {
 				clearTimeout(timeoutId);
 				timeoutId = null;
+			}
+
+			// Fade out loading overlay when ready
+			if (gameReady && loadingVisible) {
+				const timer = setTimeout(() => {
+					loadingVisible = false;
+				}, LOADING_FADE_DURATION);
+				return () => clearTimeout(timer);
 			}
 		}
 	});
@@ -64,11 +63,7 @@
 
 	// Restart game when returning to this page
 	afterNavigate(() => {
-		requestAnimationFrame(() => {
-			setTimeout(() => {
-				restartGame();
-			}, 0);
-		});
+		restartGame();
 	});
 
 	function restartGame() {
@@ -209,14 +204,19 @@
 	}
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
 <div class="flex justify-center items-center h-full pt-4">
 	<div
 		role="button"
-		tabindex="-1"
+		tabindex="0"
 		class="relative block aspect-[5/6]"
 		style="height: min(calc(100vh - 96px), calc((100vw - 32px) * 6 / 5));"
 		onclick={handleInteraction}
+		onkeydown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				handleInteraction();
+			}
+		}}
 	>
 		<canvas id="canvas" tabindex="-1" class="w-full h-full" onclick={focusCanvas}></canvas>
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { page } from '$app/stores';
+	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { onNavigate } from '$app/navigation';
 	import { OverlayScrollbarsComponent } from 'overlayscrollbars-svelte';
@@ -10,11 +11,11 @@
 		IconDeviceGamepad3,
 		IconTrophy
 	} from '@tabler/icons-svelte';
+	import NavLink from '$lib/components/NavLink.svelte';
 
 	let { children } = $props();
 
 	let opened = $state(false);
-	let mounted = $state(false);
 
 	// Keys that the game uses - only these should reach SDL/Emscripten on the play page
 	const GAME_KEYS = new Set([
@@ -41,8 +42,6 @@
 	]);
 
 	onMount(() => {
-		mounted = true;
-
 		// Global keyboard filter to prevent SDL/Emscripten from capturing keys.
 		// SDL's handlers persist globally even after navigating away from the play page.
 		// This filter ensures browser shortcuts (F5, F12, Ctrl+R, etc.) always work.
@@ -152,7 +151,7 @@
 <svelte:head>
 	<link rel="icon" href="/favicon.ico" />
 	<title>Pac-Man</title>
-	<meta name="description" content="A Pac-Man game built with Rust and React." />
+	<meta name="description" content="A Pac-Man game built with Rust and Svelte." />
 </svelte:head>
 
 <div class="bg-black text-yellow-400 h-screen flex flex-col overflow-hidden">
@@ -168,15 +167,7 @@
 			</button>
 
 			<div class="flex items-center gap-8">
-				<a
-					href="/leaderboard"
-					class="flex items-center gap-1.5 tracking-wide transition-colors duration-200 {isActive('/leaderboard')
-						? 'text-white'
-						: 'text-gray-500 hover:text-gray-300'}"
-				>
-					<IconTrophy size={18} />
-					<span>Leaderboard</span>
-				</a>
+				<NavLink href="/leaderboard" icon={IconTrophy} label="Leaderboard" active={isActive('/leaderboard')} />
 
 				<a
 					href="/"
@@ -197,15 +188,7 @@
 					</h1>
 				</a>
 
-				<a
-					href="/download"
-					class="flex items-center gap-1.5 tracking-wide transition-colors duration-200 {isActive('/download')
-						? 'text-white'
-						: 'text-gray-500 hover:text-gray-300'}"
-				>
-					<IconDownload size={18} />
-					<span>Download</span>
-				</a>
+				<NavLink href="/download" icon={IconDownload} label="Download" active={isActive('/download')} />
 			</div>
 
 			<div class="absolute right-4 hidden sm:flex gap-4 items-center">
@@ -223,7 +206,7 @@
 		</div>
 	</header>
 
-	{#if mounted}
+	{#if browser}
 		<OverlayScrollbarsComponent
 			defer
 			options={{
@@ -247,8 +230,18 @@
 
 	{#if opened}
 		<div class="fixed inset-0 z-30">
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<div role="button" tabindex="-1" class="absolute inset-0 bg-black/60" onclick={close}></div>
+			<div
+				role="button"
+				tabindex="0"
+				class="absolute inset-0 bg-black/60"
+				onclick={close}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						close();
+					}
+				}}
+			></div>
 			<div
 				class="absolute left-0 top-0 h-full w-72 max-w-[80vw] bg-black border-r border-yellow-400/25 p-4"
 			>
@@ -264,15 +257,7 @@
 				</div>
 				<div class="flex flex-col gap-3">
 					{#each links as link}
-						<a
-							href={link.href}
-							class="flex items-center gap-1.5 tracking-wide transition-colors duration-200 {isActive(link.href)
-								? 'text-white'
-								: 'text-gray-500 hover:text-gray-300'}"
-						>
-							<link.icon size={28} />
-							<span>{link.label}</span>
-						</a>
+						<NavLink href={link.href} icon={link.icon} label={link.label} active={isActive(link.href)} size={28} />
 					{/each}
 				</div>
 			</div>

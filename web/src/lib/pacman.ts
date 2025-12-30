@@ -6,7 +6,7 @@ export interface PacmanModule {
 	_stop_game?: () => void;
 	_restart_game?: () => void;
 	locateFile: (path: string) => string;
-	preRun: unknown[];
+	preRun: Array<() => void>;
 	// Emscripten lifecycle hooks
 	onAbort?: (what: unknown) => void;
 	onRuntimeInitialized?: () => void;
