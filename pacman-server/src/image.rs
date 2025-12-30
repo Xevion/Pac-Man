@@ -5,10 +5,10 @@ use s3::Bucket;
 use sha2::Digest;
 use tracing::trace;
 
-use crate::config::Config;
+use crate::config::S3Config;
 
 /// Minimal S3-backed image storage. This keeps things intentionally simple for now:
-/// - construct from existing `Config`
+/// - construct from existing `S3Config`
 /// - upload raw bytes under a key
 /// - upload a local file by path (reads whole file into memory)
 /// - generate a simple presigned GET URL
@@ -22,14 +22,14 @@ pub struct ImageStorage {
 }
 
 impl ImageStorage {
-    /// Create a new storage for a specific `bucket_name` using settings from `Config`.
+    /// Create a new storage for a specific `bucket_name` using the provided S3 config.
     ///
     /// This uses a custom region + endpoint so it works across AWS S3 and compatible services
     /// such as Cloudflare R2 and MinIO.
-    pub fn new(config: &Config, bucket_name: impl Into<String>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn new(config: &S3Config, bucket_name: impl Into<String>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let credentials = s3::creds::Credentials::new(
-            Some(&config.s3_access_key),
-            Some(&config.s3_secret_access_key),
+            Some(&config.access_key),
+            Some(&config.secret_access_key),
             None, // security token
             None, // session token
             None, // profile
@@ -46,7 +46,7 @@ impl ImageStorage {
 
         Ok(Self {
             bucket: Arc::new(bucket),
-            public_base_url: config.s3_public_base_url.clone(),
+            public_base_url: config.public_base_url.clone(),
         })
     }
 
@@ -172,9 +172,9 @@ pub struct AvatarUrls {
 }
 
 impl ImageStorage {
-    /// Create a new storage using the default bucket from `Config`.
-    pub fn from_config(config: &Config) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        Self::new(config, &config.s3_bucket_name)
+    /// Create a new storage using the bucket from `S3Config`.
+    pub fn from_config(config: &S3Config) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        Self::new(config, &config.bucket_name)
     }
 }
 

@@ -1,6 +1,8 @@
 use serde::Serialize;
 use sqlx::FromRow;
 
+use super::pool::PgPool;
+
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct User {
     pub id: i64,
@@ -23,7 +25,7 @@ pub struct OAuthAccount {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-pub async fn find_user_by_email(pool: &sqlx::PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
+pub async fn find_user_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as::<_, User>(
         r#"
         SELECT id, email, created_at, updated_at
@@ -37,7 +39,7 @@ pub async fn find_user_by_email(pool: &sqlx::PgPool, email: &str) -> Result<Opti
 
 #[allow(clippy::too_many_arguments)]
 pub async fn link_oauth_account(
-    pool: &sqlx::PgPool,
+    pool: &PgPool,
     user_id: i64,
     provider: &str,
     provider_user_id: &str,
@@ -66,7 +68,7 @@ pub async fn link_oauth_account(
     .await
 }
 
-pub async fn create_user(pool: &sqlx::PgPool, email: Option<&str>) -> Result<User, sqlx::Error> {
+pub async fn create_user(pool: &PgPool, email: Option<&str>) -> Result<User, sqlx::Error> {
     sqlx::query_as::<_, User>(
         r#"
         INSERT INTO users (email)
@@ -81,7 +83,7 @@ pub async fn create_user(pool: &sqlx::PgPool, email: Option<&str>) -> Result<Use
 }
 
 pub async fn find_user_by_provider_id(
-    pool: &sqlx::PgPool,
+    pool: &PgPool,
     provider: &str,
     provider_user_id: &str,
 ) -> Result<Option<User>, sqlx::Error> {
@@ -110,7 +112,7 @@ pub struct ProviderPublic {
     pub avatar_url: Option<String>,
 }
 
-pub async fn list_user_providers(pool: &sqlx::PgPool, user_id: i64) -> Result<Vec<ProviderPublic>, sqlx::Error> {
+pub async fn list_user_providers(pool: &PgPool, user_id: i64) -> Result<Vec<ProviderPublic>, sqlx::Error> {
     let recs = sqlx::query_as::<_, ProviderPublic>(
         r#"
         SELECT provider, provider_user_id, email, username, display_name, avatar_url

@@ -5,6 +5,7 @@ use crate::{
     app::{create_router, AppState},
     auth::AuthRegistry,
     config::Config,
+    data::pool::{create_dummy_pool, create_pool},
 };
 use std::sync::Arc;
 use std::time::Instant;
@@ -48,24 +49,52 @@ async fn main() {
     logging::setup_logging();
     trace!(host = %config.host, port = config.port, shutdown_timeout_seconds = config.shutdown_timeout_seconds, "Loaded server configuration");
 
+    // Log configuration status
+    info!(
+        database = config.database.is_some(),
+        discord = config.discord.is_some(),
+        github = config.github.is_some(),
+        s3 = config.s3.is_some(),
+        "Feature configuration"
+    );
+
     let addr = std::net::SocketAddr::new(config.host, config.port);
     let shutdown_timeout = std::time::Duration::from_secs(config.shutdown_timeout_seconds as u64);
-    let auth = AuthRegistry::new(&config).expect("auth initializer");
-    let db = data::pool::create_pool(true, &config.database_url, 10).await;
 
-    // Run database migrations at startup
-    if let Err(e) = sqlx::migrate!("./migrations").run(&db).await {
-        panic!("failed to run database migrations: {}", e);
-    }
+    // Initialize auth registry (only enabled providers will be registered)
+    let auth = AuthRegistry::new(&config).expect("auth initializer");
+
+    // Initialize database - either connect to configured database or create a dummy pool
+    let db = if let Some(ref db_config) = config.database {
+        info!("Connecting to configured database");
+        let pool = create_pool(true, &db_config.url, 10).await;
+
+        // Run migrations
+        info!("Running database migrations");
+        if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
+            panic!("failed to run database migrations: {}", e);
+        }
+
+        pool
+    } else {
+        info!("No database configured, creating dummy pool (database-dependent features will be unavailable)");
+        create_dummy_pool()
+    };
 
     // Create the shutdown notification before creating AppState
     let notify = Arc::new(Notify::new());
 
     let app_state = AppState::new(config, auth, db, notify.clone()).await;
     {
-        // migrations succeeded
+        // Set health status based on configuration
         let mut h = app_state.health.write().await;
-        h.set_migrations(true);
+        if app_state.database_configured {
+            // Database was configured - migrations ran successfully
+            h.set_migrations(true);
+            h.set_database(true);
+        }
+        // If database is not configured, Health::ok() returns true by default
+        // because database_enabled is false
     }
 
     let app = create_router(app_state);

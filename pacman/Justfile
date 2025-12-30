@@ -2,6 +2,10 @@ set shell := ["bash", "-c"]
 
 binary_extension := if os() == "windows" { ".exe" } else { "" }
 
+# Run cargo-vcpkg build for SDL2 dependencies
+vcpkg:
+	cargo vcpkg build
+
 # Run the game, pass args (e.g., `just pacman::run -r` for release)
 run *args:
     cargo run -p pacman {{args}}

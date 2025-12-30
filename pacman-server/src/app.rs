@@ -18,10 +18,16 @@ use crate::{auth::AuthRegistry, config::Config, image::ImageStorage, routes};
 pub struct Health {
     migrations: bool,
     database: bool,
+    /// Whether database is configured at all
+    database_enabled: bool,
 }
 
 impl Health {
     pub fn ok(&self) -> bool {
+        // If database is not enabled, we're healthy as long as we don't require it
+        if !self.database_enabled {
+            return true;
+        }
         self.migrations && self.database
     }
 
@@ -31,6 +37,10 @@ impl Health {
 
     pub fn set_database(&mut self, ok: bool) {
         self.database = ok;
+    }
+
+    pub fn set_database_enabled(&mut self, enabled: bool) {
+        self.database_enabled = enabled;
     }
 }
 
@@ -42,33 +52,45 @@ pub struct AppState {
     pub jwt_decoding_key: Arc<DecodingKey>,
     pub db: PgPool,
     pub health: Arc<RwLock<Health>>,
-    pub image_storage: Arc<ImageStorage>,
+    pub image_storage: Option<Arc<ImageStorage>>,
     pub healthchecker_task: Arc<RwLock<Option<JoinHandle<()>>>>,
+    /// Whether the database is actually configured (vs SQLite in-memory fallback)
+    pub database_configured: bool,
 }
 
 impl AppState {
     pub async fn new(config: Config, auth: AuthRegistry, db: PgPool, shutdown_notify: Arc<Notify>) -> Self {
-        Self::new_with_database(config, auth, db, shutdown_notify, true).await
+        Self::new_with_options(config, auth, db, shutdown_notify, true).await
     }
 
-    pub async fn new_with_database(
+    pub async fn new_with_options(
         config: Config,
         auth: AuthRegistry,
         db: PgPool,
         shutdown_notify: Arc<Notify>,
-        use_database: bool,
+        use_database_healthcheck: bool,
     ) -> Self {
         let jwt_secret = config.jwt_secret.clone();
+        let database_configured = config.database.is_some();
 
-        // Initialize image storage
-        let image_storage = match ImageStorage::from_config(&config) {
-            Ok(storage) => Arc::new(storage),
-            Err(e) => {
-                tracing::warn!(error = %e, "Failed to initialize image storage, avatar processing will be disabled");
-                // Create a dummy storage that will fail gracefully
-                Arc::new(ImageStorage::new(&config, "dummy").unwrap_or_else(|_| panic!("Failed to create dummy image storage")))
-            }
-        };
+        // Initialize image storage only if S3 is configured
+        let image_storage = config
+            .s3
+            .as_ref()
+            .and_then(|s3_config| match ImageStorage::from_config(s3_config) {
+                Ok(storage) => {
+                    tracing::info!("Image storage initialized");
+                    Some(Arc::new(storage))
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "Failed to initialize image storage, avatar processing will be disabled");
+                    None
+                }
+            });
+
+        if image_storage.is_none() && config.s3.is_none() {
+            tracing::info!("S3 not configured, image storage disabled");
+        }
 
         let app_state = Self {
             auth: Arc::new(auth),
@@ -79,10 +101,17 @@ impl AppState {
             health: Arc::new(RwLock::new(Health::default())),
             image_storage,
             healthchecker_task: Arc::new(RwLock::new(None)),
+            database_configured,
         };
 
-        // Start the healthchecker task only if database is being used
-        if use_database {
+        // Set database enabled status
+        {
+            let mut h = app_state.health.write().await;
+            h.set_database_enabled(database_configured);
+        }
+
+        // Start the healthchecker task only if database healthcheck is enabled
+        if use_database_healthcheck && database_configured {
             let health_state = app_state.health.clone();
             let db_pool = app_state.db.clone();
             let healthchecker_task = app_state.healthchecker_task.clone();
@@ -131,6 +160,9 @@ impl AppState {
 
     /// Force an immediate health check (debug mode only)
     pub async fn check_health(&self) -> bool {
+        if !self.database_configured {
+            return true;
+        }
         let ok = sqlx::query("SELECT 1").execute(&self.db).await.is_ok();
         let mut h = self.health.write().await;
         h.set_database(ok);

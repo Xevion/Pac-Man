@@ -3,7 +3,8 @@ use bon::builder;
 use pacman_server::{
     app::{create_router, AppState},
     auth::AuthRegistry,
-    config::Config,
+    config::{Config, DatabaseConfig, DiscordConfig, GithubConfig},
+    data::pool::{create_dummy_pool, create_pool},
 };
 use std::sync::{Arc, Once};
 use testcontainers::{
@@ -23,12 +24,24 @@ pub struct TestContext {
     pub config: Config,
     pub server: TestServer,
     pub app_state: AppState,
-    // Optional database
+    // Optional database container (only for Postgres tests)
     pub container: Option<ContainerAsync<GenericImage>>,
 }
 
 #[builder]
-pub async fn test_context(#[builder(default = false)] use_database: bool, auth_registry: Option<AuthRegistry>) -> TestContext {
+pub async fn test_context(
+    /// Whether to use a real PostgreSQL database via testcontainers (default: false)
+    #[builder(default = false)]
+    use_database: bool,
+    /// Optional custom AuthRegistry (otherwise built from config)
+    auth_registry: Option<AuthRegistry>,
+    /// Include Discord OAuth config (default: true for backward compatibility)
+    #[builder(default = true)]
+    with_discord: bool,
+    /// Include GitHub OAuth config (default: true for backward compatibility)
+    #[builder(default = true)]
+    with_github: bool,
+) -> TestContext {
     CRYPTO_INIT.call_once(|| {
         rustls::crypto::ring::default_provider()
             .install_default()
@@ -38,7 +51,8 @@ pub async fn test_context(#[builder(default = false)] use_database: bool, auth_r
     // Set up logging
     std::env::set_var("RUST_LOG", "debug,sqlx=info");
     pacman_server::logging::setup_logging();
-    let (database_url, container) = if use_database {
+
+    let (database_config, container) = if use_database {
         let db = "testdb";
         let user = "testuser";
         let password = "testpass";
@@ -59,47 +73,59 @@ pub async fn test_context(#[builder(default = false)] use_database: bool, auth_r
         let port = container.get_host_port_ipv4(5432).await.unwrap();
 
         tracing::debug!(host = %host, port = %port, duration = ?duration, "Test database ready");
-        (
-            Some(format!("postgresql://{user}:{password}@{host}:{port}/{db}?sslmode=disable")),
-            Some(container),
-        )
+        let url = format!("postgresql://{user}:{password}@{host}:{port}/{db}?sslmode=disable");
+        (Some(DatabaseConfig { url }), Some(container))
     } else {
         (None, None)
     };
 
+    // Build OAuth configs if requested
+    let discord = if with_discord {
+        Some(DiscordConfig {
+            client_id: "test_discord_client_id".to_string(),
+            client_secret: "test_discord_client_secret".to_string(),
+        })
+    } else {
+        None
+    };
+
+    let github = if with_github {
+        Some(GithubConfig {
+            client_id: "test_github_client_id".to_string(),
+            client_secret: "test_github_client_secret".to_string(),
+        })
+    } else {
+        None
+    };
+
     let config = Config {
-        database_url: database_url.clone().unwrap_or_default(),
-        discord_client_id: "test_discord_client_id".to_string(),
-        discord_client_secret: "test_discord_client_secret".to_string(),
-        github_client_id: "test_github_client_id".to_string(),
-        github_client_secret: "test_github_client_secret".to_string(),
-        s3_access_key: "test_s3_access_key".to_string(),
-        s3_secret_access_key: "test_s3_secret_access_key".to_string(),
-        s3_bucket_name: "test_bucket".to_string(),
-        s3_public_base_url: "https://test.example.com".to_string(),
-        port: 0, // Will be set by test server
+        database: database_config,
+        discord,
+        github,
+        s3: None, // Tests don't need S3
+        port: 0,  // Will be set by test server
         host: "127.0.0.1".parse().unwrap(),
         shutdown_timeout_seconds: 5,
         public_base_url: "http://localhost:3000".to_string(),
         jwt_secret: "test_jwt_secret_key_for_testing_only".to_string(),
     };
 
-    let db = if use_database {
-        let db = pacman_server::data::pool::create_pool(use_database, &database_url.unwrap(), 5).await;
+    // Create database pool
+    let db = if let Some(ref db_config) = config.database {
+        let pool = create_pool(false, &db_config.url, 5).await;
 
-        // Run migrations
+        // Run migrations for Postgres
         sqlx::migrate!("./migrations")
-            .run(&db)
+            .run(&pool)
             .instrument(debug_span!("running_migrations"))
             .await
             .expect("Failed to run database migrations");
         debug!("Database migrations ran successfully");
 
-        db
+        pool
     } else {
-        // Create a dummy database pool that will fail gracefully
-        let dummy_url = "postgresql://dummy:dummy@localhost:5432/dummy?sslmode=disable";
-        pacman_server::data::pool::create_pool(false, dummy_url, 1).await
+        // Create dummy pool for tests that don't need database
+        create_dummy_pool()
     };
 
     // Create auth registry
@@ -107,13 +133,15 @@ pub async fn test_context(#[builder(default = false)] use_database: bool, auth_r
 
     // Create app state
     let notify = Arc::new(Notify::new());
-    let app_state = AppState::new_with_database(config.clone(), auth, db, notify, use_database).await;
+    let app_state = AppState::new_with_options(config.clone(), auth, db, notify, use_database).await;
 
-    // Set health status based on database usage
+    // Set health status
     {
         let mut health = app_state.health.write().await;
-        health.set_migrations(use_database);
-        health.set_database(use_database);
+        if use_database {
+            health.set_migrations(true);
+            health.set_database(true);
+        }
     }
 
     let router = create_router(app_state.clone());

@@ -35,3 +35,5 @@ dev:
 # Build and preview frontend (web::up)
 up:
     @just web::up
+
+alias vcpkg := pacman::vcpkg

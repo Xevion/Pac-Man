@@ -53,6 +53,17 @@ pub async fn oauth_callback_handler(
     Query(params): Query<OAuthCallbackParams>,
     cookie: CookieManager,
 ) -> axum::response::Response {
+    // Check if database is configured - required for OAuth callback to work
+    if !app_state.database_configured {
+        warn!("OAuth callback attempted but database is not configured");
+        return ErrorResponse::with_status(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "database_not_configured",
+            Some("Database is not configured. User authentication requires a database.".into()),
+        )
+        .into_response();
+    }
+
     // Validate provider
     let Some(prov) = app_state.auth.get(&provider) else {
         warn!(%provider, "Unknown OAuth provider");
@@ -146,33 +157,35 @@ pub async fn oauth_callback_handler(
     session::set_session_cookie(&cookie, &session_token);
     info!(%provider, "Signed in successfully");
 
-    // Process avatar asynchronously (don't block the response)
-    if let Some(avatar_url) = user.avatar_url.as_deref() {
-        let image_storage = app_state.image_storage.clone();
-        let user_public_id = user.id.clone();
-        let avatar_url = avatar_url.to_string();
-        debug!(%user_public_id, %avatar_url, "Processing avatar");
+    // Process avatar asynchronously (don't block the response) - only if image storage is configured
+    if let Some(image_storage) = &app_state.image_storage {
+        if let Some(avatar_url) = user.avatar_url.as_deref() {
+            let image_storage = image_storage.clone();
+            let user_public_id = user.id.clone();
+            let avatar_url = avatar_url.to_string();
+            debug!(%user_public_id, %avatar_url, "Processing avatar");
 
-        tokio::spawn(async move {
-            match image_storage.process_avatar(&user_public_id, &avatar_url).await {
-                Ok(avatar_urls) => {
-                    info!(
-                        user_id = %user_public_id,
-                        original_url = %avatar_urls.original_url,
-                        mini_url = %avatar_urls.mini_url,
-                        "Avatar processed successfully"
-                    );
+            tokio::spawn(async move {
+                match image_storage.process_avatar(&user_public_id, &avatar_url).await {
+                    Ok(avatar_urls) => {
+                        info!(
+                            user_id = %user_public_id,
+                            original_url = %avatar_urls.original_url,
+                            mini_url = %avatar_urls.mini_url,
+                            "Avatar processed successfully"
+                        );
+                    }
+                    Err(e) => {
+                        warn!(
+                            user_id = %user_public_id,
+                            avatar_url = %avatar_url,
+                            error = %e,
+                            "Failed to process avatar"
+                        );
+                    }
                 }
-                Err(e) => {
-                    warn!(
-                        user_id = %user_public_id,
-                        avatar_url = %avatar_url,
-                        error = %e,
-                        "Failed to process avatar"
-                    );
-                }
-            }
-        });
+            });
+        }
     }
 
     (StatusCode::FOUND, Redirect::to("/api/profile")).into_response()
@@ -182,6 +195,16 @@ pub async fn oauth_callback_handler(
 ///
 /// Requires the `session` cookie to be present.
 pub async fn profile_handler(State(app_state): State<AppState>, cookie: CookieManager) -> axum::response::Response {
+    // Check if database is configured
+    if !app_state.database_configured {
+        return ErrorResponse::with_status(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "database_not_configured",
+            Some("Database is not configured. Profile lookup requires a database.".into()),
+        )
+        .into_response();
+    }
+
     let Some(token_str) = session::get_session_token(&cookie) else {
         debug!("Missing session cookie");
         return ErrorResponse::unauthorized("missing session cookie").into_response();
@@ -287,8 +310,17 @@ pub async fn health_handler(
         app_state.check_health().await;
     }
 
-    let ok = app_state.health.read().await.ok();
+    let health = app_state.health.read().await;
+    let ok = health.ok();
     let status = if ok { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
-    let body = serde_json::json!({ "ok": ok });
+
+    // Include more details in the health response
+    let body = serde_json::json!({
+        "ok": ok,
+        "database_configured": app_state.database_configured,
+        "auth_providers": app_state.auth.len(),
+        "image_storage_enabled": app_state.image_storage.is_some(),
+    });
+
     (status, axum::Json(body)).into_response()
 }
