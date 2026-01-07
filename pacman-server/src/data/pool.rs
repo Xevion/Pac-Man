@@ -10,7 +10,7 @@ pub type PgPool = Pool<Postgres>;
 /// - `database_url`: The database connection URL.
 /// - `max_connections`: Maximum number of connections in the pool.
 pub async fn create_pool(immediate: bool, database_url: &str, max_connections: u32) -> PgPool {
-    info!(immediate, "Connecting to PostgreSQL");
+    info!(immediate, url = %redact_url(database_url), "Connecting to PostgreSQL");
 
     let options = PgPoolOptions::new().max_connections(max_connections);
 
@@ -26,13 +26,24 @@ pub async fn create_pool(immediate: bool, database_url: &str, max_connections: u
     }
 }
 
-/// Create a dummy pool that will fail on any actual database operation.
+/// Create a dummy PostgreSQL pool that will fail on any actual database operation.
 /// Used when database is not configured but the app still needs to start.
 pub fn create_dummy_pool() -> PgPool {
-    // This creates a pool with an invalid URL that will fail on actual use
-    // The pool itself can be created (lazy), but any operation will fail
     PgPoolOptions::new()
         .max_connections(1)
         .connect_lazy("postgres://invalid:invalid@localhost:5432/invalid")
         .expect("Failed to create dummy pool")
+}
+
+/// Redact password from database URL for logging.
+fn redact_url(url: &str) -> String {
+    if let Some(at_pos) = url.find('@') {
+        if let Some(colon_pos) = url[..at_pos].rfind(':') {
+            let scheme_end = url.find("://").map(|p| p + 3).unwrap_or(0);
+            if colon_pos > scheme_end {
+                return format!("{}:***{}", &url[..colon_pos], &url[at_pos..]);
+            }
+        }
+    }
+    url.to_string()
 }

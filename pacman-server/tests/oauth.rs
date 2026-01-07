@@ -2,19 +2,22 @@ use std::{collections::HashMap, sync::Arc};
 
 use pacman_server::{
     auth::{
-        provider::{AuthUser, MockOAuthProvider, OAuthProvider},
+        provider::{MockOAuthProvider, OAuthProvider},
         AuthRegistry,
     },
-    data::user as user_repo,
     session,
 };
 use pretty_assertions::assert_eq;
+
+#[cfg(feature = "postgres-tests")]
+use pacman_server::auth::provider::AuthUser;
+#[cfg(feature = "postgres-tests")]
 use time::Duration;
 
 mod common;
 use crate::common::{test_context, TestContext};
 
-/// Test the basic authorization redirect flow
+/// Test the basic authorization redirect flow (no database needed)
 #[tokio::test]
 async fn test_oauth_authorization_redirect() {
     let mut mock = MockOAuthProvider::new();
@@ -41,9 +44,12 @@ async fn test_oauth_authorization_redirect() {
     assert!(session::is_pkce_session(&claims), "A PKCE session should be set");
 }
 
-/// Test new user registration via OAuth callback
+/// Test new user registration via OAuth callback (requires postgres-tests feature)
 #[tokio::test]
+#[cfg(feature = "postgres-tests")]
 async fn test_new_user_registration() {
+    use pacman_server::data::user as user_repo;
+
     let mut mock = MockOAuthProvider::new();
     mock.expect_handle_callback().returning(|_, _, _, _| {
         Ok(AuthUser {
@@ -80,9 +86,12 @@ async fn test_new_user_registration() {
     assert_eq!(providers[0].provider_user_id, "newuser123");
 }
 
-/// Test sign-in for an existing user with an already-linked provider
+/// Test sign-in for an existing user with an already-linked provider (requires postgres-tests feature)
 #[tokio::test]
+#[cfg(feature = "postgres-tests")]
 async fn test_existing_user_signin() {
+    use pacman_server::data::user as user_repo;
+
     let mut mock = MockOAuthProvider::new();
     mock.expect_handle_callback().returning(|_, _, _, _| {
         Ok(AuthUser {
@@ -124,16 +133,19 @@ async fn test_existing_user_signin() {
     assert_eq!(response.headers().get("location").unwrap(), "/api/profile");
 
     // Verify no new user was created
-    let users = sqlx::query("SELECT * FROM users")
+    let users: Vec<_> = sqlx::query("SELECT * FROM users")
         .fetch_all(&context.app_state.db)
         .await
         .unwrap();
     assert_eq!(users.len(), 1, "No new user should be created");
 }
 
-/// Test implicit account linking via a shared verified email
+/// Test implicit account linking via a shared verified email (requires postgres-tests feature)
 #[tokio::test]
+#[cfg(feature = "postgres-tests")]
 async fn test_implicit_account_linking() {
+    use pacman_server::data::user as user_repo;
+
     // 1. User signs in with 'provider-a'
     let mut mock_a = MockOAuthProvider::new();
     mock_a.expect_handle_callback().returning(|_, _, _, _| {
@@ -185,7 +197,7 @@ async fn test_implicit_account_linking() {
     assert_eq!(response2.status_code(), 302);
 
     // Assertions: No new user, but a new provider link
-    let users = sqlx::query("SELECT * FROM users")
+    let users: Vec<_> = sqlx::query("SELECT * FROM users")
         .fetch_all(&context.app_state.db)
         .await
         .unwrap();
@@ -197,9 +209,12 @@ async fn test_implicit_account_linking() {
     assert!(providers2.iter().any(|p| p.provider == "provider-b"));
 }
 
-/// Test that an unverified email does NOT link accounts
+/// Test that an unverified email does NOT link accounts (requires postgres-tests feature)
 #[tokio::test]
+#[cfg(feature = "postgres-tests")]
 async fn test_unverified_email_creates_new_account() {
+    use pacman_server::data::user as user_repo;
+
     let mut mock = MockOAuthProvider::new();
     mock.expect_handle_callback().returning(|_, _, _, _| {
         Ok(AuthUser {
@@ -228,15 +243,16 @@ async fn test_unverified_email_creates_new_account() {
     assert_eq!(response.status_code(), 302);
 
     // Should create a second user because the email wasn't trusted for linking
-    let users = sqlx::query("SELECT * FROM users")
+    let users: Vec<_> = sqlx::query("SELECT * FROM users")
         .fetch_all(&context.app_state.db)
         .await
         .unwrap();
     assert_eq!(users.len(), 2, "A new user should be created for the unverified email");
 }
 
-/// Test logout functionality
+/// Test logout functionality (requires postgres-tests feature)
 #[tokio::test]
+#[cfg(feature = "postgres-tests")]
 async fn test_logout_functionality() {
     let mut mock = MockOAuthProvider::new();
     mock.expect_handle_callback().returning(|_, _, _, _| {

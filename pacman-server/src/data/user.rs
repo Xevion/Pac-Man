@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::FromRow;
 
@@ -7,8 +8,8 @@ use super::pool::PgPool;
 pub struct User {
     pub id: i64,
     pub email: Option<String>,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -21,8 +22,8 @@ pub struct OAuthAccount {
     pub username: Option<String>,
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 pub async fn find_user_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
@@ -53,7 +54,7 @@ pub async fn link_oauth_account(
         INSERT INTO oauth_accounts (user_id, provider, provider_user_id, email, username, display_name, avatar_url)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (provider, provider_user_id)
-        DO UPDATE SET email = EXCLUDED.email, username = EXCLUDED.username, display_name = EXCLUDED.display_name, avatar_url = EXCLUDED.avatar_url, user_id = EXCLUDED.user_id, updated_at = NOW()
+        DO UPDATE SET email = EXCLUDED.email, username = EXCLUDED.username, display_name = EXCLUDED.display_name, avatar_url = EXCLUDED.avatar_url, user_id = EXCLUDED.user_id, updated_at = CURRENT_TIMESTAMP
         RETURNING id, user_id, provider, provider_user_id, email, username, display_name, avatar_url, created_at, updated_at
         "#,
     )

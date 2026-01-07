@@ -1,12 +1,14 @@
 mod common;
-use crate::common::test_context;
-use cookie::Cookie;
-use pacman_server::{data::user as user_repo, session};
 
-use pretty_assertions::assert_eq;
-
+/// Test session management (requires postgres-tests feature)
 #[tokio::test]
+#[cfg(feature = "postgres-tests")]
 async fn test_session_management() {
+    use crate::common::test_context;
+    use cookie::Cookie;
+    use pacman_server::{data::user as user_repo, session};
+    use pretty_assertions::assert_eq;
+
     let context = test_context().use_database(true).call().await;
 
     // 1. Create a user and link a provider account

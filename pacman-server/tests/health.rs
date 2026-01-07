@@ -1,11 +1,11 @@
 mod common;
 
-use pretty_assertions::assert_eq;
-
+#[cfg(feature = "postgres-tests")]
 use crate::common::{test_context, TestContext};
 
-/// Test health endpoint functionality with real database connectivity
+/// Test health endpoint with PostgreSQL (requires postgres-tests feature)
 #[tokio::test]
+#[cfg(feature = "postgres-tests")]
 async fn test_health_endpoint() {
     let TestContext { server, container, .. } = test_context().use_database(true).call().await;
 
