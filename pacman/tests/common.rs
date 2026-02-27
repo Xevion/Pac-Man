@@ -13,9 +13,9 @@ use pacman::{
         graph::{Graph, Node},
     },
     systems::{
-        item_collision_observer, AudioEvent, AudioState, BufferedDirection, Collider, DebugState, DeltaTime, EntityType,
-        FruitSprites, GhostCollider, GhostState, GhostType, GlobalState, ItemCollider, MovementModifiers, PacmanCollider,
-        PelletCount, PlayerControlled, Position, ScoreResource, Velocity,
+        item_collision_observer, AudioEvent, BufferedDirection, Collider, DebugState, DeltaTime, EntityType, FruitSprites,
+        GhostCollider, GhostState, GhostType, GlobalState, ItemCollider, MovementModifiers, PacmanCollider, PelletCount,
+        PlayerControlled, Position, ScoreResource, Velocity,
     },
     texture::sprite::{AtlasMapper, AtlasTile, SpriteAtlas},
 };
@@ -84,7 +84,6 @@ pub fn create_test_world() -> (World, Schedule) {
     world.insert_resource(Events::<AudioEvent>::default());
     world.insert_resource(ScoreResource(0));
     world.insert_resource(FruitSprites::default());
-    world.insert_resource(AudioState::default());
     world.insert_resource(GlobalState { exit: false });
     world.insert_resource(DebugState::default());
     world.insert_resource(PelletCount(0));

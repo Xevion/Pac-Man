@@ -22,10 +22,10 @@ use crate::platform;
 use crate::systems::item::PelletCount;
 use crate::systems::state::{IntroPlayed, PauseState};
 use crate::systems::{
-    ghost_collision_observer, item_collision_observer, AudioEvent, AudioResource, AudioState, BackbufferResource,
-    BatchedLinesResource, Bindings, CanvasResource, CursorPosition, DebugState, DebugTextureResource, DeltaTime, FruitSprites,
-    GameStage, GlobalState, LinearAnimation, MapTextureResource, PlayerAnimation, PlayerDeathAnimation, PlayerLives, RenderDirty,
-    ScoreResource, SystemTimings, Timing, TouchState, TtfAtlasResource,
+    ghost_collision_observer, item_collision_observer, AudioEvent, AudioResource, BackbufferResource, BatchedLinesResource,
+    Bindings, CanvasResource, CursorPosition, DebugState, DebugTextureResource, DeltaTime, FruitSprites, GameStage, GlobalState,
+    LinearAnimation, MapTextureResource, PlayerAnimation, PlayerDeathAnimation, PlayerLives, RenderDirty, ScoreResource,
+    SystemTimings, Timing, TouchState, TtfAtlasResource,
 };
 use crate::texture::sprite::{AtlasMapper, SpriteAtlas};
 use crate::texture::sprites::{GameSprite, MazeSprite};
@@ -225,7 +225,6 @@ pub(super) fn insert_resources(
     world.insert_resource(DeltaTime { seconds: 0.0, ticks: 0 });
     world.insert_resource(RenderDirty::default());
     world.insert_resource(DebugState::default());
-    world.insert_resource(AudioState::default());
     world.insert_resource(IntroPlayed::default());
     world.insert_resource(CursorPosition::default());
     world.insert_resource(TouchState::default());

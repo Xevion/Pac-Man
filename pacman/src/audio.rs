@@ -258,15 +258,6 @@ impl Audio {
         matches!(self.state, AudioState::Muted { .. })
     }
 
-    /// Returns whether the audio system failed to initialize and is non-functional.
-    ///
-    /// Audio can be disabled due to SDL2_mixer initialization failures, missing
-    /// audio device, or failure to load any sound assets. When disabled, all
-    /// audio operations become no-ops.
-    pub fn is_disabled(&self) -> bool {
-        matches!(self.state, AudioState::Disabled)
-    }
-
     /// Unlocks audio after user interaction (Emscripten only).
     ///
     /// Transitions from Suspended to Enabled state, allowing audio to play.

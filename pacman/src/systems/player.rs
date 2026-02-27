@@ -1,6 +1,6 @@
 use bevy_ecs::{
     component::Component,
-    event::EventReader,
+    event::{EventReader, EventWriter},
     query::{With, Without},
     system::{Query, Res, ResMut, Single},
 };
@@ -13,7 +13,7 @@ use crate::{
         components::{DeltaTime, EntityType, Frozen, GlobalState, MovementModifiers},
         debug::DebugState,
         movement::{BufferedDirection, Position, Velocity},
-        AudioState,
+        AudioEvent,
     },
 };
 
@@ -37,7 +37,7 @@ pub fn player_control_system(
     mut events: EventReader<GameEvent>,
     mut state: ResMut<GlobalState>,
     mut debug_state: ResMut<DebugState>,
-    mut audio_state: ResMut<AudioState>,
+    mut audio_events: EventWriter<AudioEvent>,
     mut player: Option<Single<&mut BufferedDirection, (With<PlayerControlled>, Without<Frozen>)>>,
 ) {
     // Handle events
@@ -62,8 +62,7 @@ pub fn player_control_system(
                 debug_state.enabled = !debug_state.enabled;
             }
             GameCommand::MuteAudio => {
-                audio_state.muted = !audio_state.muted;
-                tracing::info!("Audio {}", if audio_state.muted { "muted" } else { "unmuted" });
+                audio_events.write(AudioEvent::ToggleMute);
             }
             _ => {}
         }

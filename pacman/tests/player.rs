@@ -6,7 +6,7 @@ use pacman::{
         graph::{Edge, TraversalFlags},
     },
     systems::{
-        can_traverse, player_control_system, player_movement_system, AudioState, BufferedDirection, DebugState, DeltaTime,
+        can_traverse, player_control_system, player_movement_system, AudioEvent, BufferedDirection, DebugState, DeltaTime,
         EntityType, GlobalState, Position, Velocity,
     },
 };
@@ -188,20 +188,25 @@ fn test_player_control_system_mute_audio() {
         .run_system_once(player_control_system)
         .expect("System should run successfully");
 
-    // Check that audio was muted
-    let audio_state = world.resource::<AudioState>();
-    assert_that(&audio_state.muted).is_true();
+    // Check that a ToggleMute event was emitted
+    let audio_events = world.resource::<Events<AudioEvent>>();
+    let mut cursor = audio_events.get_cursor();
+    let toggle_count = cursor.read(audio_events).filter(|e| **e == AudioEvent::ToggleMute).count();
+    assert_that(&toggle_count).is_equal_to(1);
 
-    // Send mute audio command again to unmute - need fresh events
-    world.resource_mut::<Events<GameEvent>>().clear(); // Clear previous events
+    // Send mute audio command again - should emit another ToggleMute
+    world.resource_mut::<Events<GameEvent>>().clear();
+    world.resource_mut::<Events<AudioEvent>>().clear();
     common::send_game_event(&mut world, GameEvent::Command(GameCommand::MuteAudio));
     world
         .run_system_once(player_control_system)
         .expect("System should run successfully");
 
-    // Check that audio was unmuted
-    let audio_state = world.resource::<AudioState>();
-    assert_that(&audio_state.muted).is_false();
+    // Check another ToggleMute was emitted
+    let audio_events = world.resource::<Events<AudioEvent>>();
+    let mut cursor = audio_events.get_cursor();
+    let toggle_count = cursor.read(audio_events).filter(|e| **e == AudioEvent::ToggleMute).count();
+    assert_that(&toggle_count).is_equal_to(1);
 }
 
 #[test]
@@ -484,11 +489,14 @@ fn test_player_state_persistence_across_systems() {
 
     // Clear events and mute audio
     world.resource_mut::<Events<GameEvent>>().clear();
+    world.resource_mut::<Events<AudioEvent>>().clear();
     common::send_game_event(&mut world, GameEvent::Command(GameCommand::MuteAudio));
     world
         .run_system_once(player_control_system)
         .expect("System should run successfully");
-    let audio_muted_after_toggle = world.resource::<AudioState>().muted;
+    let audio_events = world.resource::<Events<AudioEvent>>();
+    let mut cursor = audio_events.get_cursor();
+    let audio_toggle_emitted = cursor.read(audio_events).any(|e| *e == AudioEvent::ToggleMute);
 
     // Clear events and move player
     world.resource_mut::<Events<GameEvent>>().clear();
@@ -507,7 +515,7 @@ fn test_player_state_persistence_across_systems() {
 
     // Check that the state changes persisted individually
     assert_that(&debug_state_after_toggle.enabled).is_true();
-    assert_that(&audio_muted_after_toggle).is_true();
+    assert_that(&audio_toggle_emitted).is_true();
 
     // Player position depends on actual map connectivity
     match position {
