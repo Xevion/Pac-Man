@@ -114,7 +114,10 @@ pub fn spawn_fruit_observer(
                 item_collider: ItemCollider,
             };
 
-            let lifetime_ticks = (rng().random_range(9f32..10f32) * 60f32).round() as u32;
+            let lifetime_ticks = (rng()
+                .random_range(constants::mechanics::FRUIT_LIFETIME_MIN_SECS..constants::mechanics::FRUIT_LIFETIME_MAX_SECS)
+                * constants::TICKS_PER_SECOND)
+                .round() as u32;
 
             commands.spawn((bundle, TimeToLive::new(lifetime_ticks)))
         }

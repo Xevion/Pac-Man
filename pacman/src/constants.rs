@@ -11,6 +11,12 @@ use glam::UVec2;
 /// Uses integer arithmetic to avoid floating-point precision loss.
 pub const LOOP_TIME: Duration = Duration::from_nanos(1_000_000_000 / 60);
 
+/// Game simulation rate in ticks per second.
+///
+/// Used to normalize speed values defined as "units per tick" into
+/// frame-rate-independent distances: `speed * TICKS_PER_SECOND * delta_seconds`.
+pub const TICKS_PER_SECOND: f32 = 60.0;
+
 /// The size of each cell, in pixels.
 pub const CELL_SIZE: u32 = 8;
 /// The size of the game board, in cells.
@@ -151,10 +157,39 @@ pub const RAW_BOARD: [&str; BOARD_CELL_SIZE.y as usize] = [
 pub mod startup {
     /// Number of frames for the startup sequence (3 seconds at 60 FPS)
     pub const STARTUP_FRAMES: u32 = 60 * 4;
+    /// Ticks for the CharactersVisible startup stage (ghosts/Pac-Man revealed, READY! shown)
+    pub const CHARACTERS_VISIBLE_TICKS: u32 = 60;
 }
 
 /// Game mechanics constants
 pub mod mechanics {
     /// Player movement speed multiplier
     pub const PLAYER_SPEED: f32 = 1.15;
+
+    /// Speed multiplier applied when the player is inside a tunnel.
+    pub const TUNNEL_SLOWDOWN_MULTIPLIER: f32 = 0.6;
+    /// Speed multiplier when the player is on a normal (non-tunnel) tile.
+    pub const NORMAL_SPEED_MULTIPLIER: f32 = 1.0;
+
+    /// How long (in seconds) a buffered input direction remains valid before expiring.
+    pub const BUFFERED_DIRECTION_TIMEOUT_SECS: f32 = 0.25;
+
+    /// Ticks the game freezes after Pac-Man eats a ghost (to display bonus score).
+    pub const GHOST_EATEN_PAUSE_TICKS: u32 = 30;
+    /// Score awarded each time Pac-Man eats a frightened ghost.
+    pub const GHOST_EATEN_SCORE: u32 = 200;
+
+    /// Ticks all entities are frozen after Pac-Man is hit before the death animation begins.
+    pub const DEATH_FREEZE_TICKS: u32 = 60;
+    /// Ticks Pac-Man remains hidden after the death animation completes, before restarting.
+    pub const DEATH_HIDDEN_TICKS: u32 = 60;
+
+    /// Pellet counts at which a fruit is spawned on the board.
+    pub const FRUIT_SPAWN_MILESTONES: [u32; 2] = [5, 170];
+    /// Minimum fruit lifetime in seconds (randomly chosen in [min, max)).
+    pub const FRUIT_LIFETIME_MIN_SECS: f32 = 9.0;
+    /// Maximum fruit lifetime in seconds (randomly chosen in [min, max)).
+    pub const FRUIT_LIFETIME_MAX_SECS: f32 = 10.0;
+    /// Ticks the fruit-eaten bonus score entity remains visible.
+    pub const FRUIT_BONUS_TTL: u32 = 120;
 }

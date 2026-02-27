@@ -153,9 +153,8 @@ pub fn ghost_collision_observer(
             // Check if ghost is in frightened state
             if ghost_state.is_frightened() {
                 // Pac-Man eats the ghost
-                // Add score (200 points per ghost eaten)
-                debug!(ghost = ?ghost_type, score_added = 200, new_score = score.0 + 200, "Pacman ate frightened ghost");
-                score.0 += 200;
+                debug!(ghost = ?ghost_type, score_added = constants::mechanics::GHOST_EATEN_SCORE, new_score = score.0 + constants::mechanics::GHOST_EATEN_SCORE, "Pacman ate frightened ghost");
+                score.0 += constants::mechanics::GHOST_EATEN_SCORE;
 
                 *ghost_state = GhostState::Eyes;
 
@@ -171,7 +170,9 @@ pub fn ghost_collision_observer(
             } else if matches!(*ghost_state, GhostState::Active { frightened: None }) {
                 // Pac-Man dies
                 warn!(ghost = ?ghost_type, "Pacman hit by normal ghost, player dies");
-                *game_state = GameStage::PlayerDying(DyingSequence::Frozen { remaining_ticks: 60 });
+                *game_state = GameStage::PlayerDying(DyingSequence::Frozen {
+                    remaining_ticks: constants::mechanics::DEATH_FREEZE_TICKS,
+                });
                 events.write(AudioEvent::StopAll);
             } else {
                 trace!(ghost_state = ?*ghost_state, "Ghost collision ignored due to state");
@@ -210,7 +211,7 @@ pub fn item_collision_observer(
                     trace!(pellet_count = pellet_count.0, "Pellet consumed");
 
                     // Check if we should spawn a fruit
-                    if pellet_count.0 == 5 || pellet_count.0 == 170 {
+                    if constants::mechanics::FRUIT_SPAWN_MILESTONES.contains(&pellet_count.0) {
                         debug!(pellet_count = pellet_count.0, "Fruit spawn milestone reached");
                         commands.trigger(SpawnTrigger::Fruit);
                     }
@@ -223,7 +224,7 @@ pub fn item_collision_observer(
                     commands.trigger(SpawnTrigger::Bonus {
                         position: *position,
                         value: entity_type.score_value().unwrap(),
-                        ttl: 60 * 2,
+                        ttl: constants::mechanics::FRUIT_BONUS_TTL,
                     });
                 }
 

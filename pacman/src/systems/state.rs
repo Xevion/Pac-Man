@@ -322,7 +322,7 @@ pub fn stage_system(
 
         debug!(ghost = ?ghost_type, node = pac_node, "Ghost eaten, entering pause state");
         new_state_opt = Some(GameStage::GhostEatenPause {
-            remaining_ticks: 30,
+            remaining_ticks: constants::mechanics::GHOST_EATEN_PAUSE_TICKS,
             ghost_entity,
             ghost_type,
             node: pac_node,
@@ -369,7 +369,9 @@ pub fn stage_system(
                         remaining_ticks: remaining_ticks.saturating_sub(1),
                     })
                 } else {
-                    GameStage::Starting(StartupSequence::CharactersVisible { remaining_ticks: 60 })
+                    GameStage::Starting(StartupSequence::CharactersVisible {
+                        remaining_ticks: constants::startup::CHARACTERS_VISIBLE_TICKS,
+                    })
                 }
             }
             StartupSequence::CharactersVisible { remaining_ticks } => {
@@ -402,7 +404,9 @@ pub fn stage_system(
                         remaining_ticks: remaining_ticks.saturating_sub(1),
                     })
                 } else {
-                    GameStage::PlayerDying(DyingSequence::Hidden { remaining_ticks: 60 })
+                    GameStage::PlayerDying(DyingSequence::Hidden {
+                        remaining_ticks: constants::mechanics::DEATH_HIDDEN_TICKS,
+                    })
                 }
             }
             DyingSequence::Hidden { remaining_ticks } => {
@@ -415,7 +419,9 @@ pub fn stage_system(
 
                     if player_lives.0 > 0 {
                         info!(remaining_lives = player_lives.0, "Player died, returning to startup sequence");
-                        GameStage::Starting(StartupSequence::CharactersVisible { remaining_ticks: 60 })
+                        GameStage::Starting(StartupSequence::CharactersVisible {
+                            remaining_ticks: constants::startup::CHARACTERS_VISIBLE_TICKS,
+                        })
                     } else {
                         info!("All lives lost, game over");
                         GameStage::GameOver
@@ -455,8 +461,8 @@ pub fn stage_system(
             commands.trigger(SpawnTrigger::Bonus {
                 position: Position::Stopped { node },
                 // TODO: Doubling score value for each consecutive ghost eaten
-                value: 200,
-                ttl: 30,
+                value: constants::mechanics::GHOST_EATEN_SCORE,
+                ttl: constants::mechanics::GHOST_EATEN_PAUSE_TICKS,
             });
         }
         (GameStage::GhostEatenPause { ghost_entity, .. }, GameStage::Playing) => {

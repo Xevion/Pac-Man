@@ -7,6 +7,7 @@ use bevy_ecs::{
 use tracing::trace;
 
 use crate::{
+    constants,
     events::{GameCommand, GameEvent},
     map::{builder::Map, graph::Edge},
     systems::{
@@ -51,7 +52,7 @@ pub fn player_control_system(
                     trace!(direction = ?*direction, "Player direction buffered for movement");
                     ***player_single = BufferedDirection::Some {
                         direction: *direction,
-                        remaining_time: 0.25,
+                        remaining_time: constants::mechanics::BUFFERED_DIRECTION_TIMEOUT_SECS,
                     };
                 }
             }
@@ -102,7 +103,7 @@ pub fn player_movement_system(
             }
         }
 
-        let mut distance = velocity.speed * modifiers.speed_multiplier * 60.0 * delta_time.seconds;
+        let mut distance = velocity.speed * modifiers.speed_multiplier * constants::TICKS_PER_SECOND * delta_time.seconds;
 
         loop {
             match *position {
@@ -174,11 +175,19 @@ pub fn player_tunnel_slowdown_system(map: Res<Map>, player: Single<(&Position, &
         trace!(
             node,
             in_tunnel,
-            speed_multiplier = if in_tunnel { 0.6 } else { 1.0 },
+            speed_multiplier = if in_tunnel {
+                constants::mechanics::TUNNEL_SLOWDOWN_MULTIPLIER
+            } else {
+                constants::mechanics::NORMAL_SPEED_MULTIPLIER
+            },
             "Player tunnel slowdown state changed"
         );
     }
 
     modifiers.tunnel_slowdown_active = in_tunnel;
-    modifiers.speed_multiplier = if in_tunnel { 0.6 } else { 1.0 };
+    modifiers.speed_multiplier = if in_tunnel {
+        constants::mechanics::TUNNEL_SLOWDOWN_MULTIPLIER
+    } else {
+        constants::mechanics::NORMAL_SPEED_MULTIPLIER
+    };
 }
