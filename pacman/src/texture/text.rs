@@ -51,13 +51,13 @@
 //! The system caches character tiles in a HashMap to avoid repeated
 //! atlas lookups. Only tiles for used characters are stored in memory.
 
-use anyhow::Result;
 use glam::UVec2;
 
 use sdl2::pixels::Color;
 use sdl2::render::{Canvas, RenderTarget};
 use std::collections::HashMap;
 
+use crate::error::TextureError;
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 
 /// Converts a character to its tile name in the atlas.
@@ -112,7 +112,7 @@ impl TextTexture {
         &self.char_map
     }
 
-    pub fn get_tile(&mut self, c: char, atlas: &mut SpriteAtlas) -> Result<Option<&AtlasTile>> {
+    pub fn get_tile(&mut self, c: char, atlas: &mut SpriteAtlas) -> Result<Option<&AtlasTile>, TextureError> {
         if self.char_map.contains_key(&c) {
             return Ok(self.char_map.get(&c));
         }
@@ -133,7 +133,7 @@ impl TextTexture {
         atlas: &mut SpriteAtlas,
         text: &str,
         position: UVec2,
-    ) -> Result<()> {
+    ) -> Result<(), TextureError> {
         let color = self.default_color.unwrap_or(Color::WHITE);
         self.render_with_color(canvas, atlas, text, position, color)
     }
@@ -146,7 +146,7 @@ impl TextTexture {
         text: &str,
         position: UVec2,
         color: Color,
-    ) -> Result<()> {
+    ) -> Result<(), TextureError> {
         let mut x_offset = 0;
         let char_width = (8.0 * self.scale) as u32;
         let char_height = self.text_height();

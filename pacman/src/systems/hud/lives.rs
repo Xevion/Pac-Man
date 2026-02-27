@@ -33,7 +33,7 @@ pub fn player_life_sprite_system(
     player_lives: Res<PlayerLives>,
     mut errors: EventWriter<GameError>,
 ) {
-    let displayed_lives = player_lives.0.saturating_sub(1);
+    let displayed_lives = player_lives.remaining().saturating_sub(1);
 
     // Get current life sprite entities, sorted by index
     let mut current_sprites: Vec<_> = current_life_sprites.iter().collect();

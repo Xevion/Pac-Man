@@ -280,7 +280,24 @@ impl TooSimilar for DyingSequence {
 
 /// A resource to store the number of player lives.
 #[derive(Resource, Debug)]
-pub struct PlayerLives(pub u8);
+pub struct PlayerLives(u8);
+
+impl PlayerLives {
+    /// Returns the number of remaining lives.
+    pub fn remaining(&self) -> u8 {
+        self.0
+    }
+
+    /// Returns whether the player has any lives left.
+    pub fn is_alive(&self) -> bool {
+        self.0 > 0
+    }
+
+    /// Consumes one life (saturating at zero).
+    pub fn lose_life(&mut self) {
+        self.0 = self.0.saturating_sub(1);
+    }
+}
 
 impl Default for PlayerLives {
     fn default() -> Self {
@@ -415,10 +432,13 @@ pub fn stage_system(
                         remaining_ticks: remaining_ticks.saturating_sub(1),
                     })
                 } else {
-                    player_lives.0 = player_lives.0.saturating_sub(1);
+                    player_lives.lose_life();
 
-                    if player_lives.0 > 0 {
-                        info!(remaining_lives = player_lives.0, "Player died, returning to startup sequence");
+                    if player_lives.is_alive() {
+                        info!(
+                            remaining_lives = player_lives.remaining(),
+                            "Player died, returning to startup sequence"
+                        );
                         GameStage::Starting(StartupSequence::CharactersVisible {
                             remaining_ticks: constants::startup::CHARACTERS_VISIBLE_TICKS,
                         })

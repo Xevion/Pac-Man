@@ -94,6 +94,16 @@ pub enum EntityError {
     EdgeNotFound { from: usize, to: usize },
 }
 
+/// Errors related to audio initialization and playback.
+#[derive(thiserror::Error, Debug)]
+pub enum AudioError {
+    #[error("Failed to initialize audio: {0}")]
+    InitFailed(String),
+
+    #[error("Failed to load sound: {0}")]
+    LoadFailed(String),
+}
+
 /// Errors related to map operations.
 #[derive(thiserror::Error, Debug)]
 pub enum MapError {

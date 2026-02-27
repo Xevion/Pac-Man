@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 
 use crate::asset::Asset;
-use anyhow::{anyhow, Result};
+use crate::error::AudioError;
 use sdl2::{
     mixer::{self, Chunk, InitFlag, LoaderRWops, AUDIO_S16LSB},
     rwops::RWops,
@@ -97,7 +97,7 @@ impl Audio {
         }
     }
 
-    fn try_new() -> Result<Self> {
+    fn try_new() -> Result<Self, AudioError> {
         let format = AUDIO_S16LSB;
         let chunk_size = {
             // 256 is the minimum for Emscripten, but in practice 1024 is much more reliable
@@ -115,7 +115,7 @@ impl Audio {
 
         // Try to open audio, but don't panic if it fails
         mixer::open_audio(AUDIO_FREQUENCY, format, AUDIO_CHANNELS, chunk_size)
-            .map_err(|e| anyhow!("Failed to open audio: {}", e))?;
+            .map_err(|e| AudioError::InitFailed(format!("Failed to open audio: {}", e)))?;
 
         mixer::allocate_channels(AUDIO_CHANNELS);
 
@@ -125,7 +125,8 @@ impl Audio {
         }
 
         // Try to initialize mixer, but don't panic if it fails
-        let mixer_context = mixer::init(InitFlag::OGG).map_err(|e| anyhow!("Failed to initialize SDL2_mixer: {}", e))?;
+        let mixer_context =
+            mixer::init(InitFlag::OGG).map_err(|e| AudioError::InitFailed(format!("Failed to initialize SDL2_mixer: {}", e)))?;
 
         // Try to load sounds, but don't panic if any fail
         let sounds: HashMap<Sound, Chunk> = Sound::iter()
@@ -140,7 +141,7 @@ impl Audio {
 
         // If no sounds loaded successfully, disable audio
         if sounds.is_empty() {
-            return Err(anyhow!("No sounds loaded successfully"));
+            return Err(AudioError::InitFailed("No sounds loaded successfully".to_string()));
         }
 
         // On Emscripten, start suspended due to browser autoplay policy.
@@ -159,15 +160,16 @@ impl Audio {
         })
     }
 
-    fn load_sound(sound_type: Sound) -> Result<Chunk> {
+    fn load_sound(sound_type: Sound) -> Result<Chunk, AudioError> {
         let asset = Asset::SoundFile(sound_type);
         let data = asset
             .get_bytes()
-            .map_err(|e| anyhow!("Failed to get bytes for {:?}: {}", sound_type, e))?;
-        let rwops = RWops::from_bytes(&data).map_err(|e| anyhow!("Failed to create RWops for {:?}: {}", sound_type, e))?;
+            .map_err(|e| AudioError::LoadFailed(format!("Failed to get bytes for {:?}: {}", sound_type, e)))?;
+        let rwops = RWops::from_bytes(&data)
+            .map_err(|e| AudioError::LoadFailed(format!("Failed to create RWops for {:?}: {}", sound_type, e)))?;
         rwops
             .load_wav()
-            .map_err(|e| anyhow!("Failed to load wav for {:?}: {}", sound_type, e))
+            .map_err(|e| AudioError::LoadFailed(format!("Failed to load wav for {:?}: {}", sound_type, e)))
     }
 
     /// Plays the next waka eating sound in the cycle of four variants.

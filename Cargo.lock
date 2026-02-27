@@ -2869,7 +2869,6 @@ dependencies = [
 name = "pacman"
 version = "0.81.1"
 dependencies = [
- "anyhow",
  "bevy_ecs",
  "bitflags 2.9.4",
  "circular-buffer",

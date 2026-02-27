@@ -26,7 +26,6 @@ tracing-error = "0.2.0"
 tracing-subscriber = {version = "0.3.20", features = ["env-filter"]}
 time = { version = "0.3.43", features = ["formatting", "macros"] }
 thiserror = "2.0.16"
-anyhow = "1.0"
 smallvec = "1.15.1"
 bitflags = "2.9.4"
 micromap = "0.1.0"
