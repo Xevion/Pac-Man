@@ -7,6 +7,7 @@ use super::{
     GhostModeController, GhostState, GhostType, ScatterChaseMode,
 };
 use crate::map::builder::Map;
+use crate::platform::rng;
 use crate::systems::{DeltaTime, Frozen, NodeId, PlayerControlled, Position, Velocity};
 use bevy_ecs::prelude::*;
 
@@ -187,7 +188,7 @@ pub fn ghost_movement_system(
                     let target_node = target.0.unwrap_or(node);
                     let is_frightened = state.is_frightened();
 
-                    let mut rng = if is_frightened { Some(rand::rng()) } else { None };
+                    let mut rng = if is_frightened { Some(rng()) } else { None };
 
                     let new_direction = choose_direction_at_intersection(
                         &map,

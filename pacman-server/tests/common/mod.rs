@@ -54,9 +54,7 @@ async fn create_postgres_test_pool() -> (pacman_server::data::pool::PgPool, Cont
 
     let container_request = GenericImage::new("postgres", "15")
         .with_exposed_port(5432.tcp())
-        .with_wait_for(WaitFor::message_on_stderr(
-            "database system is ready to accept connections",
-        ))
+        .with_wait_for(WaitFor::message_on_stderr("database system is ready to accept connections"))
         .with_env_var("POSTGRES_DB", db)
         .with_env_var("POSTGRES_USER", user)
         .with_env_var("POSTGRES_PASSWORD", password);
@@ -107,7 +105,14 @@ pub async fn test_context(
     #[cfg(feature = "postgres-tests")]
     let (db, container, database_config, database_configured) = if use_database {
         let (pool, container) = create_postgres_test_pool().await;
-        (pool, Some(container), Some(DatabaseConfig { url: "postgres://test".to_string() }), true)
+        (
+            pool,
+            Some(container),
+            Some(DatabaseConfig {
+                url: "postgres://test".to_string(),
+            }),
+            true,
+        )
     } else {
         let pool = create_dummy_pool();
         (pool, None, None, false)
@@ -157,8 +162,7 @@ pub async fn test_context(
     };
 
     // Create auth registry
-    let auth =
-        auth_registry.unwrap_or_else(|| AuthRegistry::new(&config).expect("Failed to create auth registry"));
+    let auth = auth_registry.unwrap_or_else(|| AuthRegistry::new(&config).expect("Failed to create auth registry"));
 
     // Create app state
     let notify = Arc::new(Notify::new());
