@@ -10,7 +10,8 @@ import { fontSubsetPlugin, type FontSubsetConfig } from './vite-plugin-font-subs
 // Character sets for font subsetting
 const TITLE_CHARS = 'PACMN-';
 
-const COMMON_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?':;-_()/@#&*+=%<>";
+const COMMON_CHARS =
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?':;-_()/@#&*+=%<>";
 
 const fontConfig: FontSubsetConfig = {
 	fonts: [
@@ -44,7 +45,10 @@ function pacmanVersionPlugin(): Plugin {
 		}
 
 		try {
-			const hash = execSync('git rev-parse --short HEAD', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+			const hash = execSync('git rev-parse --short HEAD', {
+				encoding: 'utf8',
+				stdio: ['pipe', 'pipe', 'pipe']
+			}).trim();
 
 			if (hash) {
 				return hash;
