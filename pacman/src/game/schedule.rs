@@ -11,7 +11,7 @@ use crate::systems::{
     self, audio_system, blinking_system, collision_system, combined_render_system, directional_render_system,
     dirty_render_system, eaten_ghost_system, fruit_sprite_system, ghost_movement_system, ghost_state_system, hud_render_system,
     linear_render_system, player_life_sprite_system, present_system, profile, time_to_live_system, touch_ui_render_system,
-    GameStage, RenderDirty, ScoreResource, SystemId,
+    FruitSprites, GameStage, RenderDirty, ScoreResource, SystemId,
 };
 
 /// System set for all gameplay systems to ensure they run after input processing
@@ -100,7 +100,7 @@ pub(super) fn configure_schedule(schedule: &mut Schedule) {
                 directional_render_system,
                 linear_render_system,
                 player_life_sprite_system,
-                fruit_sprite_system,
+                fruit_sprite_system.run_if(|f: Res<FruitSprites>| f.is_changed()),
             )
                 .in_set(RenderSet::Animation),
             stage_system.in_set(GameplaySet::Respond),
