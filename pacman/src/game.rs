@@ -19,10 +19,10 @@ use crate::systems::{
     ghost_state_system, hud_render_system, item_collision_observer, linear_render_system, player_life_sprite_system,
     present_system, profile, time_to_live_system, touch_ui_render_system, AudioEvent, AudioResource, AudioState,
     BackbufferResource, Blinking, BufferedDirection, Collider, DebugState, DebugTextureResource, DeltaTime, DirectionalAnimation,
-    EntityType, Frozen, FruitSprites, GameStage, Ghost, GhostAnimation, GhostAnimations, GhostBundle, GhostCollider, GhostState,
-    GlobalState, ItemBundle, ItemCollider, LastAnimationState, LinearAnimation, MapTextureResource, MovementModifiers, NodeId,
-    PacmanCollider, PlayerAnimation, PlayerBundle, PlayerControlled, PlayerDeathAnimation, PlayerLives, Position, RenderDirty,
-    Renderable, ScoreResource, SystemId, SystemTimings, Timing, TouchState, Velocity, Visibility,
+    EntityType, Frozen, FruitSprites, GameStage, GhostAnimationState, GhostAnimations, GhostBundle, GhostCollider, GhostState,
+    GhostType, GlobalState, ItemBundle, ItemCollider, LastAnimationState, LinearAnimation, MapTextureResource, MovementModifiers,
+    NodeId, PacmanCollider, PlayerAnimation, PlayerBundle, PlayerControlled, PlayerDeathAnimation, PlayerLives, Position,
+    RenderDirty, Renderable, ScoreResource, SystemId, SystemTimings, Timing, TouchState, Velocity, Visibility,
 };
 
 #[cfg(not(target_os = "emscripten"))]
@@ -142,6 +142,10 @@ impl Game {
         debug!("Building navigation graph from map layout");
         let map = Map::new(constants::RAW_BOARD)?;
 
+        debug!("Initializing ghost AI special nodes");
+        let red_zones = crate::systems::ghost::RedZoneNodes::from_map(&map);
+        let tunnel_nodes = crate::systems::ghost::TunnelNodes::from_map(&map);
+
         debug!("Creating player animations and bundle");
         let (player_animation, player_start_sprite) = Self::create_player_animations(&atlas)?;
         let player_bundle = Self::create_player_bundle(&map, player_animation, player_start_sprite);
@@ -171,6 +175,8 @@ impl Game {
             debug_texture,
             ttf_atlas,
             death_animation,
+            red_zones,
+            tunnel_nodes,
         )?;
 
         debug!("Configuring system execution schedule");
@@ -443,6 +449,8 @@ impl Game {
         debug_texture: sdl2::render::Texture,
         ttf_atlas: crate::texture::ttf::TtfAtlas,
         death_animation: LinearAnimation,
+        red_zones: crate::systems::ghost::RedZoneNodes,
+        tunnel_nodes: crate::systems::ghost::TunnelNodes,
     ) -> GameResult<()> {
         world.insert_non_send_resource(atlas);
         world.insert_resource(Self::create_ghost_animations(world.non_send_resource::<SpriteAtlas>())?);
@@ -457,6 +465,11 @@ impl Game {
         world.insert_resource(PlayerLives::default());
         world.insert_resource(ScoreResource(0));
         world.insert_resource(PelletCount(0));
+        world.insert_resource(crate::systems::ghost::GhostModeController::default());
+        world.insert_resource(crate::systems::ghost::GhostHouseController::default());
+        world.insert_resource(crate::systems::ghost::GhostSpeedConfig::for_level(1));
+        world.insert_resource(red_zones);
+        world.insert_resource(tunnel_nodes);
         world.insert_resource(SystemTimings::default());
         world.insert_resource(Timing::default());
         world.insert_resource(Bindings::default());
@@ -495,6 +508,10 @@ impl Game {
         let player_control_system = profile(SystemId::PlayerControls, systems::player_control_system);
         let player_movement_system = profile(SystemId::PlayerMovement, systems::player_movement_system);
         let player_tunnel_slowdown_system = profile(SystemId::PlayerMovement, systems::player::player_tunnel_slowdown_system);
+        let ghost_mode_tick_system = profile(SystemId::Ghost, systems::ghost::ghost_mode_tick_system);
+        let ghost_house_system = profile(SystemId::Ghost, systems::ghost::ghost_house_system);
+        let elroy_system = profile(SystemId::Ghost, systems::ghost::elroy_system);
+        let ghost_targeting_system = profile(SystemId::Ghost, systems::ghost::ghost_targeting_system);
         let ghost_movement_system = profile(SystemId::Ghost, ghost_movement_system);
         let collision_system = profile(SystemId::Collision, collision_system);
         let audio_system = profile(SystemId::Audio, audio_system);
@@ -525,20 +542,26 @@ impl Game {
         )
             .chain();
 
-        // .run_if(|game_state: Res<GameStage>| matches!(*game_state, GameStage::Playing));
-
         schedule
             .add_systems((
                 input_systems.in_set(GameplaySet::Input),
                 time_to_live_system.before(GameplaySet::Update),
                 (
-                    player_movement_system,
-                    player_tunnel_slowdown_system,
-                    ghost_movement_system,
-                    eaten_ghost_system,
+                    (
+                        player_movement_system,
+                        player_tunnel_slowdown_system,
+                        ghost_mode_tick_system,
+                        ghost_house_system,
+                        elroy_system,
+                        ghost_targeting_system,
+                        ghost_movement_system,
+                        eaten_ghost_system,
+                    )
+                        .chain(),
                     collision_system,
                     unified_ghost_state_system,
                 )
+                    .chain()
                     .in_set(GameplaySet::Update),
                 (
                     blinking_system,
@@ -563,14 +586,17 @@ impl Game {
                 (present_system, audio_system).chain().in_set(RenderSet::Present),
                 manage_pause_state_system.after(GameplaySet::Update),
             ))
-            .configure_sets((
-                GameplaySet::Input,
-                GameplaySet::Update.run_if(|paused: Res<PauseState>| !paused.active()),
-                GameplaySet::Respond.run_if(|paused: Res<PauseState>| !paused.active()),
-                RenderSet::Animation.run_if(|paused: Res<PauseState>| !paused.active()),
-                RenderSet::Draw,
-                RenderSet::Present,
-            ));
+            .configure_sets(
+                (
+                    GameplaySet::Input,
+                    GameplaySet::Update.run_if(|paused: Res<PauseState>| !paused.active()),
+                    GameplaySet::Respond.run_if(|paused: Res<PauseState>| !paused.active()),
+                    RenderSet::Animation.run_if(|paused: Res<PauseState>| !paused.active()),
+                    RenderSet::Draw,
+                    RenderSet::Present,
+                )
+                    .chain(),
+            );
     }
 
     fn spawn_items(world: &mut World) -> GameResult<()> {
@@ -633,21 +659,31 @@ impl Game {
         let ghost_start_positions = {
             let map = world.resource::<Map>();
             [
-                (Ghost::Blinky, map.start_positions.blinky),
-                (Ghost::Pinky, map.start_positions.pinky),
-                (Ghost::Inky, map.start_positions.inky),
-                (Ghost::Clyde, map.start_positions.clyde),
+                (GhostType::Blinky, map.start_positions.blinky),
+                (GhostType::Pinky, map.start_positions.pinky),
+                (GhostType::Inky, map.start_positions.inky),
+                (GhostType::Clyde, map.start_positions.clyde),
             ]
         };
 
         for (ghost_type, start_node) in ghost_start_positions {
             // Create the ghost bundle in a separate scope to manage borrows
-            let ghost = {
+            let (ghost_bundle, extra_components) = {
                 let animations = world.resource::<GhostAnimations>().get_normal(&ghost_type).unwrap().clone();
                 let atlas = world.non_send_resource::<SpriteAtlas>();
                 let sprite_path = GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Left, 0)).to_path();
 
-                GhostBundle {
+                // Blinky starts active outside the house, others start in house
+                let ghost_state = if ghost_type == GhostType::Blinky {
+                    GhostState::Active { frightened: None }
+                } else {
+                    GhostState::InHouse {
+                        position: crate::systems::ghost::state::HousePosition::Center,
+                        bounce: crate::systems::ghost::state::BounceDirection::Up,
+                    }
+                };
+
+                let bundle = GhostBundle {
                     ghost: ghost_type,
                     position: Position::Stopped { node: start_node },
                     velocity: Velocity {
@@ -664,12 +700,29 @@ impl Game {
                         size: constants::collider::GHOST_SIZE,
                     },
                     ghost_collider: GhostCollider,
-                    ghost_state: GhostState::Normal,
-                    last_animation_state: LastAnimationState(GhostAnimation::Normal),
-                }
+                    ghost_state,
+                    last_animation_state: LastAnimationState(GhostAnimationState::Normal),
+                    ghost_target: crate::systems::ghost::GhostTarget::default(),
+                };
+
+                // Blinky gets additional components
+                let extra = if ghost_type == GhostType::Blinky {
+                    Some((crate::systems::ghost::BlinkyMarker, crate::systems::ghost::Elroy::default()))
+                } else {
+                    None
+                };
+
+                (bundle, extra)
             };
 
-            let entity = world.spawn(ghost).insert((Frozen, Visibility::hidden())).id();
+            let mut entity_commands = world.spawn(ghost_bundle);
+            entity_commands.insert((Frozen, Visibility::hidden()));
+
+            if let Some((marker, elroy)) = extra_components {
+                entity_commands.insert((marker, elroy));
+            }
+
+            let entity = entity_commands.id();
             trace!(ghost = ?ghost_type, entity = ?entity, start_node, "Spawned ghost entity");
         }
 
@@ -694,7 +747,7 @@ impl Game {
 
         let mut animations = HashMap::new();
 
-        for ghost_type in [Ghost::Blinky, Ghost::Pinky, Ghost::Inky, Ghost::Clyde] {
+        for ghost_type in [GhostType::Blinky, GhostType::Pinky, GhostType::Inky, GhostType::Clyde] {
             // Normal animations - create directional tiles for each direction
             let up_tiles = [
                 atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Up, 0)).to_path())?,

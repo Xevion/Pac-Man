@@ -14,7 +14,7 @@ use pacman::{
     },
     systems::{
         item_collision_observer, AudioEvent, AudioState, BufferedDirection, Collider, DebugState, DeltaTime, EntityType,
-        FruitSprites, Ghost, GhostCollider, GhostState, GlobalState, ItemCollider, MovementModifiers, PacmanCollider,
+        FruitSprites, GhostCollider, GhostState, GhostType, GlobalState, ItemCollider, MovementModifiers, PacmanCollider,
         PelletCount, PlayerControlled, Position, ScoreResource, Velocity,
     },
     texture::sprite::{AtlasMapper, AtlasTile, SpriteAtlas},
@@ -92,6 +92,7 @@ pub fn create_test_world() -> (World, Schedule) {
         seconds: 1.0 / 60.0,
         ticks: 1,
     }); // 60 FPS
+    world.insert_resource(pacman::systems::ghost::GhostHouseController::default());
     world.insert_resource(create_test_map());
 
     let schedule = Schedule::default();
@@ -154,7 +155,7 @@ pub fn spawn_test_ghost(world: &mut World, node: usize, ghost_state: GhostState)
             Position::Stopped { node: node as u16 },
             Collider { size: 12.0 },
             GhostCollider,
-            Ghost::Blinky,
+            GhostType::Blinky,
             EntityType::Ghost,
             ghost_state,
         ))

@@ -11,7 +11,7 @@ use tracing::{debug, trace, warn};
 use crate::audio::Sound;
 use crate::{
     constants,
-    systems::{movement::Position, AudioEvent, DyingSequence, FruitSprites, GameStage, Ghost, ScoreResource, SpawnTrigger},
+    systems::{movement::Position, AudioEvent, DyingSequence, FruitSprites, GameStage, GhostType, ScoreResource, SpawnTrigger},
 };
 use crate::{error::GameError, systems::GhostState};
 use crate::{
@@ -78,7 +78,7 @@ pub fn collision_system(
     map: Res<Map>,
     pacman_query: Query<(Entity, &Position, &Collider), With<PacmanCollider>>,
     item_query: Query<(Entity, &Position, &Collider), With<ItemCollider>>,
-    ghost_query: Query<(Entity, &Position, &Collider, &Ghost, &GhostState), With<GhostCollider>>,
+    ghost_query: Query<(Entity, &Position, &Collider, &GhostType, &GhostState), With<GhostCollider>>,
     mut commands: Commands,
     mut errors: EventWriter<GameError>,
 ) {
@@ -151,7 +151,7 @@ pub fn ghost_collision_observer(
         // Check if the ghost is frightened
         if let Ok(mut ghost_state) = ghost_state_query.get_mut(ghost) {
             // Check if ghost is in frightened state
-            if matches!(*ghost_state, GhostState::Frightened { .. }) {
+            if ghost_state.is_frightened() {
                 // Pac-Man eats the ghost
                 // Add score (200 points per ghost eaten)
                 debug!(ghost = ?ghost_type, score_added = 200, new_score = score.0 + 200, "Pacman ate frightened ghost");
@@ -168,7 +168,7 @@ pub fn ghost_collision_observer(
 
                 // Play ghost eaten sound
                 events.write(AudioEvent::PlaySound(Sound::Ghost));
-            } else if matches!(*ghost_state, GhostState::Normal) {
+            } else if matches!(*ghost_state, GhostState::Active { frightened: None }) {
                 // Pac-Man dies
                 warn!(ghost = ?ghost_type, "Pacman hit by normal ghost, player dies");
                 *game_state = GameStage::PlayerDying(DyingSequence::Frozen { remaining_ticks: 60 });
@@ -189,6 +189,7 @@ pub fn item_collision_observer(
     mut pellet_count: ResMut<PelletCount>,
     item_query: Query<(Entity, &EntityType, &Position), With<ItemCollider>>,
     mut ghost_query: Query<&mut GhostState, With<GhostCollider>>,
+    mut ghost_house: ResMut<crate::systems::ghost::GhostHouseController>,
     mut fruit_sprites: ResMut<FruitSprites>,
     mut events: EventWriter<AudioEvent>,
 ) {
@@ -202,9 +203,10 @@ pub fn item_collision_observer(
                 // Remove the collected item
                 commands.entity(item_ent).despawn();
 
-                // Track pellet consumption for fruit spawning
+                // Track pellet consumption for fruit spawning and ghost house
                 if *entity_type == EntityType::Pellet {
                     pellet_count.0 += 1;
+                    ghost_house.on_dot_eaten();
                     trace!(pellet_count = pellet_count.0, "Pellet consumed");
 
                     // Check if we should spawn a fruit
@@ -245,11 +247,13 @@ pub fn item_collision_observer(
                         "Power pellet collected, frightening ghosts"
                     );
                     for mut ghost_state in ghost_query.iter_mut() {
-                        if matches!(*ghost_state, GhostState::Normal) {
-                            *ghost_state = GhostState::new_frightened(
-                                constants::animation::GHOST_FRIGHTENED_TICKS,
-                                constants::animation::GHOST_FRIGHTENED_FLASH_START_TICKS,
-                            );
+                        if matches!(*ghost_state, GhostState::Active { frightened: None }) {
+                            *ghost_state = GhostState::Active {
+                                frightened: Some(crate::systems::ghost::FrightenedData::new(
+                                    constants::animation::GHOST_FRIGHTENED_TICKS,
+                                    constants::animation::GHOST_FRIGHTENED_FLASH_START_TICKS,
+                                )),
+                            };
                         }
                     }
                     debug!(

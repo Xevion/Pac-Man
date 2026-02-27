@@ -7,7 +7,7 @@
 
 use crate::{
     map::direction::Direction,
-    systems::{FruitType, Ghost},
+    systems::{FruitType, GhostType},
 };
 
 /// Represents the different sprites for Pac-Man.
@@ -32,7 +32,7 @@ pub enum FrightenedColor {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GhostSprite {
     /// The normal appearance of a ghost for a given type, direction, and animation frame.
-    Normal(Ghost, Direction, u8),
+    Normal(GhostType, Direction, u8),
     /// The frightened appearance of a ghost, with a specific color and animation frame.
     Frightened(FrightenedColor, u8),
     /// The "eyes only" appearance of a ghost after being eaten.

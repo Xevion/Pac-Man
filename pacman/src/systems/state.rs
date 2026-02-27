@@ -8,8 +8,8 @@ use crate::systems::{EntityType, ItemCollider, SpawnTrigger, Velocity};
 use crate::{
     map::builder::Map,
     systems::{
-        AudioEvent, Blinking, DirectionalAnimation, Dying, Frozen, Ghost, GhostCollider, GhostState, LinearAnimation, Looping,
-        NodeId, PlayerControlled, Position, Visibility,
+        AudioEvent, Blinking, DirectionalAnimation, Dying, Frozen, GhostCollider, GhostState, GhostType, LinearAnimation,
+        Looping, NodeId, PlayerControlled, Position, Visibility,
     },
 };
 use bevy_ecs::{
@@ -52,7 +52,7 @@ pub enum GameStage {
     GhostEatenPause {
         remaining_ticks: u32,
         ghost_entity: Entity,
-        ghost_type: Ghost,
+        ghost_type: GhostType,
         node: NodeId,
     },
     /// The player has died and the death sequence is in progress. At the end, the player will return to the startup sequence or game over.
@@ -303,7 +303,10 @@ pub fn stage_system(
     mut blinking_query: Query<Entity, With<Blinking>>,
     player: Single<(Entity, &mut Position), With<PlayerControlled>>,
     mut item_query: Query<(Entity, &EntityType), With<ItemCollider>>,
-    mut ghost_query: Query<(Entity, &Ghost, &mut Position, &mut GhostState), (With<GhostCollider>, Without<PlayerControlled>)>,
+    mut ghost_query: Query<
+        (Entity, &GhostType, &mut Position, &mut GhostState),
+        (With<GhostCollider>, Without<PlayerControlled>),
+    >,
     mut intro_played: ResMut<IntroPlayed>,
 ) {
     let old_state = *game_state;
@@ -524,14 +527,24 @@ pub fn stage_system(
 
             // Reset ghost positions and state
             for (ghost_entity, ghost, _, _) in ghost_query.iter_mut() {
+                // Blinky starts active outside the house, others start in house
+                let ghost_state = if *ghost == GhostType::Blinky {
+                    GhostState::Active { frightened: None }
+                } else {
+                    GhostState::InHouse {
+                        position: crate::systems::ghost::state::HousePosition::Center,
+                        bounce: crate::systems::ghost::state::BounceDirection::Up,
+                    }
+                };
+
                 commands.entity(ghost_entity).insert((
-                    GhostState::Normal,
+                    ghost_state,
                     Position::Stopped {
                         node: match ghost {
-                            Ghost::Blinky => map.start_positions.blinky,
-                            Ghost::Pinky => map.start_positions.pinky,
-                            Ghost::Inky => map.start_positions.inky,
-                            Ghost::Clyde => map.start_positions.clyde,
+                            GhostType::Blinky => map.start_positions.blinky,
+                            GhostType::Pinky => map.start_positions.pinky,
+                            GhostType::Inky => map.start_positions.inky,
+                            GhostType::Clyde => map.start_positions.clyde,
                         },
                     },
                     Frozen,

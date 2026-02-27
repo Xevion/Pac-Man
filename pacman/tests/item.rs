@@ -198,7 +198,7 @@ fn test_power_pellet_does_not_affect_ghosts_in_eyes_state() {
     let eyes_ghost = common::spawn_test_ghost(&mut world, 2, GhostState::Eyes);
 
     // Spawn a ghost in Normal state
-    let normal_ghost = common::spawn_test_ghost(&mut world, 3, GhostState::Normal);
+    let normal_ghost = common::spawn_test_ghost(&mut world, 3, GhostState::Active { frightened: None });
 
     common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: power_pellet });
 
@@ -222,5 +222,5 @@ fn test_power_pellet_does_not_affect_ghosts_in_eyes_state() {
 
     // Check that the Normal ghost state was changed to Frightened
     let normal_ghost_state = world.entity(normal_ghost).get::<GhostState>().unwrap();
-    assert_that(&matches!(*normal_ghost_state, GhostState::Frightened { .. })).is_true();
+    assert_that(&matches!(*normal_ghost_state, GhostState::Active { frightened: Some(_) })).is_true();
 }

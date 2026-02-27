@@ -29,6 +29,18 @@ pub struct NodePositions {
     pub fruit_spawn: Position,
 }
 
+/// Scatter mode target locations for each ghost (their home corners)
+pub struct ScatterTargets {
+    /// Blinky's scatter target (top-right corner area)
+    pub blinky: NodeId,
+    /// Pinky's scatter target (top-left corner area)
+    pub pinky: NodeId,
+    /// Inky's scatter target (bottom-right corner area)
+    pub inky: NodeId,
+    /// Clyde's scatter target (bottom-left corner area)
+    pub clyde: NodeId,
+}
+
 /// Complete maze representation combining visual layout with navigation pathfinding.
 ///
 /// Transforms the ASCII board layout into a fully connected navigation graph
@@ -43,6 +55,8 @@ pub struct Map {
     pub grid_to_node: HashMap<I8Vec2, NodeId>,
     /// Predetermined spawn locations for all game entities
     pub start_positions: NodePositions,
+    /// Scatter mode targets for ghosts (their home corners)
+    pub scatter_targets: ScatterTargets,
     /// 2D array of tile types for collision detection and rendering
     tiles: [[MapTile; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize],
 }
@@ -188,11 +202,15 @@ impl Map {
         debug!("Building tunnel connections");
         Self::build_tunnels(&mut graph, &grid_to_node, &tunnel_ends)?;
 
+        // Calculate scatter targets (ghost home corners)
+        let scatter_targets = Self::calculate_scatter_targets(&grid_to_node);
+
         debug!(node_count = graph.nodes().count(), "Map construction completed successfully");
         Ok(Map {
             graph,
             grid_to_node,
             start_positions,
+            scatter_targets,
             tiles: map,
         })
     }
@@ -424,5 +442,43 @@ impl Map {
             .expect("Failed to connect left tunnel hidden node to right tunnel hidden node");
 
         Ok(())
+    }
+
+    /// Calculate scatter targets for each ghost based on maze corners
+    fn calculate_scatter_targets(grid_to_node: &HashMap<I8Vec2, NodeId>) -> ScatterTargets {
+        // Ghost scatter targets are near the corners of the maze
+        // The dossier mentions they target tiles in "dead space" just beyond the maze
+        // We'll use nodes near the corners as approximations
+
+        // Top-right corner (Blinky) - near position (26, 0)
+        let blinky_target = *grid_to_node
+            .get(&I8Vec2::new(26, 1))
+            .or_else(|| grid_to_node.get(&I8Vec2::new(25, 1)))
+            .expect("Could not find Blinky scatter target node");
+
+        // Top-left corner (Pinky) - near position (1, 0)
+        let pinky_target = *grid_to_node
+            .get(&I8Vec2::new(1, 1))
+            .or_else(|| grid_to_node.get(&I8Vec2::new(2, 1)))
+            .expect("Could not find Pinky scatter target node");
+
+        // Bottom-right corner (Inky) - near position (26, 30)
+        let inky_target = *grid_to_node
+            .get(&I8Vec2::new(26, 29))
+            .or_else(|| grid_to_node.get(&I8Vec2::new(25, 29)))
+            .expect("Could not find Inky scatter target node");
+
+        // Bottom-left corner (Clyde) - near position (1, 30)
+        let clyde_target = *grid_to_node
+            .get(&I8Vec2::new(1, 29))
+            .or_else(|| grid_to_node.get(&I8Vec2::new(2, 29)))
+            .expect("Could not find Clyde scatter target node");
+
+        ScatterTargets {
+            blinky: blinky_target,
+            pinky: pinky_target,
+            inky: inky_target,
+            clyde: clyde_target,
+        }
     }
 }

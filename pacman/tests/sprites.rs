@@ -2,7 +2,7 @@
 use pacman::{
     game::ATLAS_FRAMES,
     map::direction::Direction,
-    systems::Ghost,
+    systems::GhostType,
     texture::sprites::{FrightenedColor, GameSprite, GhostSprite, MazeSprite, PacmanSprite},
 };
 
@@ -22,7 +22,7 @@ fn test_all_sprite_paths_exist() {
     }
 
     // Ghost sprites
-    for &ghost in &[Ghost::Blinky, Ghost::Pinky, Ghost::Inky, Ghost::Clyde] {
+    for &ghost in &[GhostType::Blinky, GhostType::Pinky, GhostType::Inky, GhostType::Clyde] {
         for &dir in &[Direction::Up, Direction::Down, Direction::Left, Direction::Right] {
             for frame in 0..2 {
                 sprites_to_test.push(GameSprite::Ghost(GhostSprite::Normal(ghost, dir, frame)));

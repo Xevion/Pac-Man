@@ -1,6 +1,6 @@
 use bevy_ecs::{entity::Entity, event::Event};
 
-use crate::{map::direction::Direction, systems::Ghost};
+use crate::{map::direction::Direction, systems::GhostType};
 
 /// Player input commands that trigger specific game actions.
 ///
@@ -46,7 +46,7 @@ impl From<GameCommand> for GameEvent {
 /// Data for requesting stage transitions; processed centrally in stage_system
 #[derive(Event, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StageTransition {
-    GhostEatenPause { ghost_entity: Entity, ghost_type: Ghost },
+    GhostEatenPause { ghost_entity: Entity, ghost_type: GhostType },
 }
 
 /// Collision triggers for immediate collision handling via observers
@@ -56,7 +56,7 @@ pub enum CollisionTrigger {
     GhostCollision {
         pacman: Entity,
         ghost: Entity,
-        ghost_type: Ghost,
+        ghost_type: GhostType,
     },
     /// Pac-Man collided with an item
     ItemCollision { item: Entity },

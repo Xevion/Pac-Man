@@ -13,7 +13,7 @@ pub mod render;
 mod animation;
 mod collision;
 pub mod common;
-mod ghost;
+pub mod ghost;
 mod hud;
 pub mod input;
 pub mod item;

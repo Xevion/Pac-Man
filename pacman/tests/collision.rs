@@ -48,7 +48,7 @@ fn test_collision_system_pacman_item() {
 fn test_collision_system_pacman_ghost() {
     let (mut world, _) = common::create_test_world();
     let _pacman = common::spawn_test_pacman(&mut world, 0);
-    let _ghost = common::spawn_test_ghost(&mut world, 0, GhostState::Normal);
+    let _ghost = common::spawn_test_ghost(&mut world, 0, GhostState::Active { frightened: None });
 
     // Run collision system - should not panic
     world
@@ -60,7 +60,7 @@ fn test_collision_system_pacman_ghost() {
 fn test_collision_system_no_collision() {
     let (mut world, mut schedule) = common::create_test_world();
     let _pacman = common::spawn_test_pacman(&mut world, 0);
-    let _ghost = common::spawn_test_ghost(&mut world, 1, GhostState::Normal); // Different node
+    let _ghost = common::spawn_test_ghost(&mut world, 1, GhostState::Active { frightened: None }); // Different node
 
     // Run collision system - should not panic
     schedule.run(&mut world);
@@ -71,7 +71,7 @@ fn test_collision_system_multiple_entities() {
     let (mut world, _) = common::create_test_world();
     let _pacman = common::spawn_test_pacman(&mut world, 0);
     let _item = common::spawn_test_item(&mut world, 0, EntityType::Pellet);
-    let _ghost = common::spawn_test_ghost(&mut world, 0, GhostState::Normal);
+    let _ghost = common::spawn_test_ghost(&mut world, 0, GhostState::Active { frightened: None });
 
     // Run collision system - should not panic
     world

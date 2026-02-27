@@ -1,8 +1,8 @@
 use bevy_ecs::bundle::Bundle;
 
 use crate::systems::{
-    BufferedDirection, Collider, DirectionalAnimation, EntityType, Ghost, GhostCollider, GhostState, ItemCollider,
-    LastAnimationState, MovementModifiers, PacmanCollider, PlayerControlled, Position, Renderable, Velocity,
+    BufferedDirection, Collider, DirectionalAnimation, EntityType, GhostCollider, GhostState, GhostTarget, GhostType,
+    ItemCollider, LastAnimationState, MovementModifiers, PacmanCollider, PlayerControlled, Position, Renderable, Velocity,
 };
 
 #[derive(Bundle)]
@@ -30,7 +30,7 @@ pub struct ItemBundle {
 
 #[derive(Bundle)]
 pub struct GhostBundle {
-    pub ghost: Ghost,
+    pub ghost: GhostType,
     pub position: Position,
     pub velocity: Velocity,
     pub sprite: Renderable,
@@ -40,4 +40,5 @@ pub struct GhostBundle {
     pub ghost_collider: GhostCollider,
     pub ghost_state: GhostState,
     pub last_animation_state: LastAnimationState,
+    pub ghost_target: GhostTarget,
 }
