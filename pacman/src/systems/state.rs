@@ -22,11 +22,11 @@ use bevy_ecs::{
 
 use crate::events::{GameCommand, GameEvent};
 #[cfg(not(target_os = "emscripten"))]
+use crate::systems::CanvasResource;
+#[cfg(not(target_os = "emscripten"))]
 use bevy_ecs::system::NonSendMut;
 #[cfg(not(target_os = "emscripten"))]
-use sdl2::render::Canvas;
-#[cfg(not(target_os = "emscripten"))]
-use sdl2::video::{FullscreenType, Window};
+use sdl2::video::FullscreenType;
 
 #[derive(Resource, Clone)]
 pub struct PlayerAnimation(pub DirectionalAnimation);
@@ -159,7 +159,7 @@ pub fn manage_pause_state_system(mut pause_state: ResMut<PauseState>, mut audio_
 }
 
 #[cfg(not(target_os = "emscripten"))]
-pub fn handle_fullscreen_command(mut events: EventReader<GameEvent>, mut canvas: NonSendMut<&mut Canvas<Window>>) {
+pub fn handle_fullscreen_command(mut events: EventReader<GameEvent>, mut canvas: NonSendMut<CanvasResource>) {
     for event in events.read() {
         if let GameEvent::Command(GameCommand::ToggleFullscreen) = event {
             let window = canvas.window_mut();

@@ -30,10 +30,27 @@ mod map;
 mod systems;
 mod texture;
 
-// Emscripten-specific: static storage for the App instance
-// Required because emscripten_set_main_loop_arg needs a persistent pointer
+/// Single-threaded global storage for Emscripten FFI callbacks.
+///
+/// WASM is single-threaded and JS callbacks are non-re-entrant, so exclusive
+/// access is guaranteed at runtime. `UnsafeCell` (rather than `static mut`)
+/// correctly communicates interior mutability to the compiler, avoiding UB
+/// from aliasing assumptions on `&mut` references.
 #[cfg(target_os = "emscripten")]
-static mut APP: Option<App> = None;
+struct WasmCell<T>(std::cell::UnsafeCell<T>);
+
+#[cfg(target_os = "emscripten")]
+unsafe impl<T> Sync for WasmCell<T> {}
+
+#[cfg(target_os = "emscripten")]
+impl<T> WasmCell<T> {
+    const fn new(val: T) -> Self {
+        Self(std::cell::UnsafeCell::new(val))
+    }
+}
+
+#[cfg(target_os = "emscripten")]
+static APP: WasmCell<Option<App>> = WasmCell::new(None);
 
 /// Called from JavaScript when the user interacts with the page.
 /// Transitions the game from WaitingForInteraction to Starting state.
@@ -41,7 +58,7 @@ static mut APP: Option<App> = None;
 #[no_mangle]
 pub extern "C" fn start_game() {
     unsafe {
-        if let Some(ref mut app) = APP {
+        if let Some(ref mut app) = *APP.0.get() {
             app.game.start();
         }
     }
@@ -69,8 +86,10 @@ pub extern "C" fn restart_game() {
     tracing::info!("Restarting game with fresh App instance");
 
     unsafe {
+        let app_ptr = APP.0.get();
+
         // Drop old App to clean up resources
-        APP = None;
+        *app_ptr = None;
 
         // Reinitialize audio subsystem for fresh state
         sdl2::mixer::close_audio();
@@ -78,7 +97,7 @@ pub extern "C" fn restart_game() {
         // Create fresh App with new canvas
         match App::new() {
             Ok(app) => {
-                APP = Some(app);
+                *app_ptr = Some(app);
                 tracing::info!("Game restarted successfully");
 
                 // Signal ready and start the main loop
@@ -95,7 +114,7 @@ pub extern "C" fn restart_game() {
 /// Emscripten main loop callback - runs once per frame
 #[cfg(target_os = "emscripten")]
 unsafe extern "C" fn main_loop_callback(_arg: *mut std::ffi::c_void) {
-    if let Some(ref mut app) = APP {
+    if let Some(ref mut app) = *APP.0.get() {
         let _ = app.run();
     }
 }
@@ -127,7 +146,7 @@ pub fn main() {
 
         // Store app in static for callback access
         unsafe {
-            APP = Some(app);
+            *APP.0.get() = Some(app);
         }
 
         // Signal to JavaScript that the game is ready for interaction

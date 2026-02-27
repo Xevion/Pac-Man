@@ -1,16 +1,15 @@
 use crate::error::{GameError, TextureError};
-use crate::systems::{BackbufferResource, TouchState};
+use crate::systems::{BackbufferResource, CanvasResource, TouchState};
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::{NonSendMut, Res};
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
-use sdl2::render::{BlendMode, Canvas};
-use sdl2::video::Window;
+use sdl2::render::BlendMode;
 
 /// Renders touch UI overlay for mobile/testing.
 pub fn touch_ui_render_system(
     mut backbuffer: NonSendMut<BackbufferResource>,
-    mut canvas: NonSendMut<&mut Canvas<Window>>,
+    mut canvas: NonSendMut<CanvasResource>,
     touch_state: Res<TouchState>,
     mut errors: EventWriter<GameError>,
 ) {

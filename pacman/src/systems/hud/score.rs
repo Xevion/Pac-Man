@@ -1,20 +1,18 @@
 use crate::constants;
 use crate::error::{GameError, TextureError};
-use crate::systems::{BackbufferResource, GameStage, PauseState, ScoreResource, StartupSequence};
+use crate::systems::{BackbufferResource, CanvasResource, GameStage, PauseState, ScoreResource, StartupSequence};
 use crate::texture::sprite::SpriteAtlas;
 use crate::texture::text::TextTexture;
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::{NonSendMut, Res};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
-use sdl2::render::Canvas;
-use sdl2::video::Window;
 
 /// Renders the HUD (score, lives, etc.) on top of the game.
 #[allow(clippy::too_many_arguments)]
 pub fn hud_render_system(
     mut backbuffer: NonSendMut<BackbufferResource>,
-    mut canvas: NonSendMut<&mut Canvas<Window>>,
+    mut canvas: NonSendMut<CanvasResource>,
     mut atlas: NonSendMut<SpriteAtlas>,
     score: Res<ScoreResource>,
     stage: Res<GameStage>,

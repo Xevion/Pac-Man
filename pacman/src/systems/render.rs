@@ -113,6 +113,22 @@ pub struct MapTextureResource(pub Texture);
 /// A non-send resource for the backbuffer texture. This just wraps the texture with a type so it can be differentiated when exposed as a resource.
 pub struct BackbufferResource(pub Texture);
 
+/// Owned wrapper for the SDL2 canvas, stored as a non-send ECS resource.
+pub struct CanvasResource(pub Canvas<Window>);
+
+impl std::ops::Deref for CanvasResource {
+    type Target = Canvas<Window>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for CanvasResource {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
 pub fn render_system(
@@ -191,7 +207,7 @@ pub fn render_system(
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
 pub fn combined_render_system(
-    mut canvas: NonSendMut<&mut Canvas<Window>>,
+    mut canvas: NonSendMut<CanvasResource>,
     map_texture: NonSendMut<MapTextureResource>,
     mut backbuffer: NonSendMut<BackbufferResource>,
     mut debug_texture: NonSendMut<DebugTextureResource>,
@@ -286,7 +302,7 @@ pub fn combined_render_system(
 }
 
 pub fn present_system(
-    mut canvas: NonSendMut<&mut Canvas<Window>>,
+    mut canvas: NonSendMut<CanvasResource>,
     mut dirty: ResMut<RenderDirty>,
     backbuffer: NonSendMut<BackbufferResource>,
     debug_texture: NonSendMut<DebugTextureResource>,

@@ -18,11 +18,12 @@ use crate::systems::{
     dirty_render_system, eaten_ghost_system, fruit_sprite_system, ghost_collision_observer, ghost_movement_system,
     ghost_state_system, hud_render_system, item_collision_observer, linear_render_system, player_life_sprite_system,
     present_system, profile, time_to_live_system, touch_ui_render_system, AudioEvent, AudioResource, AudioState,
-    BackbufferResource, Blinking, BufferedDirection, Collider, DebugState, DebugTextureResource, DeltaTime, DirectionalAnimation,
-    EntityType, Frozen, FruitSprites, GameStage, GhostAnimationState, GhostAnimations, GhostBundle, GhostCollider, GhostState,
-    GhostType, GlobalState, ItemBundle, ItemCollider, LastAnimationState, LinearAnimation, MapTextureResource, MovementModifiers,
-    NodeId, PacmanCollider, PlayerAnimation, PlayerBundle, PlayerControlled, PlayerDeathAnimation, PlayerLives, Position,
-    RenderDirty, Renderable, ScoreResource, SystemId, SystemTimings, Timing, TouchState, Velocity, Visibility,
+    BackbufferResource, Blinking, BufferedDirection, CanvasResource, Collider, DebugState, DebugTextureResource, DeltaTime,
+    DirectionalAnimation, EntityType, Frozen, FruitSprites, GameStage, GhostAnimationState, GhostAnimations, GhostBundle,
+    GhostCollider, GhostState, GhostType, GlobalState, ItemBundle, ItemCollider, LastAnimationState, LinearAnimation,
+    MapTextureResource, MovementModifiers, NodeId, PacmanCollider, PlayerAnimation, PlayerBundle, PlayerControlled,
+    PlayerDeathAnimation, PlayerLives, Position, RenderDirty, Renderable, ScoreResource, SystemId, SystemTimings, Timing,
+    TouchState, Velocity, Visibility,
 };
 
 #[cfg(not(target_os = "emscripten"))]
@@ -492,7 +493,7 @@ impl Game {
         world.insert_resource(PauseState::default());
 
         world.insert_non_send_resource(event_pump);
-        world.insert_non_send_resource::<&mut Canvas<Window>>(Box::leak(Box::new(canvas)));
+        world.insert_non_send_resource(CanvasResource(canvas));
         world.insert_non_send_resource(BackbufferResource(backbuffer));
         world.insert_non_send_resource(MapTextureResource(map_texture));
         world.insert_non_send_resource(DebugTextureResource(debug_texture));
