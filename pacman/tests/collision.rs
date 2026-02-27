@@ -1,5 +1,8 @@
 use bevy_ecs::system::RunSystemOnce;
-use pacman::systems::{check_collision, collision_system, Collider, EntityType, GhostState, Position};
+use pacman::systems::collision::{check_collision, collision_system, Collider};
+use pacman::systems::common::EntityType;
+use pacman::systems::ghost::GhostState;
+use pacman::systems::movement::Position;
 use speculoos::prelude::*;
 
 mod common;

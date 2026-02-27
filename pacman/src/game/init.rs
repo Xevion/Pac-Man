@@ -19,19 +19,23 @@ use crate::error::{GameError, GameResult};
 use crate::events::{CollisionTrigger, GameCommand, GameEvent, StageTransition};
 use crate::map::builder::Map;
 use crate::platform;
+use crate::systems::animation::LinearAnimation;
+use crate::systems::audio::{AudioEvent, AudioResource};
+use crate::systems::collision::{ghost_collision_observer, item_collision_observer};
+use crate::systems::common::{DeltaTime, GlobalState, ScoreResource};
+use crate::systems::debug::{BatchedLinesResource, DebugState, DebugTextureResource, TtfAtlasResource};
+use crate::systems::hud::FruitSprites;
+use crate::systems::input::{Bindings, CursorPosition, TouchState};
 use crate::systems::item::PelletCount;
+use crate::systems::profiling::{SystemTimings, Timing};
+use crate::systems::render::{BackbufferResource, CanvasResource, MapTextureResource, RenderDirty};
+use crate::systems::state::{GameStage, PlayerAnimation, PlayerDeathAnimation, PlayerLives};
 use crate::systems::state::{IntroPlayed, PauseState};
-use crate::systems::{
-    ghost_collision_observer, item_collision_observer, AudioEvent, AudioResource, BackbufferResource, BatchedLinesResource,
-    Bindings, CanvasResource, CursorPosition, DebugState, DebugTextureResource, DeltaTime, FruitSprites, GameStage, GlobalState,
-    LinearAnimation, MapTextureResource, PlayerAnimation, PlayerDeathAnimation, PlayerLives, RenderDirty, ScoreResource,
-    SystemTimings, Timing, TouchState, TtfAtlasResource,
-};
 use crate::texture::sprite::{AtlasMapper, SpriteAtlas};
 use crate::texture::sprites::{GameSprite, MazeSprite};
 
 #[cfg(not(target_os = "emscripten"))]
-use crate::systems::StartupSequence;
+use crate::systems::state::StartupSequence;
 
 pub(super) fn disable_sdl_events(event_pump: &mut EventPump) {
     for event_type in [

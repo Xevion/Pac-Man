@@ -1,6 +1,8 @@
 use crate::constants;
 use crate::error::{GameError, TextureError};
-use crate::systems::{BackbufferResource, CanvasResource, GameStage, PauseState, ScoreResource, StartupSequence};
+use crate::systems::common::ScoreResource;
+use crate::systems::render::{BackbufferResource, CanvasResource};
+use crate::systems::state::{GameStage, PauseState, StartupSequence};
 use crate::texture::sprite::SpriteAtlas;
 use crate::texture::text::TextTexture;
 use bevy_ecs::event::EventWriter;

@@ -200,7 +200,7 @@ mod integration_tests {
     // Simplified helper for testing SDL integration
     fn run_input_system_with_events(events: Vec<sdl2::event::Event>, delta_time: f32) -> (CursorPosition, TouchState) {
         use bevy_ecs::{event::Events, system::RunSystemOnce, world::World};
-        use pacman::systems::components::DeltaTime;
+        use pacman::systems::common::DeltaTime;
         use pacman::systems::input::input_system;
 
         let sdl_context = sdl2::init().expect("Failed to initialize SDL");

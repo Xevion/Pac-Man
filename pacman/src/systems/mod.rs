@@ -10,32 +10,14 @@ pub mod profiling;
 #[cfg_attr(coverage_nightly, coverage(off))]
 pub mod render;
 
-mod animation;
-mod collision;
+pub mod animation;
+pub mod collision;
 pub mod common;
 pub mod ghost;
-mod hud;
+pub mod hud;
 pub mod input;
 pub mod item;
 pub mod lifetime;
 pub mod movement;
 pub mod player;
 pub mod state;
-
-// Re-export all the modules. Do not fine-tune the exports.
-
-pub use self::animation::*;
-pub use self::audio::*;
-pub use self::collision::*;
-pub use self::common::*;
-pub use self::debug::*;
-pub use self::ghost::*;
-pub use self::hud::*;
-pub use self::input::*;
-pub use self::item::*;
-pub use self::lifetime::*;
-pub use self::movement::*;
-pub use self::player::*;
-pub use self::profiling::*;
-pub use self::render::*;
-pub use self::state::*;

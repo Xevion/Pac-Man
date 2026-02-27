@@ -9,11 +9,13 @@ use crate::constants::MapTile;
 use crate::error::GameResult;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
-use crate::systems::{
-    Blinking, BufferedDirection, Collider, DirectionalAnimation, EntityType, Frozen, GhostAnimationState, GhostAnimations,
-    GhostBundle, GhostCollider, GhostState, GhostType, ItemBundle, ItemCollider, LastAnimationState, MovementModifiers, NodeId,
-    PacmanCollider, PlayerBundle, PlayerControlled, Position, Renderable, Velocity, Visibility,
-};
+use crate::systems::animation::{Blinking, DirectionalAnimation};
+use crate::systems::collision::{Collider, GhostCollider, ItemCollider, PacmanCollider};
+use crate::systems::common::{EntityType, Frozen, GhostBundle, ItemBundle, MovementModifiers, PlayerBundle};
+use crate::systems::ghost::{GhostAnimationState, GhostAnimations, GhostState, GhostType, LastAnimationState};
+use crate::systems::movement::{BufferedDirection, NodeId, Position, Velocity};
+use crate::systems::player::PlayerControlled;
+use crate::systems::render::{Renderable, Visibility};
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 use crate::texture::sprites::{GameSprite, GhostSprite, MazeSprite};
 

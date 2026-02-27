@@ -1,7 +1,10 @@
 //! Debug rendering system
 use crate::constants::{self, BOARD_PIXEL_OFFSET};
 use crate::map::builder::Map;
-use crate::systems::{Collider, CursorPosition, NodeId, Position, SystemTimings};
+use crate::systems::collision::Collider;
+use crate::systems::input::CursorPosition;
+use crate::systems::movement::{NodeId, Position};
+use crate::systems::profiling::SystemTimings;
 use crate::texture::ttf::{TtfAtlas, TtfRenderer};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{Query, Res};

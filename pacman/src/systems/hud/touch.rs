@@ -1,5 +1,6 @@
 use crate::error::{GameError, TextureError};
-use crate::systems::{BackbufferResource, CanvasResource, TouchState};
+use crate::systems::input::TouchState;
+use crate::systems::render::{BackbufferResource, CanvasResource};
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::{NonSendMut, Res};
 use sdl2::pixels::Color;

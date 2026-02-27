@@ -1,7 +1,11 @@
 use bevy_ecs::entity::Entity;
 use pacman::{
     events::CollisionTrigger,
-    systems::{EntityType, GhostState, Position, ScoreResource},
+    systems::{
+        common::{EntityType, ScoreResource},
+        ghost::GhostState,
+        movement::Position,
+    },
 };
 use speculoos::prelude::*;
 

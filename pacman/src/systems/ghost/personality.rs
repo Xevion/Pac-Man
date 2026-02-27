@@ -4,7 +4,7 @@ use super::targeting::find_nearest_node;
 use super::GhostType;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
-use crate::systems::NodeId;
+use crate::systems::movement::NodeId;
 use glam::Vec2;
 
 const TILE_SIZE: f32 = 8.0;

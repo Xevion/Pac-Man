@@ -3,15 +3,17 @@ use tracing::{debug, info};
 
 use crate::constants;
 use crate::events::StageTransition;
+use crate::map::builder::Map;
 use crate::map::direction::Direction;
-use crate::systems::{EntityType, ItemCollider, SpawnTrigger, Velocity};
-use crate::{
-    map::builder::Map,
-    systems::{
-        AudioEvent, Blinking, DirectionalAnimation, Dying, Frozen, GhostCollider, GhostState, GhostType, LinearAnimation,
-        Looping, NodeId, PlayerControlled, Position, Visibility,
-    },
-};
+use crate::systems::animation::{Blinking, DirectionalAnimation, Dying, LinearAnimation, Looping};
+use crate::systems::audio::AudioEvent;
+use crate::systems::collision::{GhostCollider, ItemCollider};
+use crate::systems::common::{EntityType, Frozen};
+use crate::systems::ghost::{GhostState, GhostType};
+use crate::systems::item::SpawnTrigger;
+use crate::systems::movement::{NodeId, Position, Velocity};
+use crate::systems::player::PlayerControlled;
+use crate::systems::render::Visibility;
 use bevy_ecs::{
     entity::Entity,
     event::{EventReader, EventWriter},
@@ -22,7 +24,7 @@ use bevy_ecs::{
 
 use crate::events::{GameCommand, GameEvent};
 #[cfg(not(target_os = "emscripten"))]
-use crate::systems::CanvasResource;
+use crate::systems::render::CanvasResource;
 #[cfg(not(target_os = "emscripten"))]
 use bevy_ecs::system::NonSendMut;
 #[cfg(not(target_os = "emscripten"))]

@@ -4,10 +4,13 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 
-use crate::{
-    systems::{DeltaTime, Dying, Frozen, LinearAnimation, Looping, Position, Renderable, Velocity},
-    texture::animated::DirectionalTiles,
-};
+use crate::systems::animation::{LinearAnimation, Looping};
+use crate::systems::common::{DeltaTime, Frozen};
+use crate::systems::movement::{Position, Velocity};
+use crate::systems::render::Renderable;
+use crate::texture::animated::DirectionalTiles;
+
+use super::Dying;
 
 /// Directional animation component with shared timing across all directions
 #[derive(Component, Clone)]

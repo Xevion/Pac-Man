@@ -7,18 +7,17 @@ use rand::Rng;
 use strum_macros::IntoStaticStr;
 use tracing::debug;
 
-use crate::{
-    constants,
-    map::builder::Map,
-    platform::rng,
-    systems::{common::bundles::ItemBundle, Collider, Position, Renderable, TimeToLive},
-    texture::{
-        sprite::SpriteAtlas,
-        sprites::{EffectSprite, GameSprite},
-    },
-};
-
-use crate::{systems::common::components::EntityType, systems::ItemCollider};
+use crate::constants;
+use crate::map::builder::Map;
+use crate::platform::rng;
+use crate::systems::collision::{Collider, ItemCollider};
+use crate::systems::common::bundles::ItemBundle;
+use crate::systems::common::components::EntityType;
+use crate::systems::lifetime::TimeToLive;
+use crate::systems::movement::Position;
+use crate::systems::render::Renderable;
+use crate::texture::sprite::SpriteAtlas;
+use crate::texture::sprites::{EffectSprite, GameSprite};
 
 use std::cmp::Ordering;
 

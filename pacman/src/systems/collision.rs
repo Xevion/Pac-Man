@@ -9,16 +9,17 @@ use bevy_ecs::{
 use tracing::{debug, trace, warn};
 
 use crate::audio::Sound;
-use crate::{
-    constants,
-    systems::{movement::Position, AudioEvent, DyingSequence, FruitSprites, GameStage, GhostType, ScoreResource, SpawnTrigger},
-};
-use crate::{error::GameError, systems::GhostState};
-use crate::{
-    events::{CollisionTrigger, StageTransition},
-    systems::PelletCount,
-};
-use crate::{map::builder::Map, systems::EntityType};
+use crate::constants;
+use crate::error::GameError;
+use crate::events::{CollisionTrigger, StageTransition};
+use crate::map::builder::Map;
+use crate::systems::audio::AudioEvent;
+use crate::systems::common::{EntityType, ScoreResource};
+use crate::systems::ghost::{GhostState, GhostType};
+use crate::systems::hud::FruitSprites;
+use crate::systems::item::{PelletCount, SpawnTrigger};
+use crate::systems::movement::Position;
+use crate::systems::state::{DyingSequence, GameStage};
 
 /// A component for defining the collision area of an entity.
 #[derive(Component)]

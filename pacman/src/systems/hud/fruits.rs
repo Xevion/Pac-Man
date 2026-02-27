@@ -13,7 +13,7 @@ pub struct FruitSprites(pub Vec<FruitType>);
 
 use crate::constants::{BOARD_BOTTOM_PIXEL_OFFSET, CANVAS_SIZE, CELL_SIZE};
 use crate::error::GameError;
-use crate::systems::{PixelPosition, Renderable};
+use crate::systems::render::{PixelPosition, Renderable};
 use crate::texture::sprite::SpriteAtlas;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;

@@ -6,8 +6,11 @@ use pacman::{
         graph::{Edge, TraversalFlags},
     },
     systems::{
-        can_traverse, player_control_system, player_movement_system, AudioEvent, BufferedDirection, DebugState, DeltaTime,
-        EntityType, GlobalState, Position, Velocity,
+        audio::AudioEvent,
+        common::{DeltaTime, EntityType, GlobalState},
+        debug::DebugState,
+        movement::{BufferedDirection, Position, Velocity},
+        player::{can_traverse, player_control_system, player_movement_system},
     },
 };
 use speculoos::prelude::*;

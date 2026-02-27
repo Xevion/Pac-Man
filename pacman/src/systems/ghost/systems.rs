@@ -7,15 +7,17 @@ use super::{
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::map::graph::TraversalFlags;
+use crate::systems::animation::{DirectionalAnimation, LinearAnimation, Looping};
+use crate::systems::common::{DeltaTime, Frozen};
 use crate::systems::item::PelletCount;
-use crate::systems::{DeltaTime, DirectionalAnimation, Frozen, LinearAnimation, Looping, NodeId, Position, Velocity};
+use crate::systems::movement::{NodeId, Position, Velocity};
 use bevy_ecs::prelude::*;
 use tracing::{debug, trace};
 
 /// System to tick the ghost mode controller and trigger reversals
 pub fn ghost_mode_tick_system(
     mut mode_controller: ResMut<GhostModeController>,
-    mut ghost_query: Query<(&GhostState, &mut crate::systems::Velocity)>,
+    mut ghost_query: Query<(&GhostState, &mut crate::systems::movement::Velocity)>,
 ) {
     // Check if any ghosts are frightened
     let any_frightened = ghost_query.iter().any(|(state, _)| state.is_frightened());

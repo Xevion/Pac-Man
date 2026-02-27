@@ -1,6 +1,7 @@
 use bevy_ecs::{entity::Entity, event::Event};
 
-use crate::{map::direction::Direction, systems::GhostType};
+use crate::map::direction::Direction;
+use crate::systems::ghost::GhostType;
 
 /// Player input commands that trigger specific game actions.
 ///

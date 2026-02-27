@@ -21,7 +21,10 @@ use crate::error::{GameError, GameResult};
 use crate::map::builder::Map;
 use crate::map::render::MapRenderer;
 use crate::platform;
-use crate::systems::{self, DeltaTime, Frozen, GlobalState, Timing, Visibility};
+use crate::systems;
+use crate::systems::common::{DeltaTime, Frozen, GlobalState};
+use crate::systems::profiling::Timing;
+use crate::systems::render::Visibility;
 
 /// Core game state manager built on the Bevy ECS architecture.
 ///
@@ -95,7 +98,7 @@ impl Game {
         debug!("Setting up ECS event registry and observers");
         init::setup_ecs(&mut world);
 
-        world.add_observer(systems::spawn_fruit_observer);
+        world.add_observer(systems::item::spawn_fruit_observer);
 
         debug!("Inserting resources into ECS world");
         init::insert_resources(
@@ -134,8 +137,8 @@ impl Game {
     /// Called from JavaScript when the user clicks or presses a key.
     #[cfg(target_os = "emscripten")]
     pub fn start(&mut self) {
+        use crate::systems::audio::AudioResource;
         use crate::systems::state::{GameStage, StartupSequence};
-        use crate::systems::AudioResource;
 
         // Unlock audio now that user has interacted
         if let Some(mut audio) = self.world.get_non_send_resource_mut::<AudioResource>() {

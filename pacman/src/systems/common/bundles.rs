@@ -1,9 +1,12 @@
 use bevy_ecs::bundle::Bundle;
 
-use crate::systems::{
-    BufferedDirection, Collider, DirectionalAnimation, EntityType, GhostCollider, GhostState, GhostTarget, GhostType,
-    ItemCollider, LastAnimationState, MovementModifiers, PacmanCollider, PlayerControlled, Position, Renderable, Velocity,
-};
+use crate::systems::animation::DirectionalAnimation;
+use crate::systems::collision::{Collider, GhostCollider, ItemCollider, PacmanCollider};
+use crate::systems::common::{EntityType, MovementModifiers};
+use crate::systems::ghost::{GhostState, GhostTarget, GhostType, LastAnimationState};
+use crate::systems::movement::{BufferedDirection, Position, Velocity};
+use crate::systems::player::PlayerControlled;
+use crate::systems::render::Renderable;
 
 #[derive(Bundle)]
 pub struct PlayerBundle {

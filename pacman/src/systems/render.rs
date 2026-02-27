@@ -1,9 +1,10 @@
 use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
-use crate::systems::{
-    debug_render_system, BatchedLinesResource, Collider, CursorPosition, DebugState, DebugTextureResource, Position, SystemId,
-    SystemTimings, TouchState, TtfAtlasResource,
-};
+use crate::systems::collision::Collider;
+use crate::systems::debug::{debug_render_system, BatchedLinesResource, DebugState, DebugTextureResource, TtfAtlasResource};
+use crate::systems::input::{CursorPosition, TouchState};
+use crate::systems::movement::Position;
+use crate::systems::profiling::{SystemId, SystemTimings};
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::component::Component;

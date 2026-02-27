@@ -26,7 +26,7 @@ pub use state::{FrightenedData, GhostAnimationState, GhostState};
 pub use systems::{eaten_ghost_system, elroy_system, ghost_house_system, ghost_mode_tick_system, ghost_state_system};
 pub use targeting::RedZoneNodes;
 
-use crate::systems::{DirectionalAnimation, LinearAnimation};
+use crate::systems::animation::{DirectionalAnimation, LinearAnimation};
 
 /// Ghost personality type -- determines targeting behavior
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -3,7 +3,7 @@
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::map::graph::TraversalFlags;
-use crate::systems::NodeId;
+use crate::systems::movement::NodeId;
 use bevy_ecs::resource::Resource;
 use glam::Vec2;
 use rand::prelude::IndexedRandom;

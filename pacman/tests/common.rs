@@ -13,9 +13,15 @@ use pacman::{
         graph::{Graph, Node},
     },
     systems::{
-        item_collision_observer, AudioEvent, BufferedDirection, Collider, DebugState, DeltaTime, EntityType, FruitSprites,
-        GhostCollider, GhostState, GhostType, GlobalState, ItemCollider, MovementModifiers, PacmanCollider, PelletCount,
-        PlayerControlled, Position, ScoreResource, Velocity,
+        audio::AudioEvent,
+        collision::{item_collision_observer, Collider, GhostCollider, ItemCollider, PacmanCollider},
+        common::{DeltaTime, EntityType, GlobalState, MovementModifiers, ScoreResource},
+        debug::DebugState,
+        ghost::{GhostState, GhostType},
+        hud::FruitSprites,
+        item::PelletCount,
+        movement::{BufferedDirection, Position, Velocity},
+        player::PlayerControlled,
     },
     texture::sprite::{AtlasMapper, AtlasTile, SpriteAtlas},
 };

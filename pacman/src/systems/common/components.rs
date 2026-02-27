@@ -1,6 +1,7 @@
 use bevy_ecs::{component::Component, resource::Resource};
 
-use crate::{map::graph::TraversalFlags, systems::FruitType};
+use crate::map::graph::TraversalFlags;
+use crate::systems::item::FruitType;
 
 /// A tag component denoting the type of entity.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]

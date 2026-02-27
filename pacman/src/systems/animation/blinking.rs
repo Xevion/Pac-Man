@@ -4,7 +4,8 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 
-use crate::systems::{DeltaTime, Frozen, Renderable, Visibility};
+use crate::systems::common::{DeltaTime, Frozen};
+use crate::systems::render::{Renderable, Visibility};
 
 #[derive(Component, Debug)]
 pub struct Blinking {

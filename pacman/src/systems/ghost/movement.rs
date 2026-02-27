@@ -8,7 +8,9 @@ use super::{
 };
 use crate::map::builder::Map;
 use crate::platform::rng;
-use crate::systems::{DeltaTime, Frozen, NodeId, PlayerControlled, Position, Velocity};
+use crate::systems::common::{DeltaTime, Frozen};
+use crate::systems::movement::{NodeId, Position, Velocity};
+use crate::systems::player::PlayerControlled;
 use bevy_ecs::prelude::*;
 
 /// Component storing the ghost's current target node

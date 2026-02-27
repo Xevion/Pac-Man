@@ -6,13 +6,20 @@ use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule, SystemSet};
 use bevy_ecs::system::{Local, Res, ResMut};
 
-use crate::systems::state::PauseState;
-use crate::systems::{
-    self, audio_system, blinking_system, collision_system, combined_render_system, directional_render_system,
-    dirty_render_system, eaten_ghost_system, fruit_sprite_system, ghost_movement_system, ghost_state_system, hud_render_system,
-    linear_render_system, player_life_sprite_system, present_system, profile, time_to_live_system, touch_ui_render_system,
-    FruitSprites, GameStage, RenderDirty, ScoreResource, SystemId,
+use crate::systems;
+use crate::systems::animation::{blinking_system, directional_render_system, linear_render_system};
+use crate::systems::audio::audio_system;
+use crate::systems::collision::collision_system;
+use crate::systems::common::ScoreResource;
+use crate::systems::ghost::{eaten_ghost_system, ghost_movement_system, ghost_state_system};
+use crate::systems::hud::{
+    fruit_sprite_system, hud_render_system, player_life_sprite_system, touch_ui_render_system, FruitSprites,
 };
+use crate::systems::lifetime::time_to_live_system;
+use crate::systems::profiling::{profile, SystemId};
+use crate::systems::render::{combined_render_system, dirty_render_system, present_system, RenderDirty};
+use crate::systems::state::GameStage;
+use crate::systems::state::PauseState;
 
 /// System set for all gameplay systems to ensure they run after input processing
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -34,11 +41,11 @@ enum RenderSet {
 }
 
 pub(super) fn configure_schedule(schedule: &mut Schedule) {
-    let stage_system = profile(SystemId::Stage, systems::stage_system);
+    let stage_system = profile(SystemId::Stage, systems::state::stage_system);
     let input_system = profile(SystemId::Input, systems::input::input_system);
-    let pause_system = profile(SystemId::Input, systems::handle_pause_command);
-    let player_control_system = profile(SystemId::PlayerControls, systems::player_control_system);
-    let player_movement_system = profile(SystemId::PlayerMovement, systems::player_movement_system);
+    let pause_system = profile(SystemId::Input, systems::state::handle_pause_command);
+    let player_control_system = profile(SystemId::PlayerControls, systems::player::player_control_system);
+    let player_movement_system = profile(SystemId::PlayerMovement, systems::player::player_movement_system);
     let player_tunnel_slowdown_system = profile(SystemId::PlayerMovement, systems::player::player_tunnel_slowdown_system);
     let ghost_mode_tick_system = profile(SystemId::Ghost, systems::ghost::ghost_mode_tick_system);
     let ghost_house_system = profile(SystemId::Ghost, systems::ghost::ghost_house_system);
@@ -70,7 +77,7 @@ pub(super) fn configure_schedule(schedule: &mut Schedule) {
         player_control_system,
         pause_system,
         #[cfg(not(target_os = "emscripten"))]
-        profile(SystemId::Input, systems::handle_fullscreen_command),
+        profile(SystemId::Input, systems::state::handle_fullscreen_command),
     )
         .chain();
 

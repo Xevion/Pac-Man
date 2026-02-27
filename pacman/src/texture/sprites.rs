@@ -5,10 +5,9 @@
 //! The `GameSprite` enum is the main entry point, and its `to_path` method
 //! generates the correct path for a given sprite in the texture atlas.
 
-use crate::{
-    map::direction::Direction,
-    systems::{FruitType, GhostType},
-};
+use crate::map::direction::Direction;
+use crate::systems::ghost::GhostType;
+use crate::systems::item::FruitType;
 
 /// Represents the different sprites for Pac-Man.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
