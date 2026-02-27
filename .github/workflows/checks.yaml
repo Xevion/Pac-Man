@@ -11,7 +11,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_TOOLCHAIN: 1.86.0
 
 jobs:
   checks:
@@ -22,43 +21,27 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
-          components: clippy, rustfmt
+        uses: mkroening/rust-toolchain-toml@main
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-emscripten
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Cache vcpkg
-        uses: actions/cache@v4
-        with:
-          path: target/vcpkg
-          key: A-vcpkg-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
-          restore-keys: |
-            A-vcpkg-${{ runner.os }}-
+      - name: Setup vcpkg
+        uses: ./.github/actions/vcpkg-setup
 
-      - name: Vcpkg Linux Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libltdl-dev
+      - name: Run clippy (desktop)
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-      - name: Vcpkg
-        run: |
-          cargo install cargo-vcpkg
-          cargo vcpkg -v build
-        working-directory: pacman
-
-      - name: Run clippy
-        run: cargo clippy -- -D warnings
-        working-directory: pacman
+      - name: Run clippy (wasm)
+        run: cargo clippy -p pacman --target wasm32-unknown-emscripten --all-targets --all-features -- -D warnings
 
       - name: Check formatting
-        run: cargo fmt -- --check
-        working-directory: pacman
+        run: cargo fmt --all -- --check
 
       - uses: taiki-e/install-action@cargo-audit
 
       - name: Run security audit
         run: cargo audit
-        working-directory: pacman

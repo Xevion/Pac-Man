@@ -10,11 +10,12 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_TOOLCHAIN: nightly
 
 jobs:
   coverage:
     runs-on: ubuntu-latest
+    env:
+      COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -22,30 +23,14 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          toolchain: nightly
           components: llvm-tools-preview
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Cache vcpkg
-        uses: actions/cache@v4
-        with:
-          path: target/vcpkg
-          key: A-vcpkg-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
-          restore-keys: |
-            A-vcpkg-${{ runner.os }}-
-
-      - name: Vcpkg Linux Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libltdl-dev
-
-      - name: Vcpkg
-        run: |
-          cargo install cargo-vcpkg
-          cargo vcpkg -v build
-        working-directory: pacman
+      - name: Setup vcpkg
+        uses: ./.github/actions/vcpkg-setup
 
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
@@ -65,9 +50,10 @@ jobs:
           fi
 
       - name: Coveralls upload
-        if: ${{ secrets.COVERALLS_REPO_TOKEN != '' }}
+        if: ${{ env.COVERALLS_REPO_TOKEN != '' }}
+        continue-on-error: true
         uses: coverallsapp/github-action@v2
         with:
-          github-token: ${{ secrets.COVERALLS_REPO_TOKEN }}
+          github-token: ${{ env.COVERALLS_REPO_TOKEN }}
           path-to-lcov: lcov.info
           debug: true

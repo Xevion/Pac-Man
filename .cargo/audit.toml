@@ -1,0 +1,24 @@
+# Cargo audit configuration
+# See: https://github.com/rustsec/rustsec/blob/main/cargo-audit/audit.toml.example
+
+[advisories]
+ignore = [
+    # RSA PKCS#1 v1.5 signature validation - Marvin Attack
+    # No fix available, comes from sqlx-mysql dependency
+    # Risk is low for our use case (internal database connections)
+    "RUSTSEC-2023-0071",
+
+    # Denial of Service via Stack Exhaustion in `time`
+    # Fix requires time >=0.3.47, which requires rustc 1.88.0
+    # Project is pinned to 1.86.0 for Emscripten compatibility
+    "RUSTSEC-2026-0009",
+
+    # tokio-tar PAX extended headers file smuggling
+    # No fix available; comes from testcontainers (postgres-tests feature only)
+    # Not exposed to untrusted input in our test infrastructure
+    "RUSTSEC-2025-0111",
+]
+informational_warnings = ["unmaintained", "unsound"]
+
+[yanked]
+enabled = true

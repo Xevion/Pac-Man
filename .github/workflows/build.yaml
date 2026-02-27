@@ -22,64 +22,33 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact_name: pacman
-            toolchain: 1.86.0
           - os: macos-15-intel
             target: x86_64-apple-darwin
             artifact_name: pacman
-            toolchain: 1.86.0
           - os: macos-15
             target: aarch64-apple-darwin
             artifact_name: pacman
-            toolchain: 1.86.0
           - os: windows-latest
             target: x86_64-pc-windows-gnu
             artifact_name: pacman.exe
-            toolchain: 1.86.0
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
       - name: Setup Rust Toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          target: ${{ matrix.target }}
-          toolchain: ${{ matrix.toolchain }}
+        uses: mkroening/rust-toolchain-toml@main
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Get vcpkg baseline
-        id: vcpkg_version
-        shell: bash
-        run: |
-          VCPKG_REV=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "pacman") | .metadata.vcpkg.rev // "unknown"')
-          echo "version=$VCPKG_REV" >> $GITHUB_OUTPUT
-        working-directory: pacman
-
-      - name: Cache vcpkg
-        uses: actions/cache@v4
-        with:
-          path: |
-            target/vcpkg
-            ~/.cargo/bin/cargo-vcpkg
-          key: vcpkg-${{ steps.vcpkg_version.outputs.version }}-${{ runner.os }}-${{ matrix.target }}
-          restore-keys: |
-            vcpkg-${{ steps.vcpkg_version.outputs.version }}-${{ runner.os }}-
-
-      - name: Vcpkg Linux Dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libltdl-dev
-
       - name: Setup vcpkg
-        shell: bash
-        run: |
-          cargo install cargo-vcpkg
-          cargo vcpkg -v build
-          echo "VCPKG_ROOT=${{ github.workspace }}/target/vcpkg" >> $GITHUB_ENV
-        working-directory: pacman
+        uses: ./.github/actions/vcpkg-setup
+        with:
+          target: ${{ matrix.target }}
 
       - name: Build
         run: cargo build --release

@@ -1,0 +1,50 @@
+name: Setup vcpkg
+description: Install cargo-vcpkg, restore cache, and build SDL2 dependencies
+
+inputs:
+  target:
+    description: Rust target triple (used in cache key; omit for single-target workflows)
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Get vcpkg baseline revision
+      id: vcpkg_version
+      shell: bash
+      run: |
+        VCPKG_REV=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "pacman") | .metadata.vcpkg.rev // "unknown"')
+        echo "rev=$VCPKG_REV" >> $GITHUB_OUTPUT
+      working-directory: pacman
+
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          target/vcpkg
+          ~/.cargo/bin/cargo-vcpkg
+        key: vcpkg-${{ steps.vcpkg_version.outputs.rev }}-${{ runner.os }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}
+        restore-keys: |
+          vcpkg-${{ steps.vcpkg_version.outputs.rev }}-${{ runner.os }}-
+
+    - name: Install Linux system dependencies
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libltdl-dev
+
+    - name: Install cargo-vcpkg
+      shell: bash
+      run: |
+        if ! command -v cargo-vcpkg &>/dev/null; then
+          cargo install cargo-vcpkg
+        fi
+
+    - name: Build vcpkg dependencies
+      shell: bash
+      run: |
+        cargo vcpkg -v build
+        echo "VCPKG_ROOT=${{ github.workspace }}/target/vcpkg" >> $GITHUB_ENV
+      working-directory: pacman

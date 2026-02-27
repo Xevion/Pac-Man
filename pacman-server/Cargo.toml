@@ -43,7 +43,6 @@ async-trait = "0.1"
 jsonwebtoken = { version = "9.3", default-features = false }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
-tracing-futures = { version = "0.2.5", features = ["tokio"] }
 tower-http = { version = "0.6", features = ["trace", "fs", "normalize-path"] }
 time = { version = "0.3", features = ["macros", "formatting"] }
 yansi = "1"
