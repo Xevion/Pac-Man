@@ -13,7 +13,7 @@ use bevy_ecs::event::EventWriter;
 use bevy_ecs::query::{Changed, Or, With};
 use bevy_ecs::removal_detection::RemovedComponents;
 use bevy_ecs::resource::Resource;
-use bevy_ecs::system::{NonSendMut, Query, Res, ResMut};
+use bevy_ecs::system::{NonSendMut, Query, Res, ResMut, SystemParam};
 use glam::Vec2;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Canvas, Texture};
@@ -130,7 +130,6 @@ impl std::ops::DerefMut for CanvasResource {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
 pub fn render_system(
     canvas: &mut Canvas<Window>,
@@ -203,21 +202,33 @@ pub fn render_system(
     }
 }
 
+/// Grouped NonSendMut render surface resources.
+#[derive(SystemParam)]
+pub struct RenderSurfaces<'w> {
+    pub canvas: NonSendMut<'w, CanvasResource>,
+    pub map_texture: NonSendMut<'w, MapTextureResource>,
+    pub backbuffer: NonSendMut<'w, BackbufferResource>,
+    pub debug_texture: NonSendMut<'w, DebugTextureResource>,
+    pub atlas: NonSendMut<'w, SpriteAtlas>,
+    pub ttf_atlas: NonSendMut<'w, TtfAtlasResource>,
+}
+
+/// Grouped debug-related read-only resources.
+#[derive(SystemParam)]
+pub struct DebugContext<'w> {
+    pub batched_lines: Res<'w, BatchedLinesResource>,
+    pub debug_state: Res<'w, DebugState>,
+    pub timings: Res<'w, SystemTimings>,
+    pub timing: Res<'w, crate::systems::profiling::Timing>,
+    pub cursor: Res<'w, CursorPosition>,
+}
+
 /// Combined render system that renders to both backbuffer and debug textures in a single
 /// with_multiple_texture_canvas call for reduced overhead
-#[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
 pub fn combined_render_system(
-    mut canvas: NonSendMut<CanvasResource>,
-    map_texture: NonSendMut<MapTextureResource>,
-    mut backbuffer: NonSendMut<BackbufferResource>,
-    mut debug_texture: NonSendMut<DebugTextureResource>,
-    mut atlas: NonSendMut<SpriteAtlas>,
-    mut ttf_atlas: NonSendMut<TtfAtlasResource>,
-    batched_lines: Res<BatchedLinesResource>,
-    debug_state: Res<DebugState>,
-    timings: Res<SystemTimings>,
-    timing: Res<crate::systems::profiling::Timing>,
+    mut surfaces: RenderSurfaces,
+    debug_ctx: DebugContext,
     map: Res<Map>,
     dirty: Res<RenderDirty>,
     renderables: Query<
@@ -231,7 +242,6 @@ pub fn combined_render_system(
         Or<(With<Position>, With<PixelPosition>)>,
     >,
     colliders: Query<(&Collider, &Position)>,
-    cursor: Res<CursorPosition>,
     mut errors: EventWriter<GameError>,
 ) {
     if !dirty.0 {
@@ -240,65 +250,68 @@ pub fn combined_render_system(
 
     // Prepare textures and render targets
     let textures = [
-        (&mut backbuffer.0, RenderTarget::Backbuffer),
-        (&mut debug_texture.0, RenderTarget::Debug),
+        (&mut surfaces.backbuffer.0, RenderTarget::Backbuffer),
+        (&mut surfaces.debug_texture.0, RenderTarget::Debug),
     ];
 
     // Record timing for each system independently
     let mut render_duration = None;
     let mut debug_render_duration = None;
 
-    let result = canvas.with_multiple_texture_canvas(textures.iter(), |texture_canvas, render_target| match render_target {
-        RenderTarget::Backbuffer => {
-            let start_time = Instant::now();
+    let result =
+        surfaces
+            .canvas
+            .with_multiple_texture_canvas(textures.iter(), |texture_canvas, render_target| match render_target {
+                RenderTarget::Backbuffer => {
+                    let start_time = Instant::now();
 
-            render_system(
-                texture_canvas,
-                &map_texture,
-                &mut atlas,
-                &map,
-                &dirty,
-                &renderables,
-                &mut errors,
-            );
+                    render_system(
+                        texture_canvas,
+                        &surfaces.map_texture,
+                        &mut surfaces.atlas,
+                        &map,
+                        &dirty,
+                        &renderables,
+                        &mut errors,
+                    );
 
-            render_duration = Some(start_time.elapsed());
-        }
-        RenderTarget::Debug => {
-            if !debug_state.enabled {
-                return;
-            }
+                    render_duration = Some(start_time.elapsed());
+                }
+                RenderTarget::Debug => {
+                    if !debug_ctx.debug_state.enabled {
+                        return;
+                    }
 
-            let start_time = Instant::now();
+                    let start_time = Instant::now();
 
-            debug_render_system(
-                texture_canvas,
-                &mut ttf_atlas,
-                &batched_lines,
-                &debug_state,
-                &timings,
-                &timing,
-                &map,
-                &colliders,
-                &cursor,
-            );
+                    debug_render_system(
+                        texture_canvas,
+                        &mut surfaces.ttf_atlas,
+                        &debug_ctx.batched_lines,
+                        &debug_ctx.debug_state,
+                        &debug_ctx.timings,
+                        &debug_ctx.timing,
+                        &map,
+                        &colliders,
+                        &debug_ctx.cursor,
+                    );
 
-            debug_render_duration = Some(start_time.elapsed());
-        }
-    });
+                    debug_render_duration = Some(start_time.elapsed());
+                }
+            });
 
     if let Err(e) = result {
         errors.write(TextureError::RenderFailed(e.to_string()).into());
     }
 
     // Record timings for each system independently
-    let current_tick = timing.get_current_tick();
+    let current_tick = debug_ctx.timing.get_current_tick();
 
     if let Some(duration) = render_duration {
-        timings.add_timing(SystemId::Render, duration, current_tick);
+        debug_ctx.timings.add_timing(SystemId::Render, duration, current_tick);
     }
     if let Some(duration) = debug_render_duration {
-        timings.add_timing(SystemId::DebugRender, duration, current_tick);
+        debug_ctx.timings.add_timing(SystemId::DebugRender, duration, current_tick);
     }
 }
 

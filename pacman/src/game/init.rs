@@ -187,42 +187,42 @@ pub(super) fn setup_ecs(world: &mut World) {
     world.add_observer(item_collision_observer);
 }
 
-#[allow(clippy::too_many_arguments)]
-pub(super) fn insert_resources(
-    world: &mut World,
-    map: Map,
-    audio: crate::audio::Audio,
-    atlas: SpriteAtlas,
-    event_pump: EventPump,
-    canvas: Canvas<Window>,
-    backbuffer: sdl2::render::Texture,
-    map_texture: sdl2::render::Texture,
-    debug_texture: sdl2::render::Texture,
-    ttf_atlas: crate::texture::ttf::TtfAtlas,
-    death_animation: LinearAnimation,
-    red_zones: crate::systems::ghost::RedZoneNodes,
-    tunnel_nodes: crate::systems::ghost::TunnelNodes,
-) -> GameResult<()> {
-    world.insert_non_send_resource(atlas);
+/// Grouped initialization resources passed to `insert_resources`.
+pub(super) struct InitResources {
+    pub audio: crate::audio::Audio,
+    pub atlas: SpriteAtlas,
+    pub event_pump: EventPump,
+    pub canvas: Canvas<Window>,
+    pub backbuffer: sdl2::render::Texture,
+    pub map_texture: sdl2::render::Texture,
+    pub debug_texture: sdl2::render::Texture,
+    pub ttf_atlas: crate::texture::ttf::TtfAtlas,
+    pub death_animation: LinearAnimation,
+    pub red_zones: crate::systems::ghost::RedZoneNodes,
+    pub tunnel_nodes: crate::systems::ghost::TunnelNodes,
+}
+
+pub(super) fn insert_resources(world: &mut World, map: Map, init: InitResources) -> GameResult<()> {
+    world.insert_non_send_resource(init.atlas);
     world.insert_resource(super::animations::create_ghost_animations(
         world.non_send_resource::<SpriteAtlas>(),
     )?);
     let player_animation = super::animations::create_player_animations(world.non_send_resource::<SpriteAtlas>())?.0;
     world.insert_resource(PlayerAnimation(player_animation));
-    world.insert_resource(PlayerDeathAnimation(death_animation));
+    world.insert_resource(PlayerDeathAnimation(init.death_animation));
 
     world.insert_resource(FruitSprites::default());
     world.insert_resource(BatchedLinesResource::new(&map, constants::LARGE_SCALE));
     world.insert_resource(map);
     world.insert_resource(GlobalState { exit: false });
     world.insert_resource(PlayerLives::default());
-    world.insert_resource(ScoreResource(0));
-    world.insert_resource(PelletCount(0));
+    world.insert_resource(ScoreResource::default());
+    world.insert_resource(PelletCount::default());
     world.insert_resource(crate::systems::ghost::GhostModeController::default());
     world.insert_resource(crate::systems::ghost::GhostHouseController::default());
     world.insert_resource(crate::systems::ghost::GhostSpeedConfig::for_level(1));
-    world.insert_resource(red_zones);
-    world.insert_resource(tunnel_nodes);
+    world.insert_resource(init.red_zones);
+    world.insert_resource(init.tunnel_nodes);
     world.insert_resource(SystemTimings::default());
     world.insert_resource(Timing::default());
     world.insert_resource(Bindings::default());
@@ -243,12 +243,12 @@ pub(super) fn insert_resources(
     }));
     world.insert_resource(PauseState::default());
 
-    world.insert_non_send_resource(event_pump);
-    world.insert_non_send_resource(CanvasResource(canvas));
-    world.insert_non_send_resource(BackbufferResource(backbuffer));
-    world.insert_non_send_resource(MapTextureResource(map_texture));
-    world.insert_non_send_resource(DebugTextureResource(debug_texture));
-    world.insert_non_send_resource(TtfAtlasResource(ttf_atlas));
-    world.insert_non_send_resource(AudioResource(audio));
+    world.insert_non_send_resource(init.event_pump);
+    world.insert_non_send_resource(CanvasResource(init.canvas));
+    world.insert_non_send_resource(BackbufferResource(init.backbuffer));
+    world.insert_non_send_resource(MapTextureResource(init.map_texture));
+    world.insert_non_send_resource(DebugTextureResource(init.debug_texture));
+    world.insert_non_send_resource(TtfAtlasResource(init.ttf_atlas));
+    world.insert_non_send_resource(AudioResource(init.audio));
     Ok(())
 }

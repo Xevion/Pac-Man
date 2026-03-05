@@ -23,7 +23,17 @@ use std::cmp::Ordering;
 
 /// Tracks the number of pellets consumed by the player for fruit spawning mechanics.
 #[derive(bevy_ecs::resource::Resource, Debug, Default)]
-pub struct PelletCount(pub u32);
+pub struct PelletCount(u32);
+
+impl PelletCount {
+    pub fn count(&self) -> u32 {
+        self.0
+    }
+
+    pub fn increment(&mut self) {
+        self.0 += 1;
+    }
+}
 
 /// Represents the different fruit sprites that can appear as bonus items.
 #[derive(IntoStaticStr, Debug, Clone, Copy, PartialEq, Eq, Hash)]

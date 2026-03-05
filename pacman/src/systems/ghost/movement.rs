@@ -6,12 +6,14 @@ use super::{
     targeting::{choose_direction_at_intersection, RedZoneNodes},
     GhostModeController, GhostState, GhostType, ScatterChaseMode,
 };
+use crate::constants;
 use crate::map::builder::Map;
 use crate::platform::rng;
 use crate::systems::common::{DeltaTime, Frozen};
 use crate::systems::movement::{NodeId, Position, Velocity};
 use crate::systems::player::PlayerControlled;
 use bevy_ecs::prelude::*;
+use bevy_ecs::system::SystemParam;
 
 /// Component storing the ghost's current target node
 #[derive(Component, Debug, Default, Clone, Copy)]
@@ -149,15 +151,20 @@ pub fn ghost_targeting_system(
     }
 }
 
+/// Ghost movement configuration resources grouped as a SystemParam.
+#[derive(SystemParam)]
+pub struct GhostMovementConfig<'w> {
+    pub mode_controller: Res<'w, GhostModeController>,
+    pub speed_config: Res<'w, GhostSpeedConfig>,
+    pub tunnel_nodes: Res<'w, TunnelNodes>,
+    pub red_zones: Res<'w, RedZoneNodes>,
+}
+
 /// Main ghost movement system
-#[allow(clippy::too_many_arguments)]
 pub fn ghost_movement_system(
     map: Res<Map>,
     delta_time: Res<DeltaTime>,
-    mode_controller: Res<GhostModeController>,
-    speed_config: Res<GhostSpeedConfig>,
-    tunnel_nodes: Res<TunnelNodes>,
-    red_zones: Res<RedZoneNodes>,
+    config: GhostMovementConfig,
     elroy_query: Query<&Elroy, With<BlinkyMarker>>,
     mut ghost_query: Query<(&GhostType, &GhostState, &mut Position, &mut Velocity, &GhostTarget), Without<Frozen>>,
 ) {
@@ -171,17 +178,17 @@ pub fn ghost_movement_system(
         let elroy_mult = if *ghost_type == GhostType::Blinky {
             elroy_query
                 .single()
-                .map(|e| elroy_speed(e.stage, mode_controller.level))
+                .map(|e| elroy_speed(e.stage, config.mode_controller.level))
                 .unwrap_or(1.0)
         } else {
             1.0
         };
 
-        let base_speed = calculate_speed(&position, state, &speed_config, &tunnel_nodes) * elroy_mult;
+        let base_speed = calculate_speed(&position, state, &config.speed_config, &config.tunnel_nodes) * elroy_mult;
 
         velocity.speed = base_speed;
 
-        let mut distance = velocity.speed * 60.0 * delta_time.seconds;
+        let mut distance = velocity.speed * constants::TICKS_PER_SECOND * delta_time.seconds;
 
         loop {
             match *position {
@@ -194,7 +201,7 @@ pub fn ghost_movement_system(
 
                     let new_direction = choose_direction_at_intersection(
                         &map,
-                        &red_zones,
+                        &config.red_zones,
                         node,
                         target_node,
                         velocity.direction,

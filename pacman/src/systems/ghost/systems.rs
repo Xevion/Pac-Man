@@ -4,6 +4,7 @@ use super::{
     elroy::{elroy_thresholds, BlinkyMarker, Elroy, ElroyStage},
     GhostAnimationState, GhostAnimations, GhostHouseController, GhostModeController, GhostState, GhostType, LastAnimationState,
 };
+use crate::constants;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::map::graph::TraversalFlags;
@@ -92,7 +93,7 @@ pub fn elroy_system(
     let (threshold_1, threshold_2) = elroy_thresholds(mode_controller.level);
     // Classic Pac-Man has 244 pellets total (240 regular + 4 power)
     const TOTAL_PELLETS: u32 = 244;
-    let remaining = TOTAL_PELLETS.saturating_sub(pellet_count.0);
+    let remaining = TOTAL_PELLETS.saturating_sub(pellet_count.count());
 
     elroy.stage = if remaining <= threshold_2 {
         ElroyStage::Stage2
@@ -145,13 +146,15 @@ pub fn eaten_ghost_system(
                 }
             }
             Position::Moving { to, .. } => {
-                let distance = velocity.speed * 60.0 * delta_time.seconds;
+                let distance = velocity.speed * constants::TICKS_PER_SECOND * delta_time.seconds;
                 if let Some(_overflow) = position.tick(distance) {
                     // Reached target node, check if we're at ghost house center
                     if to == ghost_house_center {
                         // Transition to Reviving state
                         debug!(ghost = ?ghost_type, "Eaten ghost reached ghost house, entering reviving state");
-                        *ghost_state = GhostState::Reviving { remaining_ticks: 60 };
+                        *ghost_state = GhostState::Reviving {
+                            remaining_ticks: constants::mechanics::GHOST_REVIVE_TICKS,
+                        };
                         // Reset to stopped at ghost house center
                         *position = Position::Stopped {
                             node: ghost_house_center,

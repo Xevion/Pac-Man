@@ -104,17 +104,19 @@ impl Game {
         init::insert_resources(
             &mut world,
             map,
-            audio,
-            atlas,
-            event_pump,
-            canvas,
-            backbuffer,
-            map_texture,
-            debug_texture,
-            ttf_atlas,
-            death_animation,
-            red_zones,
-            tunnel_nodes,
+            init::InitResources {
+                audio,
+                atlas,
+                event_pump,
+                canvas,
+                backbuffer,
+                map_texture,
+                debug_texture,
+                ttf_atlas,
+                death_animation,
+                red_zones,
+                tunnel_nodes,
+            },
         )?;
 
         debug!("Configuring system execution schedule");

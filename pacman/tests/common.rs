@@ -88,11 +88,11 @@ pub fn create_test_world() -> (World, Schedule) {
     world.insert_resource(Events::<GameEvent>::default());
     world.insert_resource(Events::<pacman::error::GameError>::default());
     world.insert_resource(Events::<AudioEvent>::default());
-    world.insert_resource(ScoreResource(0));
+    world.insert_resource(ScoreResource::default());
     world.insert_resource(FruitSprites::default());
     world.insert_resource(GlobalState { exit: false });
     world.insert_resource(DebugState::default());
-    world.insert_resource(PelletCount(0));
+    world.insert_resource(PelletCount::default());
     world.insert_resource(DeltaTime {
         seconds: 1.0 / 60.0,
         ticks: 1,

@@ -192,4 +192,7 @@ pub mod mechanics {
     pub const FRUIT_LIFETIME_MAX_SECS: f32 = 10.0;
     /// Ticks the fruit-eaten bonus score entity remains visible.
     pub const FRUIT_BONUS_TTL: u32 = 120;
+
+    /// Ticks a ghost spends reviving in the ghost house after being eaten.
+    pub const GHOST_REVIVE_TICKS: u32 = 60;
 }

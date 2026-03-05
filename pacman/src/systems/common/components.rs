@@ -42,8 +42,23 @@ pub struct GlobalState {
     pub exit: bool,
 }
 
-#[derive(Resource)]
-pub struct ScoreResource(pub u32);
+#[derive(Resource, Default)]
+pub struct ScoreResource(u32);
+
+impl ScoreResource {
+    #[allow(dead_code)]
+    pub fn new(value: u32) -> Self {
+        Self(value)
+    }
+
+    pub fn value(&self) -> u32 {
+        self.0
+    }
+
+    pub fn add(&mut self, amount: u32) {
+        self.0 += amount;
+    }
+}
 
 #[derive(Resource)]
 pub struct DeltaTime {
