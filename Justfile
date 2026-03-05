@@ -31,11 +31,11 @@ check:
     @echo "Checking format..."
     @cargo fmt --all -- --check || echo "⚠ Format issues detected (run \`just format\` to fix)"
     @echo "Running clippy for desktop target..."
-    @cargo clippy --workspace --all-targets --all-features --quiet -- -D warnings || true
+    @cargo clippy --workspace --all-targets --all-features --quiet -- -D warnings
     @echo "Running clippy for wasm target..."
-    @cargo clippy -p pacman --target wasm32-unknown-emscripten --all-targets --all-features --quiet -- -D warnings || true
+    @cargo clippy -p pacman --target wasm32-unknown-emscripten --all-targets --all-features --quiet -- -D warnings
     @echo "Running web checks..."
-    @just web::check || true
+    @just web::check
     @echo "Check complete!"
 
 alias lint := check
@@ -43,7 +43,7 @@ alias lint := check
 # Run tests (Rust workspace + web)
 test:
     cargo nextest run --workspace --no-fail-fast
-    @just web::test || true
+    @just web::test
 
 # Format code (Rust workspace + web)
 format:

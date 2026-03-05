@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use crate::constants::animation;
-use crate::error::GameResult;
+use crate::error::{GameResult, TextureError};
 use crate::map::direction::Direction;
 use crate::systems::animation::{DirectionalAnimation, LinearAnimation};
 use crate::systems::ghost::{GhostAnimations, GhostType};
@@ -11,124 +11,66 @@ use crate::texture::animated::{DirectionalTiles, TileSequence};
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 use crate::texture::sprites::{FrightenedColor, GameSprite, GhostSprite, PacmanSprite};
 
+/// Loads directional tiles from the atlas using a sprite-generating closure.
+fn load_directional_tiles(
+    atlas: &SpriteAtlas,
+    frames_per_direction: usize,
+    sprite_fn: impl Fn(Direction, usize) -> GameSprite,
+) -> GameResult<DirectionalTiles> {
+    let load_dir = |dir: Direction| -> GameResult<TileSequence> {
+        let tiles: Vec<AtlasTile> = (0..frames_per_direction)
+            .map(|i| atlas.get_tile(&sprite_fn(dir, i).to_path()))
+            .collect::<Result<_, TextureError>>()?;
+        Ok(TileSequence::new(&tiles))
+    };
+    Ok(DirectionalTiles::new(
+        load_dir(Direction::Up)?,
+        load_dir(Direction::Down)?,
+        load_dir(Direction::Left)?,
+        load_dir(Direction::Right)?,
+    ))
+}
+
 pub(super) fn create_player_animations(atlas: &SpriteAtlas) -> GameResult<(DirectionalAnimation, AtlasTile)> {
-    let up_moving_tiles = [
-        SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Up, 0)).to_path())?,
-        SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Up, 1)).to_path())?,
-        SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
-    ];
-    let down_moving_tiles = [
-        SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Down, 0)).to_path())?,
-        SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Down, 1)).to_path())?,
-        SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
-    ];
-    let left_moving_tiles = [
-        SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 0)).to_path())?,
-        SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path())?,
-        SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
-    ];
-    let right_moving_tiles = [
-        SpriteAtlas::get_tile(
-            atlas,
-            &GameSprite::Pacman(PacmanSprite::Moving(Direction::Right, 0)).to_path(),
-        )?,
-        SpriteAtlas::get_tile(
-            atlas,
-            &GameSprite::Pacman(PacmanSprite::Moving(Direction::Right, 1)).to_path(),
-        )?,
-        SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?,
-    ];
+    let full_tile = atlas.get_tile(&GameSprite::Pacman(PacmanSprite::Full).to_path())?;
 
-    let moving_tiles = DirectionalTiles::new(
-        TileSequence::new(&up_moving_tiles),
-        TileSequence::new(&down_moving_tiles),
-        TileSequence::new(&left_moving_tiles),
-        TileSequence::new(&right_moving_tiles),
-    );
+    let moving_tiles = load_directional_tiles(atlas, 3, |dir, i| {
+        if i < 2 {
+            GameSprite::Pacman(PacmanSprite::Moving(dir, i as u8))
+        } else {
+            GameSprite::Pacman(PacmanSprite::Full)
+        }
+    })?;
 
-    let up_stopped_tile = SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Up, 1)).to_path())?;
-    let down_stopped_tile =
-        SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Down, 1)).to_path())?;
-    let left_stopped_tile =
-        SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Moving(Direction::Left, 1)).to_path())?;
-    let right_stopped_tile = SpriteAtlas::get_tile(
-        atlas,
-        &GameSprite::Pacman(PacmanSprite::Moving(Direction::Right, 1)).to_path(),
-    )?;
-
-    let stopped_tiles = DirectionalTiles::new(
-        TileSequence::new(&[up_stopped_tile]),
-        TileSequence::new(&[down_stopped_tile]),
-        TileSequence::new(&[left_stopped_tile]),
-        TileSequence::new(&[right_stopped_tile]),
-    );
+    let stopped_tiles = load_directional_tiles(atlas, 1, |dir, _| GameSprite::Pacman(PacmanSprite::Moving(dir, 1)))?;
 
     let player_animation = DirectionalAnimation::new(moving_tiles, stopped_tiles, 5);
-    let player_start_sprite = SpriteAtlas::get_tile(atlas, &GameSprite::Pacman(PacmanSprite::Full).to_path())?;
-
-    Ok((player_animation, player_start_sprite))
+    Ok((player_animation, full_tile))
 }
 
 pub(super) fn create_death_animation(atlas: &SpriteAtlas) -> GameResult<LinearAnimation> {
-    let mut death_tiles = Vec::new();
-    for i in 0..=10 {
-        let tile = atlas.get_tile(&GameSprite::Pacman(PacmanSprite::Dying(i)).to_path())?;
-        death_tiles.push(tile);
-    }
+    let death_tiles: Vec<AtlasTile> = (0..=10)
+        .map(|i| atlas.get_tile(&GameSprite::Pacman(PacmanSprite::Dying(i)).to_path()))
+        .collect::<Result<_, TextureError>>()?;
 
-    let tile_sequence = TileSequence::new(&death_tiles);
-    Ok(LinearAnimation::new(tile_sequence, 8))
+    Ok(LinearAnimation::new(TileSequence::new(&death_tiles), 8))
 }
 
 pub(super) fn create_ghost_animations(atlas: &SpriteAtlas) -> GameResult<GhostAnimations> {
-    // Eaten (eyes) animations - single tile per direction
-    let up_eye = atlas.get_tile(&GameSprite::Ghost(GhostSprite::Eyes(Direction::Up)).to_path())?;
-    let down_eye = atlas.get_tile(&GameSprite::Ghost(GhostSprite::Eyes(Direction::Down)).to_path())?;
-    let left_eye = atlas.get_tile(&GameSprite::Ghost(GhostSprite::Eyes(Direction::Left)).to_path())?;
-    let right_eye = atlas.get_tile(&GameSprite::Ghost(GhostSprite::Eyes(Direction::Right)).to_path())?;
-
-    let eyes_tiles = DirectionalTiles::new(
-        TileSequence::new(&[up_eye]),
-        TileSequence::new(&[down_eye]),
-        TileSequence::new(&[left_eye]),
-        TileSequence::new(&[right_eye]),
-    );
+    let eyes_tiles = load_directional_tiles(atlas, 1, |dir, _| GameSprite::Ghost(GhostSprite::Eyes(dir)))?;
     let eyes = DirectionalAnimation::new(eyes_tiles.clone(), eyes_tiles, animation::GHOST_EATEN_SPEED);
 
     let mut animations = HashMap::new();
 
     for ghost_type in [GhostType::Blinky, GhostType::Pinky, GhostType::Inky, GhostType::Clyde] {
-        // Normal animations - create directional tiles for each direction
-        let up_tiles = [
-            atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Up, 0)).to_path())?,
-            atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Up, 1)).to_path())?,
-        ];
-        let down_tiles = [
-            atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Down, 0)).to_path())?,
-            atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Down, 1)).to_path())?,
-        ];
-        let left_tiles = [
-            atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Left, 0)).to_path())?,
-            atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Left, 1)).to_path())?,
-        ];
-        let right_tiles = [
-            atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Right, 0)).to_path())?,
-            atlas.get_tile(&GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Right, 1)).to_path())?,
-        ];
-
-        let normal_moving = DirectionalTiles::new(
-            TileSequence::new(&up_tiles),
-            TileSequence::new(&down_tiles),
-            TileSequence::new(&left_tiles),
-            TileSequence::new(&right_tiles),
-        );
+        let normal_moving = load_directional_tiles(atlas, 2, |dir, i| {
+            GameSprite::Ghost(GhostSprite::Normal(ghost_type, dir, i as u8))
+        })?;
         let normal = DirectionalAnimation::new(normal_moving.clone(), normal_moving, animation::GHOST_NORMAL_SPEED);
-
         animations.insert(ghost_type, normal);
     }
 
     let (frightened, frightened_flashing) = {
-        // Load frightened animation tiles (same for all ghosts)
         let frightened_blue_a =
             atlas.get_tile(&GameSprite::Ghost(GhostSprite::Frightened(FrightenedColor::Blue, 0)).to_path())?;
         let frightened_blue_b =

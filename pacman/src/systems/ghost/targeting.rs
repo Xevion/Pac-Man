@@ -78,9 +78,11 @@ pub fn choose_direction_at_intersection(
 
         // Calculate distance from next node to target
         let next_node = edge.target;
-        let next_pos = map.graph.get_node(next_node).unwrap().position;
-        let target_pos = map.graph.get_node(target_node).unwrap().position;
-        let distance = next_pos.distance_squared(target_pos);
+        let Some(next) = map.graph.get_node(next_node) else { continue };
+        let Some(target) = map.graph.get_node(target_node) else {
+            continue;
+        };
+        let distance = next.position.distance_squared(target.position);
 
         candidates.push((dir, distance));
     }

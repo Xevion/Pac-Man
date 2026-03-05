@@ -53,6 +53,19 @@ impl GhostType {
     pub fn base_speed(self) -> f32 {
         1.0
     }
+
+    /// Returns the initial state for this ghost type at the start of a round.
+    /// Blinky starts active outside the house; all others start inside.
+    pub fn initial_state(self) -> GhostState {
+        if self == Self::Blinky {
+            GhostState::Active { frightened: None }
+        } else {
+            GhostState::InHouse {
+                position: state::HousePosition::Center,
+                bounce: state::BounceDirection::Up,
+            }
+        }
+    }
 }
 
 /// Global resource containing pre-loaded animation sets for all ghost types

@@ -1,6 +1,5 @@
 use axum::{routing::get, Router};
 use axum_cookie::CookieLayer;
-use dashmap::DashMap;
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -47,7 +46,6 @@ impl Health {
 #[derive(Clone)]
 pub struct AppState {
     pub auth: Arc<AuthRegistry>,
-    pub sessions: Arc<DashMap<String, crate::auth::provider::AuthUser>>,
     pub jwt_encoding_key: Arc<EncodingKey>,
     pub jwt_decoding_key: Arc<DecodingKey>,
     pub db: PgPool,
@@ -94,7 +92,6 @@ impl AppState {
 
         let app_state = Self {
             auth: Arc::new(auth),
-            sessions: Arc::new(DashMap::new()),
             jwt_encoding_key: Arc::new(EncodingKey::from_secret(jwt_secret.as_bytes())),
             jwt_decoding_key: Arc::new(DecodingKey::from_secret(jwt_secret.as_bytes())),
             db,

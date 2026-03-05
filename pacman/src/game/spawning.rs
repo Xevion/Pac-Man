@@ -12,7 +12,7 @@ use crate::map::direction::Direction;
 use crate::systems::animation::{Blinking, DirectionalAnimation};
 use crate::systems::collision::{Collider, GhostCollider, ItemCollider, PacmanCollider};
 use crate::systems::common::{EntityType, Frozen, GhostBundle, ItemBundle, MovementModifiers, PlayerBundle};
-use crate::systems::ghost::{GhostAnimationState, GhostAnimations, GhostState, GhostType, LastAnimationState};
+use crate::systems::ghost::{GhostAnimationState, GhostAnimations, GhostType, LastAnimationState};
 use crate::systems::movement::{BufferedDirection, NodeId, Position, Velocity};
 use crate::systems::player::PlayerControlled;
 use crate::systems::render::{Renderable, Visibility};
@@ -107,12 +107,7 @@ pub(super) fn spawn_ghosts(world: &mut World) -> GameResult<()> {
     // Extract the data we need first to avoid borrow conflicts
     let ghost_start_positions = {
         let map = world.resource::<Map>();
-        [
-            (GhostType::Blinky, map.start_positions.blinky),
-            (GhostType::Pinky, map.start_positions.pinky),
-            (GhostType::Inky, map.start_positions.inky),
-            (GhostType::Clyde, map.start_positions.clyde),
-        ]
+        [GhostType::Blinky, GhostType::Pinky, GhostType::Inky, GhostType::Clyde].map(|g| (g, map.start_positions.ghost_start(g)))
     };
 
     for (ghost_type, start_node) in ghost_start_positions {
@@ -122,15 +117,7 @@ pub(super) fn spawn_ghosts(world: &mut World) -> GameResult<()> {
             let atlas = world.non_send_resource::<SpriteAtlas>();
             let sprite_path = GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Left, 0)).to_path();
 
-            // Blinky starts active outside the house, others start in house
-            let ghost_state = if ghost_type == GhostType::Blinky {
-                GhostState::Active { frightened: None }
-            } else {
-                GhostState::InHouse {
-                    position: crate::systems::ghost::state::HousePosition::Center,
-                    bounce: crate::systems::ghost::state::BounceDirection::Up,
-                }
-            };
+            let ghost_state = ghost_type.initial_state();
 
             let bundle = GhostBundle {
                 ghost: ghost_type,

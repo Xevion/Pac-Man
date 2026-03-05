@@ -337,25 +337,10 @@ pub fn stage_system(
 
             // Reset ghost positions and state
             for (ghost_entity, ghost, _, _) in ghost_query.iter_mut() {
-                // Blinky starts active outside the house, others start in house
-                let ghost_state = if *ghost == GhostType::Blinky {
-                    GhostState::Active { frightened: None }
-                } else {
-                    GhostState::InHouse {
-                        position: crate::systems::ghost::state::HousePosition::Center,
-                        bounce: crate::systems::ghost::state::BounceDirection::Up,
-                    }
-                };
-
                 res.commands.entity(ghost_entity).insert((
-                    ghost_state,
+                    ghost.initial_state(),
                     Position::Stopped {
-                        node: match ghost {
-                            GhostType::Blinky => res.map.start_positions.blinky,
-                            GhostType::Pinky => res.map.start_positions.pinky,
-                            GhostType::Inky => res.map.start_positions.inky,
-                            GhostType::Clyde => res.map.start_positions.clyde,
-                        },
+                        node: res.map.start_positions.ghost_start(*ghost),
                     },
                     Frozen,
                     Visibility::hidden(),

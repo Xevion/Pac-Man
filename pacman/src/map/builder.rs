@@ -3,6 +3,7 @@ use crate::constants::{MapTile, BOARD_CELL_SIZE, CELL_SIZE};
 use crate::map::direction::Direction;
 use crate::map::graph::{Graph, Node, TraversalFlags};
 use crate::map::parser::MapTileParser;
+use crate::systems::ghost::GhostType;
 use crate::systems::movement::{NodeId, Position};
 use bevy_ecs::resource::Resource;
 use glam::{I8Vec2, IVec2, Vec2};
@@ -29,6 +30,17 @@ pub struct NodePositions {
     pub fruit_spawn: Position,
 }
 
+impl NodePositions {
+    pub fn ghost_start(&self, ghost: GhostType) -> NodeId {
+        match ghost {
+            GhostType::Blinky => self.blinky,
+            GhostType::Pinky => self.pinky,
+            GhostType::Inky => self.inky,
+            GhostType::Clyde => self.clyde,
+        }
+    }
+}
+
 /// Scatter mode target locations for each ghost (their home corners)
 pub struct ScatterTargets {
     /// Blinky's scatter target (top-right corner area)
@@ -53,6 +65,8 @@ pub struct Map {
     pub graph: Graph,
     /// Bidirectional mapping between 2D grid coordinates and graph node indices.
     pub grid_to_node: HashMap<I8Vec2, NodeId>,
+    /// Reverse mapping from graph node indices to 2D grid coordinates.
+    node_to_grid: HashMap<NodeId, I8Vec2>,
     /// Predetermined spawn locations for all game entities
     pub start_positions: NodePositions,
     /// Scatter mode targets for ghosts (their home corners)
@@ -205,10 +219,13 @@ impl Map {
         // Calculate scatter targets (ghost home corners)
         let scatter_targets = Self::calculate_scatter_targets(&grid_to_node);
 
+        let node_to_grid: HashMap<NodeId, I8Vec2> = grid_to_node.iter().map(|(&pos, &id)| (id, pos)).collect();
+
         debug!(node_count = graph.nodes().count(), "Map construction completed successfully");
         Ok(Map {
             graph,
             grid_to_node,
+            node_to_grid,
             start_positions,
             scatter_targets,
             tiles: map,
@@ -224,13 +241,8 @@ impl Map {
 
     /// Returns the `MapTile` at a given node id.
     pub fn tile_at_node(&self, node_id: NodeId) -> Option<MapTile> {
-        // reverse lookup: node -> grid
-        for (grid_pos, id) in &self.grid_to_node {
-            if *id == node_id {
-                return Some(self.tiles[grid_pos.x as usize][grid_pos.y as usize]);
-            }
-        }
-        None
+        let grid_pos = self.node_to_grid.get(&node_id)?;
+        Some(self.tiles[grid_pos.x as usize][grid_pos.y as usize])
     }
 
     /// Constructs the ghost house area with restricted access and internal navigation.

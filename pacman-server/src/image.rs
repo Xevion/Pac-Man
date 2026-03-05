@@ -38,7 +38,7 @@ impl ImageStorage {
         let bucket = Bucket::new(
             &bucket_name.into(),
             s3::Region::R2 {
-                account_id: "f188bf93079278e7bbc58de9b3d80693".to_string(),
+                account_id: config.account_id.clone(),
             },
             credentials,
         )?
@@ -76,13 +76,6 @@ impl ImageStorage {
         } else {
             Err(format!("upload failed with status {}", status).into())
         }
-    }
-
-    /// Generate a simple presigned GET URL valid for `expires_in_seconds`.
-    #[allow(dead_code)]
-    pub fn presign_get(&self, key: &str, expires_in_seconds: u32) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let url = self.bucket.presign_get(key, expires_in_seconds, None)?;
-        Ok(url)
     }
 
     /// Process and upload an avatar from a URL.

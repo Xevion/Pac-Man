@@ -7,7 +7,7 @@ use super::{
 use crate::constants;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
-use crate::map::graph::TraversalFlags;
+use crate::map::graph::{Edge, TraversalFlags};
 use crate::systems::animation::{DirectionalAnimation, LinearAnimation, Looping};
 use crate::systems::common::{DeltaTime, Frozen};
 use crate::systems::item::PelletCount;
@@ -133,15 +133,12 @@ pub fn eaten_ghost_system(
         match *position {
             Position::Stopped { node: current_node } => {
                 // Find path to ghost house center and start moving
-                if let Some(direction) = find_direction_to_target(&map, current_node, ghost_house_center) {
+                if let Some((direction, edge)) = find_direction_to_target(&map, current_node, ghost_house_center) {
                     velocity.direction = direction;
                     *position = Position::Moving {
                         from: current_node,
-                        to: map.graph.adjacency_list[current_node as usize].get(direction).unwrap().target,
-                        remaining_distance: map.graph.adjacency_list[current_node as usize]
-                            .get(direction)
-                            .unwrap()
-                            .distance,
+                        to: edge.target,
+                        remaining_distance: edge.distance,
                     };
                 }
             }
@@ -161,12 +158,12 @@ pub fn eaten_ghost_system(
                         };
                     } else {
                         // Continue pathfinding to ghost house
-                        if let Some(next_direction) = find_direction_to_target(&map, to, ghost_house_center) {
+                        if let Some((next_direction, edge)) = find_direction_to_target(&map, to, ghost_house_center) {
                             velocity.direction = next_direction;
                             *position = Position::Moving {
                                 from: to,
-                                to: map.graph.adjacency_list[to as usize].get(next_direction).unwrap().target,
-                                remaining_distance: map.graph.adjacency_list[to as usize].get(next_direction).unwrap().distance,
+                                to: edge.target,
+                                remaining_distance: edge.distance,
                             };
                         }
                     }
@@ -179,11 +176,11 @@ pub fn eaten_ghost_system(
     }
 }
 
-/// Helper function to find the direction from a node towards a target node.
+/// Helper function to find the direction and edge from a node towards a target node.
 /// Uses simple greedy pathfinding - prefers straight lines when possible.
-fn find_direction_to_target(map: &Map, from_node: NodeId, target_node: NodeId) -> Option<Direction> {
-    let from_pos = map.graph.get_node(from_node).unwrap().position;
-    let target_pos = map.graph.get_node(target_node).unwrap().position;
+fn find_direction_to_target(map: &Map, from_node: NodeId, target_node: NodeId) -> Option<(Direction, Edge)> {
+    let from_pos = map.graph.get_node(from_node)?.position;
+    let target_pos = map.graph.get_node(target_node)?.position;
 
     let dx = target_pos.x as i32 - from_pos.x as i32;
     let dy = target_pos.y as i32 - from_pos.y as i32;
@@ -205,7 +202,7 @@ fn find_direction_to_target(map: &Map, from_node: NodeId, target_node: NodeId) -
     for direction in preferred_dirs {
         if let Some(edge) = map.graph.adjacency_list[from_node as usize].get(direction) {
             if edge.traversal_flags.contains(TraversalFlags::GHOST) {
-                return Some(direction);
+                return Some((direction, edge));
             }
         }
     }
@@ -238,10 +235,12 @@ pub fn ghost_state_system(
                 }
                 GhostAnimationState::Normal => {
                     // Remove LinearAnimation and Looping, add DirectionalAnimation
-                    commands
-                        .entity(entity)
-                        .remove::<(LinearAnimation, Looping)>()
-                        .insert(animations.get_normal(ghost_type).unwrap().clone());
+                    commands.entity(entity).remove::<(LinearAnimation, Looping)>().insert(
+                        animations
+                            .get_normal(ghost_type)
+                            .expect("ghost type must have normal animation")
+                            .clone(),
+                    );
                 }
                 GhostAnimationState::Eyes => {
                     // Remove LinearAnimation and Looping, add DirectionalAnimation (eyes animation)

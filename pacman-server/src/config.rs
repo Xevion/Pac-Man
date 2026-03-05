@@ -27,6 +27,7 @@ pub struct GithubConfig {
 pub struct S3Config {
     pub access_key: String,
     pub secret_access_key: String,
+    pub account_id: String,
     pub bucket_name: String,
     pub public_base_url: String,
 }
@@ -75,6 +76,7 @@ struct RawConfig {
     // S3
     s3_access_key: Option<String>,
     s3_secret_access_key: Option<String>,
+    s3_account_id: Option<String>,
     s3_bucket_name: Option<String>,
     s3_public_base_url: Option<String>,
 
@@ -128,6 +130,7 @@ impl From<RawConfig> for Config {
             &[
                 ("S3_ACCESS_KEY", raw.s3_access_key.as_ref()),
                 ("S3_SECRET_ACCESS_KEY", raw.s3_secret_access_key.as_ref()),
+                ("S3_ACCOUNT_ID", raw.s3_account_id.as_ref()),
                 ("S3_BUCKET_NAME", raw.s3_bucket_name.as_ref()),
                 ("S3_PUBLIC_BASE_URL", raw.s3_public_base_url.as_ref()),
             ],
@@ -135,6 +138,7 @@ impl From<RawConfig> for Config {
         .map(|_| S3Config {
             access_key: raw.s3_access_key.unwrap(),
             secret_access_key: raw.s3_secret_access_key.unwrap(),
+            account_id: raw.s3_account_id.unwrap(),
             bucket_name: raw.s3_bucket_name.unwrap(),
             public_base_url: raw.s3_public_base_url.unwrap(),
         });
