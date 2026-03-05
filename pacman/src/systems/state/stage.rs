@@ -1,4 +1,3 @@
-use std::mem::discriminant;
 use tracing::{debug, info};
 
 use crate::constants;
@@ -22,23 +21,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Single, SystemParam},
 };
 
-use crate::events::{GameCommand, GameEvent};
-#[cfg(not(target_os = "emscripten"))]
-use crate::systems::render::CanvasResource;
-#[cfg(not(target_os = "emscripten"))]
-use bevy_ecs::system::NonSendMut;
-#[cfg(not(target_os = "emscripten"))]
-use sdl2::video::FullscreenType;
-
-#[derive(Resource, Clone)]
-pub struct PlayerAnimation(pub DirectionalAnimation);
-
-#[derive(Resource, Clone)]
-pub struct PlayerDeathAnimation(pub LinearAnimation);
-
-/// Tracks whether the beginning sound has been played for the current startup sequence
-#[derive(Resource, Debug, Default, Clone, Copy)]
-pub struct IntroPlayed(pub bool);
+use super::{IntroPlayed, PlayerAnimation, PlayerDeathAnimation, PlayerLives, TooSimilar};
 
 /// A resource to track the overall stage of the game from a high-level perspective.
 #[derive(Resource, Debug, PartialEq, Eq, Clone, Copy)]
@@ -63,171 +46,9 @@ pub enum GameStage {
     GameOver,
 }
 
-#[derive(Resource, Debug, PartialEq, Eq, Clone, Copy)]
-pub enum PauseState {
-    Inactive,
-    Active { remaining_ticks: Option<u32> },
-}
-
-impl Default for PauseState {
+impl Default for GameStage {
     fn default() -> Self {
-        Self::Inactive
-    }
-}
-
-impl PauseState {
-    pub fn active(&self) -> bool {
-        matches!(
-            self,
-            PauseState::Active { remaining_ticks: None }
-                | PauseState::Active {
-                    remaining_ticks: Some(1..=u32::MAX)
-                }
-        )
-    }
-
-    /// Ticks the pause state
-    /// # Returns
-    /// `true` if the state changed significantly (e.g. from active to inactive or vice versa)
-    pub fn tick(&mut self) -> bool {
-        match self {
-            // Permanent states
-            PauseState::Active { remaining_ticks: None } | PauseState::Inactive => false,
-            // Last tick of the active state
-            PauseState::Active {
-                remaining_ticks: Some(1),
-            } => {
-                *self = PauseState::Inactive;
-                true
-            }
-            // Active state with remaining ticks
-            PauseState::Active {
-                remaining_ticks: Some(ticks),
-            } => {
-                *self = PauseState::Active {
-                    remaining_ticks: Some(*ticks - 1),
-                };
-                false
-            }
-        }
-    }
-}
-
-pub fn handle_pause_command(
-    mut events: EventReader<GameEvent>,
-    mut pause_state: ResMut<PauseState>,
-    mut audio_events: EventWriter<AudioEvent>,
-) {
-    for event in events.read() {
-        match event {
-            GameEvent::Command(GameCommand::TogglePause) => {
-                *pause_state = match *pause_state {
-                    PauseState::Active { .. } => {
-                        info!("Game resumed");
-                        audio_events.write(AudioEvent::Resume);
-                        PauseState::Inactive
-                    }
-                    PauseState::Inactive => {
-                        info!("Game paused");
-                        audio_events.write(AudioEvent::Pause);
-                        PauseState::Active { remaining_ticks: None }
-                    }
-                }
-            }
-            GameEvent::Command(GameCommand::SingleTick) => {
-                // Single tick should not function while the game is playing
-                if matches!(*pause_state, PauseState::Active { remaining_ticks: None }) {
-                    return;
-                }
-
-                *pause_state = PauseState::Active {
-                    remaining_ticks: Some(1),
-                };
-                audio_events.write(AudioEvent::Resume);
-            }
-            _ => {}
-        }
-    }
-}
-
-pub fn manage_pause_state_system(mut pause_state: ResMut<PauseState>, mut audio_events: EventWriter<AudioEvent>) {
-    let changed = pause_state.tick();
-
-    // If the pause state changed, send the appropriate audio event
-    if changed {
-        // Since the pause state can never go from inactive to active, the only way to get here is if the game is now paused...
-        audio_events.write(AudioEvent::Pause);
-    }
-}
-
-#[cfg(not(target_os = "emscripten"))]
-pub fn handle_fullscreen_command(mut events: EventReader<GameEvent>, mut canvas: NonSendMut<CanvasResource>) {
-    for event in events.read() {
-        if let GameEvent::Command(GameCommand::ToggleFullscreen) = event {
-            let window = canvas.window_mut();
-            let current = window.fullscreen_state();
-            let target = match current {
-                FullscreenType::Off => FullscreenType::Desktop,
-                _ => FullscreenType::Off,
-            };
-
-            if let Err(e) = window.set_fullscreen(target) {
-                tracing::warn!(error = ?e, "Failed to toggle fullscreen");
-            } else {
-                let on = matches!(target, FullscreenType::Desktop | FullscreenType::True);
-                info!(fullscreen = on, "Toggled fullscreen");
-            }
-        }
-    }
-}
-
-pub trait TooSimilar {
-    fn too_similar(&self, other: &Self) -> bool;
-}
-
-impl TooSimilar for GameStage {
-    fn too_similar(&self, other: &Self) -> bool {
-        discriminant(self) == discriminant(other) && {
-            // These states are very simple, so they're 'too similar' automatically
-            #[cfg(target_os = "emscripten")]
-            if matches!(
-                self,
-                GameStage::Playing | GameStage::GameOver | GameStage::WaitingForInteraction
-            ) {
-                return true;
-            }
-            #[cfg(not(target_os = "emscripten"))]
-            if matches!(self, GameStage::Playing | GameStage::GameOver) {
-                return true;
-            }
-
-            // Since the discriminant is the same but the values are different, it's the interior value that is somehow different
-            match (self, other) {
-                // These states are similar if their interior values are similar as well
-                (GameStage::Starting(startup), GameStage::Starting(other)) => startup.too_similar(other),
-                (GameStage::PlayerDying(dying), GameStage::PlayerDying(other)) => dying.too_similar(other),
-                (
-                    GameStage::GhostEatenPause {
-                        ghost_entity,
-                        ghost_type,
-                        node,
-                        ..
-                    },
-                    GameStage::GhostEatenPause {
-                        ghost_entity: other_ghost_entity,
-                        ghost_type: other_ghost_type,
-                        node: other_node,
-                        ..
-                    },
-                ) => ghost_entity == other_ghost_entity && ghost_type == other_ghost_type && node == other_node,
-                // Already handled, but kept to properly exhaust the match
-                #[cfg(target_os = "emscripten")]
-                (GameStage::Playing, _) | (GameStage::GameOver, _) | (GameStage::WaitingForInteraction, _) => unreachable!(),
-                #[cfg(not(target_os = "emscripten"))]
-                (GameStage::Playing, _) | (GameStage::GameOver, _) => unreachable!(),
-                _ => unreachable!(),
-            }
-        }
+        Self::Playing
     }
 }
 
@@ -251,18 +72,6 @@ pub enum StartupSequence {
     },
 }
 
-impl Default for GameStage {
-    fn default() -> Self {
-        Self::Playing
-    }
-}
-
-impl TooSimilar for StartupSequence {
-    fn too_similar(&self, other: &Self) -> bool {
-        discriminant(self) == discriminant(other)
-    }
-}
-
 /// The state machine for the multi-stage death sequence.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum DyingSequence {
@@ -272,39 +81,6 @@ pub enum DyingSequence {
     Animating { remaining_ticks: u32 },
     /// Third stage: Pac-Man is now gone, waiting a moment before the level restarts.
     Hidden { remaining_ticks: u32 },
-}
-
-impl TooSimilar for DyingSequence {
-    fn too_similar(&self, other: &Self) -> bool {
-        discriminant(self) == discriminant(other)
-    }
-}
-
-/// A resource to store the number of player lives.
-#[derive(Resource, Debug)]
-pub struct PlayerLives(u8);
-
-impl PlayerLives {
-    /// Returns the number of remaining lives.
-    pub fn remaining(&self) -> u8 {
-        self.0
-    }
-
-    /// Returns whether the player has any lives left.
-    pub fn is_alive(&self) -> bool {
-        self.0 > 0
-    }
-
-    /// Consumes one life (saturating at zero).
-    pub fn lose_life(&mut self) {
-        self.0 = self.0.saturating_sub(1);
-    }
-}
-
-impl Default for PlayerLives {
-    fn default() -> Self {
-        Self(3)
-    }
 }
 
 /// Grouped resources for the stage system.
