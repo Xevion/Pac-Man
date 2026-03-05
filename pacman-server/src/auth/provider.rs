@@ -2,11 +2,14 @@ use async_trait::async_trait;
 use axum_cookie::CookieManager;
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use mockall::automock;
+use oauth2::{AuthorizationCode, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, Scope, TokenResponse};
 use serde::Serialize;
-use tracing::warn;
+use tracing::{trace, warn};
 
 use crate::errors::ErrorResponse;
 use crate::session;
+
+use super::OAuthClient;
 
 // A user object returned from the provider after authentication.
 #[derive(Debug, Clone, Serialize)]
@@ -128,4 +131,44 @@ pub trait OAuthProvider: Send + Sync {
     fn active(&self) -> bool {
         true
     }
+}
+
+/// Builds an OAuth authorization URL with PKCE and stores the verifier in a session token.
+///
+/// Shared by all providers -- only the scopes differ.
+pub fn authorize_with_pkce(client: &OAuthClient, scopes: &[Scope], encoding_key: &EncodingKey) -> AuthorizeInfo {
+    let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
+    let mut request = client.authorize_url(CsrfToken::new_random).set_pkce_challenge(pkce_challenge);
+    for scope in scopes {
+        request = request.add_scope(scope.clone());
+    }
+    let (authorize_url, csrf_state) = request.url();
+    let session_token = session::create_pkce_session(pkce_verifier.secret(), csrf_state.secret(), encoding_key);
+    trace!(state = %csrf_state.secret(), "Generated OAuth authorization URL");
+    AuthorizeInfo {
+        authorize_url,
+        session_token,
+    }
+}
+
+/// Exchanges an authorization code for an access token using PKCE.
+///
+/// Shared by all providers -- the only difference is the error label.
+pub async fn exchange_code_with_pkce(
+    client: &OAuthClient,
+    http: &reqwest::Client,
+    code: &str,
+    verifier: &str,
+    provider_label: &str,
+) -> Result<String, ErrorResponse> {
+    let token = client
+        .exchange_code(AuthorizationCode::new(code.to_string()))
+        .set_pkce_verifier(PkceCodeVerifier::new(verifier.to_string()))
+        .request_async(http)
+        .await
+        .map_err(|e| {
+            warn!(error = %e, "Token exchange with {} failed", provider_label);
+            ErrorResponse::bad_gateway("token_exchange_failed", Some(e.to_string()))
+        })?;
+    Ok(token.access_token().secret().to_string())
 }

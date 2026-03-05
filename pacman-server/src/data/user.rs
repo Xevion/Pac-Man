@@ -1,6 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::FromRow;
+use tracing::debug;
+
+use crate::auth::provider::AuthUser;
 
 use super::pool::PgPool;
 
@@ -126,4 +129,51 @@ pub async fn list_user_providers(pool: &PgPool, user_id: i64) -> Result<Vec<Prov
     .fetch_all(pool)
     .await?;
     Ok(recs)
+}
+
+/// Find an existing user or create a new one, then link the OAuth provider account.
+///
+/// Linking strategy:
+/// 1. If a user already exists with this provider+ID, return them.
+/// 2. If the email is verified, try to find a user with that email and link.
+/// 3. Otherwise, create a new user.
+pub async fn find_or_create_user_for_oauth(pool: &PgPool, provider: &str, auth_user: &AuthUser) -> Result<User, sqlx::Error> {
+    // 1. Check if we already have this specific provider account linked
+    if let Some(user) = find_user_by_provider_id(pool, provider, &auth_user.id).await? {
+        debug!(user_id = %user.id, "Found existing user by provider ID");
+        return Ok(user);
+    }
+
+    // 2. If not, try to find an existing user by verified email to link to
+    let user_to_link = if auth_user.email_verified {
+        if let Some(email) = auth_user.email.as_deref() {
+            if let Some(existing_user) = find_user_by_email(pool, email).await? {
+                debug!(user_id = %existing_user.id, "Found existing user by email, linking new provider");
+                existing_user
+            } else {
+                debug!("No user found by email, creating a new one");
+                create_user(pool, Some(email)).await?
+            }
+        } else {
+            create_user(pool, None).await?
+        }
+    } else {
+        debug!("No verified email, creating a new user");
+        create_user(pool, None).await?
+    };
+
+    // 3. Link the new provider account to our user record (whether old or new)
+    link_oauth_account(
+        pool,
+        user_to_link.id,
+        provider,
+        &auth_user.id,
+        auth_user.email.as_deref(),
+        Some(&auth_user.username),
+        auth_user.name.as_deref(),
+        auth_user.avatar_url.as_deref(),
+    )
+    .await?;
+
+    Ok(user_to_link)
 }

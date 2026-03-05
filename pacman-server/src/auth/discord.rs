@@ -1,13 +1,12 @@
 use jsonwebtoken::EncodingKey;
-use oauth2::{AuthorizationCode, CsrfToken, PkceCodeVerifier, Scope, TokenResponse};
+use oauth2::Scope;
 use serde::{Deserialize, Serialize};
 
 use std::sync::Arc;
-use tracing::{trace, warn};
+use tracing::warn;
 
-use crate::auth::provider::{AuthUser, AuthorizeInfo, OAuthProvider};
+use crate::auth::provider::{self, AuthUser, AuthorizeInfo, OAuthProvider};
 use crate::errors::ErrorResponse;
-use crate::session;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscordUser {
@@ -65,38 +64,12 @@ impl OAuthProvider for DiscordProvider {
     }
 
     async fn authorize(&self, encoding_key: &EncodingKey) -> Result<AuthorizeInfo, ErrorResponse> {
-        let (pkce_challenge, pkce_verifier) = oauth2::PkceCodeChallenge::new_random_sha256();
-        let (authorize_url, csrf_state) = self
-            .client
-            .authorize_url(CsrfToken::new_random)
-            .set_pkce_challenge(pkce_challenge)
-            .add_scope(Scope::new("identify".to_string()))
-            .add_scope(Scope::new("email".to_string()))
-            .url();
-
-        // Store PKCE verifier and CSRF state in session
-        let session_token = session::create_pkce_session(pkce_verifier.secret(), csrf_state.secret(), encoding_key);
-
-        trace!(state = %csrf_state.secret(), "Generated OAuth authorization URL");
-        Ok(AuthorizeInfo {
-            authorize_url,
-            session_token,
-        })
+        let scopes = [Scope::new("identify".into()), Scope::new("email".into())];
+        Ok(provider::authorize_with_pkce(&self.client, &scopes, encoding_key))
     }
 
     async fn exchange_code_for_token(&self, code: &str, verifier: &str) -> Result<String, ErrorResponse> {
-        let token = self
-            .client
-            .exchange_code(AuthorizationCode::new(code.to_string()))
-            .set_pkce_verifier(PkceCodeVerifier::new(verifier.to_string()))
-            .request_async(&self.http)
-            .await
-            .map_err(|e| {
-                warn!(error = %e, "Token exchange with Discord failed");
-                ErrorResponse::bad_gateway("token_exchange_failed", Some(e.to_string()))
-            })?;
-
-        Ok(token.access_token().secret().to_string())
+        provider::exchange_code_with_pkce(&self.client, &self.http, code, verifier, self.label()).await
     }
 
     async fn fetch_user_from_token(&self, access_token: &str) -> Result<AuthUser, ErrorResponse> {

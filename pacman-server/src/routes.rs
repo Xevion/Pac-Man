@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -8,6 +10,7 @@ use serde::Serialize;
 use tracing::{debug, debug_span, info, instrument, trace, warn, Instrument};
 
 use crate::data::user as user_repo;
+use crate::image::ImageStorage;
 use crate::{app::AppState, errors::ErrorResponse, session};
 
 #[derive(Debug, serde::Deserialize)]
@@ -16,6 +19,15 @@ pub struct OAuthCallbackParams {
     pub state: Option<String>,
     pub error: Option<String>,
     pub error_description: Option<String>,
+}
+
+#[derive(Serialize)]
+struct ProfilePayload {
+    id: i64,
+    email: Option<String>,
+    providers: Vec<user_repo::ProviderPublic>,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 /// Handles the beginning of the OAuth authorization flow.
@@ -95,98 +107,22 @@ pub async fn oauth_callback_handler(
         }
     };
 
-    // --- Simplified Sign-in / Sign-up Flow ---
     let linking_span = debug_span!("account_linking", provider_user_id = %user.id, provider_email = ?user.email, email_verified = %user.email_verified);
-    let db_user_result: Result<user_repo::User, sqlx::Error> = async {
-        // 1. Check if we already have this specific provider account linked
-        if let Some(user) = user_repo::find_user_by_provider_id(&app_state.db, &provider, &user.id).await? {
-            debug!(user_id = %user.id, "Found existing user by provider ID");
-            return Ok(user);
-        }
+    let db_user_result = user_repo::find_or_create_user_for_oauth(&app_state.db, &provider, &user)
+        .instrument(linking_span)
+        .await;
 
-        // 2. If not, try to find an existing user by verified email to link to
-        let user_to_link = if user.email_verified {
-            if let Some(email) = user.email.as_deref() {
-                // Try to find a user with this email
-                if let Some(existing_user) = user_repo::find_user_by_email(&app_state.db, email).await? {
-                    debug!(user_id = %existing_user.id, "Found existing user by email, linking new provider");
-                    existing_user
-                } else {
-                    // No user with this email, create a new one
-                    debug!("No user found by email, creating a new one");
-                    user_repo::create_user(&app_state.db, Some(email)).await?
-                }
-            } else {
-                // Verified, but no email for some reason. Create a user without an email.
-                user_repo::create_user(&app_state.db, None).await?
-            }
-        } else {
-            // No verified email, so we must create a new user without an email.
-            debug!("No verified email, creating a new user");
-            user_repo::create_user(&app_state.db, None).await?
-        };
-
-        // 3. Link the new provider account to our user record (whether old or new)
-        user_repo::link_oauth_account(
-            &app_state.db,
-            user_to_link.id,
-            &provider,
-            &user.id,
-            user.email.as_deref(),
-            Some(&user.username),
-            user.name.as_deref(),
-            user.avatar_url.as_deref(),
-        )
-        .await?;
-
-        Ok(user_to_link)
+    if let Err(e) = &db_user_result {
+        warn!(error = %(e as &dyn std::error::Error), "Failed to process user linking/creation");
+        return ErrorResponse::with_status(StatusCode::INTERNAL_SERVER_ERROR, "database_error", None).into_response();
     }
-    .instrument(linking_span)
-    .await;
-
-    let _: user_repo::User = match db_user_result {
-        Ok(u) => u,
-        Err(e) => {
-            warn!(error = %(&e as &dyn std::error::Error), "Failed to process user linking/creation");
-            return ErrorResponse::with_status(StatusCode::INTERNAL_SERVER_ERROR, "database_error", None).into_response();
-        }
-    };
 
     // Create session token
     let session_token = session::create_jwt_for_user(&provider, &user, &app_state.jwt_encoding_key);
     session::set_session_cookie(&cookie, &session_token);
     info!(%provider, "Signed in successfully");
 
-    // Process avatar asynchronously (don't block the response) - only if image storage is configured
-    if let Some(image_storage) = &app_state.image_storage {
-        if let Some(avatar_url) = user.avatar_url.as_deref() {
-            let image_storage = image_storage.clone();
-            let user_public_id = user.id.clone();
-            let avatar_url = avatar_url.to_string();
-            debug!(%user_public_id, %avatar_url, "Processing avatar");
-
-            tokio::spawn(async move {
-                match image_storage.process_avatar(&user_public_id, &avatar_url).await {
-                    Ok(avatar_urls) => {
-                        info!(
-                            user_id = %user_public_id,
-                            original_url = %avatar_urls.original_url,
-                            mini_url = %avatar_urls.mini_url,
-                            "Avatar processed successfully"
-                        );
-                    }
-                    Err(e) => {
-                        warn!(
-                            user_id = %user_public_id,
-                            avatar_url = %avatar_url,
-                            error = %e,
-                            "Failed to process avatar"
-                        );
-                    }
-                }
-            });
-        }
-    }
+    spawn_avatar_processing(app_state.image_storage.as_ref(), &user.id, user.avatar_url.as_deref());
 
     (StatusCode::FOUND, Redirect::to("/api/profile")).into_response()
 }
@@ -222,38 +158,27 @@ pub async fn profile_handler(State(app_state): State<AppState>, cookie: CookieMa
         }
     };
     match user_repo::find_user_by_provider_id(&app_state.db, prov, prov_user_id).await {
-        Ok(Some(db_user)) => {
-            // Include linked providers in the profile payload
-            match user_repo::list_user_providers(&app_state.db, db_user.id).await {
-                Ok(providers) => {
-                    #[derive(Serialize)]
-                    struct ProfilePayload<T> {
-                        id: i64,
-                        email: Option<String>,
-                        providers: Vec<T>,
-                        created_at: chrono::DateTime<chrono::Utc>,
-                        updated_at: chrono::DateTime<chrono::Utc>,
-                    }
-                    let body = ProfilePayload {
-                        id: db_user.id,
-                        email: db_user.email.clone(),
-                        providers,
-                        created_at: db_user.created_at,
-                        updated_at: db_user.updated_at,
-                    };
-                    axum::Json(body).into_response()
-                }
-                Err(e) => {
-                    warn!(error = %e, "Failed to list user providers");
-                    ErrorResponse::with_status(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "database_error",
-                        Some("could not fetch providers".into()),
-                    )
-                    .into_response()
-                }
+        Ok(Some(db_user)) => match user_repo::list_user_providers(&app_state.db, db_user.id).await {
+            Ok(providers) => {
+                let body = ProfilePayload {
+                    id: db_user.id,
+                    email: db_user.email.clone(),
+                    providers,
+                    created_at: db_user.created_at,
+                    updated_at: db_user.updated_at,
+                };
+                axum::Json(body).into_response()
             }
-        }
+            Err(e) => {
+                warn!(error = %e, "Failed to list user providers");
+                ErrorResponse::with_status(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "database_error",
+                    Some("could not fetch providers".into()),
+                )
+                .into_response()
+            }
+        },
         Ok(None) => {
             debug!("User not found for session");
             ErrorResponse::unauthorized("session not found").into_response()
@@ -323,4 +248,30 @@ pub async fn health_handler(
     });
 
     (status, axum::Json(body)).into_response()
+}
+
+fn spawn_avatar_processing(image_storage: Option<&Arc<ImageStorage>>, user_id: &str, avatar_url: Option<&str>) {
+    let Some(image_storage) = image_storage else { return };
+    let Some(avatar_url) = avatar_url else { return };
+
+    let image_storage = image_storage.clone();
+    let user_id = user_id.to_string();
+    let avatar_url = avatar_url.to_string();
+    debug!(%user_id, %avatar_url, "Processing avatar");
+
+    tokio::spawn(async move {
+        match image_storage.process_avatar(&user_id, &avatar_url).await {
+            Ok(avatar_urls) => {
+                info!(
+                    %user_id,
+                    original_url = %avatar_urls.original_url,
+                    mini_url = %avatar_urls.mini_url,
+                    "Avatar processed successfully"
+                );
+            }
+            Err(e) => {
+                warn!(%user_id, %avatar_url, error = %e, "Failed to process avatar");
+            }
+        }
+    });
 }
