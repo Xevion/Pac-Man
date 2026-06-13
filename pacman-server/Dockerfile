@@ -13,8 +13,11 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     --default-toolchain ${RUST_VERSION} \
     --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
+# cargo-chef is pinned: 0.1.74+ ships a Cargo.lock that locks cargo-platform 0.3.2,
+# which requires rustc 1.88. This image is pinned to RUST_VERSION (1.86.0) for
+# wasm32-unknown-emscripten compatibility, so the install would fail to compile.
 RUN rustup target add wasm32-unknown-emscripten && \
-    cargo install cargo-chef --locked
+    cargo install cargo-chef --locked --version 0.1.73
 
 # ========== Stage 2: WASM Planner ==========
 FROM wasm-base AS wasm-planner
