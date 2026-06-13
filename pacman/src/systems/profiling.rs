@@ -244,7 +244,7 @@ impl SystemTimings {
 
         // Sort the stats by average duration, excluding the Total system
         let mut sorted_stats: Vec<_> = stats.iter().filter(|(id, _)| **id != SystemId::Total).collect();
-        sorted_stats.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+        sorted_stats.sort_by_key(|b| std::cmp::Reverse(b.1 .0));
 
         // Add the top 7 most expensive systems (excluding Total)
         for (name, (avg, std_dev)) in sorted_stats.iter().take(9) {
@@ -280,7 +280,7 @@ impl SystemTimings {
         }
 
         // Sort by duration (highest first)
-        system_timings.sort_by(|a, b| b.1.cmp(&a.1));
+        system_timings.sort_by_key(|b| std::cmp::Reverse(b.1));
 
         // Check for systems over 2ms threshold
         let over_threshold: SmallVec<[(SystemId, Duration); 5]> = system_timings

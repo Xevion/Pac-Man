@@ -24,7 +24,7 @@ use bevy_ecs::{
 use super::{IntroPlayed, PlayerAnimation, PlayerDeathAnimation, PlayerLives, TooSimilar};
 
 /// A resource to track the overall stage of the game from a high-level perspective.
-#[derive(Resource, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Resource, Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub enum GameStage {
     /// Waiting for user interaction before starting (Emscripten only).
     /// Game is rendered but audio/gameplay are paused until the user clicks or presses a key.
@@ -32,6 +32,7 @@ pub enum GameStage {
     WaitingForInteraction,
     Starting(StartupSequence),
     /// The main gameplay loop is active.
+    #[default]
     Playing,
     /// Short freeze after Pac-Man eats a ghost to display bonus score
     GhostEatenPause {
@@ -44,12 +45,6 @@ pub enum GameStage {
     PlayerDying(DyingSequence),
     /// The game has ended.
     GameOver,
-}
-
-impl Default for GameStage {
-    fn default() -> Self {
-        Self::Playing
-    }
 }
 
 /// A resource that manages the multi-stage startup sequence of the game.

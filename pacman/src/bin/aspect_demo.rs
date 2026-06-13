@@ -66,21 +66,21 @@ fn main() -> Result<(), String> {
                         WindowEvent::Resized(_, _)
                         | WindowEvent::SizeChanged(_, _)
                         | WindowEvent::Maximized
-                        | WindowEvent::Restored => {
-                            if last_log.elapsed() > Duration::from_millis(250) {
-                                let out_size = canvas.output_size()?;
-                                let viewport = canvas.viewport();
-                                println!(
-                                    "window={}x{}, viewport x={}, y={}, w={}, h={}",
-                                    out_size.0,
-                                    out_size.1,
-                                    viewport.x(),
-                                    viewport.y(),
-                                    viewport.width(),
-                                    viewport.height()
-                                );
-                                last_log = Instant::now();
-                            }
+                        | WindowEvent::Restored
+                            if last_log.elapsed() > Duration::from_millis(250) =>
+                        {
+                            let out_size = canvas.output_size()?;
+                            let viewport = canvas.viewport();
+                            println!(
+                                "window={}x{}, viewport x={}, y={}, w={}, h={}",
+                                out_size.0,
+                                out_size.1,
+                                viewport.x(),
+                                viewport.y(),
+                                viewport.width(),
+                                viewport.height()
+                            );
+                            last_log = Instant::now();
                         }
                         _ => {}
                     }

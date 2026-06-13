@@ -9,16 +9,13 @@ use bevy_ecs::{
 use crate::events::{GameCommand, GameEvent};
 use crate::systems::audio::AudioEvent;
 
-#[derive(Resource, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Resource, Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub enum PauseState {
+    #[default]
     Inactive,
-    Active { remaining_ticks: Option<u32> },
-}
-
-impl Default for PauseState {
-    fn default() -> Self {
-        Self::Inactive
-    }
+    Active {
+        remaining_ticks: Option<u32>,
+    },
 }
 
 impl PauseState {

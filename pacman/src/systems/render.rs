@@ -32,9 +32,6 @@ pub struct Renderable {
 #[derive(Resource, Default)]
 pub struct RenderDirty(pub bool);
 
-#[derive(Component)]
-pub struct Hidden;
-
 /// A component that controls entity visibility in the render system.
 ///
 /// Entities without this component are considered visible by default.

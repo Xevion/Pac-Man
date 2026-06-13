@@ -3,13 +3,8 @@
 use std::time::Duration;
 
 use rand::rngs::ThreadRng;
-use rust_embed::Embed;
 
 use crate::error::PlatformError;
-
-#[derive(Embed)]
-#[folder = "assets/game/"]
-struct EmbeddedAssets;
 
 /// Desktop platform implementation.
 pub fn sleep(duration: Duration, focused: bool) {
