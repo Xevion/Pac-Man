@@ -91,7 +91,9 @@ export default defineConfig({
 	server: {
 		proxy: {
 			'/api': {
-				target: process.env.VITE_API_TARGET || 'http://localhost:3001',
+				target:
+					process.env.VITE_API_TARGET ||
+					`http://localhost:${process.env.PACMAN_SERVER_PORT || 42566}`,
 				changeOrigin: true
 			}
 		}

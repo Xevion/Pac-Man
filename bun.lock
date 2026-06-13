@@ -6,13 +6,30 @@
       "name": "pacman",
       "devDependencies": {
         "@logtape/logtape": "^0.8.0",
+        "@xevion/tempo": "^0.1.4",
         "ts-pattern": "^5.5.0",
       },
     },
   },
   "packages": {
+    "@catppuccin/palette": ["@catppuccin/palette@1.8.0", "", {}, "sha512-qXhwKiLzQomUygUJYB36YAFgs+dET5bIocfkiaFIatQF5Pwc7L112TlF9P8J5Oqs3x3XTjYSucG0ncHXSCuk7Q=="],
+
+    "@logtape/file": ["@logtape/file@2.1.4", "", { "peerDependencies": { "@logtape/logtape": "^2.1.4" } }, "sha512-jC90wtZTShrXYEeT/TdFDsZ4ipQEKPGhSL8rNcHJ/u4j3bWNJ9W/OnMGs94UEdJcSL6q5r01bIAGNmqpoSOQFQ=="],
+
     "@logtape/logtape": ["@logtape/logtape@0.8.2", "", {}, "sha512-KikaMHi64p0BHYrYOE2Lom4dOE3R8PGT+21QJ5Ql/SWy0CNOp69dkAlG9RXzENQ6PAMWtiU+4kelJYNvfUvHOQ=="],
 
+    "@xevion/tempo": ["@xevion/tempo@0.1.4", "", { "dependencies": { "@catppuccin/palette": "^1.8.0", "@logtape/file": "^2.0.4", "@logtape/logtape": "^2.0.4", "ansis": "^4.2.0", "cleye": "^2.3.0" }, "bin": { "tempo": "dist/cli.mjs" } }, "sha512-Q4JnK+/MqZIYCq2NT0xcx2OWYDX4t+B01KCgIRrD06eJ+sdJjFh7mXvFC4DjjdfZM4qsp7B+AgfMM+GAwPBjmQ=="],
+
+    "ansis": ["ansis@4.3.1", "", {}, "sha512-BJ8/l4R5LRE7hW9WdSuGYrLSHi2ynxeFpDFbH0K/CgNeY/tyhk+vO6TYxXC5r5CpUhNVX310xzPsN/H9lCdfOA=="],
+
+    "cleye": ["cleye@2.6.0", "", { "dependencies": { "terminal-columns": "^2.0.0", "type-flag": "^4.1.0" } }, "sha512-u0SQCsega/ox+2GSuUlG6wvA9c2FtH8sPmv9G9Q3JRTs7FK6+LtaziRAQgx7lrJ1J7bOd3palhwgZKMg8R6JbQ=="],
+
+    "terminal-columns": ["terminal-columns@2.0.0", "", {}, "sha512-6IByuUjyNZJXUtwDNm+OIe62zgwwaRbH+WMNTcx05O2G5V9WhvluAAHJY8OvUdwmzMPpqAD/7EUpGdI6ae1aiQ=="],
+
     "ts-pattern": ["ts-pattern@5.9.0", "", {}, "sha512-6s5V71mX8qBUmlgbrfL33xDUwO0fq48rxAu2LBE11WBeGdpCPOsXksQbZJHvHwhrd3QjUusd3mAOM5Gg0mFBLg=="],
+
+    "type-flag": ["type-flag@4.3.0", "", {}, "sha512-XwZWK+SOWleva2EjynfJT6tXHUkS+/TZAIc5fTJXVMArNf/5jBEt7Y/yBtGcxLFThtQCQ9v6nxXon0QZ86ZJhA=="],
+
+    "@xevion/tempo/@logtape/logtape": ["@logtape/logtape@2.1.4", "", {}, "sha512-ZQbAeHSxAd/bZKWwAfRIb4phTNuoSiaZoeE5GgfNwKxhik6L1+XZXQr0r8x2Bsm4K98B/d5InORVy0jcmA4kCA=="],
   }
 }

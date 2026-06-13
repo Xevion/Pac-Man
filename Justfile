@@ -1,63 +1,72 @@
+set dotenv-load
 set shell := ["bash", "-c"]
 
 mod pacman 'pacman/Justfile'
-mod server 'pacman-server/Justfile'
-mod web 'web/Justfile'
 
-# Display available recipes
+alias c := check
+alias d := dev
+alias f := format
+alias fmt := format
+alias t := test
+alias vcpkg := pacman::vcpkg
+
 default:
-    @just --list --list-submodules
+    @just --list
+
+# Validate all code (format + clippy desktop/wasm + web check/lint) via tempo
+check *flags:
+    tempo check {{flags}}
+
+# Auto-format all code (Rust workspace + web)
+format *flags:
+    tempo fmt {{flags}}
+
+# Lint all code (clippy + eslint)
+lint *flags:
+    tempo lint {{flags}}
+
+# Run the Rust workspace + web test suites
+test *flags:
+    tempo test {{flags}}
+
+# Full-stack dev: Postgres + server (watched) + Vite frontend
+dev *flags:
+    tempo dev {{flags}}
+
+# Manage the local Postgres container (start | reset | rm)
+db *args:
+    tempo db {{args}}
+
+# Run the desktop game (e.g. `just run -r` for release)
+run *args:
+    cargo run -p pacman {{args}}
+
+# Build the web bundle (WASM game + SvelteKit frontend)
+web-build *args:
+    bun run pacman/web.build.ts {{args}}
+    bun run --cwd web build
+
+# Build the web bundle and serve it with Caddy
+serve *args:
+    bun run pacman/web.build.ts {{args}}
+    bun run --cwd web build
+    caddy file-server --root web/dist/client --listen :${PACMAN_WEB_PORT:-42565}
+
+# Build and preview the frontend
+up:
+    bun run --cwd web build
+    bun run --cwd web preview
 
 alias b := bun
 alias bu := bun
 
-# Runs 'bun' from within the 'web/' folder
+# Run 'bun' from within the 'web/' folder
 bun *args:
-	cd web/ && bun {{args}}
+    cd web/ && bun {{args}}
 
 alias bx := bunx
 alias bux := bunx
 
-# Runs 'bunx' from within the 'web/' folder
+# Run 'bunx' from within the 'web/' folder
 bunx *args:
-	cd web/ && bunx {{args}}
-
-# Run the game (pacman::run)
-run *args:
-    @just pacman::run {{args}}
-
-# Run all checks (Rust workspace + web)
-check:
-    @echo "Checking format..."
-    @cargo fmt --all -- --check || echo "⚠ Format issues detected (run \`just format\` to fix)"
-    @echo "Running clippy for desktop target..."
-    @cargo clippy --workspace --all-targets --all-features --quiet -- -D warnings
-    @echo "Running clippy for wasm target..."
-    @cargo clippy -p pacman --target wasm32-unknown-emscripten --all-targets --all-features --quiet -- -D warnings
-    @echo "Running web checks..."
-    @just web::check
-    @echo "Check complete!"
-
-alias lint := check
-
-# Run tests (Rust workspace + web)
-test:
-    cargo nextest run --workspace --no-fail-fast
-    @just web::test
-
-# Format code (Rust workspace + web)
-format:
-    cargo fmt --all
-    @just web::format
-
-alias fmt := format
-
-# Dev servers (web + server)
-dev:
-    @just web::dev
-
-# Build and preview frontend (web::up)
-up:
-    @just web::up
-
-alias vcpkg := pacman::vcpkg
+    cd web/ && bunx {{args}}

@@ -12,7 +12,8 @@
     "preinstall": "npx only-allow bun"
   },
   "devDependencies": {
-    "ts-pattern": "^5.5.0",
-    "@logtape/logtape": "^0.8.0"
+    "@logtape/logtape": "^0.8.0",
+    "@xevion/tempo": "^0.1.4",
+    "ts-pattern": "^5.5.0"
   }
 }

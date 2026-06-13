@@ -4,6 +4,10 @@
 .claude/
 rust-sdl2-emscripten/
 
+# Environment files (.env.example stays tracked)
+.env
+pacman-server/.env
+
 # Build files
 target/
 dist/

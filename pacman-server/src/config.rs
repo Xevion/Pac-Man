@@ -196,7 +196,7 @@ fn default_host() -> std::net::IpAddr {
 }
 
 fn default_port() -> u16 {
-    3000
+    42566
 }
 
 fn default_shutdown_timeout() -> u32 {

@@ -38,7 +38,7 @@ async fn main() {
 
     // Load environment variables
     #[cfg(debug_assertions)]
-    dotenvy::from_path(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".env")).ok();
+    dotenvy::from_path(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join(".env")).ok();
     #[cfg(not(debug_assertions))]
     dotenvy::dotenv().ok();
 
