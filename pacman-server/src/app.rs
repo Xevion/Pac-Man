@@ -216,6 +216,7 @@ pub fn create_router(app_state: AppState) -> Router {
         .route("/auth/{provider}/callback", get(routes::oauth_callback_handler))
         .route("/logout", get(routes::logout_handler))
         .route("/profile", get(routes::profile_handler))
+        .route("/scores", get(routes::list_scores_handler).post(routes::submit_score_handler))
         .with_state(app_state)
         .layer(CookieLayer::default())
         .layer(axum::middleware::from_fn(inject_server_header));
