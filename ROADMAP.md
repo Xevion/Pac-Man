@@ -10,21 +10,25 @@ A comprehensive list of features needed to complete the Pac-Man emulation, organ
   - [x] Ghost entity types (Blinky, Pinky, Inky, Clyde)
   - [x] Ghost state management (Normal, Frightened, Eyes)
   - [x] Ghost movement and pathfinding systems
-- [ ] Authentic Ghost AI Personalities
-  - [ ] Blinky (Red): Direct chase behavior
-  - [ ] Pinky (Pink): Target 4 tiles ahead of Pac-Man
-  - [ ] Inky (Cyan): Complex behavior based on Blinky's position
-  - [ ] Clyde (Orange): Chase when far, flee when close
-- [ ] Mode Switching System
-  - [ ] Scatter/Chase pattern with proper timing
+- [x] Authentic Ghost AI Personalities
+  - [x] Blinky (Red): Direct chase behavior
+  - [x] Pinky (Pink): Target 4 tiles ahead of Pac-Man (includes authentic upward overflow bug)
+  - [x] Inky (Cyan): Complex vector-doubling behavior based on Blinky's position
+  - [x] Clyde (Orange): Chase when far, scatter when close (8-tile threshold)
+- [x] Mode Switching System
+  - [x] Scatter/Chase pattern with proper timing (3 level tiers, arcade-accurate)
   - [x] Frightened mode transitions
-  - [ ] Ghost house entry/exit mechanics
-- [ ] Ghost House Behavior
+  - [x] Ghost house entry/exit mechanics
+- [x] Ghost House Behavior
   - [x] Basic spawning in ghost house
-  - [ ] Proper exit timing sequence
-  - [ ] Dot counter for ghost release
-  - [ ] Global dot counter reset
-  - [ ] House-specific pathfinding
+  - [x] Proper exit timing sequence
+  - [x] Personal dot counters for ghost release (per-ghost, per-level limits)
+  - [x] Global dot counter (activated on player death)
+  - [x] No-dot timer for forced release
+- [x] Cruise Elroy
+  - [x] Two-stage speed increase for Blinky based on remaining pellets
+  - [x] Per-level dot thresholds (arcade-accurate through level 18+)
+  - [x] Elroy suspension when Clyde is in house after death
 
 ### Fruit Bonus System
 
@@ -182,9 +186,10 @@ A comprehensive list of features needed to complete the Pac-Man emulation, organ
   - [x] Session management with cookies
   - [x] Health check and API endpoints
 - [ ] Profile Features
-  - [ ] Optional avatars (8-bit aesthetic)
+  - [x] Avatar processing (center-crop, resize to 512x512 + 32x32, S3/R2 upload)
   - [ ] Custom names (3-14 chars, filtered)
   - [ ] User profile pages
+  - [ ] Profile mutation endpoints (update name, custom avatar)
 - [ ] Leaderboard Features
   - [ ] Global high score board
   - [ ] Personal best tracking
