@@ -1,4 +1,7 @@
 [toolchain]
-# we are unfortunately pinned to 1.86.0 for some reason, bulk-memory-opt related issues on wasm32-unknown-emscripten
-channel = "1.86.0"
+# wasm32-unknown-emscripten: Rust's LLVM backend emits post-MVP wasm features (bulk-memory,
+# reference-types, exception-handling). The emsdk-bundled wasm-opt must accept them, so the web
+# build passes `-all` (see pacman/web.build.ts). Validated against emsdk 4.0.22 (binaryen v125,
+# pinned in package.json config.emsdkVersion); newer emsdk releases work too but bump separately.
+channel = "1.96.0"
 components = ["rustfmt", "llvm-tools-preview", "clippy"]

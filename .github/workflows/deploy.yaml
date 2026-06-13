@@ -24,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Read emsdk version from package.json
+      - name: Read toolchain versions from canonical sources
         id: versions
         run: |
           EMSDK_VERSION=$(jq -r '.config.emsdkVersion' package.json)
@@ -32,7 +32,13 @@ jobs:
             echo "::error::emsdkVersion not found in package.json config"
             exit 1
           fi
+          RUST_VERSION=$(grep -oP 'channel\s*=\s*"\K[^"]+' rust-toolchain.toml)
+          if [ -z "$RUST_VERSION" ]; then
+            echo "::error::channel not found in rust-toolchain.toml"
+            exit 1
+          fi
           echo "emsdk=$EMSDK_VERSION" >> $GITHUB_OUTPUT
+          echo "rust=$RUST_VERSION" >> $GITHUB_OUTPUT
 
       # ========== Docker Build and Push ==========
       # Note: WASM and frontend are built inside Docker using multi-stage build
@@ -70,6 +76,7 @@ jobs:
           build-args: |
             GIT_COMMIT_SHA=${{ github.sha }}
             EMSDK_VERSION=${{ steps.versions.outputs.emsdk }}
+            RUST_VERSION=${{ steps.versions.outputs.rust }}
 
       # Wait for ghcr.io propagation (paranoid safety)
       - name: Wait for registry propagation

@@ -147,7 +147,10 @@ async function optimizeWasm(wasmPath: string): Promise<void> {
   const originalSize = (await fs.stat(wasmPath)).size;
   logger.debug(`Optimizing WASM binary (original: ${formatBytes(originalSize)})`);
 
-  const result = await $`wasm-opt -Oz --strip-debug ${wasmPath} -o ${wasmPath}`.quiet().nothrow();
+  // Rust + Emscripten emit post-MVP wasm features (bulk-memory from LLVM 20, reference-types,
+  // exception-handling, etc.). `-all` tells wasm-opt to accept and preserve every feature
+  // rather than rejecting the module; all are supported by modern browsers.
+  const result = await $`wasm-opt -Oz --strip-debug -all ${wasmPath} -o ${wasmPath}`.quiet().nothrow();
   if (result.exitCode !== 0) {
     logger.warn(`wasm-opt failed: ${result.stderr.toString()}`);
     return;
