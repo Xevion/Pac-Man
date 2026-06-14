@@ -34,16 +34,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Setup Rust Toolchain
-        uses: mkroening/rust-toolchain-toml@main
+        uses: mkroening/rust-toolchain-toml@efdebac439b4b9a6c5de2df55452c21faa37420f # main
 
       - name: Add target
         run: rustup target add ${{ matrix.target }}
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
       - name: Setup vcpkg
         uses: ./.github/actions/vcpkg-setup
@@ -63,7 +63,7 @@ jobs:
         working-directory: pacman
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: "pacman-${{ steps.get_version.outputs.version }}-${{ matrix.target }}"
           path: ./target/release/${{ matrix.artifact_name }}

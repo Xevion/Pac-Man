@@ -18,23 +18,23 @@ jobs:
       COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
           toolchain: nightly
           components: llvm-tools-preview
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
       - name: Setup vcpkg
         uses: ./.github/actions/vcpkg-setup
 
-      - uses: taiki-e/install-action@cargo-llvm-cov
-      - uses: taiki-e/install-action@nextest
-      - uses: taiki-e/install-action@just
+      - uses: taiki-e/install-action@91534edaf9fd796a162759d80d49cdff574bff2c # cargo-llvm-cov
+      - uses: taiki-e/install-action@11c82bec3ad7f6041db8bd552d47469a973381cd # nextest
+      - uses: taiki-e/install-action@bafb217ce243dd135aa0204d91238f387d005863 # just
 
       - name: Generate coverage report
         run: |
@@ -52,7 +52,7 @@ jobs:
       - name: Coveralls upload
         if: ${{ env.COVERALLS_REPO_TOKEN != '' }}
         continue-on-error: true
-        uses: coverallsapp/github-action@v2
+        uses: coverallsapp/github-action@5cbfd81b66ca5d10c19b062c04de0199c215fb6e # v2
         with:
           github-token: ${{ env.COVERALLS_REPO_TOKEN }}
           path-to-lcov: lcov.info
