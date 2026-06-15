@@ -24,17 +24,30 @@ pub fn init_console(force_console: bool) -> Result<(), PlatformError> {
     use crate::formatter::CustomFormatter;
     use tracing::Level;
     use tracing_error::ErrorLayer;
-    use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Layer};
+    use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Layer, Registry};
 
-    // Create a file layer
+    type BoxedLayer = Box<dyn Layer<Registry> + Send + Sync>;
+
+    // Installs the collected layers, appending the Tracy layer when enabled, and
+    // starts the global subscriber.
+    fn install(layers: Vec<BoxedLayer>) {
+        #[cfg(feature = "tracy")]
+        let mut layers = layers;
+        #[cfg(feature = "tracy")]
+        layers.push(crate::tracy::layer());
+        tracing_subscriber::registry().with(layers).init();
+    }
+
     let log_file = std::fs::File::create("pacman.log")
         .map_err(|e| PlatformError::ConsoleInit(format!("Failed to create log file: {}", e)))?;
-    let file_layer = fmt::layer()
+    let file_layer: BoxedLayer = fmt::layer()
         .with_ansi(false)
         .with_writer(log_file)
         .event_format(CustomFormatter)
         .with_filter(tracing_subscriber::filter::LevelFilter::from_level(Level::DEBUG))
         .boxed();
+
+    let error_layer: BoxedLayer = ErrorLayer::default().boxed();
 
     #[cfg(windows)]
     {
@@ -45,18 +58,14 @@ pub fn init_console(force_console: bool) -> Result<(), PlatformError> {
             // Setup deferred tracing subscriber that will buffer logs until console is ready
             let switchable_writer = SwitchableWriter::default();
             let make_writer = SwitchableMakeWriter::new(switchable_writer.clone());
-            let console_layer = fmt::layer()
+            let console_layer: BoxedLayer = fmt::layer()
                 .with_ansi(true)
                 .with_writer(make_writer)
                 .event_format(CustomFormatter)
                 .with_filter(tracing_subscriber::filter::LevelFilter::from_level(Level::DEBUG))
                 .boxed();
 
-            tracing_subscriber::registry()
-                .with(console_layer)
-                .with(file_layer)
-                .with(ErrorLayer::default())
-                .init();
+            install(vec![console_layer, file_layer, error_layer]);
 
             // Enable virtual terminal processing for ANSI colors
             allocate_console()?;
@@ -66,37 +75,27 @@ pub fn init_console(force_console: bool) -> Result<(), PlatformError> {
                 .switch_to_direct_mode()
                 .map_err(|e| PlatformError::ConsoleInit(format!("Failed to switch to direct mode: {}", e)))?;
         } else {
-            // Set up tracing subscriber with ANSI colors enabled
-            let console_layer = fmt::layer()
+            let console_layer: BoxedLayer = fmt::layer()
                 .with_ansi(true)
                 .with_writer(std::io::stdout)
                 .event_format(CustomFormatter)
                 .with_filter(tracing_subscriber::filter::LevelFilter::from_level(Level::DEBUG))
                 .boxed();
 
-            tracing_subscriber::registry()
-                .with(console_layer)
-                .with(file_layer)
-                .with(ErrorLayer::default())
-                .init();
+            install(vec![console_layer, file_layer, error_layer]);
         }
     }
 
     #[cfg(not(windows))]
     {
-        // Set up tracing subscriber with ANSI colors enabled
-        let console_layer = fmt::layer()
+        let console_layer: BoxedLayer = fmt::layer()
             .with_ansi(true)
             .with_writer(std::io::stdout)
             .event_format(CustomFormatter)
             .with_filter(tracing_subscriber::filter::LevelFilter::from_level(Level::DEBUG))
             .boxed();
 
-        tracing_subscriber::registry()
-            .with(console_layer)
-            .with(file_layer)
-            .with(ErrorLayer::default())
-            .init();
+        install(vec![console_layer, file_layer, error_layer]);
     }
 
     Ok(())

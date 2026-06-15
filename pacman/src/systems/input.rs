@@ -303,6 +303,8 @@ pub fn input_system(
                     let size = UVec2::new(w.max(0) as u32, h.max(0) as u32);
                     if size != layout.window {
                         tracing::info!(width = size.x, height = size.y, "Window resized");
+                        crate::tracy::message(&format!("resize {}x{}", size.x, size.y));
+                        let _zone = tracing::debug_span!("layout_compute").entered();
                         *layout = Layout::compute(size);
                     }
                 }

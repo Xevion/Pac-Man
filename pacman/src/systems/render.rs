@@ -205,6 +205,7 @@ pub fn backbuffer_render_system(
         return;
     }
 
+    let _zone = tracing::debug_span!("backbuffer_texture").entered();
     let result = surfaces
         .canvas
         .with_texture_canvas(&mut surfaces.backbuffer.0, |texture_canvas| {
@@ -239,6 +240,7 @@ pub fn composite_maze_system(
         return;
     }
 
+    let _zone = tracing::debug_span!("composite_maze").entered();
     canvas.set_draw_color(sdl2::pixels::Color::BLACK);
     canvas.clear();
     if let Err(e) = canvas.copy(&backbuffer.0, None, layout.maze) {
@@ -249,6 +251,7 @@ pub fn composite_maze_system(
 /// Presents the fully composited frame and clears the dirty flag.
 pub fn present_system(mut canvas: NonSendMut<CanvasResource>, mut dirty: ResMut<RenderDirty>) {
     if dirty.0 {
+        let _zone = tracing::debug_span!("sdl_present").entered();
         canvas.present();
         dirty.0 = false;
     }

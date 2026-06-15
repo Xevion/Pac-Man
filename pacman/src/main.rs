@@ -29,6 +29,8 @@ mod game;
 mod map;
 mod systems;
 mod texture;
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod tracy;
 
 /// Single-threaded global storage for Emscripten FFI callbacks.
 ///

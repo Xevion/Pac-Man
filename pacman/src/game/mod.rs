@@ -167,11 +167,16 @@ impl Game {
     ///
     /// `true` if the game should terminate (exit command received), `false` to continue
     pub fn tick(&mut self, dt: f32) -> bool {
+        let _tick = tracing::debug_span!("tick").entered();
         self.world.insert_resource(DeltaTime { seconds: dt, ticks: 1 });
 
         let start = std::time::Instant::now();
-        self.schedule.run(&mut self.world);
+        {
+            let _run = tracing::debug_span!("schedule_run").entered();
+            self.schedule.run(&mut self.world);
+        }
         let total_duration = start.elapsed();
+        crate::tracy_plot!("frame.schedule_ms", total_duration.as_secs_f64() * 1000.0);
 
         if let (Some(timings), Some(timing)) = (
             self.world.get_resource::<systems::profiling::SystemTimings>(),

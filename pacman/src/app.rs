@@ -128,30 +128,31 @@ impl App {
     ///
     /// `true` if the game should continue running, `false` if the game requested exit.
     pub fn run(&mut self) -> bool {
-        {
-            let start = Instant::now();
+        let _frame = tracing::debug_span!("frame").entered();
+        let start = Instant::now();
 
-            let dt = self.last_tick.elapsed().as_secs_f32();
-            self.last_tick = start;
+        let dt = self.last_tick.elapsed().as_secs_f32();
+        self.last_tick = start;
+        crate::tracy_plot!("frame.dt_ms", (dt * 1000.0) as f64);
 
-            // Increment the global tick counter for tracing
-            formatter::increment_tick();
+        // Increment the global tick counter for tracing
+        formatter::increment_tick();
 
-            let exit = self.game.tick(dt);
+        let exit = self.game.tick(dt);
 
-            if exit {
-                return false;
-            }
-
-            // Sleep if we still have time left
-            if start.elapsed() < LOOP_TIME {
-                let time = LOOP_TIME.saturating_sub(start.elapsed());
-                if time != Duration::ZERO {
-                    platform::sleep(time, self.focused);
-                }
-            }
-
-            true
+        if exit {
+            return false;
         }
+
+        // Sleep if we still have time left
+        if start.elapsed() < LOOP_TIME {
+            let time = LOOP_TIME.saturating_sub(start.elapsed());
+            if time != Duration::ZERO {
+                platform::sleep(time, self.focused);
+            }
+        }
+
+        crate::tracy::frame_mark();
+        true
     }
 }

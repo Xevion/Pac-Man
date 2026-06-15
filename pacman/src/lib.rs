@@ -20,3 +20,5 @@ pub mod game;
 pub mod map;
 pub mod systems;
 pub mod texture;
+#[cfg_attr(coverage_nightly, coverage(off))]
+pub mod tracy;

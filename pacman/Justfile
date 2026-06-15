@@ -14,6 +14,10 @@ samply:
     cargo build --profile profile
     samply record ./target/profile/pacman{{binary_extension}}
 
+# Run with Tracy live profiling enabled (connect a Tracy GUI to 127.0.0.1)
+tracy:
+    cargo run --profile profile --features tracy
+
 # Generate baseline LCOV report
 coverage:
     cargo +nightly llvm-cov \

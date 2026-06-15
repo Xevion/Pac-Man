@@ -317,6 +317,7 @@ where
 {
     let mut system: S::System = IntoSystem::into_system(system);
     let mut is_initialized = false;
+    let name: &'static str = id.into();
     move |world: &mut bevy_ecs::world::World| {
         if !is_initialized {
             system.initialize(world);
@@ -324,7 +325,10 @@ where
         }
 
         let start = std::time::Instant::now();
-        system.run((), world);
+        {
+            let _zone = crate::tracy::zone(name, file!(), line!());
+            system.run((), world);
+        }
         let duration = start.elapsed();
 
         if let (Some(timings), Some(timing)) = (world.get_resource::<SystemTimings>(), world.get_resource::<Timing>()) {
