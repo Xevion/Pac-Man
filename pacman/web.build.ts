@@ -61,9 +61,20 @@ async function build(release: boolean, env: Record<string, string> | null) {
       release ? "release" : "debug"
     }`
   );
+  // In debug builds, enable Emscripten's full stack-overflow guard so an overrun
+  // traps with an explicit "Stack overflow!" message instead of a bare abort().
+  // It adds a per-call canary check (code size + runtime cost), so it is kept out
+  // of release. rustc emits the wasm objects directly and only invokes emcc at the
+  // link step, so EMCC_CFLAGS reaches just that link without per-object noise.
+  const buildEnv = release
+    ? env ?? undefined
+    : { ...(env ?? process.env), EMCC_CFLAGS: "-sSTACK_OVERFLOW_CHECK=2" };
+  if (!release) {
+    logger.debug("Debug build: enabling -sSTACK_OVERFLOW_CHECK=2");
+  }
   await $`cargo build --target=wasm32-unknown-emscripten --package pacman ${
     release ? "--release" : ""
-  }`.env(env ?? undefined);
+  }`.env(buildEnv);
 
   const buildType = release ? "release" : "debug";
   const outputFolder = resolve(`target/wasm32-unknown-emscripten/${buildType}`);

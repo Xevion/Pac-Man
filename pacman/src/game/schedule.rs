@@ -39,15 +39,9 @@ enum RenderSet {
     Present,
 }
 
-/// Builds the full system schedule.
-///
-/// Systems are registered one set at a time through small helper functions rather
-/// than a single monolithic `add_systems((...))` call. Each helper materializes only
-/// its own set's profiled system closures, and `profile()` closures each embed a full
-/// `FunctionSystem` (hundreds of bytes). Spreading them across separate frames bounds
-/// the peak construction stack to the largest single set instead of the sum of every
-/// system -- the original one-frame form approached Emscripten's small default main
-/// stack in debug builds and overflowed when the set grew.
+/// Builds the full system schedule. Each set is wired by its own helper so the
+/// ordering for a given phase lives in one place; `configure_sets` then chains
+/// the sets into their run order.
 pub(super) fn configure_schedule(schedule: &mut Schedule) {
     add_input_systems(schedule);
     add_update_systems(schedule);

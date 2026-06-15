@@ -311,11 +311,18 @@ impl SystemTimings {
     }
 }
 
+/// Wraps `system` so each run is timed and emitted as a Tracy zone.
+///
+/// The wrapped system is boxed, so the returned closure captures a pointer rather
+/// than the system's full parameter state (which can be hundreds of bytes). The
+/// schedule materializes every system into one large nest of tuples on the stack
+/// at startup; keeping each element pointer-sized keeps that construction well
+/// within Emscripten's small main stack, regardless of how many systems exist.
 pub fn profile<S, M>(id: SystemId, system: S) -> impl FnMut(&mut bevy_ecs::world::World)
 where
     S: IntoSystem<(), (), M> + 'static,
 {
-    let mut system: S::System = IntoSystem::into_system(system);
+    let mut system: Box<dyn System<In = (), Out = ()>> = Box::new(IntoSystem::into_system(system));
     let mut is_initialized = false;
     let name: &'static str = id.into();
     move |world: &mut bevy_ecs::world::World| {
