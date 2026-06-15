@@ -18,6 +18,14 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup target add wasm32-unknown-emscripten && \
     cargo install cargo-chef --locked
 
+# Pre-build the emscripten ports cache. The crate has three wasm bins (pacman,
+# timing_demo, aspect_demo) whose link steps run in parallel; on a cold cache they
+# race to generate the SDL2/freetype/harfbuzz ports, and SDL2_ttf's build spawns a
+# nested freetype build while holding the cache lock, tripping emscripten's
+# EM_CACHE_IS_LOCKED assertion. Warming the cache here (leaf deps first) makes every
+# downstream link find the ports already present, so no port is generated under load.
+RUN embuilder build freetype harfbuzz ogg vorbis sdl2 sdl2_image sdl2_ttf sdl2_mixer sdl2_gfx
+
 # ========== Stage 2: WASM Planner ==========
 FROM wasm-base AS wasm-planner
 
