@@ -5,7 +5,7 @@
     "": {
       "name": "pacman",
       "devDependencies": {
-        "@logtape/logtape": "^0.8.0",
+        "@logtape/logtape": "^0.12.0",
         "@xevion/tempo": "^0.1.4",
         "ts-pattern": "^5.5.0",
       },
@@ -16,7 +16,7 @@
 
     "@logtape/file": ["@logtape/file@2.1.4", "", { "peerDependencies": { "@logtape/logtape": "^2.1.4" } }, "sha512-jC90wtZTShrXYEeT/TdFDsZ4ipQEKPGhSL8rNcHJ/u4j3bWNJ9W/OnMGs94UEdJcSL6q5r01bIAGNmqpoSOQFQ=="],
 
-    "@logtape/logtape": ["@logtape/logtape@0.8.2", "", {}, "sha512-KikaMHi64p0BHYrYOE2Lom4dOE3R8PGT+21QJ5Ql/SWy0CNOp69dkAlG9RXzENQ6PAMWtiU+4kelJYNvfUvHOQ=="],
+    "@logtape/logtape": ["@logtape/logtape@0.12.3", "", {}, "sha512-LNIYAQ3CbIBPDVlKz25g8ix47iYnJhkI93cPs8WWANLB1cBxdhNb2ibWg1gKZtenR72grDXFLM49Ci+7sYjUmQ=="],
 
     "@xevion/tempo": ["@xevion/tempo@0.1.4", "", { "dependencies": { "@catppuccin/palette": "^1.8.0", "@logtape/file": "^2.0.4", "@logtape/logtape": "^2.0.4", "ansis": "^4.2.0", "cleye": "^2.3.0" }, "bin": { "tempo": "dist/cli.mjs" } }, "sha512-Q4JnK+/MqZIYCq2NT0xcx2OWYDX4t+B01KCgIRrD06eJ+sdJjFh7mXvFC4DjjdfZM4qsp7B+AgfMM+GAwPBjmQ=="],
 
