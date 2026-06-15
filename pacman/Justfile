@@ -7,7 +7,7 @@ default:
 
 # Run cargo-vcpkg build for SDL2 dependencies
 vcpkg:
-	cargo vcpkg build
+	VCPKG_OVERLAY_PORTS="{{justfile_directory()}}/vcpkg-overlay" cargo vcpkg build
 
 # Profile using samply
 samply:

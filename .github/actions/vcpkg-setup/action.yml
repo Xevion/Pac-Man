@@ -44,6 +44,11 @@ runs:
 
     - name: Build vcpkg dependencies
       shell: bash
+      env:
+        # Overlay carries the libsystemd errno-alias fix; a no-op on headers that
+        # predate the v6.18 EFSBADCRC/EFSCORRUPTED UAPI promotion, so it only
+        # matters on a cache miss with newer runners.
+        VCPKG_OVERLAY_PORTS: ${{ github.workspace }}/pacman/vcpkg-overlay
       run: |
         cargo vcpkg -v build
         echo "VCPKG_ROOT=${{ github.workspace }}/target/vcpkg" >> $GITHUB_ENV
