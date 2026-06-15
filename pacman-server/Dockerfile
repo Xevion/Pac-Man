@@ -1,7 +1,7 @@
 # Fallback defaults for standalone `docker build`. CI (deploy.yaml) overrides these from
 # the canonical sources: rust-toolchain.toml (Rust channel) and package.json (emsdkVersion).
 ARG RUST_VERSION=1.96.0
-ARG EMSDK_VERSION=4.0.22
+ARG EMSDK_VERSION=4.0.23
 ARG GIT_COMMIT_SHA
 
 # ========== Stage 1: WASM Base (shared toolchain) ==========
