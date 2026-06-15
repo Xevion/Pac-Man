@@ -17,6 +17,7 @@ pub mod ghost;
 pub mod hud;
 pub mod input;
 pub mod item;
+pub mod layout;
 pub mod lifetime;
 pub mod movement;
 pub mod player;

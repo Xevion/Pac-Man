@@ -5,7 +5,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{NonSendMut, Res, ResMut},
 };
-use glam::Vec2;
+use glam::{UVec2, Vec2};
 use sdl2::{
     event::{Event, WindowEvent},
     keyboard::Keycode,
@@ -14,6 +14,7 @@ use sdl2::{
 use smallvec::{smallvec, SmallVec};
 
 use crate::systems::common::DeltaTime;
+use crate::systems::layout::Layout;
 use crate::{
     events::{GameCommand, GameEvent},
     map::direction::Direction,
@@ -221,6 +222,7 @@ pub fn input_system(
     mut pump: NonSendMut<EventPump>,
     mut cursor: ResMut<CursorPosition>,
     mut touch_state: ResMut<TouchState>,
+    mut layout: ResMut<Layout>,
 ) {
     let mut cursor_seen = false;
     // Collect all events for this frame.
@@ -234,39 +236,39 @@ pub fn input_system(
                 writer.write(GameEvent::Command(GameCommand::Exit));
             }
             Event::MouseMotion { x, y, .. } => {
+                let pos = layout.window_to_maze(Vec2::new(x as f32, y as f32));
                 *cursor = CursorPosition::Some {
-                    position: Vec2::new(x as f32, y as f32),
+                    position: pos,
                     remaining_time: 0.20,
                 };
                 cursor_seen = true;
 
-                // Handle mouse motion as touch motion for desktop testing
+                // Mouse doubles as touch for desktop testing.
                 if let Some(ref mut touch_data) = touch_state.active_touch {
-                    touch_data.current_pos = Vec2::new(x as f32, y as f32);
+                    touch_data.current_pos = pos;
                 }
             }
             // Handle mouse events as touch for desktop testing
             Event::MouseButtonDown { x, y, .. } => {
-                let pos = Vec2::new(x as f32, y as f32);
-                touch_state.active_touch = Some(TouchData::new(0, pos)); // Use ID 0 for mouse
+                let pos = layout.window_to_maze(Vec2::new(x as f32, y as f32));
+                touch_state.active_touch = Some(TouchData::new(0, pos)); // ID 0 for mouse
             }
             Event::MouseButtonUp { .. } => {
                 touch_state.active_touch = None;
             }
             // Handle actual touch events for mobile
             Event::FingerDown { finger_id, x, y, .. } => {
-                // Convert normalized coordinates (0.0-1.0) to screen coordinates
-                let screen_x = x * crate::constants::CANVAS_SIZE.x as f32;
-                let screen_y = y * crate::constants::CANVAS_SIZE.y as f32;
-                let pos = Vec2::new(screen_x, screen_y);
+                // Touch arrives normalized (0..1) over the whole window; map it
+                // through the layout onto the maze.
+                let win = layout.window.as_vec2();
+                let pos = layout.window_to_maze(Vec2::new(x * win.x, y * win.y));
                 touch_state.active_touch = Some(TouchData::new(finger_id, pos));
             }
             Event::FingerMotion { finger_id, x, y, .. } => {
                 if let Some(ref mut touch_data) = touch_state.active_touch {
                     if touch_data.finger_id == finger_id {
-                        let screen_x = x * crate::constants::CANVAS_SIZE.x as f32;
-                        let screen_y = y * crate::constants::CANVAS_SIZE.y as f32;
-                        touch_data.current_pos = Vec2::new(screen_x, screen_y);
+                        let win = layout.window.as_vec2();
+                        touch_data.current_pos = layout.window_to_maze(Vec2::new(x * win.x, y * win.y));
                     }
                 }
             }
@@ -293,11 +295,19 @@ pub fn input_system(
                     simple_key_events.push(SimpleKeyEvent::KeyUp(key));
                 }
             }
-            Event::Window { win_event, .. } => {
-                if let WindowEvent::Resized(w, h) = win_event {
-                    tracing::info!(width = w, height = h, event = ?win_event, "Window Resized");
+            Event::Window { win_event, .. } => match win_event {
+                WindowEvent::Resized(w, h) | WindowEvent::SizeChanged(w, h) => {
+                    // SDL fires both Resized and SizeChanged for a single user drag step;
+                    // only recompute when the size truly changed so duplicate / no-op
+                    // events don't re-dirty the frame and force a redundant re-render.
+                    let size = UVec2::new(w.max(0) as u32, h.max(0) as u32);
+                    if size != layout.window {
+                        tracing::info!(width = size.x, height = size.y, "Window resized");
+                        *layout = Layout::compute(size);
+                    }
                 }
-            }
+                _ => {}
+            },
             // Despite disabling this event, it's still received, so we ignore it explicitly.
             Event::RenderTargetsReset { .. } => {}
             _ => {

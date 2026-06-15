@@ -202,6 +202,7 @@ mod integration_tests {
         use bevy_ecs::{event::Events, system::RunSystemOnce, world::World};
         use pacman::systems::common::DeltaTime;
         use pacman::systems::input::input_system;
+        use pacman::systems::layout::{Layout, Orientation};
 
         let sdl_context = sdl2::init().expect("Failed to initialize SDL");
         let event_subsystem = sdl_context.event().expect("Failed to get event subsystem");
@@ -216,6 +217,18 @@ mod integration_tests {
         world.insert_resource(Bindings::default());
         world.insert_resource(CursorPosition::None);
         world.insert_resource(TouchState::default());
+        // Identity layout (maze at the origin, scale 1) so window->maze mapping is a
+        // no-op; the layout math itself is covered by the layout unit tests.
+        world.insert_resource(Layout {
+            window: glam::UVec2::new(224, 248),
+            scale: 1,
+            orientation: Orientation::Portrait,
+            maze: sdl2::rect::Rect::new(0, 0, 224, 248),
+            left: None,
+            right: None,
+            top: None,
+            bottom: None,
+        });
         world.insert_non_send_resource(event_pump);
 
         // Inject events into SDL's event queue

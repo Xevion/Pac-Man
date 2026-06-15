@@ -45,10 +45,12 @@ pub enum Position {
 }
 
 impl Position {
-    /// Calculates the current pixel position in the game world.
+    /// Calculates the current position in maze-local pixel coordinates.
     ///
-    /// Converts the graph position to screen coordinates, accounting for
-    /// the board offset and centering the sprite.
+    /// The result lives in the playfield texture's own space (origin at the maze
+    /// top-left); the compositor applies scale and screen offset later. Because
+    /// every caller shares this space, relative comparisons (collision, ghost
+    /// targeting) are unaffected by where the maze sits on screen.
     ///
     /// # Errors
     ///
@@ -84,10 +86,7 @@ impl Position {
             }
         };
 
-        Ok(Vec2::new(
-            pos.x + crate::constants::BOARD_PIXEL_OFFSET.x as f32,
-            pos.y + crate::constants::BOARD_PIXEL_OFFSET.y as f32,
-        ))
+        Ok(pos)
     }
 
     /// Advances movement progress by the specified distance with overflow handling.

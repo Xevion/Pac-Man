@@ -13,17 +13,8 @@
 //! // Create a text texture with 1.0 scale (8x8 pixels per character)
 //! let mut text_renderer = TextTexture::new(1.0);
 //!
-//! // Set default color for all text
-//! text_renderer.set_color(Color::WHITE);
-//!
-//! // Render text with default color
-//! text_renderer.render(&mut canvas, &mut atlas, "Hello", position)?;
-//!
-//! // Render text with specific color
+//! // Render text in a specific color
 //! text_renderer.render_with_color(&mut canvas, &mut atlas, "World", position, Color::YELLOW)?;
-//!
-//! // Set scale for larger text
-//! text_renderer.set_scale(2.0);
 //!
 //! // Calculate text width for positioning
 //! let width = text_renderer.text_width("GAME OVER");
@@ -85,7 +76,6 @@ fn char_to_tile_name(c: char) -> Option<String> {
 pub struct TextTexture {
     char_map: HashMap<char, AtlasTile>,
     scale: f32,
-    default_color: Option<Color>,
 }
 
 impl Default for TextTexture {
@@ -93,7 +83,6 @@ impl Default for TextTexture {
         Self {
             scale: 1.0,
             char_map: Default::default(),
-            default_color: None,
         }
     }
 }
@@ -124,18 +113,6 @@ impl TextTexture {
         } else {
             Ok(None)
         }
-    }
-
-    /// Renders a string of text at the given position using the default color.
-    pub fn render<C: RenderTarget>(
-        &mut self,
-        canvas: &mut Canvas<C>,
-        atlas: &mut SpriteAtlas,
-        text: &str,
-        position: UVec2,
-    ) -> Result<(), TextureError> {
-        let color = self.default_color.unwrap_or(Color::WHITE);
-        self.render_with_color(canvas, atlas, text, position, color)
     }
 
     /// Renders a string of text at the given position with a specific color.

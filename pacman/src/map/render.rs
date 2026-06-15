@@ -1,6 +1,6 @@
 //! Map rendering functionality.
 
-use crate::constants::{BOARD_CELL_OFFSET, CELL_SIZE};
+use crate::constants::CELL_SIZE;
 use crate::map::layout::TILE_MAP;
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 use sdl2::pixels::Color;
@@ -21,8 +21,8 @@ impl MapRenderer {
                 let mut tile = map_tiles[tile_index];
                 tile.color = Some(Color::RGB(0x20, 0x20, 0xf9));
                 let dest = Rect::new(
-                    (BOARD_CELL_OFFSET.x as usize * CELL_SIZE as usize + x * CELL_SIZE as usize) as i32,
-                    (BOARD_CELL_OFFSET.y as usize * CELL_SIZE as usize + y * CELL_SIZE as usize) as i32,
+                    (x * CELL_SIZE as usize) as i32,
+                    (y * CELL_SIZE as usize) as i32,
                     CELL_SIZE,
                     CELL_SIZE,
                 );

@@ -1,17 +1,18 @@
 //! Debug rendering system
-use crate::constants::{self, BOARD_PIXEL_OFFSET};
 use crate::map::builder::Map;
 use crate::systems::collision::Collider;
 use crate::systems::input::CursorPosition;
+use crate::systems::layout::Layout;
 use crate::systems::movement::{NodeId, Position};
 use crate::systems::profiling::SystemTimings;
+use crate::systems::render::{CanvasResource, RenderDirty};
 use crate::texture::ttf::{TtfAtlas, TtfRenderer};
 use bevy_ecs::resource::Resource;
-use bevy_ecs::system::{Query, Res};
-use glam::{IVec2, Vec2};
+use bevy_ecs::system::{NonSendMut, Query, Res};
+use glam::Vec2;
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
-use sdl2::render::{Canvas, Texture};
+use sdl2::render::Canvas;
 use sdl2::video::Window;
 use smallvec::SmallVec;
 use std::cmp::Ordering;
@@ -27,9 +28,6 @@ fn f32_to_u8(value: f32) -> u8 {
     (value * 255.0) as u8
 }
 
-/// Resource to hold the debug texture for persistent rendering
-pub struct DebugTextureResource(pub Texture);
-
 /// Resource to hold the TTF text atlas
 pub struct TtfAtlasResource(pub TtfAtlas);
 
@@ -42,7 +40,7 @@ pub struct BatchedLinesResource {
 
 impl BatchedLinesResource {
     /// Computes and caches batched line segments for the map graph
-    pub fn new(map: &Map, scale: f32) -> Self {
+    pub fn new(map: &Map) -> Self {
         let mut horizontal_segments: HashMap<i32, Vec<(i32, i32)>> = HashMap::new();
         let mut vertical_segments: HashMap<i32, Vec<(i32, i32)>> = HashMap::new();
         let mut processed_edges: HashSet<(u16, u16)> = HashSet::new();
@@ -61,8 +59,8 @@ impl BatchedLinesResource {
             let start_pos = map.graph.get_node(start_node_id).unwrap().position;
             let end_pos = map.graph.get_node(edge.target).unwrap().position;
 
-            let start = transform_position_with_offset(start_pos, scale);
-            let end = transform_position_with_offset(end_pos, scale);
+            let start = start_pos.as_ivec2();
+            let end = end_pos.as_ivec2();
 
             // Determine if this is a horizontal or vertical line
             if (start.y - end.y).abs() < 2 {
@@ -130,24 +128,22 @@ impl BatchedLinesResource {
         }
     }
 
-    pub fn render(&self, canvas: &mut Canvas<Window>) {
-        // Render horizontal lines
+    /// Draws the cached graph edges onto the window canvas, transforming each
+    /// maze-local endpoint onto the scaled maze via the layout.
+    pub fn render(&self, canvas: &mut Canvas<Window>, layout: &Layout) {
+        let tw = |x: i32, y: i32| {
+            let w = layout.maze_to_window(Vec2::new(x as f32, y as f32));
+            Point::new(w.x as i32, w.y as i32)
+        };
+
         for &(y, x_start, x_end) in &self.horizontal_lines {
-            let points = [Point::new(x_start, y), Point::new(x_end, y)];
-            let _ = canvas.draw_lines(&points[..]);
+            let _ = canvas.draw_lines(&[tw(x_start, y), tw(x_end, y)][..]);
         }
 
-        // Render vertical lines
         for &(x, y_start, y_end) in &self.vertical_lines {
-            let points = [Point::new(x, y_start), Point::new(x, y_end)];
-            let _ = canvas.draw_lines(&points[..]);
+            let _ = canvas.draw_lines(&[tw(x, y_start), tw(x, y_end)][..]);
         }
     }
-}
-
-/// Transforms a position from logical canvas coordinates to output canvas coordinates (with board offset)
-fn transform_position_with_offset(pos: Vec2, scale: f32) -> IVec2 {
-    ((pos + BOARD_PIXEL_OFFSET.as_vec2()) * scale).as_ivec2()
 }
 
 /// Renders timing information in the top-left corner of the screen using the debug text atlas
@@ -205,58 +201,59 @@ fn render_timing_display(
     }
 }
 
+/// Draws the debug overlay straight onto the window at native resolution, after
+/// the maze has been composited. Maze-local annotations (colliders, graph edges,
+/// nodes, the highlighted node ID) are transformed onto the scaled maze via the
+/// layout, while the timing panel is pinned to the window's top-left corner.
 #[allow(clippy::too_many_arguments)]
 #[cfg_attr(coverage_nightly, coverage(off))]
-pub fn debug_render_system(
-    canvas: &mut Canvas<Window>,
-    ttf_atlas: &mut TtfAtlasResource,
-    batched_lines: &Res<BatchedLinesResource>,
-    debug_state: &Res<DebugState>,
-    timings: &Res<SystemTimings>,
-    timing: &Res<crate::systems::profiling::Timing>,
-    map: &Res<Map>,
-    colliders: &Query<(&Collider, &Position)>,
-    cursor: &Res<CursorPosition>,
+pub fn debug_overlay_system(
+    mut canvas: NonSendMut<CanvasResource>,
+    mut ttf_atlas: NonSendMut<TtfAtlasResource>,
+    batched_lines: Res<BatchedLinesResource>,
+    debug_state: Res<DebugState>,
+    timings: Res<SystemTimings>,
+    timing: Res<crate::systems::profiling::Timing>,
+    map: Res<Map>,
+    colliders: Query<(&Collider, &Position)>,
+    cursor: Res<CursorPosition>,
+    layout: Res<Layout>,
+    dirty: Res<RenderDirty>,
 ) {
-    if !debug_state.enabled {
+    if !dirty.0 || !debug_state.enabled {
         return;
     }
-    // Create debug text renderer
+
+    let canvas = &mut canvas.0;
+    let scale = layout.scale as i32;
     let text_renderer = TtfRenderer::new(1.0);
 
-    let cursor_world_pos = match &**cursor {
+    let cursor_world_pos = match &*cursor {
         CursorPosition::None => None,
-        CursorPosition::Some { position, .. } => Some(position - BOARD_PIXEL_OFFSET.as_vec2()),
+        CursorPosition::Some { position, .. } => Some(*position),
     };
 
-    // Clear the debug canvas
-    canvas.set_draw_color(Color::RGBA(0, 0, 0, 0));
-    canvas.clear();
+    canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
 
-    // Find the closest node to the cursor
-    let closest_node = if let Some(cursor_world_pos) = cursor_world_pos {
+    // Closest graph node to the cursor, compared in maze-local space.
+    let closest_node = cursor_world_pos.and_then(|cursor| {
         map.graph
             .nodes()
-            .map(|node| node.position.distance(cursor_world_pos))
+            .map(|node| node.position.distance(cursor))
             .enumerate()
             .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Less))
             .map(|(id, _)| id)
-    } else {
-        None
-    };
+    });
 
+    // Colliders (green), transformed onto the scaled maze.
     canvas.set_draw_color(Color::GREEN);
     {
         let rects = colliders
             .iter()
             .map(|(collider, position)| {
-                let pos = position.get_pixel_position(&map.graph).unwrap();
-
-                // Transform position and size using common methods
-                let pos = (pos * constants::LARGE_SCALE).as_ivec2();
-                let size = (collider.size * constants::LARGE_SCALE) as u32;
-
-                Rect::from_center(Point::from((pos.x, pos.y)), size, size)
+                let center = layout.maze_to_window(position.get_pixel_position(&map.graph).unwrap());
+                let size = (collider.size as i32 * scale).max(1) as u32;
+                Rect::from_center(Point::new(center.x as i32, center.y as i32), size, size)
             })
             .collect::<SmallVec<[Rect; 100]>>();
         if rects.len() > rects.capacity() {
@@ -266,77 +263,61 @@ pub fn debug_render_system(
                 "Collider rects capacity exceeded"
             );
         }
-        canvas.draw_rects(&rects).unwrap();
+        let _ = canvas.draw_rects(&rects);
     }
 
+    // Graph edges (translucent red).
     canvas.set_draw_color(Color {
         a: f32_to_u8(0.65),
         ..Color::RED
     });
-    canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
+    batched_lines.render(canvas, &layout);
 
-    // Use cached batched line segments
-    batched_lines.render(canvas);
-
+    // Graph nodes (blue), with the cursor's closest node highlighted (yellow).
     {
+        let node_size = (2 * scale).max(2) as u32;
         let rects: Vec<_> = map
             .graph
             .nodes()
             .enumerate()
             .filter_map(|(id, node)| {
-                let pos = transform_position_with_offset(node.position, constants::LARGE_SCALE);
-                let size = (2.0 * constants::LARGE_SCALE) as u32;
-                let rect = Rect::new(pos.x - (size as i32 / 2), pos.y - (size as i32 / 2), size, size);
-
-                // If the node is the one closest to the cursor, draw it immediately
+                let c = layout.maze_to_window(node.position);
+                let rect = Rect::new(
+                    c.x as i32 - node_size as i32 / 2,
+                    c.y as i32 - node_size as i32 / 2,
+                    node_size,
+                    node_size,
+                );
                 if closest_node == Some(id) {
                     canvas.set_draw_color(Color::YELLOW);
-                    canvas.fill_rect(rect).unwrap();
+                    let _ = canvas.fill_rect(rect);
                     return None;
                 }
-
                 Some(rect)
             })
             .collect();
-
-        if rects.len() > rects.capacity() {
-            warn!(
-                capacity = rects.capacity(),
-                count = rects.len(),
-                "Node rects capacity exceeded"
-            );
-        }
-
-        // Draw the non-closest nodes all at once in blue
         canvas.set_draw_color(Color::BLUE);
-        canvas.fill_rects(&rects).unwrap();
+        let _ = canvas.fill_rects(&rects);
     }
 
-    // Render node ID if a node is highlighted
-    if let Some(closest_node_id) = closest_node {
-        let node = map.graph.get_node(closest_node_id as NodeId).unwrap();
-        let pos = transform_position_with_offset(node.position, constants::LARGE_SCALE);
-
-        let node_id_text = closest_node_id.to_string();
-        let text_pos = Vec2::new((pos.x + 10) as f32, (pos.y - 5) as f32);
-
-        text_renderer
-            .render_text(
-                canvas,
-                &mut ttf_atlas.0,
-                &node_id_text,
-                text_pos,
-                Color {
-                    a: f32_to_u8(0.9),
-                    ..Color::WHITE
-                },
-            )
-            .unwrap();
+    // Highlighted node's ID, drawn at native resolution near the node.
+    if let Some(id) = closest_node {
+        let node = map.graph.get_node(id as NodeId).unwrap();
+        let c = layout.maze_to_window(node.position);
+        let _ = text_renderer.render_text(
+            canvas,
+            &mut ttf_atlas.0,
+            &id.to_string(),
+            Vec2::new(c.x + 8.0, c.y - 6.0),
+            Color {
+                a: f32_to_u8(0.9),
+                ..Color::WHITE
+            },
+        );
     }
 
-    // Render timing information in the top-left corner
-    // Use previous tick since current tick is incomplete (frame is still running)
-    let current_tick = timing.get_current_tick();
-    let previous_tick = current_tick.saturating_sub(1);
-    render_timing_display(canvas, timings, previous_tick, &text_renderer, &mut ttf_atlas.0);
+    // Timing panel: pinned to the window's top-left corner at native resolution.
+    // Use the previous tick since the current frame is still running.
+    let previous_tick = timing.get_current_tick().saturating_sub(1);
+    render_timing_display(canvas, &timings, previous_tick, &text_renderer, &mut ttf_atlas.0);
 }

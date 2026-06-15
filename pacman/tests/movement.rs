@@ -106,10 +106,8 @@ fn test_position_get_pixel_position_stopped() {
     let pos = Position::Stopped { node: 0 };
 
     let pixel_pos = pos.get_pixel_position(&graph).unwrap();
-    let expected = Vec2::new(
-        0.0 + pacman::constants::BOARD_PIXEL_OFFSET.x as f32,
-        0.0 + pacman::constants::BOARD_PIXEL_OFFSET.y as f32,
-    );
+    // Maze-local: node 0 sits at the playfield origin, no HUD offset baked in.
+    let expected = Vec2::new(0.0, 0.0);
 
     assert_that(&pixel_pos).is_equal_to(expected);
 }
@@ -124,11 +122,8 @@ fn test_position_get_pixel_position_moving() {
     };
 
     let pixel_pos = pos.get_pixel_position(&graph).unwrap();
-    // Should be halfway between (0,0) and (16,0), so at (8,0) plus offset
-    let expected = Vec2::new(
-        8.0 + pacman::constants::BOARD_PIXEL_OFFSET.x as f32,
-        0.0 + pacman::constants::BOARD_PIXEL_OFFSET.y as f32,
-    );
+    // Maze-local: halfway between (0,0) and (16,0).
+    let expected = Vec2::new(8.0, 0.0);
 
     assert_that(&pixel_pos).is_equal_to(expected);
 }

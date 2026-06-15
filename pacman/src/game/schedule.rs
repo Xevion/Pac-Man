@@ -4,20 +4,19 @@ use std::ops::Not;
 
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule, SystemSet};
-use bevy_ecs::system::{Local, Res, ResMut};
+use bevy_ecs::system::{Res, ResMut};
 
 use crate::systems;
 use crate::systems::animation::{blinking_system, directional_render_system, linear_render_system};
 use crate::systems::audio::audio_system;
 use crate::systems::collision::collision_system;
 use crate::systems::common::ScoreResource;
+use crate::systems::debug::debug_overlay_system;
 use crate::systems::ghost::{eaten_ghost_system, ghost_movement_system, ghost_state_system};
-use crate::systems::hud::{
-    fruit_sprite_system, hud_render_system, player_life_sprite_system, touch_ui_render_system, FruitSprites,
-};
+use crate::systems::hud::{chrome_render_system, hud_overlay_system, touch_ui_render_system};
 use crate::systems::lifetime::time_to_live_system;
 use crate::systems::profiling::{profile, SystemId};
-use crate::systems::render::{combined_render_system, dirty_render_system, present_system, RenderDirty};
+use crate::systems::render::{backbuffer_render_system, composite_maze_system, dirty_render_system, present_system, RenderDirty};
 use crate::systems::state::GameStage;
 use crate::systems::state::PauseState;
 
@@ -58,22 +57,22 @@ pub(super) fn configure_schedule(schedule: &mut Schedule) {
     let directional_render_system = profile(SystemId::DirectionalRender, directional_render_system);
     let linear_render_system = profile(SystemId::LinearRender, linear_render_system);
     let dirty_render_system = profile(SystemId::DirtyRender, dirty_render_system);
-    let hud_render_system = profile(SystemId::HudRender, hud_render_system);
-    let player_life_sprite_system = profile(SystemId::HudRender, player_life_sprite_system);
-    let fruit_sprite_system = profile(SystemId::HudRender, fruit_sprite_system);
+    let backbuffer_render_system = profile(SystemId::Render, backbuffer_render_system);
+    let hud_overlay_system = profile(SystemId::HudRender, hud_overlay_system);
+    let chrome_render_system = profile(SystemId::HudRender, chrome_render_system);
+    let composite_maze_system = profile(SystemId::Present, composite_maze_system);
+    let debug_overlay_system = profile(SystemId::DebugRender, debug_overlay_system);
     let present_system = profile(SystemId::Present, present_system);
     let unified_ghost_state_system = profile(SystemId::GhostStateAnimation, ghost_state_system);
     let eaten_ghost_system = profile(SystemId::EatenGhost, eaten_ghost_system);
     let time_to_live_system = profile(SystemId::TimeToLive, time_to_live_system);
     let manage_pause_state_system = profile(SystemId::PauseManager, systems::state::manage_pause_state_system);
 
-    // Input system should always run to prevent SDL event pump from blocking
+    // Input must run every frame: it is the sole drain of the SDL event pump, so
+    // skipping a frame leaves events (including window resizes) queued. An undrained
+    // pump reads to the OS as an unresponsive window and makes resizing feel laggy.
     let input_systems = (
-        input_system.run_if(|mut local: Local<u8>| {
-            *local = local.wrapping_add(1u8);
-            // run every nth frame
-            *local % 2 == 0
-        }),
+        input_system,
         player_control_system,
         pause_system,
         #[cfg(not(target_os = "emscripten"))]
@@ -102,27 +101,28 @@ pub(super) fn configure_schedule(schedule: &mut Schedule) {
             )
                 .chain()
                 .in_set(GameplaySet::Update),
-            (
-                blinking_system,
-                directional_render_system,
-                linear_render_system,
-                player_life_sprite_system,
-                fruit_sprite_system.run_if(|f: Res<FruitSprites>| f.is_changed()),
-            )
-                .in_set(RenderSet::Animation),
+            (blinking_system, directional_render_system, linear_render_system).in_set(RenderSet::Animation),
             stage_system.in_set(GameplaySet::Respond),
             (
-                (|mut dirty: ResMut<RenderDirty>, score: Res<ScoreResource>, stage: Res<GameStage>| {
-                    dirty.0 |= score.is_changed() || stage.is_changed();
+                (|mut dirty: ResMut<RenderDirty>, score: Res<ScoreResource>, stage: Res<GameStage>, pause: Res<PauseState>| {
+                    dirty.0 |= score.is_changed() || stage.is_changed() || pause.is_changed();
                 }),
                 dirty_render_system.run_if(|dirty: Res<RenderDirty>| dirty.0.not()),
-                combined_render_system,
-                hud_render_system,
+                backbuffer_render_system,
+                hud_overlay_system,
                 touch_ui_render_system,
             )
                 .chain()
                 .in_set(RenderSet::Draw),
-            (present_system, audio_system).chain().in_set(RenderSet::Present),
+            (
+                composite_maze_system,
+                chrome_render_system,
+                debug_overlay_system,
+                present_system,
+                audio_system,
+            )
+                .chain()
+                .in_set(RenderSet::Present),
             manage_pause_state_system.after(GameplaySet::Update),
         ))
         .configure_sets(

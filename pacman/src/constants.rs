@@ -22,33 +22,13 @@ pub const CELL_SIZE: u32 = 8;
 /// The size of the game board, in cells.
 pub const BOARD_CELL_SIZE: UVec2 = UVec2::new(28, 31);
 
-/// The scale factor for the window (integer zoom)
-pub const SCALE: f32 = 2.6;
-
-/// Game board offset from window origin to reserve space for HUD elements.
-///
-/// The 3-cell vertical offset (24 pixels) provides space at the top of the
-/// screen for score display, player lives, and other UI elements.
+/// Height of the top HUD band, in cells. Consumed by the adaptive `Layout` as the
+/// portrait top-band size; the maze playfield no longer reserves this space.
 pub const BOARD_CELL_OFFSET: UVec2 = UVec2::new(0, 3);
 
-/// Bottom HUD row offset to reserve space below the game board.
-///
-/// The 2-cell vertical offset (16 pixels) provides space at the bottom of the
-/// screen for displaying Pac-Man's lives (left) and fruit symbols (right).
+/// Height of the bottom HUD band, in cells. Consumed by the adaptive `Layout` as
+/// the portrait bottom-band size (lives on the left, fruit history on the right).
 pub const BOARD_BOTTOM_CELL_OFFSET: UVec2 = UVec2::new(0, 2);
-
-/// Pixel-space equivalent of `BOARD_CELL_OFFSET` for rendering calculations.
-///
-/// Automatically calculated from the cell offset to maintain consistency
-/// when the cell size changes. Used for positioning sprites and debug overlays.
-pub const BOARD_PIXEL_OFFSET: UVec2 = UVec2::new(BOARD_CELL_OFFSET.x * CELL_SIZE, BOARD_CELL_OFFSET.y * CELL_SIZE);
-
-/// Pixel-space equivalent of `BOARD_BOTTOM_CELL_OFFSET` for rendering calculations.
-///
-/// Automatically calculated from the cell offset to maintain consistency
-/// when the cell size changes. Used for positioning bottom HUD elements.
-pub const BOARD_BOTTOM_PIXEL_OFFSET: UVec2 =
-    UVec2::new(BOARD_BOTTOM_CELL_OFFSET.x * CELL_SIZE, BOARD_BOTTOM_CELL_OFFSET.y * CELL_SIZE);
 
 /// Animation timing constants for ghost state management
 pub mod animation {
@@ -63,19 +43,6 @@ pub mod animation {
     /// Time in ticks when frightened ghosts start flashing
     pub const GHOST_FRIGHTENED_FLASH_START_TICKS: u32 = GHOST_FRIGHTENED_TICKS - 2 * 60;
 }
-
-/// The size of the canvas, in pixels.
-pub const CANVAS_SIZE: UVec2 = UVec2::new(
-    (BOARD_CELL_SIZE.x + BOARD_CELL_OFFSET.x + BOARD_BOTTOM_CELL_OFFSET.x) * CELL_SIZE,
-    (BOARD_CELL_SIZE.y + BOARD_CELL_OFFSET.y + BOARD_BOTTOM_CELL_OFFSET.y) * CELL_SIZE,
-);
-
-pub const LARGE_SCALE: f32 = 2.6;
-
-pub const LARGE_CANVAS_SIZE: UVec2 = UVec2::new(
-    (((BOARD_CELL_SIZE.x + BOARD_CELL_OFFSET.x + BOARD_BOTTOM_CELL_OFFSET.x) * CELL_SIZE) as f32 * LARGE_SCALE) as u32,
-    (((BOARD_CELL_SIZE.y + BOARD_CELL_OFFSET.y + BOARD_BOTTOM_CELL_OFFSET.y) * CELL_SIZE) as f32 * LARGE_SCALE) as u32,
-);
 
 /// Collider size constants for different entity types
 pub mod collider {

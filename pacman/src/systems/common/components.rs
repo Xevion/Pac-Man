@@ -112,11 +112,3 @@ impl Default for MovementModifiers {
 /// Tag component for entities that should be frozen during startup
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Frozen;
-
-/// Component for HUD life sprite entities.
-/// Each life sprite entity has an index indicating its position from left to right (0, 1, 2, etc.).
-/// This mostly functions as a tag component for sprites.
-#[derive(Component, Debug, Clone, Copy)]
-pub struct PlayerLife {
-    pub index: u32,
-}

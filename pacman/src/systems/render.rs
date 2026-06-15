@@ -1,24 +1,31 @@
+//! Rendering pipeline: a two-layer compositor plus a native-resolution overlay.
+//!
+//! The map and entities render into a maze-local backbuffer texture
+//! (`PLAYFIELD_SIZE`, scale 1). Each frame runs `backbuffer_render_system`
+//! (entities into the backbuffer) -> `hud_overlay_system` (gameplay text onto the
+//! backbuffer) -> `composite_maze_system` (clear the window, blit the backbuffer at
+//! integer scale into `Layout::maze`) -> `chrome_render_system` (window-space HUD
+//! panels) -> `debug_overlay_system` (graph/timing annotations drawn straight onto
+//! the window at native resolution) -> `present_system`. Every stage is gated by
+//! `RenderDirty`, so an unchanged frame skips the GPU work entirely.
+
 use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
-use crate::systems::collision::Collider;
-use crate::systems::debug::{debug_render_system, BatchedLinesResource, DebugState, DebugTextureResource, TtfAtlasResource};
 use crate::systems::input::{CursorPosition, TouchState};
+use crate::systems::layout::Layout;
 use crate::systems::movement::Position;
-use crate::systems::profiling::{SystemId, SystemTimings};
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::EventWriter;
-use bevy_ecs::query::{Changed, Or, With};
+use bevy_ecs::query::{Changed, Or};
 use bevy_ecs::removal_detection::RemovedComponents;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{NonSendMut, Query, Res, ResMut, SystemParam};
-use glam::Vec2;
 use sdl2::rect::{Point, Rect};
-use sdl2::render::{BlendMode, Canvas, Texture};
+use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
-use std::time::Instant;
 
 /// A component for entities that have a sprite, with a layer for ordering.
 ///
@@ -79,13 +86,6 @@ impl Visibility {
     }
 }
 
-/// Enum to identify which texture is being rendered to in the combined render system
-#[derive(Debug, Clone, Copy)]
-enum RenderTarget {
-    Backbuffer,
-    Debug,
-}
-
 #[allow(clippy::type_complexity)]
 pub fn dirty_render_system(
     mut dirty: ResMut<RenderDirty>,
@@ -93,16 +93,16 @@ pub fn dirty_render_system(
     removed_renderables: RemovedComponents<Renderable>,
     cursor: Res<CursorPosition>,
     touch_state: Res<TouchState>,
+    layout: Res<Layout>,
 ) {
-    if changed.iter().count() > 0 || !removed_renderables.is_empty() || cursor.is_changed() || touch_state.is_changed() {
+    if changed.iter().count() > 0
+        || !removed_renderables.is_empty()
+        || cursor.is_changed()
+        || touch_state.is_changed()
+        || layout.is_changed()
+    {
         dirty.0 = true;
     }
-}
-
-/// Component for Renderables to store an exact pixel position
-#[derive(Component)]
-pub struct PixelPosition {
-    pub pixel_position: Vec2,
 }
 
 /// A non-send resource for the map texture. This just wraps the texture with a type so it can be differentiated when exposed as a resource.
@@ -134,16 +134,7 @@ pub fn render_system(
     atlas: &mut SpriteAtlas,
     map: &Res<Map>,
     dirty: &Res<RenderDirty>,
-    renderables: &Query<
-        (
-            Entity,
-            &Renderable,
-            Option<&Position>,
-            Option<&PixelPosition>,
-            Option<&Visibility>,
-        ),
-        Or<(With<Position>, With<PixelPosition>)>,
-    >,
+    renderables: &Query<(Entity, &Renderable, &Position, Option<&Visibility>)>,
     errors: &mut EventWriter<GameError>,
 ) {
     if !dirty.0 {
@@ -162,23 +153,15 @@ pub fn render_system(
     // Collect and filter visible entities, then sort by layer
     let mut visible_entities: Vec<_> = renderables
         .iter()
-        .filter(|(_, _, _, _, visibility)| visibility.copied().unwrap_or_default().is_visible())
+        .filter(|(_, _, _, visibility)| visibility.copied().unwrap_or_default().is_visible())
         .collect();
 
-    visible_entities.sort_by_key(|(_, renderable, _, _, _)| renderable.layer);
+    visible_entities.sort_by_key(|(_, renderable, _, _)| renderable.layer);
     visible_entities.reverse();
 
     // Render all visible entities to the backbuffer
-    for (_entity, renderable, position, pixel_position, _visibility) in visible_entities {
-        let pos = if let Some(position) = position {
-            position.get_pixel_position(&map.graph)
-        } else {
-            Ok(pixel_position
-                .expect("Pixel position should be present via query filtering, but got None on both")
-                .pixel_position)
-        };
-
-        match pos {
+    for (_entity, renderable, position, _visibility) in visible_entities {
+        match position.get_pixel_position(&map.graph) {
             Ok(pos) => {
                 let dest = Rect::from_center(
                     Point::from((pos.x as i32, pos.y as i32)),
@@ -205,130 +188,67 @@ pub struct RenderSurfaces<'w> {
     pub canvas: NonSendMut<'w, CanvasResource>,
     pub map_texture: NonSendMut<'w, MapTextureResource>,
     pub backbuffer: NonSendMut<'w, BackbufferResource>,
-    pub debug_texture: NonSendMut<'w, DebugTextureResource>,
     pub atlas: NonSendMut<'w, SpriteAtlas>,
-    pub ttf_atlas: NonSendMut<'w, TtfAtlasResource>,
 }
 
-/// Grouped debug-related read-only resources.
-#[derive(SystemParam)]
-pub struct DebugContext<'w> {
-    pub batched_lines: Res<'w, BatchedLinesResource>,
-    pub debug_state: Res<'w, DebugState>,
-    pub timings: Res<'w, SystemTimings>,
-    pub timing: Res<'w, crate::systems::profiling::Timing>,
-    pub cursor: Res<'w, CursorPosition>,
-}
-
-/// Combined render system that renders to both backbuffer and debug textures in a single
-/// with_multiple_texture_canvas call for reduced overhead
-#[allow(clippy::type_complexity)]
-pub fn combined_render_system(
+/// Renders the map and entities into the maze-local backbuffer texture. Timing is
+/// recorded by the schedule's `profile` wrapper; the compositor and the
+/// window-space debug overlay run as their own later stages.
+pub fn backbuffer_render_system(
     mut surfaces: RenderSurfaces,
-    debug_ctx: DebugContext,
     map: Res<Map>,
     dirty: Res<RenderDirty>,
-    renderables: Query<
-        (
-            Entity,
-            &Renderable,
-            Option<&Position>,
-            Option<&PixelPosition>,
-            Option<&Visibility>,
-        ),
-        Or<(With<Position>, With<PixelPosition>)>,
-    >,
-    colliders: Query<(&Collider, &Position)>,
+    renderables: Query<(Entity, &Renderable, &Position, Option<&Visibility>)>,
     mut errors: EventWriter<GameError>,
 ) {
     if !dirty.0 {
         return;
     }
 
-    // Prepare textures and render targets
-    let textures = [
-        (&mut surfaces.backbuffer.0, RenderTarget::Backbuffer),
-        (&mut surfaces.debug_texture.0, RenderTarget::Debug),
-    ];
-
-    // Record timing for each system independently
-    let mut render_duration = None;
-    let mut debug_render_duration = None;
-
-    let result =
-        surfaces
-            .canvas
-            .with_multiple_texture_canvas(textures.iter(), |texture_canvas, render_target| match render_target {
-                RenderTarget::Backbuffer => {
-                    let start_time = Instant::now();
-
-                    render_system(
-                        texture_canvas,
-                        &surfaces.map_texture,
-                        &mut surfaces.atlas,
-                        &map,
-                        &dirty,
-                        &renderables,
-                        &mut errors,
-                    );
-
-                    render_duration = Some(start_time.elapsed());
-                }
-                RenderTarget::Debug => {
-                    if !debug_ctx.debug_state.enabled {
-                        return;
-                    }
-
-                    let start_time = Instant::now();
-
-                    debug_render_system(
-                        texture_canvas,
-                        &mut surfaces.ttf_atlas,
-                        &debug_ctx.batched_lines,
-                        &debug_ctx.debug_state,
-                        &debug_ctx.timings,
-                        &debug_ctx.timing,
-                        &map,
-                        &colliders,
-                        &debug_ctx.cursor,
-                    );
-
-                    debug_render_duration = Some(start_time.elapsed());
-                }
-            });
+    let result = surfaces
+        .canvas
+        .with_texture_canvas(&mut surfaces.backbuffer.0, |texture_canvas| {
+            render_system(
+                texture_canvas,
+                &surfaces.map_texture,
+                &mut surfaces.atlas,
+                &map,
+                &dirty,
+                &renderables,
+                &mut errors,
+            );
+        });
 
     if let Err(e) = result {
         errors.write(TextureError::RenderFailed(e.to_string()).into());
     }
+}
 
-    // Record timings for each system independently
-    let current_tick = debug_ctx.timing.get_current_tick();
-
-    if let Some(duration) = render_duration {
-        debug_ctx.timings.add_timing(SystemId::Render, duration, current_tick);
+/// Composites the maze onto the window: clears the whole window to black (the
+/// integer-scaled maze rarely fills it exactly, so the surplus reads as black
+/// bands) and blits the maze backbuffer into the scaled maze rect. Window-space
+/// chrome and the debug overlay draw on top of this in later stages.
+pub fn composite_maze_system(
+    mut canvas: NonSendMut<CanvasResource>,
+    dirty: Res<RenderDirty>,
+    backbuffer: NonSendMut<BackbufferResource>,
+    layout: Res<Layout>,
+    mut errors: EventWriter<GameError>,
+) {
+    if !dirty.0 {
+        return;
     }
-    if let Some(duration) = debug_render_duration {
-        debug_ctx.timings.add_timing(SystemId::DebugRender, duration, current_tick);
+
+    canvas.set_draw_color(sdl2::pixels::Color::BLACK);
+    canvas.clear();
+    if let Err(e) = canvas.copy(&backbuffer.0, None, layout.maze) {
+        errors.write(TextureError::RenderFailed(e).into());
     }
 }
 
-pub fn present_system(
-    mut canvas: NonSendMut<CanvasResource>,
-    mut dirty: ResMut<RenderDirty>,
-    backbuffer: NonSendMut<BackbufferResource>,
-    debug_texture: NonSendMut<DebugTextureResource>,
-    debug_state: Res<DebugState>,
-) {
+/// Presents the fully composited frame and clears the dirty flag.
+pub fn present_system(mut canvas: NonSendMut<CanvasResource>, mut dirty: ResMut<RenderDirty>) {
     if dirty.0 {
-        // Copy the backbuffer to the main canvas
-        canvas.copy(&backbuffer.0, None, None).unwrap();
-
-        // Copy the debug texture to the canvas
-        if debug_state.enabled {
-            canvas.set_blend_mode(BlendMode::Blend);
-            canvas.copy(&debug_texture.0, None, None).unwrap();
-        }
-
         canvas.present();
         dirty.0 = false;
     }

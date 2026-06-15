@@ -8,13 +8,15 @@ use bevy_ecs::system::ResMut;
 use bevy_ecs::world::World;
 use sdl2::event::EventType;
 use sdl2::image::LoadTexture;
-use sdl2::render::{BlendMode, Canvas, ScaleMode, TextureCreator};
+use sdl2::render::{Canvas, ScaleMode, TextureCreator};
 use sdl2::rwops::RWops;
 use sdl2::video::{Window, WindowContext};
 use sdl2::EventPump;
 
+use glam::UVec2;
+
 use crate::asset::Asset;
-use crate::constants::{self, CANVAS_SIZE};
+use crate::constants;
 use crate::error::{GameError, GameResult};
 use crate::events::{CollisionTrigger, GameCommand, GameEvent, StageTransition};
 use crate::map::builder::Map;
@@ -23,10 +25,11 @@ use crate::systems::animation::LinearAnimation;
 use crate::systems::audio::{AudioEvent, AudioResource};
 use crate::systems::collision::{ghost_collision_observer, item_collision_observer};
 use crate::systems::common::{DeltaTime, GlobalState, ScoreResource};
-use crate::systems::debug::{BatchedLinesResource, DebugState, DebugTextureResource, TtfAtlasResource};
-use crate::systems::hud::FruitSprites;
+use crate::systems::debug::{BatchedLinesResource, DebugState, TtfAtlasResource};
+use crate::systems::hud::{FruitSprites, LeaderboardData};
 use crate::systems::input::{Bindings, CursorPosition, TouchState};
 use crate::systems::item::PelletCount;
+use crate::systems::layout::{Layout, DEFAULT_WINDOW, PLAYFIELD_SIZE};
 use crate::systems::profiling::{SystemTimings, Timing};
 use crate::systems::render::{BackbufferResource, CanvasResource, MapTextureResource, RenderDirty};
 use crate::systems::state::{GameStage, PlayerAnimation, PlayerDeathAnimation, PlayerLives};
@@ -89,33 +92,19 @@ pub(super) fn setup_textures_and_fonts(
     canvas: &mut Canvas<Window>,
     texture_creator: &TextureCreator<WindowContext>,
     ttf_context: sdl2::ttf::Sdl2TtfContext,
-) -> GameResult<(
-    sdl2::render::Texture,
-    sdl2::render::Texture,
-    sdl2::render::Texture,
-    crate::texture::ttf::TtfAtlas,
-)> {
+) -> GameResult<(sdl2::render::Texture, sdl2::render::Texture, crate::texture::ttf::TtfAtlas)> {
     trace!("Creating backbuffer texture");
     let mut backbuffer = texture_creator
-        .create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)
+        .create_texture_target(None, PLAYFIELD_SIZE.x, PLAYFIELD_SIZE.y)
         .map_err(|e| GameError::Sdl(e.to_string()))?;
     backbuffer.set_scale_mode(ScaleMode::Nearest);
     platform::yield_to_browser();
 
     trace!("Creating map texture");
     let mut map_texture = texture_creator
-        .create_texture_target(None, CANVAS_SIZE.x, CANVAS_SIZE.y)
+        .create_texture_target(None, PLAYFIELD_SIZE.x, PLAYFIELD_SIZE.y)
         .map_err(|e| GameError::Sdl(e.to_string()))?;
     map_texture.set_scale_mode(ScaleMode::Nearest);
-    platform::yield_to_browser();
-
-    trace!("Creating debug texture");
-    let output_size = constants::LARGE_CANVAS_SIZE;
-    let mut debug_texture = texture_creator
-        .create_texture_target(Some(sdl2::pixels::PixelFormatEnum::ARGB8888), output_size.x, output_size.y)
-        .map_err(|e| GameError::Sdl(e.to_string()))?;
-    debug_texture.set_blend_mode(BlendMode::Blend);
-    debug_texture.set_scale_mode(ScaleMode::Nearest);
     platform::yield_to_browser();
 
     trace!("Loading font");
@@ -132,7 +121,7 @@ pub(super) fn setup_textures_and_fonts(
     trace!("Populating TTF atlas");
     ttf_atlas.populate_atlas(canvas, texture_creator, &debug_font)?;
 
-    Ok((backbuffer, map_texture, debug_texture, ttf_atlas))
+    Ok((backbuffer, map_texture, ttf_atlas))
 }
 
 pub(super) fn load_atlas_and_map_tiles(
@@ -195,7 +184,6 @@ pub(super) struct InitResources {
     pub canvas: Canvas<Window>,
     pub backbuffer: sdl2::render::Texture,
     pub map_texture: sdl2::render::Texture,
-    pub debug_texture: sdl2::render::Texture,
     pub ttf_atlas: crate::texture::ttf::TtfAtlas,
     pub death_animation: LinearAnimation,
     pub red_zones: crate::systems::ghost::RedZoneNodes,
@@ -212,7 +200,8 @@ pub(super) fn insert_resources(world: &mut World, map: Map, init: InitResources)
     world.insert_resource(PlayerDeathAnimation(init.death_animation));
 
     world.insert_resource(FruitSprites::default());
-    world.insert_resource(BatchedLinesResource::new(&map, constants::LARGE_SCALE));
+    world.insert_resource(LeaderboardData::default());
+    world.insert_resource(BatchedLinesResource::new(&map));
     world.insert_resource(map);
     world.insert_resource(GlobalState { exit: false });
     world.insert_resource(PlayerLives::default());
@@ -243,11 +232,13 @@ pub(super) fn insert_resources(world: &mut World, map: Map, init: InitResources)
     }));
     world.insert_resource(PauseState::default());
 
+    let window_size = init.canvas.output_size().unwrap_or((DEFAULT_WINDOW.x, DEFAULT_WINDOW.y));
+    world.insert_resource(Layout::compute(UVec2::new(window_size.0, window_size.1)));
+
     world.insert_non_send_resource(init.event_pump);
     world.insert_non_send_resource(CanvasResource(init.canvas));
     world.insert_non_send_resource(BackbufferResource(init.backbuffer));
     world.insert_non_send_resource(MapTextureResource(init.map_texture));
-    world.insert_non_send_resource(DebugTextureResource(init.debug_texture));
     world.insert_non_send_resource(TtfAtlasResource(init.ttf_atlas));
     world.insert_non_send_resource(AudioResource(init.audio));
     Ok(())

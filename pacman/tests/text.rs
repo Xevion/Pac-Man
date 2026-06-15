@@ -51,7 +51,13 @@ fn test_render() -> Result<(), String> {
     let test_strings = vec!["Hello, world!".to_string(), get_all_chars()];
 
     for string in test_strings {
-        if let Err(e) = text_texture.render(&mut canvas, &mut atlas, &string, glam::UVec2::new(0, 0)) {
+        if let Err(e) = text_texture.render_with_color(
+            &mut canvas,
+            &mut atlas,
+            &string,
+            glam::UVec2::new(0, 0),
+            sdl2::pixels::Color::WHITE,
+        ) {
             return Err(e.to_string());
         }
     }

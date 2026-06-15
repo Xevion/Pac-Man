@@ -57,7 +57,7 @@ impl Game {
         init::disable_sdl_events(&mut event_pump);
 
         debug!("Setting up textures and fonts");
-        let (backbuffer, mut map_texture, debug_texture, ttf_atlas) =
+        let (backbuffer, mut map_texture, ttf_atlas) =
             init::setup_textures_and_fonts(&mut canvas, &texture_creator, ttf_context)?;
         platform::yield_to_browser();
 
@@ -111,7 +111,6 @@ impl Game {
                 canvas,
                 backbuffer,
                 map_texture,
-                debug_texture,
                 ttf_atlas,
                 death_animation,
                 red_zones,

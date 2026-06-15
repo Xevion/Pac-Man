@@ -3,10 +3,11 @@ use std::time::{Duration, Instant};
 
 use crate::error::{GameError, GameResult};
 
-use crate::constants::{CANVAS_SIZE, LOOP_TIME, SCALE};
+use crate::constants::LOOP_TIME;
 use crate::formatter;
 use crate::game::Game;
 use crate::platform;
+use crate::systems::layout::DEFAULT_WINDOW;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::render::RendererInfo;
 use sdl2::{AudioSubsystem, Sdl};
@@ -43,18 +44,9 @@ impl App {
         trace!("Yielding after subsystem init");
         platform::yield_to_browser();
 
-        trace!(
-            width = (CANVAS_SIZE.x as f32 * SCALE).round() as u32,
-            height = (CANVAS_SIZE.y as f32 * SCALE).round() as u32,
-            scale = SCALE,
-            "Creating game window"
-        );
+        trace!(width = DEFAULT_WINDOW.x, height = DEFAULT_WINDOW.y, "Creating game window");
         let window = video_subsystem
-            .window(
-                "Pac-Man",
-                (CANVAS_SIZE.x as f32 * SCALE).round() as u32,
-                (CANVAS_SIZE.y as f32 * SCALE).round() as u32,
-            )
+            .window("Pac-Man", DEFAULT_WINDOW.x, DEFAULT_WINDOW.y)
             .resizable()
             .position_centered()
             .build()
@@ -95,7 +87,7 @@ impl App {
         trace!(driver_index = ?index, "Selected graphics driver");
 
         trace!("Creating hardware-accelerated canvas");
-        let mut canvas = window
+        let canvas = window
             .into_canvas()
             .accelerated()
             // .index(index)
@@ -104,16 +96,7 @@ impl App {
         trace!("Yielding after canvas creation");
         platform::yield_to_browser();
 
-        trace!(
-            logical_width = CANVAS_SIZE.x,
-            logical_height = CANVAS_SIZE.y,
-            "Setting canvas logical size"
-        );
-        canvas
-            .set_logical_size(CANVAS_SIZE.x, CANVAS_SIZE.y)
-            .map_err(|e| GameError::Sdl(e.to_string()))?;
         debug!(renderer_info = ?canvas.info(), "Canvas renderer initialized");
-        trace!("Yielding after logical size");
         platform::yield_to_browser();
 
         trace!("Creating texture factory");
