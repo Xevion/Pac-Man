@@ -5,6 +5,9 @@ export interface PacmanModule {
 	_start_game?: () => void;
 	_stop_game?: () => void;
 	_restart_game?: () => void;
+	// Hand the canvas's drawable size (physical pixels) to the game so SDL resizes
+	// its window and the adaptive layout recomputes.
+	_pacman_resize?: (width: number, height: number) => void;
 	locateFile: (path: string) => string;
 	preRun: Array<() => void>;
 	// Emscripten lifecycle hooks

@@ -113,6 +113,18 @@ pub extern "C" fn restart_game() {
     }
 }
 
+/// Called from JavaScript (a `ResizeObserver` on the canvas) with the desired
+/// drawable size in physical pixels. The size is stored and applied on the next
+/// frame, after which SDL emits a resize event the game uses to recompute its
+/// adaptive layout.
+#[cfg(target_os = "emscripten")]
+#[no_mangle]
+pub extern "C" fn pacman_resize(width: i32, height: i32) {
+    if width > 0 && height > 0 {
+        systems::input::request_canvas_resize(width as u32, height as u32);
+    }
+}
+
 /// Emscripten main loop callback - runs once per frame
 #[cfg(target_os = "emscripten")]
 unsafe extern "C" fn main_loop_callback(_arg: *mut std::ffi::c_void) {

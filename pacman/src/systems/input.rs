@@ -215,6 +215,43 @@ pub fn update_touch_reference_position(touch_data: &mut TouchData, delta_time: f
     (delta, distance)
 }
 
+/// Browser-requested canvas size awaiting application, packed as
+/// `(width << 32) | height`; `0` means nothing is pending. Written by the
+/// `pacman_resize` FFI export (from a JS `ResizeObserver`) and consumed by
+/// [`apply_pending_resize`]. WASM is single-threaded, so `Relaxed` suffices.
+#[cfg(target_os = "emscripten")]
+pub static PENDING_CANVAS_SIZE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Records a browser-requested canvas size for the next frame to apply.
+#[cfg(target_os = "emscripten")]
+pub fn request_canvas_resize(width: u32, height: u32) {
+    let packed = ((width as u64) << 32) | height as u64;
+    PENDING_CANVAS_SIZE.store(packed, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Applies a browser-requested canvas size by resizing the SDL window, which makes
+/// SDL emit a `SizeChanged` event that [`input_system`] consumes to recompute the
+/// [`Layout`]. Runs before `input_system` so the new size lands the same frame.
+///
+/// On Emscripten SDL only watches browser-*window* resizes, not CSS/flex layout
+/// changes to the canvas, so this FFI-driven path is the sole resize signal on the
+/// web. The drawable size is already in physical pixels (the JS side scaled by the
+/// device pixel ratio), so no high-DPI handling is needed here.
+#[cfg(target_os = "emscripten")]
+pub fn apply_pending_resize(mut canvas: NonSendMut<crate::systems::render::CanvasResource>) {
+    let packed = PENDING_CANVAS_SIZE.swap(0, std::sync::atomic::Ordering::Relaxed);
+    if packed == 0 {
+        return;
+    }
+    let (width, height) = ((packed >> 32) as u32, packed as u32);
+    if canvas.window().size() == (width, height) {
+        return;
+    }
+    if let Err(e) = canvas.window_mut().set_size(width, height) {
+        tracing::warn!(error = ?e, width, height, "Failed to apply browser canvas resize");
+    }
+}
+
 pub fn input_system(
     delta_time: Res<DeltaTime>,
     mut bindings: ResMut<Bindings>,

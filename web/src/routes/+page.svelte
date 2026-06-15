@@ -6,6 +6,28 @@
 	const LOADING_FADE_DURATION = 300;
 	const LOADING_TIMEOUT_MS = 15000;
 
+	// Cap the drawable buffer at this multiple of CSS pixels. Higher is crisper on
+	// HiDPI screens but costs more fill; 3 keeps virtually every real device at a
+	// 1:1 buffer-to-physical mapping while bounding pathological ratios. Pixel art
+	// stays sharp regardless via the canvas's image-rendering: pixelated.
+	const MAX_PIXEL_RATIO = 3;
+
+	// Hand the canvas's current CSS size (scaled to physical pixels) to the game so
+	// SDL resizes its window and the adaptive layout recomputes. SDL on Emscripten
+	// ignores CSS/flex resizes, so this explicit call is the only resize signal.
+	function pushCanvasSize() {
+		const win = getPacmanWindow();
+		const canvas = document.getElementById('canvas') as HTMLCanvasElement | null;
+		if (!canvas || !win.Module?._pacman_resize) return;
+
+		const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+		const width = Math.round(canvas.clientWidth * ratio);
+		const height = Math.round(canvas.clientHeight * ratio);
+		if (width > 0 && height > 0) {
+			win.Module._pacman_resize(width, height);
+		}
+	}
+
 	let gameReady = $state(false);
 	let gameStarted = $state(false);
 	let loadingVisible = $state(true);
@@ -98,6 +120,9 @@
 		// Set up ready callback
 		win.pacmanReady = () => {
 			gameReady = true;
+			// The game boots at a fixed size; push the real canvas size once ready
+			// (and again after a restart, which re-fires this callback).
+			pushCanvasSize();
 		};
 
 		// Error callback for WASM runtime errors
@@ -125,10 +150,16 @@
 		// Keyboard listener for click-to-start interaction
 		window.addEventListener('keydown', handleKeyDown);
 
+		// Drive the adaptive layout: when the canvas box changes (resize, rotate,
+		// DPR change), hand the new size to the game.
+		const resizeObserver = new ResizeObserver(() => pushCanvasSize());
+		resizeObserver.observe(canvas);
+
 		// Cleanup function used by both paths (return navigation and first-time init)
 		const cleanup = () => {
 			document.removeEventListener('click', handleClickOutside);
 			window.removeEventListener('keydown', handleKeyDown);
+			resizeObserver.disconnect();
 		};
 
 		const module = win.Module;
@@ -204,62 +235,66 @@
 	}
 </script>
 
-<div class="flex justify-center items-center h-full pt-4">
-	<div
-		role="button"
-		tabindex="0"
-		class="relative block aspect-[5/6]"
-		style="height: min(calc(100vh - 96px), calc((100vw - 32px) * 6 / 5));"
-		onclick={handleInteraction}
-		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.preventDefault();
-				handleInteraction();
-			}
-		}}
-	>
-		<canvas id="canvas" tabindex="-1" class="w-full h-full" onclick={focusCanvas}></canvas>
+<div
+	role="button"
+	tabindex="0"
+	class="relative block w-full overflow-hidden"
+	style="height: calc(100dvh - 60px);"
+	onclick={handleInteraction}
+	onkeydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			handleInteraction();
+		}
+	}}
+>
+	<canvas
+		id="canvas"
+		tabindex="-1"
+		class="block w-full h-full"
+		style="image-rendering: pixelated;"
+		onclick={focusCanvas}
+	></canvas>
 
-		<!-- Loading overlay -->
-		{#if loadingVisible}
-			<div
-				class="absolute inset-0 flex flex-col items-center justify-center bg-black/80 transition-opacity"
-				style="transition-duration: {LOADING_FADE_DURATION}ms; opacity: {gameReady ? 0 : 1};"
-			>
-				{#if loadError}
-					<div class="error-indicator"></div>
-					<span class="text-red-500 text-2xl mt-4 font-semibold">
-						{loadError.type === 'timeout'
-							? 'Loading timed out'
-							: loadError.type === 'script'
-								? 'Failed to load'
-								: 'Error occurred'}
-					</span>
-					<span class="text-gray-400 text-sm mt-2 max-w-xs text-center">
-						{loadError.type === 'timeout'
-							? 'The game took too long to load. Please refresh the page.'
-							: loadError.type === 'script'
-								? 'Could not load game files. Check your connection and refresh.'
-								: loadError.message}
-					</span>
-					<button
-						onclick={() => window.location.reload()}
-						class="mt-4 px-4 py-2 bg-yellow-400 text-black font-semibold rounded hover:bg-yellow-300 transition-colors"
-					>
-						Reload
-					</button>
-				{:else}
-					<div class="loading-spinner"></div>
-					<span class="text-yellow-400 text-2xl mt-4">Loading...</span>
-				{/if}
-			</div>
-		{/if}
+	<!-- Loading overlay -->
+	{#if loadingVisible}
+		<div
+			class="absolute inset-0 flex flex-col items-center justify-center bg-black/80 transition-opacity"
+			style="transition-duration: {LOADING_FADE_DURATION}ms; opacity: {gameReady ? 0 : 1};"
+		>
+			{#if loadError}
+				<div class="error-indicator"></div>
+				<span class="text-red-500 text-2xl mt-4 font-semibold">
+					{loadError.type === 'timeout'
+						? 'Loading timed out'
+						: loadError.type === 'script'
+							? 'Failed to load'
+							: 'Error occurred'}
+				</span>
+				<span class="text-gray-400 text-sm mt-2 max-w-xs text-center">
+					{loadError.type === 'timeout'
+						? 'The game took too long to load. Please refresh the page.'
+						: loadError.type === 'script'
+							? 'Could not load game files. Check your connection and refresh.'
+							: loadError.message}
+				</span>
+				<button
+					onclick={() => window.location.reload()}
+					class="mt-4 px-4 py-2 bg-yellow-400 text-black font-semibold rounded hover:bg-yellow-300 transition-colors"
+				>
+					Reload
+				</button>
+			{:else}
+				<div class="loading-spinner"></div>
+				<span class="text-yellow-400 text-2xl mt-4">Loading...</span>
+			{/if}
+		</div>
+	{/if}
 
-		<!-- Click to Start overlay -->
-		{#if gameReady && !gameStarted}
-			<div class="absolute inset-0 flex items-center justify-center bg-black/60 cursor-pointer">
-				<span class="text-yellow-400 text-5xl font-bold">Click to Start</span>
-			</div>
-		{/if}
-	</div>
+	<!-- Click to Start overlay -->
+	{#if gameReady && !gameStarted}
+		<div class="absolute inset-0 flex items-center justify-center bg-black/60 cursor-pointer">
+			<span class="text-yellow-400 text-5xl font-bold">Click to Start</span>
+		</div>
+	{/if}
 </div>
