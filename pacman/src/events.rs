@@ -66,6 +66,13 @@ pub enum StageTransition {
     },
 }
 
+/// One-shot notification that Pac-Man ate a power pellet. Emitted by the item
+/// collision observer and consumed by the ghost domain, which frightens the active
+/// ghosts -- keeping collision handling free of any ghost-state knowledge. Triggered
+/// rather than buffered so the fright lands the same frame the pellet is eaten.
+#[derive(Event, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PowerPelletEaten;
+
 /// Collision triggers for immediate collision handling via observers
 #[derive(Event, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CollisionTrigger {

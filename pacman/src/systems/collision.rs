@@ -11,7 +11,7 @@ use tracing::{debug, trace, warn};
 use crate::audio::Sound;
 use crate::constants;
 use crate::error::GameError;
-use crate::events::{CollisionTrigger, StageTransition};
+use crate::events::{CollisionTrigger, PowerPelletEaten, StageTransition};
 use crate::map::builder::Map;
 use crate::systems::audio::AudioEvent;
 use crate::systems::common::EntityType;
@@ -193,7 +193,6 @@ pub struct ItemCollisionParams<'w, 's> {
     commands: Commands<'w, 's>,
     session: ResMut<'w, Session>,
     item_query: Query<'w, 's, (Entity, &'static EntityType, &'static Position), With<ItemCollider>>,
-    ghost_query: Query<'w, 's, &'static mut GhostState, With<GhostCollider>>,
     ghost_house: ResMut<'w, crate::systems::ghost::GhostHouseController>,
     fruit_sprites: ResMut<'w, FruitSprites>,
     events: EventWriter<'w, AudioEvent>,
@@ -248,28 +247,12 @@ pub fn item_collision_observer(trigger: Trigger<CollisionTrigger>, mut params: I
                     }
                 }
 
-                // Make non-eaten ghosts frightened when power pellet is collected
+                // Eating a power pellet opens a fresh fright period: the ghost-eat score
+                // chain restarts at 200, and the ghost domain frightens its active ghosts
+                // in response to the event -- collision handling stays ghost-state-agnostic.
                 if matches!(*entity_type, EntityType::PowerPellet) {
-                    debug!(
-                        duration_ticks = constants::animation::GHOST_FRIGHTENED_TICKS,
-                        "Power pellet collected, frightening ghosts"
-                    );
-                    // A fresh fright period restarts the ghost-eat score chain at 200.
                     params.session.ghost_eaten_chain = 0;
-                    for mut ghost_state in params.ghost_query.iter_mut() {
-                        if matches!(*ghost_state, GhostState::Active { frightened: None }) {
-                            *ghost_state = GhostState::Active {
-                                frightened: Some(crate::systems::ghost::FrightenedData::new(
-                                    constants::animation::GHOST_FRIGHTENED_TICKS,
-                                    constants::animation::GHOST_FRIGHTENED_FLASH_START_TICKS,
-                                )),
-                            };
-                        }
-                    }
-                    debug!(
-                        frightened_count = params.ghost_query.iter().count(),
-                        "Ghosts set to frightened state"
-                    );
+                    params.commands.trigger(PowerPelletEaten);
                 }
             }
         }

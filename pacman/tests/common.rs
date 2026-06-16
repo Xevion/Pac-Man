@@ -17,7 +17,7 @@ use pacman::{
         collision::{item_collision_observer, Collider, GhostCollider, ItemCollider, PacmanCollider},
         common::{DeltaTime, EntityType, GlobalState, MovementModifiers},
         debug::DebugState,
-        ghost::{GhostState, GhostType},
+        ghost::{frighten_ghosts_on_power_pellet, GhostState, GhostType},
         hud::FruitSprites,
         movement::{BufferedDirection, Position, Velocity},
         player::PlayerControlled,
@@ -101,6 +101,7 @@ pub fn create_test_world() -> (World, Schedule) {
     let schedule = Schedule::default();
 
     world.add_observer(item_collision_observer);
+    world.add_observer(frighten_ghosts_on_power_pellet);
 
     (world, schedule)
 }

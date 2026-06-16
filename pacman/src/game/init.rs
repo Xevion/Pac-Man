@@ -24,6 +24,7 @@ use crate::systems::audio::{AudioEvent, AudioResource};
 use crate::systems::collision::{ghost_collision_observer, item_collision_observer};
 use crate::systems::common::{DeltaTime, GlobalState};
 use crate::systems::debug::{BatchedLinesResource, DebugState, TtfAtlasResource};
+use crate::systems::ghost::frighten_ghosts_on_power_pellet;
 use crate::systems::hud::{FruitSprites, LeaderboardData};
 use crate::systems::input::{exit_observer, Bindings, CursorPosition, HumanInput, InputSource, TouchState};
 use crate::systems::layout::{Layout, DEFAULT_WINDOW, PLAYFIELD_SIZE};
@@ -158,6 +159,7 @@ pub(super) fn setup_ecs(world: &mut World) {
 
     world.add_observer(ghost_collision_observer);
     world.add_observer(item_collision_observer);
+    world.add_observer(frighten_ghosts_on_power_pellet);
     world.add_observer(enter_ghost_eaten_pause);
 }
 

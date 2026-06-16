@@ -2,9 +2,11 @@
 
 use super::{
     elroy::{elroy_thresholds, BlinkyMarker, Elroy, ElroyStage},
-    GhostAnimationState, GhostAnimations, GhostHouseController, GhostModeController, GhostState, GhostType, LastAnimationState,
+    FrightenedData, GhostAnimationState, GhostAnimations, GhostHouseController, GhostModeController, GhostState, GhostType,
+    LastAnimationState,
 };
 use crate::constants;
+use crate::events::PowerPelletEaten;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::map::graph::{Edge, TraversalFlags};
@@ -14,6 +16,28 @@ use crate::systems::movement::{NodeId, Position, Velocity};
 use crate::systems::state::Session;
 use bevy_ecs::prelude::*;
 use tracing::{debug, trace};
+
+/// Frightens every active ghost in response to a power pellet being eaten.
+///
+/// Driven by the [`PowerPelletEaten`] trigger so the item collision observer stays
+/// free of ghost-state knowledge: collision merely reports the event, and the ghost
+/// domain decides what frightening means. `GhostState` lives only on ghosts, so an
+/// unfiltered query needs no collider marker.
+pub fn frighten_ghosts_on_power_pellet(_trigger: Trigger<PowerPelletEaten>, mut ghost_query: Query<&mut GhostState>) {
+    let mut frightened = 0;
+    for mut ghost_state in ghost_query.iter_mut() {
+        if matches!(*ghost_state, GhostState::Active { frightened: None }) {
+            *ghost_state = GhostState::Active {
+                frightened: Some(FrightenedData::new(
+                    constants::animation::GHOST_FRIGHTENED_TICKS,
+                    constants::animation::GHOST_FRIGHTENED_FLASH_START_TICKS,
+                )),
+            };
+            frightened += 1;
+        }
+    }
+    debug!(frightened_count = frightened, "Power pellet eaten, ghosts frightened");
+}
 
 /// System to tick the ghost mode controller and trigger reversals
 pub fn ghost_mode_tick_system(

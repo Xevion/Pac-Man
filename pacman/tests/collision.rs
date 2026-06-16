@@ -1,13 +1,13 @@
 use bevy_ecs::event::EventRegistry;
 use bevy_ecs::system::RunSystemOnce;
 use bevy_ecs::world::World;
-use pacman::events::{CollisionTrigger, StageTransition};
+use pacman::events::{CollisionTrigger, PowerPelletEaten, StageTransition};
 use pacman::systems::audio::AudioEvent;
 use pacman::systems::collision::{
     check_collision, collision_system, ghost_collision_observer, item_collision_observer, Collider, ItemCollider,
 };
 use pacman::systems::common::{EntityType, Frozen};
-use pacman::systems::ghost::{FrightenedData, GhostHouseController, GhostState, GhostType};
+use pacman::systems::ghost::{frighten_ghosts_on_power_pellet, FrightenedData, GhostHouseController, GhostState, GhostType};
 use pacman::systems::hud::FruitSprites;
 use pacman::systems::movement::Position;
 use pacman::systems::state::{enter_ghost_eaten_pause, GameStage, Session};
@@ -197,4 +197,22 @@ fn power_pellet_resets_ghost_eat_chain() {
     eat_ghost(&mut world); // chain 0 again -> awards 200, not 400
                            // Cumulative: 200 (first eat) + 50 (power pellet) + 200 (reset eat) = 450.
     assert_that(&world.resource::<Session>().score.value()).is_equal_to(450);
+}
+
+/// Eating a power pellet now reaches ghosts only through the `PowerPelletEaten` trigger:
+/// the ghost-domain observer frightens active ghosts and leaves returning Eyes alone,
+/// with no ghost-state knowledge in the collision path.
+#[test]
+fn power_pellet_frightens_active_ghosts_via_observer() {
+    let mut world = World::new();
+    world.add_observer(frighten_ghosts_on_power_pellet);
+
+    let active = common::spawn_test_ghost(&mut world, 0, GhostState::Active { frightened: None });
+    let returning = common::spawn_test_ghost(&mut world, 1, GhostState::Eyes);
+
+    world.trigger(PowerPelletEaten);
+    world.flush();
+
+    assert_that(&world.get::<GhostState>(active).unwrap().is_frightened()).is_true();
+    assert_that(&matches!(world.get::<GhostState>(returning).unwrap(), GhostState::Eyes)).is_true();
 }
