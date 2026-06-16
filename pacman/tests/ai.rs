@@ -17,7 +17,7 @@ use pacman::systems::common::Frozen;
 use pacman::systems::ghost::targeting::choose_direction_at_intersection;
 use pacman::systems::movement::{Position, Velocity};
 use pacman::systems::player::PlayerControlled;
-use pacman::systems::profiling::{profile, SystemId};
+use pacman::systems::profiling::profile;
 use speculoos::prelude::*;
 
 mod common;
@@ -122,7 +122,7 @@ fn ai_chooser_respects_pacman_flags_at_ghost_door() {
 /// it through a plain `Schedule` instead would let validation silently skip an empty
 /// `Single`, hiding exactly the regression these tests guard against.
 fn run_ai_player_system(world: &mut World) {
-    let mut system = profile(SystemId::PlayerControls, ai_player_system);
+    let mut system = profile("playercontrols", ai_player_system);
     system(world);
 }
 

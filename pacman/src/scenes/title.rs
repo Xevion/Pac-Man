@@ -1,15 +1,17 @@
 //! The Title scene: a minimal press-to-start gate shown at boot.
 
 use bevy_ecs::event::EventReader;
+use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule};
 use bevy_ecs::system::{Local, Res, ResMut};
 use bevy_ecs::world::World;
 
 use crate::error::GameResult;
 use crate::events::{GameCommand, GameEvent};
 use crate::systems::common::DeltaTime;
-use crate::systems::input::TouchState;
+use crate::systems::input::{InputSet, TouchState};
+use crate::systems::profiling::profile;
 
-use super::{Scene, SceneHandler, SceneManager};
+use super::{in_scene, Scene, SceneHandler, SceneManager};
 
 /// Seconds the Title waits with no input before falling through to the self-playing
 /// attract demo, mirroring the arcade's idle behavior.
@@ -28,6 +30,16 @@ impl SceneHandler for TitleScene {
 
     /// The Title owns no entities, so there is nothing to tear down on exit.
     fn on_exit(&self, _world: &mut World) {}
+
+    /// While the Title is up, the first genuine input hands off to gameplay. Runs in the
+    /// React phase so it sees this frame's `GameEvent`s.
+    fn register(&self, schedule: &mut Schedule) {
+        schedule.add_systems(
+            profile("input", title_input_system)
+                .run_if(in_scene(Scene::Title))
+                .in_set(InputSet::React),
+        );
+    }
 }
 
 /// Drives the Title's two exits. A genuine intent to play -- a movement key or a

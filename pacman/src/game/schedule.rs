@@ -14,9 +14,9 @@ use crate::systems::collision::collision_system;
 use crate::systems::debug::debug_overlay_system;
 use crate::systems::ghost::{eaten_ghost_system, ghost_movement_system, ghost_state_system};
 use crate::systems::hud::{chrome_render_system, hud_overlay_system, touch_ui_render_system};
-use crate::systems::input::InputSource;
+use crate::systems::input::{InputSet, InputSource};
 use crate::systems::lifetime::time_to_live_system;
-use crate::systems::profiling::{profile, SystemId};
+use crate::systems::profiling::profile;
 use crate::systems::render::{backbuffer_render_system, composite_maze_system, dirty_render_system, present_system, RenderDirty};
 use crate::systems::state::PauseState;
 use crate::systems::state::Session;
@@ -56,6 +56,10 @@ pub(super) fn configure_schedule(schedule: &mut Schedule) {
     add_draw_systems(schedule);
     add_present_systems(schedule);
 
+    // Each scene wires its own per-frame systems (input handling, scene-gated logic),
+    // so the schedule above never enumerates scenes.
+    scenes::register_scene_systems(schedule);
+
     // The simulation sets run only inside a live gameplay scene that isn't paused.
     // Input, Draw, and Present run every frame regardless of scene (input must drain
     // the SDL pump; the title/menu still needs to render and present).
@@ -70,81 +74,88 @@ pub(super) fn configure_schedule(schedule: &mut Schedule) {
         )
             .chain(),
     );
+
+    // The input phases run in order inside the every-frame Input set: drain the pump,
+    // then react to this frame's events (core systems above, plus the per-scene systems).
+    schedule.configure_sets((InputSet::Drain, InputSet::React).chain().in_set(GameplaySet::Input));
 }
 
 /// Input set. Must run every frame: it is the sole drain of the SDL event pump, so
 /// skipping a frame leaves events (including window resizes) queued. An undrained
 /// pump reads to the OS as an unresponsive window and makes resizing feel laggy.
+///
+/// Split into two ordered phases. [`InputSet::Drain`] drains the pump and emits this
+/// frame's events; [`InputSet::React`] holds everything reacting to them. Per-scene input
+/// systems attach to React from their own scene modules via [`scenes::register_scene_systems`],
+/// so this function names no specific scene.
 fn add_input_systems(schedule: &mut Schedule) {
     schedule.add_systems(
         (
             // On the web, apply any browser-requested canvas resize before draining the
             // event pump so the resulting SizeChanged event lands the same frame.
             #[cfg(target_os = "emscripten")]
-            profile(SystemId::Input, systems::input::apply_pending_resize),
-            profile(SystemId::Input, systems::input::input_system),
-            // In AI-driven scenes (attract), the stub AI is the movement producer.
-            // Ordered after input_system and before player_control_system so its
-            // MovePlayer command is buffered the same frame.
-            profile(SystemId::PlayerControls, systems::ai::ai_player_system).run_if(|source: Res<InputSource>| source.is_ai()),
-            // While the Title is up, the first input hands off to gameplay. Ordered
-            // after input_system so it sees this frame's GameEvents.
-            profile(SystemId::Input, scenes::title_input_system).run_if(scenes::in_scene(scenes::Scene::Title)),
-            // While attract plays, any human input starts a real game (it reads the
-            // HumanInput pulse input_system set this frame).
-            profile(SystemId::Input, scenes::attract_input_system).run_if(scenes::in_scene(scenes::Scene::Attract)),
-            // Debug ResetLevel rebuilds the active scene in place; queued here,
-            // applied at the top of the next frame.
-            profile(SystemId::Input, scenes::handle_reset_command),
-            profile(SystemId::PlayerControls, systems::player::player_control_system),
-            // Pause is a Gameplay-only concept: gating it here keeps Escape on the Title
-            // (or during attract) from toggling a pause that would carry into the game.
-            profile(SystemId::Input, systems::state::handle_pause_command).run_if(scenes::in_scene(scenes::Scene::Gameplay)),
-            #[cfg(not(target_os = "emscripten"))]
-            profile(SystemId::Input, systems::state::handle_fullscreen_command),
+            profile("input", systems::input::apply_pending_resize),
+            profile("input", systems::input::input_system),
         )
             .chain()
-            .in_set(GameplaySet::Input),
+            .in_set(InputSet::Drain),
+    );
+
+    schedule.add_systems(
+        (
+            // In AI-driven scenes (attract), the stub AI is the movement producer.
+            // Ordered before player_control_system so its MovePlayer command is consumed
+            // the same frame; both already run after Drain via the set ordering.
+            profile("playercontrols", systems::ai::ai_player_system).run_if(|source: Res<InputSource>| source.is_ai()),
+            profile("playercontrols", systems::player::player_control_system),
+            // Debug ResetLevel rebuilds the active scene in place; queued here,
+            // applied at the top of the next frame. Scene-agnostic, so it stays central.
+            profile("input", scenes::handle_reset_command),
+            #[cfg(not(target_os = "emscripten"))]
+            profile("input", systems::state::handle_fullscreen_command),
+        )
+            .chain()
+            .in_set(InputSet::React),
     );
 }
 
 /// Update set plus the lifetime/pause systems ordered around it.
 fn add_update_systems(schedule: &mut Schedule) {
     schedule.add_systems((
-        profile(SystemId::TimeToLive, time_to_live_system).before(GameplaySet::Update),
+        profile("timetolive", time_to_live_system).before(GameplaySet::Update),
         (
             (
-                profile(SystemId::PlayerMovement, systems::player::player_movement_system),
-                profile(SystemId::PlayerMovement, systems::player::player_tunnel_slowdown_system),
-                profile(SystemId::Ghost, systems::ghost::ghost_mode_tick_system),
-                profile(SystemId::Ghost, systems::ghost::ghost_house_system),
-                profile(SystemId::Ghost, systems::ghost::elroy_system),
-                profile(SystemId::Ghost, systems::ghost::ghost_targeting_system),
-                profile(SystemId::Ghost, ghost_movement_system),
-                profile(SystemId::EatenGhost, eaten_ghost_system),
+                profile("playermovement", systems::player::player_movement_system),
+                profile("playermovement", systems::player::player_tunnel_slowdown_system),
+                profile("ghost", systems::ghost::ghost_mode_tick_system),
+                profile("ghost", systems::ghost::ghost_house_system),
+                profile("ghost", systems::ghost::elroy_system),
+                profile("ghost", systems::ghost::ghost_targeting_system),
+                profile("ghost", ghost_movement_system),
+                profile("eatenghost", eaten_ghost_system),
             )
                 .chain(),
-            profile(SystemId::Collision, collision_system),
-            profile(SystemId::GhostStateAnimation, ghost_state_system),
+            profile("collision", collision_system),
+            profile("ghoststateanimation", ghost_state_system),
         )
             .chain()
             .in_set(GameplaySet::Update),
-        profile(SystemId::PauseManager, systems::state::manage_pause_state_system).after(GameplaySet::Update),
+        profile("pausemanager", systems::state::manage_pause_state_system).after(GameplaySet::Update),
     ));
 }
 
 /// Respond set: event-driven stage transitions.
 fn add_respond_systems(schedule: &mut Schedule) {
-    schedule.add_systems(profile(SystemId::Stage, systems::state::stage_system).in_set(GameplaySet::Respond));
+    schedule.add_systems(profile("stage", systems::state::stage_system).in_set(GameplaySet::Respond));
 }
 
 /// Animation set: sprite frame selection (unordered within the set).
 fn add_animation_systems(schedule: &mut Schedule) {
     schedule.add_systems(
         (
-            profile(SystemId::Blinking, blinking_system),
-            profile(SystemId::DirectionalRender, directional_render_system),
-            profile(SystemId::LinearRender, linear_render_system),
+            profile("blinking", blinking_system),
+            profile("directionalrender", directional_render_system),
+            profile("linearrender", linear_render_system),
         )
             .in_set(RenderSet::Animation),
     );
@@ -160,12 +171,12 @@ fn add_draw_systems(schedule: &mut Schedule) {
                 // controllers are separate resources, so they don't over-trigger this.
                 dirty.0 |= session.is_changed() || pause.is_changed();
             }),
-            profile(SystemId::DirtyRender, dirty_render_system).run_if(|dirty: Res<RenderDirty>| dirty.0.not()),
-            profile(SystemId::Render, backbuffer_render_system),
+            profile("dirtyrender", dirty_render_system).run_if(|dirty: Res<RenderDirty>| dirty.0.not()),
+            profile("render", backbuffer_render_system),
             // Maze-overlay text (READY!, GAME OVER, pause dimmer) follows the live
             // simulation -- shown in Gameplay and in the attract demo, off the Title's
             // empty maze.
-            profile(SystemId::HudRender, hud_overlay_system).run_if(scenes::in_simulation),
+            profile("hudrender", hud_overlay_system).run_if(scenes::in_simulation),
             touch_ui_render_system,
         )
             .chain()
@@ -177,11 +188,11 @@ fn add_draw_systems(schedule: &mut Schedule) {
 fn add_present_systems(schedule: &mut Schedule) {
     schedule.add_systems(
         (
-            profile(SystemId::Present, composite_maze_system),
-            profile(SystemId::HudRender, chrome_render_system),
-            profile(SystemId::DebugRender, debug_overlay_system),
-            profile(SystemId::Present, present_system),
-            profile(SystemId::Audio, audio_system),
+            profile("present", composite_maze_system),
+            profile("hudrender", chrome_render_system),
+            profile("debugrender", debug_overlay_system),
+            profile("present", present_system),
+            profile("audio", audio_system),
         )
             .chain()
             .in_set(RenderSet::Present),

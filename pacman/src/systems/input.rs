@@ -4,6 +4,7 @@ use bevy_ecs::{
     event::EventWriter,
     observer::Trigger,
     resource::Resource,
+    schedule::SystemSet,
     system::{Commands, NonSendMut, Res, ResMut},
 };
 use glam::{UVec2, Vec2};
@@ -20,6 +21,22 @@ use crate::{
     events::{ExitRequested, GameCommand, GameEvent},
     map::direction::Direction,
 };
+
+/// Ordering phases within the per-frame input set.
+///
+/// Systems that react to this frame's input must run after the pump drain, but the
+/// schedule wraps every system in an opaque profiling closure, so they can't be ordered
+/// with `.after(input_system)` by name. Instead the drain lives in [`InputSet::Drain`]
+/// and everything reacting to it lives in [`InputSet::React`] (ordered after Drain),
+/// which any module -- including the scene handlers -- can attach to by set label.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum InputSet {
+    /// Drains the SDL event pump and emits this frame's `GameEvent`s and `HumanInput`.
+    Drain,
+    /// Reacts to this frame's input: movement production/consumption, scene control,
+    /// and global commands.
+    React,
+}
 
 /// Who is currently driving Pac-Man's movement. This gates only the `MovePlayer`
 /// *producer*: [`input_system`] emits human movement under [`InputSource::Human`],

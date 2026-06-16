@@ -35,7 +35,7 @@ pub fn hud_overlay_system(
         let mut text = TextTexture::new(1.0);
         let centered_x = |w: u32| (PLAYFIELD_SIZE.x.saturating_sub(w)) / 2;
 
-        if matches!(session.stage, GameStage::GameOver) {
+        if matches!(session.stage(), GameStage::GameOver) {
             let t = "GAME  OVER";
             let pos = glam::UVec2::new(centered_x(text.text_width(t)), MESSAGE_LINE_Y);
             if let Err(e) = text.render_with_color(canvas, &mut atlas, t, pos, Color::RED) {
@@ -44,7 +44,7 @@ pub fn hud_overlay_system(
         }
 
         if matches!(
-            session.stage,
+            session.stage(),
             GameStage::Starting(StartupSequence::TextOnly { .. })
                 | GameStage::Starting(StartupSequence::CharactersVisible { .. })
         ) {
@@ -54,7 +54,7 @@ pub fn hud_overlay_system(
                 tracing::error!("READY text render failed: {e}");
             }
 
-            if matches!(session.stage, GameStage::Starting(StartupSequence::TextOnly { .. })) {
+            if matches!(session.stage(), GameStage::Starting(StartupSequence::TextOnly { .. })) {
                 let t = "PLAYER ONE";
                 let pos = glam::UVec2::new(centered_x(text.text_width(t)), PLAYER_LINE_Y);
                 if let Err(e) = text.render_with_color(canvas, &mut atlas, t, pos, Color::CYAN) {

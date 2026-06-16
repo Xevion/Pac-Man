@@ -111,17 +111,17 @@ fn gameplay_teardown_and_respawn_leave_no_leaks() -> GameResult<()> {
         let mut query = game.world.query_filtered::<Entity, With<GhostType>>();
         query.iter(&game.world).next().expect("boot spawns ghosts")
     };
-    game.world.resource_mut::<Session>().stage = GameStage::GhostEatenPause {
+    game.world.resource_mut::<Session>().set_stage(GameStage::GhostEatenPause {
         remaining_ticks: 30,
         ghost_entity,
         ghost_type: GhostType::Blinky,
         node: 0,
-    };
+    });
 
     // Tearing it down removes every scene entity and drops the dangling stage reference.
     pacman::game::spawning::despawn_gameplay(&mut game.world);
     assert_that(&scene_owned_count(&mut game.world)).is_equal_to(0);
-    let stage_holds_entity = matches!(game.world.resource::<Session>().stage, GameStage::GhostEatenPause { .. });
+    let stage_holds_entity = matches!(game.world.resource::<Session>().stage(), GameStage::GhostEatenPause { .. });
     assert_that(&stage_holds_entity).is_false();
 
     // Respawning restores the same population; the full cycle leaks nothing.

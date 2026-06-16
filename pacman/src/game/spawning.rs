@@ -46,8 +46,8 @@ pub fn despawn_gameplay(world: &mut World) {
     world.flush();
 
     if let Some(mut session) = world.get_resource_mut::<Session>() {
-        if matches!(session.stage, GameStage::GhostEatenPause { .. }) {
-            session.stage = GameStage::initial();
+        if matches!(session.stage(), GameStage::GhostEatenPause { .. }) {
+            session.set_stage(GameStage::initial());
         }
     }
 

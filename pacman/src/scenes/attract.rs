@@ -5,14 +5,16 @@
 //! input source: entering flips it to [`InputSource::Ai`] so the stub AI drives
 //! Pac-Man, and leaving restores [`InputSource::Human`].
 
+use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::world::World;
 
 use crate::error::GameResult;
 use crate::game::spawning::{despawn_gameplay, spawn_gameplay};
-use crate::systems::input::{HumanInput, InputSource};
+use crate::systems::input::{HumanInput, InputSet, InputSource};
+use crate::systems::profiling::profile;
 
-use super::{Scene, SceneHandler, SceneManager};
+use super::{in_scene, Scene, SceneHandler, SceneManager};
 
 /// The self-playing attract demo. Reuses the gameplay population under AI control.
 pub struct AttractScene;
@@ -28,6 +30,16 @@ impl SceneHandler for AttractScene {
     fn on_exit(&self, world: &mut World) {
         despawn_gameplay(world);
         world.insert_resource(InputSource::Human);
+    }
+
+    /// While the demo plays, any human input starts a real game. Runs in the React phase
+    /// so it reads the `HumanInput` pulse set during the Drain phase this frame.
+    fn register(&self, schedule: &mut Schedule) {
+        schedule.add_systems(
+            profile("input", attract_input_system)
+                .run_if(in_scene(Scene::Attract))
+                .in_set(InputSet::React),
+        );
     }
 }
 

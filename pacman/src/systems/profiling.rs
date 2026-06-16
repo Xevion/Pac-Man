@@ -4,15 +4,14 @@ use circular_buffer::CircularBuffer;
 use num_width::NumberWidth;
 use parking_lot::Mutex;
 use smallvec::SmallVec;
-use std::fmt::Display;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
-use strum::{EnumCount, IntoEnumIterator};
-use strum_macros::{EnumCount, EnumIter, IntoStaticStr};
 use thousands::Separable;
 
-/// The maximum number of systems that can be profiled. Must not be exceeded, or it will panic.
-const MAX_SYSTEMS: usize = SystemId::COUNT;
+/// Inline capacity for the timing-display rows: the FPS line plus the few slowest
+/// systems. Sized so the overlay never spills to the heap in practice.
+const TIMING_ROWS: usize = 16;
 /// The number of durations to keep in the circular buffer.
 const TIMING_WINDOW_SIZE: usize = 30;
 
@@ -139,99 +138,50 @@ impl Default for Timing {
     }
 }
 
-#[derive(EnumCount, EnumIter, IntoStaticStr, Debug, PartialEq, Eq, Hash, Copy, Clone)]
-pub enum SystemId {
-    Total,
-    Input,
-    PlayerControls,
-    Ghost,
-    Movement,
-    Audio,
-    Blinking,
-    DirectionalRender,
-    LinearRender,
-    DirtyRender,
-    HudRender,
-    Render,
-    DebugRender,
-    Present,
-    Collision,
-    Item,
-    PlayerMovement,
-    GhostCollision,
-    Stage,
-    GhostStateAnimation,
-    EatenGhost,
-    TimeToLive,
-    PauseManager,
-}
+/// Label for the whole-frame timing row (the total schedule run), distinguished from
+/// the per-system rows in both the overlay and the slow-frame report.
+pub const TOTAL: &str = "total";
 
-impl Display for SystemId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Use strum_macros::IntoStaticStr to get the static string
-        write!(f, "{}", Into::<&'static str>::into(self).to_ascii_lowercase())
-    }
-}
-
-#[derive(Resource, Debug)]
+/// Per-label timing buffers, keyed by the `&'static str` label passed to [`profile`].
+///
+/// Labels register lazily on first sighting, so the set of profiled systems lives at
+/// the `profile()` call sites rather than in a central registry that must be kept in
+/// sync. A single outer mutex is sufficient: profiled systems are wrapped as exclusive
+/// systems and so run sequentially, never contending.
+#[derive(Resource, Default, Debug)]
 pub struct SystemTimings {
-    /// Statically sized map of system names to timing buffers.
-    pub timings: micromap::Map<SystemId, Mutex<TimingBuffer>, MAX_SYSTEMS>,
-}
-
-impl Default for SystemTimings {
-    fn default() -> Self {
-        let mut timings = micromap::Map::new();
-
-        // Pre-populate with all SystemId variants to avoid runtime allocations
-        for id in SystemId::iter() {
-            timings.insert(id, Mutex::new(TimingBuffer::default()));
-        }
-
-        Self { timings }
-    }
+    timings: Mutex<HashMap<&'static str, TimingBuffer>>,
 }
 
 impl SystemTimings {
-    pub fn add_timing(&self, id: SystemId, duration: Duration, current_tick: u64) {
-        // Since all SystemId variants are pre-populated, we can use a simple read lock
-        let buffer = self
-            .timings
-            .get(&id)
-            .expect("SystemId not found in pre-populated map - this is a bug");
-        buffer.lock().add_timing(duration, current_tick);
+    /// Records a timing sample for `label`, creating its buffer on first sighting.
+    pub fn add_timing(&self, label: &'static str, duration: Duration, current_tick: u64) {
+        self.timings
+            .lock()
+            .entry(label)
+            .or_default()
+            .add_timing(duration, current_tick);
     }
 
-    /// Add timing for the Total system (total frame time including scheduler.run)
+    /// Records the whole-frame timing (total schedule run) under the [`TOTAL`] label.
     pub fn add_total_timing(&self, duration: Duration, current_tick: u64) {
-        self.add_timing(SystemId::Total, duration, current_tick);
+        self.add_timing(TOTAL, duration, current_tick);
     }
 
-    pub fn get_stats(&self, current_tick: u64) -> micromap::Map<SystemId, (Duration, Duration), MAX_SYSTEMS> {
-        let mut stats = micromap::Map::new();
-
-        // Iterate over all SystemId variants to ensure every system has an entry
-        for id in SystemId::iter() {
-            let buffer = self
-                .timings
-                .get(&id)
-                .expect("SystemId not found in pre-populated map - this is a bug");
-
-            let (average, standard_deviation) = buffer.lock().get_stats(current_tick);
-            stats.insert(id, (average, standard_deviation));
-        }
-
-        stats
+    /// Computes (mean, standard deviation) per label over the current window.
+    pub fn get_stats(&self, current_tick: u64) -> HashMap<&'static str, (Duration, Duration)> {
+        self.timings
+            .lock()
+            .iter_mut()
+            .map(|(label, buffer)| (*label, buffer.get_stats(current_tick)))
+            .collect()
     }
 
-    pub fn format_timing_display(&self, current_tick: u64) -> SmallVec<[String; SystemId::COUNT]> {
+    pub fn format_timing_display(&self, current_tick: u64) -> SmallVec<[String; TIMING_ROWS]> {
         let stats = self.get_stats(current_tick);
 
-        // Get the Total system metrics instead of averaging all systems
-        let (total_avg, total_std) = stats
-            .get(&SystemId::Total)
-            .copied()
-            .unwrap_or((Duration::ZERO, Duration::ZERO));
+        // Use the Total row for the headline FPS rather than averaging all systems.
+        let (total_avg, total_std) = stats.get(TOTAL).copied().unwrap_or((Duration::ZERO, Duration::ZERO));
 
         let effective_fps = match 1.0 / total_avg.as_secs_f64() {
             f if f > 100.0 => format!("{:>5} FPS", (f as u32).separate_with_commas()),
@@ -239,51 +189,44 @@ impl SystemTimings {
             f => format!("{:5.0} FPS", f),
         };
 
-        // Collect timing data for formatting
         let mut timing_data = vec![(effective_fps, total_avg, total_std)];
 
-        // Sort the stats by average duration, excluding the Total system
-        let mut sorted_stats: Vec<_> = stats.iter().filter(|(id, _)| **id != SystemId::Total).collect();
-        sorted_stats.sort_by_key(|b| std::cmp::Reverse(b.1 .0));
+        // Sort by average duration descending, excluding Total. Tie-break on the label so
+        // equal timings keep a stable order frame-to-frame (HashMap iteration is arbitrary).
+        let mut sorted_stats: Vec<(&'static str, (Duration, Duration))> =
+            stats.into_iter().filter(|(label, _)| *label != TOTAL).collect();
+        sorted_stats.sort_by_key(|(label, (avg, _))| (std::cmp::Reverse(*avg), *label));
 
-        // Add the top 7 most expensive systems (excluding Total)
-        for (name, (avg, std_dev)) in sorted_stats.iter().take(9) {
-            timing_data.push((name.to_string(), *avg, *std_dev));
+        for (label, (avg, std_dev)) in sorted_stats.iter().take(9) {
+            timing_data.push((label.to_string(), *avg, *std_dev));
         }
 
-        // Use the formatting module to format the data
         format_timing_display(timing_data)
     }
 
-    /// Returns a list of systems with their timings, likely responsible for slow frame timings.
+    /// Returns the systems likely responsible for a slow frame.
     ///
     /// First, checks if any systems took longer than 2ms on the most recent tick.
     /// If none exceed 2ms, accumulates systems until the top 30% of total timing
     /// is reached, stopping at 5 systems maximum.
-    ///
-    /// Returns tuples of (SystemId, Duration) in a SmallVec capped at 5 items.
-    pub fn get_slowest_systems(&self) -> SmallVec<[(SystemId, Duration); 5]> {
-        let mut system_timings: Vec<(SystemId, Duration)> = Vec::new();
+    pub fn get_slowest_systems(&self) -> SmallVec<[(&'static str, Duration); 5]> {
+        let mut system_timings: Vec<(&'static str, Duration)> = Vec::new();
         let mut total_duration = Duration::ZERO;
 
-        // Collect most recent timing for each system (excluding Total)
-        for id in SystemId::iter() {
-            if id == SystemId::Total {
+        for (label, buffer) in self.timings.lock().iter() {
+            if *label == TOTAL {
                 continue;
             }
-
-            if let Some(buffer) = self.timings.get(&id) {
-                let recent_timing = buffer.lock().get_most_recent_timing();
-                system_timings.push((id, recent_timing));
-                total_duration += recent_timing;
-            }
+            let recent_timing = buffer.get_most_recent_timing();
+            system_timings.push((label, recent_timing));
+            total_duration += recent_timing;
         }
 
-        // Sort by duration (highest first)
-        system_timings.sort_by_key(|b| std::cmp::Reverse(b.1));
+        // Sort by duration descending, tie-breaking on the label for a stable order.
+        system_timings.sort_by_key(|(label, duration)| (std::cmp::Reverse(*duration), *label));
 
         // Check for systems over 2ms threshold
-        let over_threshold: SmallVec<[(SystemId, Duration); 5]> = system_timings
+        let over_threshold: SmallVec<[(&'static str, Duration); 5]> = system_timings
             .iter()
             .filter(|(_, duration)| duration.as_millis() >= 2)
             .copied()
@@ -298,8 +241,8 @@ impl SystemTimings {
         let mut accumulated = 0u128;
         let mut result = SmallVec::new();
 
-        for (id, duration) in system_timings.iter().take(5) {
-            result.push((*id, *duration));
+        for (label, duration) in system_timings.iter().take(5) {
+            result.push((*label, *duration));
             accumulated += duration.as_nanos();
 
             if accumulated as f64 >= threshold {
@@ -325,14 +268,14 @@ impl SystemTimings {
 /// happen here. A system that can legitimately have unsatisfiable params must opt into
 /// tolerance itself -- use `Option<Single>`/`Populated` or an explicit guard rather
 /// than a bare `Single`, or it will panic here instead of being skipped.
-pub fn profile<S, M>(id: SystemId, system: S) -> impl FnMut(&mut bevy_ecs::world::World)
+pub fn profile<S, M>(label: &'static str, system: S) -> impl FnMut(&mut bevy_ecs::world::World)
 where
     S: IntoSystem<(), (), M> + 'static,
 {
     let mut system: Box<dyn System<In = (), Out = ()>> = Box::new(IntoSystem::into_system(system));
     let mut is_initialized = false;
     let mut warned = false;
-    let name: &'static str = id.into();
+    let name = label;
     move |world: &mut bevy_ecs::world::World| {
         if !is_initialized {
             system.initialize(world);
@@ -361,7 +304,7 @@ where
 
         if let (Some(timings), Some(timing)) = (world.get_resource::<SystemTimings>(), world.get_resource::<Timing>()) {
             let current_tick = timing.get_current_tick();
-            timings.add_timing(id, duration, current_tick);
+            timings.add_timing(label, duration, current_tick);
         }
     }
 }
@@ -400,7 +343,7 @@ fn get_value(duration: &Duration) -> (u64, u32, &'static str) {
 /// Formats timing data into a vector of strings with proper alignment
 pub fn format_timing_display(
     timing_data: impl IntoIterator<Item = (String, Duration, Duration)>,
-) -> SmallVec<[String; SystemId::COUNT]> {
+) -> SmallVec<[String; TIMING_ROWS]> {
     let mut iter = timing_data.into_iter().peekable();
     if iter.peek().is_none() {
         return SmallVec::new();
@@ -445,10 +388,9 @@ pub fn format_timing_display(
                 )
             });
 
-    let max_name_width = SystemId::iter()
-        .map(|id| id.to_string().len())
-        .max()
-        .expect("SystemId::iter() returned an empty iterator");
+    // Width the name column to the rows actually being shown so the colons align. The
+    // early return above guarantees at least one entry, so `max` is non-empty.
+    let max_name_width = entries.iter().map(|e| e.name.len()).max().unwrap_or(0);
 
     entries.iter().map(|e| {
             format!(
@@ -469,5 +411,5 @@ pub fn format_timing_display(
                 max_std_int_width = max_std_int_width,
                 max_std_decimal_width = max_std_decimal_width
             )
-        }).collect::<SmallVec<[String; SystemId::COUNT]>>()
+        }).collect::<SmallVec<[String; TIMING_ROWS]>>()
 }

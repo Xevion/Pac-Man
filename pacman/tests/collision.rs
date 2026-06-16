@@ -96,7 +96,7 @@ fn test_collision_system_multiple_entities() {
 fn ghost_eaten_observer_enters_pause_and_freezes() {
     let mut world = World::new();
     world.insert_resource(Session::default());
-    world.resource_mut::<Session>().stage = GameStage::Playing;
+    world.resource_mut::<Session>().set_stage(GameStage::Playing);
     world.add_observer(enter_ghost_eaten_pause);
 
     let player = common::spawn_test_player(&mut world, 0);
@@ -112,7 +112,7 @@ fn ghost_eaten_observer_enters_pause_and_freezes() {
     world.flush();
 
     assert_that(&matches!(
-        world.resource::<Session>().stage,
+        world.resource::<Session>().stage(),
         GameStage::GhostEatenPause { .. }
     ))
     .is_true();
@@ -128,7 +128,7 @@ fn ghost_eat_score_doubles_along_the_chain() {
     let mut world = World::new();
     EventRegistry::register_event::<AudioEvent>(&mut world);
     world.insert_resource(Session::default());
-    world.resource_mut::<Session>().stage = GameStage::Playing;
+    world.resource_mut::<Session>().set_stage(GameStage::Playing);
     world.add_observer(ghost_collision_observer);
 
     // The pacman field is carried but unused by the observer; a valid entity suffices.
@@ -160,7 +160,7 @@ fn power_pellet_resets_ghost_eat_chain() {
     let mut world = World::new();
     EventRegistry::register_event::<AudioEvent>(&mut world);
     world.insert_resource(Session::default());
-    world.resource_mut::<Session>().stage = GameStage::Playing;
+    world.resource_mut::<Session>().set_stage(GameStage::Playing);
     world.insert_resource(GhostHouseController::default());
     world.insert_resource(FruitSprites::default());
     world.add_observer(ghost_collision_observer);

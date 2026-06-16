@@ -145,7 +145,7 @@ pub fn ghost_collision_observer(
     } = *trigger
     {
         // Check if Pac-Man is already dying
-        if matches!(session.stage, GameStage::PlayerDying(_)) {
+        if matches!(session.stage(), GameStage::PlayerDying(_)) {
             return;
         }
 
@@ -176,9 +176,9 @@ pub fn ghost_collision_observer(
             } else if matches!(*ghost_state, GhostState::Active { frightened: None }) {
                 // Pac-Man dies
                 warn!(ghost = ?ghost_type, "Pacman hit by normal ghost, player dies");
-                session.stage = GameStage::PlayerDying(DyingSequence::Frozen {
+                session.set_stage(GameStage::PlayerDying(DyingSequence::Frozen {
                     remaining_ticks: constants::mechanics::DEATH_FREEZE_TICKS,
-                });
+                }));
                 events.write(AudioEvent::StopAll);
             } else {
                 trace!(ghost_state = ?*ghost_state, "Ghost collision ignored due to state");

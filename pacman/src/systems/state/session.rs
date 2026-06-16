@@ -28,7 +28,9 @@ pub struct Session {
     /// How many ghosts Pac-Man has eaten during the current fright period. Drives the
     /// 200/400/800/1600 score chain; reset to 0 each time a power pellet is consumed.
     pub ghost_eaten_chain: u8,
-    pub stage: GameStage,
+    /// The gameplay sub-machine's current stage. Private so every transition goes through
+    /// [`Session::set_stage`] -- the single, searchable mutation point for the machine.
+    stage: GameStage,
 }
 
 impl Session {
@@ -43,6 +45,17 @@ impl Session {
             ghost_eaten_chain: 0,
             stage: GameStage::initial(),
         }
+    }
+
+    /// The current gameplay stage. `GameStage` is `Copy`, so this hands back a snapshot.
+    pub fn stage(&self) -> GameStage {
+        self.stage
+    }
+
+    /// The sole way to advance the gameplay sub-machine. Every writer -- the tick-driven
+    /// `stage_system`, the ghost-eaten/death observers, and teardown -- routes through here.
+    pub fn set_stage(&mut self, stage: GameStage) {
+        self.stage = stage;
     }
 }
 

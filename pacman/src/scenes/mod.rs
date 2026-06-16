@@ -13,8 +13,11 @@
 use bevy_ecs::component::Component;
 use bevy_ecs::event::EventReader;
 use bevy_ecs::resource::Resource;
+use bevy_ecs::schedule::Schedule;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::world::World;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 use crate::error::GameResult;
 use crate::events::{GameCommand, GameEvent};
@@ -24,8 +27,11 @@ mod attract;
 mod gameplay;
 mod title;
 
-pub use attract::attract_input_system;
-pub use title::title_input_system;
+// Re-exported for the title/attract integration tests, which exercise these systems in
+// isolation. The scene modules now register them internally, so the bin has no other
+// caller -- allow the otherwise-unused re-export rather than widen the submodules to pub.
+#[allow(unused_imports)]
+pub use {attract::attract_input_system, title::title_input_system};
 
 /// The behavior of a scene: what happens when it becomes active and when it is
 /// left. Implemented once per scene by a zero-sized handler type.
@@ -38,11 +44,18 @@ pub trait SceneHandler {
     fn on_enter(&self, world: &mut World) -> GameResult<()>;
     /// Tear the scene down: despawn its entities, clear any state it owned.
     fn on_exit(&self, world: &mut World);
+    /// Register this scene's per-frame systems into the schedule, once at build time.
+    ///
+    /// A scene's input handling and scene-gated logic live here rather than in the
+    /// central schedule, so the schedule never enumerates scenes. Systems gate
+    /// themselves with [`in_scene`] and attach to [`InputSet::React`](crate::systems::input::InputSet)
+    /// so they run after the pump drain. The default registers nothing.
+    fn register(&self, _schedule: &mut Schedule) {}
 }
 
 /// The top-level screen the game is currently presenting -- the lightweight tag
 /// stored in components and resources. Behavior lives in [`Scene::handler`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter)]
 pub enum Scene {
     /// The press-to-start screen shown at boot.
     Title,
@@ -173,6 +186,17 @@ pub fn apply_pending_scene(world: &mut World) {
         .expect("SceneManager resource is present for the whole run");
     scenes.apply_pending(world);
     world.insert_resource(scenes);
+}
+
+/// Registers every scene's per-frame systems into the schedule, once at build time.
+///
+/// Each scene owns the wiring and gating for its own systems via [`SceneHandler::register`],
+/// so the central schedule never names a specific scene. Adding a scene is a new module
+/// plus its `Scene` variant and `handler` arm -- this loop picks it up automatically.
+pub fn register_scene_systems(schedule: &mut Schedule) {
+    for scene in Scene::iter() {
+        scene.handler().register(schedule);
+    }
 }
 
 /// Run-condition: true only while `scene` is active. Gates per-scene systems.

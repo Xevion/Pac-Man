@@ -64,38 +64,24 @@ impl GameStage {
     /// GhostEatenPause *entry* is event-driven (a ghost is eaten, not a tick elapsing),
     /// so it lives in [`enter_ghost_eaten_pause`] and is a deliberate no-op here.
     fn on_enter(self, old: GameStage, res: &mut StageResources) {
-        let player = *res.player;
         match self {
             GameStage::Starting(StartupSequence::TextOnly { .. }) => {
                 // No entity effects: characters stay hidden, energizers stay static.
             }
             GameStage::Starting(StartupSequence::CharactersVisible { .. }) => {
-                // Unhide the player & ghosts.
-                res.commands.entity(player).insert(Visibility::visible());
-                for (entity, _) in res.ghosts.iter() {
-                    res.commands.entity(entity).insert(Visibility::visible());
-                }
+                res.reveal_actors();
             }
             GameStage::Playing => match old {
                 GameStage::GhostEatenPause { ghost_entity, .. } => {
-                    // Unfreeze and reveal the player & all ghosts.
-                    res.commands.entity(player).remove::<Frozen>().insert(Visibility::visible());
-                    for (entity, _) in res.ghosts.iter() {
-                        res.commands.entity(entity).remove::<Frozen>().insert(Visibility::visible());
-                    }
-                    // Reveal the eaten ghost and switch it to Eyes state.
+                    res.unfreeze_actors();
+                    res.reveal_actors();
+                    // The just-eaten ghost returns as Eyes, heading home.
                     res.commands.entity(ghost_entity).insert(GhostState::Eyes);
                 }
                 GameStage::Starting(StartupSequence::CharactersVisible { .. }) => {
-                    // Unfreeze the player, ghosts, and blinking energizers.
-                    res.commands.entity(player).remove::<Frozen>();
-                    for (entity, _) in res.ghosts.iter() {
-                        res.commands.entity(entity).remove::<Frozen>();
-                    }
-                    for entity in res.blinking.iter() {
-                        res.commands.entity(entity).remove::<Frozen>();
-                    }
-                    // Reset the intro flag for the next round.
+                    res.unfreeze_actors();
+                    res.unfreeze_blinking();
+                    // Arm the intro jingle for the next round.
                     res.session.intro_played = false;
                 }
                 _ => {}
@@ -104,82 +90,22 @@ impl GameStage {
                 // Entry is event-driven; handled by `enter_ghost_eaten_pause`.
             }
             GameStage::PlayerDying(DyingSequence::Frozen { .. }) => {
-                // Freeze the player & ghosts.
-                res.commands.entity(player).insert(Frozen);
-                for (entity, _) in res.ghosts.iter() {
-                    res.commands.entity(entity).insert(Frozen);
-                }
+                res.freeze_actors();
             }
             GameStage::PlayerDying(DyingSequence::Animating { .. }) => {
-                // Hide the ghosts.
-                for (entity, _) in res.ghosts.iter() {
-                    res.commands.entity(entity).insert(Visibility::hidden());
-                }
-
-                // Start Pac-Man's death animation.
-                res.commands
-                    .entity(player)
-                    .remove::<DirectionalAnimation>()
-                    .insert((Dying, res.player_death_animation.0.clone()));
-
-                // Play the death sound.
-                res.audio_events
-                    .write(AudioEvent::PlaySound(crate::audio::Sound::PacmanDeath));
+                res.hide_ghosts();
+                res.start_player_death_animation();
             }
             GameStage::PlayerDying(DyingSequence::Hidden { .. }) => {
-                // Pac-Man's death animation is complete, so he should be hidden just like the
-                // ghosts. Then, reset them all back to their original positions and states.
-
-                // Freeze the blinking power pellets, force them visible (if hidden by blinking).
-                for entity in res.blinking.iter() {
-                    res.commands.entity(entity).insert(Frozen).insert(Visibility::visible());
-                }
-
-                // Delete any fruit entities.
-                let fruit: Vec<Entity> = res
-                    .items
-                    .iter()
-                    .filter_map(|(entity, entity_type)| matches!(entity_type, EntityType::Fruit(_)).then_some(entity))
-                    .collect();
-                for entity in fruit {
-                    res.commands.entity(entity).despawn();
-                }
-
-                // Reset the player animation.
-                res.commands
-                    .entity(player)
-                    .remove::<(Dying, LinearAnimation, Looping)>()
-                    .insert((
-                        Velocity {
-                            speed: constants::mechanics::PLAYER_SPEED,
-                            direction: Direction::Left,
-                        },
-                        Position::Stopped {
-                            node: res.map.start_positions.pacman,
-                        },
-                        res.player_animation.0.clone(),
-                        Visibility::hidden(),
-                        Frozen,
-                    ));
-
-                // Reset ghost positions and state.
-                let ghost_resets: Vec<(Entity, GhostType)> = res.ghosts.iter().map(|(entity, ghost)| (entity, *ghost)).collect();
-                for (ghost_entity, ghost) in ghost_resets {
-                    res.commands.entity(ghost_entity).insert((
-                        ghost.initial_state(),
-                        Position::Stopped {
-                            node: res.map.start_positions.ghost_start(ghost),
-                        },
-                        Frozen,
-                        Visibility::hidden(),
-                    ));
-                }
+                // Death animation done: clear the board and return everyone to their marks,
+                // hidden and frozen, ready for the next startup sequence.
+                res.freeze_blinking_visible();
+                res.despawn_fruit();
+                res.reset_player_to_start();
+                res.reset_ghosts_to_start();
             }
             GameStage::GameOver => {
-                // Freeze blinking.
-                for entity in res.blinking.iter() {
-                    res.commands.entity(entity).insert(Frozen);
-                }
+                res.freeze_blinking();
             }
         }
     }
@@ -234,16 +160,134 @@ pub struct StageResources<'w, 's> {
     pub ghosts: Query<'w, 's, (Entity, &'static GhostType), (With<GhostCollider>, Without<PlayerControlled>)>,
 }
 
+/// Named choreography the stage transitions are built from. Each method is one intent --
+/// freeze, reveal, hide, reset -- so [`GameStage::on_enter`] reads as a sequence of intents
+/// rather than a wall of per-entity component edits.
+impl StageResources<'_, '_> {
+    /// Freeze the player and every ghost, halting movement and animation.
+    fn freeze_actors(&mut self) {
+        let player = *self.player;
+        self.commands.entity(player).insert(Frozen);
+        for (entity, _) in self.ghosts.iter() {
+            self.commands.entity(entity).insert(Frozen);
+        }
+    }
+
+    /// Unfreeze the player and every ghost, resuming them.
+    fn unfreeze_actors(&mut self) {
+        let player = *self.player;
+        self.commands.entity(player).remove::<Frozen>();
+        for (entity, _) in self.ghosts.iter() {
+            self.commands.entity(entity).remove::<Frozen>();
+        }
+    }
+
+    /// Make the player and every ghost visible.
+    fn reveal_actors(&mut self) {
+        let player = *self.player;
+        self.commands.entity(player).insert(Visibility::visible());
+        for (entity, _) in self.ghosts.iter() {
+            self.commands.entity(entity).insert(Visibility::visible());
+        }
+    }
+
+    /// Hide every ghost (the player keeps whatever visibility it has).
+    fn hide_ghosts(&mut self) {
+        for (entity, _) in self.ghosts.iter() {
+            self.commands.entity(entity).insert(Visibility::hidden());
+        }
+    }
+
+    /// Freeze the blinking energizers, stopping their blink animation.
+    fn freeze_blinking(&mut self) {
+        for entity in self.blinking.iter() {
+            self.commands.entity(entity).insert(Frozen);
+        }
+    }
+
+    /// Unfreeze the blinking energizers, resuming the blink.
+    fn unfreeze_blinking(&mut self) {
+        for entity in self.blinking.iter() {
+            self.commands.entity(entity).remove::<Frozen>();
+        }
+    }
+
+    /// Freeze the blinking energizers and force them visible, so one caught mid-blink-hidden
+    /// doesn't vanish while the board is held for a death reset.
+    fn freeze_blinking_visible(&mut self) {
+        for entity in self.blinking.iter() {
+            self.commands.entity(entity).insert(Frozen).insert(Visibility::visible());
+        }
+    }
+
+    /// Despawn any on-board fruit (bonus item) entities.
+    fn despawn_fruit(&mut self) {
+        let fruit: Vec<Entity> = self
+            .items
+            .iter()
+            .filter_map(|(entity, entity_type)| matches!(entity_type, EntityType::Fruit(_)).then_some(entity))
+            .collect();
+        for entity in fruit {
+            self.commands.entity(entity).despawn();
+        }
+    }
+
+    /// Swap the player's directional animation for the death animation and play the sound.
+    fn start_player_death_animation(&mut self) {
+        let player = *self.player;
+        self.commands
+            .entity(player)
+            .remove::<DirectionalAnimation>()
+            .insert((Dying, self.player_death_animation.0.clone()));
+        self.audio_events
+            .write(AudioEvent::PlaySound(crate::audio::Sound::PacmanDeath));
+    }
+
+    /// Return the player to its start node: clear the death animation, restore the normal
+    /// animation and velocity, and leave it frozen and hidden for the next startup.
+    fn reset_player_to_start(&mut self) {
+        let player = *self.player;
+        let node = self.map.start_positions.pacman;
+        self.commands
+            .entity(player)
+            .remove::<(Dying, LinearAnimation, Looping)>()
+            .insert((
+                Velocity {
+                    speed: constants::mechanics::PLAYER_SPEED,
+                    direction: Direction::Left,
+                },
+                Position::Stopped { node },
+                self.player_animation.0.clone(),
+                Visibility::hidden(),
+                Frozen,
+            ));
+    }
+
+    /// Return every ghost to its start node and initial state, frozen and hidden.
+    fn reset_ghosts_to_start(&mut self) {
+        let resets: Vec<(Entity, GhostType)> = self.ghosts.iter().map(|(entity, ghost)| (entity, *ghost)).collect();
+        for (entity, ghost) in resets {
+            let node = self.map.start_positions.ghost_start(ghost);
+            self.commands.entity(entity).insert((
+                ghost.initial_state(),
+                Position::Stopped { node },
+                Frozen,
+                Visibility::hidden(),
+            ));
+        }
+    }
+}
+
 /// Advances the gameplay sub-machine one tick and applies the side-effects of any
 /// transition. The per-stage tick logic decides the next stage; [`GameStage::on_enter`]
 /// then applies the freeze/hide/reset effects.
 pub fn stage_system(mut res: StageResources) {
-    let old_state = res.session.stage;
+    let old_state = res.session.stage();
 
-    let new_state: GameStage = match res.session.stage {
+    let new_state: GameStage = match res.session.stage() {
         GameStage::Playing => {
             // This is the default state, do nothing
-            res.session.stage
+            res.session.stage()
         }
         GameStage::GhostEatenPause {
             remaining_ticks,
@@ -338,7 +382,7 @@ pub fn stage_system(mut res: StageResources) {
                 }
             }
         },
-        GameStage::GameOver => res.session.stage,
+        GameStage::GameOver => res.session.stage(),
     };
 
     if old_state == new_state {
@@ -351,7 +395,7 @@ pub fn stage_system(mut res: StageResources) {
 
     new_state.on_enter(old_state, &mut res);
 
-    res.session.stage = new_state;
+    res.session.set_stage(new_state);
 }
 
 /// Enters the GhostEatenPause stage when Pac-Man eats a frightened ghost.
@@ -376,7 +420,7 @@ pub fn enter_ghost_eaten_pause(
 
     // Only enter the pause from live gameplay: if a fatal collision already flipped the
     // session into PlayerDying this frame, that takes precedence.
-    if !matches!(session.stage, GameStage::Playing) {
+    if !matches!(session.stage(), GameStage::Playing) {
         return;
     }
 
@@ -404,10 +448,10 @@ pub fn enter_ghost_eaten_pause(
         ttl: constants::mechanics::GHOST_EATEN_PAUSE_TICKS,
     });
 
-    session.stage = GameStage::GhostEatenPause {
+    session.set_stage(GameStage::GhostEatenPause {
         remaining_ticks: constants::mechanics::GHOST_EATEN_PAUSE_TICKS,
         ghost_entity,
         ghost_type,
         node,
-    };
+    });
 }
