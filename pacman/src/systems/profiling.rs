@@ -318,6 +318,13 @@ impl SystemTimings {
 /// schedule materializes every system into one large nest of tuples on the stack
 /// at startup; keeping each element pointer-sized keeps that construction well
 /// within Emscripten's small main stack, regardless of how many systems exist.
+///
+/// The wrapped system is invoked via [`System::run`], which does **not** run Bevy's
+/// param validation. The stock scheduler validates params first and silently skips a
+/// system whose params aren't satisfiable (e.g. an empty `Single`); that skip does not
+/// happen here. A system that can legitimately have unsatisfiable params must opt into
+/// tolerance itself -- use `Option<Single>`/`Populated` or an explicit guard rather
+/// than a bare `Single`, or it will panic here instead of being skipped.
 pub fn profile<S, M>(id: SystemId, system: S) -> impl FnMut(&mut bevy_ecs::world::World)
 where
     S: IntoSystem<(), (), M> + 'static,

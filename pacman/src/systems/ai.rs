@@ -27,10 +27,19 @@ use crate::systems::player::PlayerControlled;
 #[allow(clippy::type_complexity)]
 pub fn ai_player_system(
     map: Res<Map>,
-    player: Single<(&Position, &Velocity), (With<PlayerControlled>, Without<Frozen>)>,
+    player: Option<Single<(&Position, &Velocity), (With<PlayerControlled>, Without<Frozen>)>>,
     pellets: Query<&Position, With<ItemCollider>>,
     mut writer: EventWriter<GameEvent>,
 ) {
+    // Nothing to steer until there is exactly one movable player. The player spawns
+    // `Frozen` and stays so through the intro sequence (and again during death and the
+    // ghost-eaten pause), so the query is routinely empty -- the AI just waits. This
+    // must be `Option<Single>`, not `Single`: the schedule runs every system through
+    // `profile()`, which calls `System::run` directly and bypasses Bevy's param
+    // validation, so a bare `Single` panics on the empty frame instead of being skipped.
+    let Some(player) = player else {
+        return;
+    };
     let (position, velocity) = player.into_inner();
     let current_node = position.current_node();
 
