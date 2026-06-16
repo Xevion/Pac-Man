@@ -10,6 +10,7 @@ pub mod profiling;
 #[cfg_attr(coverage_nightly, coverage(off))]
 pub mod render;
 
+pub mod ai;
 pub mod animation;
 pub mod collision;
 pub mod common;

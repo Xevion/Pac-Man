@@ -10,7 +10,7 @@ use crate::constants;
 use crate::events::{GameCommand, GameEvent};
 use crate::map::{builder::Map, graph::Edge};
 use crate::systems::audio::AudioEvent;
-use crate::systems::common::{DeltaTime, EntityType, Frozen, GlobalState, MovementModifiers};
+use crate::systems::common::{DeltaTime, EntityType, Frozen, MovementModifiers};
 use crate::systems::debug::DebugState;
 use crate::systems::movement::{BufferedDirection, Position, Velocity};
 
@@ -26,13 +26,13 @@ pub fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
 /// Processes player input commands and updates game state accordingly.
 ///
 /// Handles keyboard-driven commands like movement direction changes, debug mode
-/// toggling, audio muting, and game exit requests. Movement commands are buffered
-/// to allow direction changes before reaching intersections, improving gameplay
-/// responsiveness. Non-movement commands immediately modify global game state.
+/// toggling, and audio muting. Movement commands are buffered to allow direction
+/// changes before reaching intersections, improving gameplay responsiveness.
+/// Non-movement commands immediately modify global game state. (Exit is handled
+/// separately via the `ExitRequested` observer.)
 #[allow(clippy::type_complexity)]
 pub fn player_control_system(
     mut events: EventReader<GameEvent>,
-    mut state: ResMut<GlobalState>,
     mut debug_state: ResMut<DebugState>,
     mut audio_events: EventWriter<AudioEvent>,
     mut player: Option<Single<&mut BufferedDirection, (With<PlayerControlled>, Without<Frozen>)>>,
@@ -51,9 +51,6 @@ pub fn player_control_system(
                         remaining_time: constants::mechanics::BUFFERED_DIRECTION_TIMEOUT_SECS,
                     };
                 }
-            }
-            GameCommand::Exit => {
-                state.exit = true;
             }
             GameCommand::ToggleDebug => {
                 debug_state.enabled = !debug_state.enabled;

@@ -8,6 +8,7 @@ use super::{
 };
 use crate::constants;
 use crate::map::builder::Map;
+use crate::map::graph::TraversalFlags;
 use crate::platform::rng;
 use crate::systems::common::{DeltaTime, Frozen};
 use crate::systems::movement::{NodeId, Position, Velocity};
@@ -204,7 +205,8 @@ pub fn ghost_movement_system(
 
                     let new_direction = choose_direction_at_intersection(
                         &map,
-                        &config.red_zones,
+                        Some(&config.red_zones),
+                        TraversalFlags::GHOST,
                         node,
                         target_node,
                         velocity.direction,

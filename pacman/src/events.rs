@@ -9,7 +9,10 @@ use crate::systems::ghost::GhostType;
 /// and processed by appropriate game systems to modify state or behavior.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameCommand {
-    /// Request immediate game shutdown
+    /// Request immediate game shutdown. Desktop only: the web build's lifecycle is
+    /// owned by the browser tab (and the `stop_game` FFI), so there is no in-engine
+    /// quit there.
+    #[cfg(not(target_os = "emscripten"))]
     Exit,
     /// Set Pac-Man's movement direction
     MovePlayer(Direction),
@@ -43,6 +46,13 @@ impl From<GameCommand> for GameEvent {
         GameEvent::Command(command)
     }
 }
+
+/// One-shot request to shut the game down, raised by the quit key or the window
+/// close button and handled by an observer that flips `GlobalState.exit`. Kept off
+/// the buffered `GameEvent` stream so shutdown resolves the same frame it is asked
+/// for rather than on the next read.
+#[derive(Event, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ExitRequested;
 
 /// Data for requesting stage transitions; processed centrally in stage_system
 #[derive(Event, Clone, Copy, Debug, PartialEq, Eq)]

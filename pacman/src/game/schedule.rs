@@ -14,6 +14,7 @@ use crate::systems::collision::collision_system;
 use crate::systems::debug::debug_overlay_system;
 use crate::systems::ghost::{eaten_ghost_system, ghost_movement_system, ghost_state_system};
 use crate::systems::hud::{chrome_render_system, hud_overlay_system, touch_ui_render_system};
+use crate::systems::input::InputSource;
 use crate::systems::lifetime::time_to_live_system;
 use crate::systems::profiling::{profile, SystemId};
 use crate::systems::render::{backbuffer_render_system, composite_maze_system, dirty_render_system, present_system, RenderDirty};
@@ -82,9 +83,16 @@ fn add_input_systems(schedule: &mut Schedule) {
             #[cfg(target_os = "emscripten")]
             profile(SystemId::Input, systems::input::apply_pending_resize),
             profile(SystemId::Input, systems::input::input_system),
+            // In AI-driven scenes (attract), the stub AI is the movement producer.
+            // Ordered after input_system and before player_control_system so its
+            // MovePlayer command is buffered the same frame.
+            profile(SystemId::PlayerControls, systems::ai::ai_player_system).run_if(|source: Res<InputSource>| source.is_ai()),
             // While the Title is up, the first input hands off to gameplay. Ordered
             // after input_system so it sees this frame's GameEvents.
             profile(SystemId::Input, scenes::title_input_system).run_if(scenes::in_scene(scenes::Scene::Title)),
+            // Debug ResetLevel rebuilds the active scene in place; queued here,
+            // applied at the top of the next frame.
+            profile(SystemId::Input, scenes::handle_reset_command),
             profile(SystemId::PlayerControls, systems::player::player_control_system),
             profile(SystemId::Input, systems::state::handle_pause_command),
             #[cfg(not(target_os = "emscripten"))]

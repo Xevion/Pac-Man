@@ -1,6 +1,6 @@
-use bevy_ecs::{event::Events, system::RunSystemOnce};
+use bevy_ecs::{event::Events, system::RunSystemOnce, world::World};
 use pacman::{
-    events::{GameCommand, GameEvent},
+    events::{ExitRequested, GameCommand, GameEvent},
     map::{
         direction::Direction,
         graph::{Edge, TraversalFlags},
@@ -9,6 +9,7 @@ use pacman::{
         audio::AudioEvent,
         common::{DeltaTime, EntityType, GlobalState},
         debug::DebugState,
+        input::exit_observer,
         movement::{BufferedDirection, Position, Velocity},
         player::{can_traverse, player_control_system, player_movement_system},
     },
@@ -142,22 +143,18 @@ fn test_player_control_system_move_command() {
     }
 }
 
+/// Exit is no longer a buffered command handled by `player_control_system`; it is a
+/// one-shot `ExitRequested` trigger. The observer must flip the global exit flag.
 #[test]
-fn test_player_control_system_exit_command() {
-    let (mut world, _) = common::create_test_world();
-    let _player = common::spawn_test_player(&mut world, 0);
+fn exit_requested_observer_sets_exit_flag() {
+    let mut world = World::new();
+    world.insert_resource(GlobalState { exit: false });
+    world.add_observer(exit_observer);
 
-    // Send exit command
-    common::send_game_event(&mut world, GameEvent::Command(GameCommand::Exit));
+    world.trigger(ExitRequested);
+    world.flush();
 
-    // Run the system
-    world
-        .run_system_once(player_control_system)
-        .expect("System should run successfully");
-
-    // Check that exit flag was set
-    let state = world.resource::<GlobalState>();
-    assert_that(&state.exit).is_true();
+    assert_that(&world.resource::<GlobalState>().exit).is_true();
 }
 
 #[test]

@@ -11,13 +11,16 @@
 //! one exhaustive `handler` arm -- the compiler forces all three.
 
 use bevy_ecs::component::Component;
+use bevy_ecs::event::EventReader;
 use bevy_ecs::resource::Resource;
-use bevy_ecs::system::Res;
+use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::world::World;
 
 use crate::error::GameResult;
+use crate::events::{GameCommand, GameEvent};
 use crate::systems::state::PauseState;
 
+mod attract;
 mod gameplay;
 mod title;
 
@@ -44,6 +47,8 @@ pub enum Scene {
     Title,
     /// The playable maze: player, ghosts, and collectibles.
     Gameplay,
+    /// A self-playing demo: the gameplay maze under AI control.
+    Attract,
 }
 
 impl Scene {
@@ -53,6 +58,7 @@ impl Scene {
         match self {
             Scene::Title => &title::TitleScene,
             Scene::Gameplay => &gameplay::GameplayScene,
+            Scene::Attract => &attract::AttractScene,
         }
     }
 }
@@ -74,13 +80,21 @@ pub struct SceneOwned(pub Scene);
 pub struct SceneManager {
     active: Scene,
     pending: Option<Scene>,
+    /// When set, re-enter `active` in place (on_exit then on_enter) at the next
+    /// apply -- rebuilding its entities without changing scene. Drives the debug
+    /// `ResetLevel` command.
+    reload: bool,
 }
 
 impl SceneManager {
     /// Creates a manager already in `active` with nothing pending. The initial
     /// scene's [`SceneHandler::on_enter`] is run separately via [`Self::enter_initial`].
     pub fn new(active: Scene) -> Self {
-        Self { active, pending: None }
+        Self {
+            active,
+            pending: None,
+            reload: false,
+        }
     }
 
     /// The scene currently being presented.
@@ -95,6 +109,12 @@ impl SceneManager {
         self.pending = Some(scene);
     }
 
+    /// Queues an in-place rebuild of the active scene (despawn + respawn) for the
+    /// next apply. Used by the debug `ResetLevel` command.
+    pub fn reload(&mut self) {
+        self.reload = true;
+    }
+
     /// Runs the active scene's enter hook once at boot. Call before inserting the
     /// manager into the world, so the hook has unobstructed `&mut World` access and
     /// there is no prior scene to exit.
@@ -106,21 +126,30 @@ impl SceneManager {
     /// it active. Called from [`apply_pending_scene`] with the manager removed from
     /// the world, so it holds `&mut self` and `&mut World` at once.
     fn apply_pending(&mut self, world: &mut World) {
-        let Some(next) = self.pending.take() else {
-            return;
-        };
-        if next == self.active {
-            return;
+        if let Some(next) = self.pending.take() {
+            if next != self.active {
+                // A scene switch rebuilds entities wholesale, so any queued reload is moot.
+                self.reload = false;
+                self.active.handler().on_exit(world);
+                if let Err(e) = next.handler().on_enter(world) {
+                    // Entering a scene only fails on missing assets, which would already
+                    // have failed at boot, so this is effectively unreachable post-startup.
+                    // Log rather than panic so a transient failure can't take down the loop.
+                    tracing::error!("entering scene {next:?} failed: {e}");
+                }
+                self.active = next;
+                return;
+            }
         }
 
-        self.active.handler().on_exit(world);
-        if let Err(e) = next.handler().on_enter(world) {
-            // Entering a scene only fails on missing assets, which would already have
-            // failed at boot, so this is effectively unreachable post-startup. Log
-            // rather than panic so a transient failure can't take down the loop.
-            tracing::error!("entering scene {next:?} failed: {e}");
+        // No scene change requested: honor a queued in-place reload by tearing the
+        // active scene down and bringing it straight back up.
+        if std::mem::take(&mut self.reload) {
+            self.active.handler().on_exit(world);
+            if let Err(e) = self.active.handler().on_enter(world) {
+                tracing::error!("reloading scene {:?} failed: {e}", self.active);
+            }
         }
-        self.active = next;
     }
 }
 
@@ -142,8 +171,19 @@ pub fn in_scene(scene: Scene) -> impl Fn(Res<SceneManager>) -> bool + Clone {
 }
 
 /// Run-condition for the simulation sets (Update/Respond/Animation): the active
-/// scene is a live gameplay simulation and the game isn't paused. Attract joins
-/// `Gameplay` here in a later phase.
+/// scene is a live gameplay simulation (player-driven Gameplay or AI-driven Attract)
+/// and the game isn't paused.
 pub fn sim_active(scenes: Res<SceneManager>, pause: Res<PauseState>) -> bool {
-    matches!(scenes.active(), Scene::Gameplay) && !pause.active()
+    matches!(scenes.active(), Scene::Gameplay | Scene::Attract) && !pause.active()
+}
+
+/// Handles the debug `ResetLevel` command by queuing an in-place reload of the
+/// active scene; the rebuild itself happens next frame in [`apply_pending_scene`].
+pub fn handle_reset_command(mut events: EventReader<GameEvent>, mut scenes: ResMut<SceneManager>) {
+    if events
+        .read()
+        .any(|e| matches!(e, GameEvent::Command(GameCommand::ResetLevel)))
+    {
+        scenes.reload();
+    }
 }

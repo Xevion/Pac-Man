@@ -40,10 +40,16 @@ impl RedZoneNodes {
     }
 }
 
-/// Determines the best direction for a ghost at an intersection
+/// Determines the best direction at an intersection for an entity that traverses
+/// edges carrying `flags` (ghosts pass [`TraversalFlags::GHOST`], the attract-mode
+/// AI passes [`TraversalFlags::PACMAN`]). `red_zones` applies the ghost-only "no
+/// upward turn" restriction; pass `None` for entities (Pac-Man) that aren't bound
+/// by it.
+#[allow(clippy::too_many_arguments)]
 pub fn choose_direction_at_intersection(
     map: &Map,
-    red_zones: &RedZoneNodes,
+    red_zones: Option<&RedZoneNodes>,
+    flags: TraversalFlags,
     current_node: NodeId,
     target_node: NodeId,
     current_direction: Direction,
@@ -53,7 +59,7 @@ pub fn choose_direction_at_intersection(
     let intersection = &map.graph.adjacency_list[current_node as usize];
     let opposite = current_direction.opposite();
 
-    // Collect valid directions (not opposite, traversable by ghosts)
+    // Collect valid directions (not opposite, traversable by this entity)
     let mut candidates: Vec<(Direction, f32)> = Vec::with_capacity(3);
 
     for dir in Direction::DIRECTIONS {
@@ -62,17 +68,17 @@ pub fn choose_direction_at_intersection(
             continue;
         }
 
-        // Check if edge exists and is ghost-traversable
+        // Check if edge exists and is traversable by this entity
         let Some(edge) = intersection.get(dir) else {
             continue;
         };
 
-        if !edge.traversal_flags.contains(TraversalFlags::GHOST) {
+        if !edge.traversal_flags.contains(flags) {
             continue;
         }
 
-        // Red zone check: no upward turns unless frightened
-        if dir == Direction::Up && !is_frightened && red_zones.contains(current_node) {
+        // Red zone check: no upward turns unless frightened (ghost-only)
+        if dir == Direction::Up && !is_frightened && red_zones.is_some_and(|rz| rz.contains(current_node)) {
             continue;
         }
 

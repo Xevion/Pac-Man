@@ -2,8 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use bevy_ecs::{
     event::EventWriter,
+    observer::Trigger,
     resource::Resource,
-    system::{NonSendMut, Res, ResMut},
+    system::{Commands, NonSendMut, Res, ResMut},
 };
 use glam::{UVec2, Vec2};
 use sdl2::{
@@ -13,12 +14,34 @@ use sdl2::{
 };
 use smallvec::{smallvec, SmallVec};
 
-use crate::systems::common::DeltaTime;
+use crate::systems::common::{DeltaTime, GlobalState};
 use crate::systems::layout::Layout;
 use crate::{
-    events::{GameCommand, GameEvent},
+    events::{ExitRequested, GameCommand, GameEvent},
     map::direction::Direction,
 };
+
+/// Who is currently driving Pac-Man's movement. This gates only the `MovePlayer`
+/// *producer*: [`input_system`] emits human movement under [`InputSource::Human`],
+/// while [`ai_player_system`](crate::systems::ai::ai_player_system) emits under
+/// [`InputSource::Ai`]. The single consumer (`player_control_system`) is unaware of
+/// the source, so swapping who steers never touches the movement pipeline itself.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum InputSource {
+    #[default]
+    Human,
+    Ai,
+}
+
+impl InputSource {
+    pub fn is_human(self) -> bool {
+        matches!(self, InputSource::Human)
+    }
+
+    pub fn is_ai(self) -> bool {
+        matches!(self, InputSource::Ai)
+    }
+}
 
 // Touch input constants
 pub const TOUCH_DIRECTION_THRESHOLD: f32 = 10.0;
@@ -252,8 +275,18 @@ pub fn apply_pending_resize(mut canvas: NonSendMut<crate::systems::render::Canva
     }
 }
 
+/// Observer for [`ExitRequested`]: flips the global exit flag so the main loop tears
+/// down after the current frame. Raised by the quit key and the window close button,
+/// it resolves the same frame rather than waiting on a buffered-event read.
+pub fn exit_observer(_: Trigger<ExitRequested>, mut state: ResMut<GlobalState>) {
+    state.exit = true;
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn input_system(
     delta_time: Res<DeltaTime>,
+    input_source: Res<InputSource>,
+    mut commands: Commands,
     mut bindings: ResMut<Bindings>,
     mut writer: EventWriter<GameEvent>,
     mut pump: NonSendMut<EventPump>,
@@ -270,7 +303,7 @@ pub fn input_system(
     for event in &frame_events {
         match *event {
             Event::Quit { .. } => {
-                writer.write(GameEvent::Command(GameCommand::Exit));
+                commands.trigger(ExitRequested);
             }
             Event::MouseMotion { x, y, .. } => {
                 let pos = layout.window_to_maze(Vec2::new(x as f32, y as f32));
@@ -358,7 +391,19 @@ pub fn input_system(
     // Delegate keyboard handling to shared logic used by tests and production.
     let emitted = process_simple_key_events(&mut bindings, &simple_key_events);
     for event in emitted {
-        writer.write(event);
+        match event {
+            // Exit is a one-shot lifecycle request: route it to its observer instead
+            // of the buffered command stream so shutdown happens the same frame.
+            // (Desktop only -- the web build has no in-engine quit command.)
+            #[cfg(not(target_os = "emscripten"))]
+            GameEvent::Command(GameCommand::Exit) => commands.trigger(ExitRequested),
+            // In AI-driven scenes (attract) the AI is the sole movement producer;
+            // drop human movement so the two don't fight over the buffered direction.
+            GameEvent::Command(GameCommand::MovePlayer(_)) if input_source.is_ai() => {}
+            _ => {
+                writer.write(event);
+            }
+        }
     }
 
     // Update touch reference position with easing
@@ -373,7 +418,9 @@ pub fn input_system(
             // Only send command if direction has changed
             if touch_data.current_direction != Some(direction) {
                 touch_data.current_direction = Some(direction);
-                writer.write(GameEvent::Command(GameCommand::MovePlayer(direction)));
+                if input_source.is_human() {
+                    writer.write(GameEvent::Command(GameCommand::MovePlayer(direction)));
+                }
             }
         } else if touch_data.current_direction.is_some() {
             touch_data.current_direction = None;

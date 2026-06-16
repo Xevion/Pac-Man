@@ -3,8 +3,6 @@
 use tracing::trace;
 
 use bevy_ecs::event::EventRegistry;
-use bevy_ecs::observer::Trigger;
-use bevy_ecs::system::ResMut;
 use bevy_ecs::world::World;
 use sdl2::event::EventType;
 use sdl2::image::LoadTexture;
@@ -18,7 +16,7 @@ use glam::UVec2;
 use crate::asset::Asset;
 use crate::constants;
 use crate::error::{GameError, GameResult};
-use crate::events::{GameCommand, GameEvent};
+use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::platform;
 use crate::systems::animation::LinearAnimation;
@@ -27,7 +25,7 @@ use crate::systems::collision::{ghost_collision_observer, item_collision_observe
 use crate::systems::common::{DeltaTime, GlobalState};
 use crate::systems::debug::{BatchedLinesResource, DebugState, TtfAtlasResource};
 use crate::systems::hud::{FruitSprites, LeaderboardData};
-use crate::systems::input::{Bindings, CursorPosition, TouchState};
+use crate::systems::input::{exit_observer, Bindings, CursorPosition, InputSource, TouchState};
 use crate::systems::layout::{Layout, DEFAULT_WINDOW, PLAYFIELD_SIZE};
 use crate::systems::profiling::{SystemTimings, Timing};
 use crate::systems::render::{BackbufferResource, CanvasResource, MapTextureResource, RenderDirty};
@@ -156,11 +154,7 @@ pub(super) fn setup_ecs(world: &mut World) {
     EventRegistry::register_event::<GameEvent>(world);
     EventRegistry::register_event::<AudioEvent>(world);
 
-    world.add_observer(|event: Trigger<GameEvent>, mut state: ResMut<GlobalState>| {
-        if matches!(*event, GameEvent::Command(GameCommand::Exit)) {
-            state.exit = true;
-        }
-    });
+    world.add_observer(exit_observer);
 
     world.add_observer(ghost_collision_observer);
     world.add_observer(item_collision_observer);
@@ -203,6 +197,7 @@ pub(super) fn insert_resources(world: &mut World, map: Map, init: InitResources)
     world.insert_resource(SystemTimings::default());
     world.insert_resource(Timing::default());
     world.insert_resource(Bindings::default());
+    world.insert_resource(InputSource::default());
     world.insert_resource(DeltaTime { seconds: 0.0, ticks: 0 });
     world.insert_resource(RenderDirty::default());
     world.insert_resource(DebugState::default());

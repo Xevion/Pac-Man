@@ -4,6 +4,7 @@ use bevy_ecs::world::World;
 
 use crate::error::GameResult;
 use crate::game::spawning::{despawn_gameplay, spawn_gameplay};
+use crate::systems::input::InputSource;
 
 use super::SceneHandler;
 
@@ -12,9 +13,11 @@ use super::SceneHandler;
 pub struct GameplayScene;
 
 impl SceneHandler for GameplayScene {
-    /// Entering gameplay spawns a fresh scene at level 1. Score and lives carry
-    /// over in the session; level progression and resets are wired in a later phase.
+    /// Entering gameplay hands control to the human and spawns a fresh scene at
+    /// level 1. Score and lives carry over in the session; level progression and
+    /// resets are wired in a later phase.
     fn on_enter(&self, world: &mut World) -> GameResult<()> {
+        world.insert_resource(InputSource::Human);
         spawn_gameplay(world, 1)
     }
 

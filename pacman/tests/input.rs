@@ -201,7 +201,7 @@ mod integration_tests {
     fn run_input_system_with_events(events: Vec<sdl2::event::Event>, delta_time: f32) -> (CursorPosition, TouchState) {
         use bevy_ecs::{event::Events, system::RunSystemOnce, world::World};
         use pacman::systems::common::DeltaTime;
-        use pacman::systems::input::input_system;
+        use pacman::systems::input::{input_system, InputSource};
         use pacman::systems::layout::{Layout, Orientation};
 
         let sdl_context = sdl2::init().expect("Failed to initialize SDL");
@@ -215,6 +215,7 @@ mod integration_tests {
             ticks: 1,
         });
         world.insert_resource(Bindings::default());
+        world.insert_resource(InputSource::default());
         world.insert_resource(CursorPosition::None);
         world.insert_resource(TouchState::default());
         // Identity layout (maze at the origin, scale 1) so window->maze mapping is a
