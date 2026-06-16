@@ -90,6 +90,9 @@ fn add_input_systems(schedule: &mut Schedule) {
             // While the Title is up, the first input hands off to gameplay. Ordered
             // after input_system so it sees this frame's GameEvents.
             profile(SystemId::Input, scenes::title_input_system).run_if(scenes::in_scene(scenes::Scene::Title)),
+            // While attract plays, any human input starts a real game (it reads the
+            // HumanInput pulse input_system set this frame).
+            profile(SystemId::Input, scenes::attract_input_system).run_if(scenes::in_scene(scenes::Scene::Attract)),
             // Debug ResetLevel rebuilds the active scene in place; queued here,
             // applied at the top of the next frame.
             profile(SystemId::Input, scenes::handle_reset_command),
@@ -159,9 +162,10 @@ fn add_draw_systems(schedule: &mut Schedule) {
             }),
             profile(SystemId::DirtyRender, dirty_render_system).run_if(|dirty: Res<RenderDirty>| dirty.0.not()),
             profile(SystemId::Render, backbuffer_render_system),
-            // Maze-overlay text (READY!, GAME OVER, pause dimmer) is gameplay-specific,
-            // so it stays off the Title's empty maze.
-            profile(SystemId::HudRender, hud_overlay_system).run_if(scenes::in_scene(scenes::Scene::Gameplay)),
+            // Maze-overlay text (READY!, GAME OVER, pause dimmer) follows the live
+            // simulation -- shown in Gameplay and in the attract demo, off the Title's
+            // empty maze.
+            profile(SystemId::HudRender, hud_overlay_system).run_if(scenes::in_simulation),
             touch_ui_render_system,
         )
             .chain()

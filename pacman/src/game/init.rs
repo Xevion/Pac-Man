@@ -25,7 +25,7 @@ use crate::systems::collision::{ghost_collision_observer, item_collision_observe
 use crate::systems::common::{DeltaTime, GlobalState};
 use crate::systems::debug::{BatchedLinesResource, DebugState, TtfAtlasResource};
 use crate::systems::hud::{FruitSprites, LeaderboardData};
-use crate::systems::input::{exit_observer, Bindings, CursorPosition, InputSource, TouchState};
+use crate::systems::input::{exit_observer, Bindings, CursorPosition, HumanInput, InputSource, TouchState};
 use crate::systems::layout::{Layout, DEFAULT_WINDOW, PLAYFIELD_SIZE};
 use crate::systems::profiling::{SystemTimings, Timing};
 use crate::systems::render::{BackbufferResource, CanvasResource, MapTextureResource, RenderDirty};
@@ -203,6 +203,7 @@ pub(super) fn insert_resources(world: &mut World, map: Map, init: InitResources)
     world.insert_resource(DebugState::default());
     world.insert_resource(CursorPosition::default());
     world.insert_resource(TouchState::default());
+    world.insert_resource(HumanInput::default());
     world.insert_resource(PauseState::default());
 
     let window_size = init.canvas.output_size().unwrap_or((DEFAULT_WINDOW.x, DEFAULT_WINDOW.y));

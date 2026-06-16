@@ -64,6 +64,15 @@ pub struct TouchState {
     pub active_touch: Option<TouchData>,
 }
 
+/// Set by [`input_system`] every frame: true when a human pressed a key or began a
+/// click/tap this frame, independent of [`InputSource`]. Computed from the raw SDL
+/// events, which the AI never produces, so the attract demo can detect a human's intent
+/// to start a real game even though AI mode suppresses human movement commands.
+#[derive(Resource, Default, Debug, Clone, Copy)]
+pub struct HumanInput {
+    pub active: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct TouchData {
     pub finger_id: i64,
@@ -292,11 +301,27 @@ pub fn input_system(
     mut pump: NonSendMut<EventPump>,
     mut cursor: ResMut<CursorPosition>,
     mut touch_state: ResMut<TouchState>,
+    mut human_input: ResMut<HumanInput>,
     mut layout: ResMut<Layout>,
 ) {
     let mut cursor_seen = false;
     // Collect all events for this frame.
     let frame_events: SmallVec<[Event; 3]> = pump.poll_iter().collect();
+
+    // A human acted this frame iff a key went down or a click/tap began. Derived from
+    // the raw SDL events (which the AI never generates), so it stays a human-only signal
+    // the attract demo can use to start a real game.
+    human_input.active = frame_events.iter().any(|event| {
+        matches!(
+            event,
+            Event::KeyDown {
+                repeat: false,
+                keycode: Some(_),
+                ..
+            } | Event::MouseButtonDown { .. }
+                | Event::FingerDown { .. }
+        )
+    });
 
     // Handle non-keyboard events inline and build a simplified keyboard event stream.
     let mut simple_key_events: SmallVec<[SimpleKeyEvent; 3]> = smallvec![];

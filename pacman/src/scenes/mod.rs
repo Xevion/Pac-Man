@@ -24,6 +24,7 @@ mod attract;
 mod gameplay;
 mod title;
 
+pub use attract::attract_input_system;
 pub use title::title_input_system;
 
 /// The behavior of a scene: what happens when it becomes active and when it is
@@ -179,9 +180,15 @@ pub fn in_scene(scene: Scene) -> impl Fn(Res<SceneManager>) -> bool + Clone {
     move |scenes: Res<SceneManager>| scenes.active() == scene
 }
 
-/// Run-condition for the simulation sets (Update/Respond/Animation): the active
-/// scene is a live gameplay simulation (player-driven Gameplay or AI-driven Attract)
-/// and the game isn't paused.
+/// Run-condition: the active scene is a live gameplay simulation -- player-driven
+/// Gameplay or AI-driven Attract -- regardless of pause. Gates rendering that should
+/// follow the simulation either way, like the READY!/GAME OVER maze overlays.
+pub fn in_simulation(scenes: Res<SceneManager>) -> bool {
+    matches!(scenes.active(), Scene::Gameplay | Scene::Attract)
+}
+
+/// Run-condition for the simulation sets (Update/Respond/Animation): a live gameplay
+/// simulation that also isn't paused.
 pub fn sim_active(scenes: Res<SceneManager>, pause: Res<PauseState>) -> bool {
     matches!(scenes.active(), Scene::Gameplay | Scene::Attract) && !pause.active()
 }
