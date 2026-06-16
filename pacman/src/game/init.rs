@@ -18,7 +18,7 @@ use glam::UVec2;
 use crate::asset::Asset;
 use crate::constants;
 use crate::error::{GameError, GameResult};
-use crate::events::{GameCommand, GameEvent, StageTransition};
+use crate::events::{GameCommand, GameEvent};
 use crate::map::builder::Map;
 use crate::platform;
 use crate::systems::animation::LinearAnimation;
@@ -31,7 +31,7 @@ use crate::systems::input::{Bindings, CursorPosition, TouchState};
 use crate::systems::layout::{Layout, DEFAULT_WINDOW, PLAYFIELD_SIZE};
 use crate::systems::profiling::{SystemTimings, Timing};
 use crate::systems::render::{BackbufferResource, CanvasResource, MapTextureResource, RenderDirty};
-use crate::systems::state::{PauseState, PlayerAnimation, PlayerDeathAnimation, Session};
+use crate::systems::state::{enter_ghost_eaten_pause, PauseState, PlayerAnimation, PlayerDeathAnimation, Session};
 use crate::texture::sprite::{AtlasMapper, SpriteAtlas};
 use crate::texture::sprites::{GameSprite, MazeSprite};
 
@@ -155,7 +155,6 @@ pub(super) fn load_atlas_and_map_tiles(
 pub(super) fn setup_ecs(world: &mut World) {
     EventRegistry::register_event::<GameEvent>(world);
     EventRegistry::register_event::<AudioEvent>(world);
-    EventRegistry::register_event::<StageTransition>(world);
 
     world.add_observer(|event: Trigger<GameEvent>, mut state: ResMut<GlobalState>| {
         if matches!(*event, GameEvent::Command(GameCommand::Exit)) {
@@ -165,6 +164,7 @@ pub(super) fn setup_ecs(world: &mut World) {
 
     world.add_observer(ghost_collision_observer);
     world.add_observer(item_collision_observer);
+    world.add_observer(enter_ghost_eaten_pause);
 }
 
 /// Grouped initialization resources passed to `insert_resources`.

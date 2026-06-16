@@ -3,13 +3,11 @@
 use tracing::{info, trace};
 
 use bevy_ecs::entity::Entity;
-use bevy_ecs::event::Events;
 use bevy_ecs::world::World;
 
 use crate::constants;
 use crate::constants::MapTile;
 use crate::error::GameResult;
-use crate::events::StageTransition;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::scenes::{Scene, SceneOwned};
@@ -42,9 +40,8 @@ pub fn spawn_gameplay(world: &mut World, level: u8) -> GameResult<()> {
 /// leading `world.flush()` is then defensive cover for at most one queued layer.
 /// Order is load-bearing: queued commands are flushed first so any pending observer
 /// triggers (e.g. `CollisionTrigger`) resolve against still-live entities; then the
-/// `Entity` ids held in gameplay state (`Session::stage`, the `StageTransition`
-/// queue) are dropped so nothing points at a despawned entity; finally every
-/// `SceneOwned` entity is despawned.
+/// `Entity` id held in gameplay state (`Session::stage`) is dropped so nothing points at
+/// a despawned entity; finally every `SceneOwned` entity is despawned.
 pub fn despawn_gameplay(world: &mut World) {
     world.flush();
 
@@ -52,10 +49,6 @@ pub fn despawn_gameplay(world: &mut World) {
         if matches!(session.stage, GameStage::GhostEatenPause { .. }) {
             session.stage = GameStage::initial();
         }
-    }
-
-    if let Some(mut transitions) = world.get_resource_mut::<Events<StageTransition>>() {
-        transitions.clear();
     }
 
     let doomed: Vec<Entity> = world

@@ -133,7 +133,7 @@ pub fn collision_system(
 /// Observer for handling ghost collisions immediately when they occur
 pub fn ghost_collision_observer(
     trigger: Trigger<CollisionTrigger>,
-    mut stage_events: EventWriter<StageTransition>,
+    mut commands: Commands,
     mut session: ResMut<Session>,
     mut ghost_state_query: Query<&mut GhostState>,
     mut events: EventWriter<AudioEvent>,
@@ -159,9 +159,10 @@ pub fn ghost_collision_observer(
 
                 *ghost_state = GhostState::Eyes;
 
-                // Enter short pause to show bonus points, hide ghost, then set Eyes after pause
-                // Request transition via event so stage_system can process it
-                stage_events.write(StageTransition::GhostEatenPause {
+                // Enter short pause to show bonus points, hide ghost, then set Eyes after pause.
+                // A discrete one-shot transition, so trigger the observer directly rather than
+                // buffering an event for stage_system to drain.
+                commands.trigger(StageTransition::GhostEatenPause {
                     ghost_entity: ghost,
                     ghost_type,
                 });
