@@ -12,6 +12,7 @@ use crate::platform::rng;
 use crate::systems::common::{DeltaTime, Frozen};
 use crate::systems::movement::{NodeId, Position, Velocity};
 use crate::systems::player::PlayerControlled;
+use crate::systems::state::Session;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 
@@ -40,9 +41,9 @@ impl TunnelNodes {
     }
 }
 
-/// Speed configuration based on level and state.
-/// Inserted as a resource during init; update when the level changes.
-#[derive(Resource, Debug, Clone)]
+/// Speed configuration derived from the current level (see [`Self::for_level`]).
+/// Not a resource -- derived on demand from `Session::level`.
+#[derive(Debug, Clone)]
 pub struct GhostSpeedConfig {
     pub normal: f32,
     pub tunnel: f32,
@@ -154,8 +155,7 @@ pub fn ghost_targeting_system(
 /// Ghost movement configuration resources grouped as a SystemParam.
 #[derive(SystemParam)]
 pub struct GhostMovementConfig<'w> {
-    pub mode_controller: Res<'w, GhostModeController>,
-    pub speed_config: Res<'w, GhostSpeedConfig>,
+    pub session: Res<'w, Session>,
     pub tunnel_nodes: Res<'w, TunnelNodes>,
     pub red_zones: Res<'w, RedZoneNodes>,
 }
@@ -168,6 +168,9 @@ pub fn ghost_movement_system(
     elroy_query: Query<&Elroy, With<BlinkyMarker>>,
     mut ghost_query: Query<(&GhostType, &GhostState, &mut Position, &mut Velocity, &GhostTarget), Without<Frozen>>,
 ) {
+    // Level is constant across this frame, so derive the speed table once.
+    let speed_config = GhostSpeedConfig::for_level(config.session.level);
+
     for (ghost_type, state, mut position, mut velocity, target) in ghost_query.iter_mut() {
         // Skip ghosts not active in the maze
         if !matches!(state, GhostState::Active { .. }) {
@@ -178,13 +181,13 @@ pub fn ghost_movement_system(
         let elroy_mult = if *ghost_type == GhostType::Blinky {
             elroy_query
                 .single()
-                .map(|e| elroy_speed(e.stage, config.mode_controller.level))
+                .map(|e| elroy_speed(e.stage, config.session.level))
                 .unwrap_or(1.0)
         } else {
             1.0
         };
 
-        let base_speed = calculate_speed(&position, state, &config.speed_config, &config.tunnel_nodes) * elroy_mult;
+        let base_speed = calculate_speed(&position, state, &speed_config, &config.tunnel_nodes) * elroy_mult;
 
         velocity.speed = base_speed;
 

@@ -10,15 +10,14 @@ use crate::systems;
 use crate::systems::animation::{blinking_system, directional_render_system, linear_render_system};
 use crate::systems::audio::audio_system;
 use crate::systems::collision::collision_system;
-use crate::systems::common::ScoreResource;
 use crate::systems::debug::debug_overlay_system;
 use crate::systems::ghost::{eaten_ghost_system, ghost_movement_system, ghost_state_system};
 use crate::systems::hud::{chrome_render_system, hud_overlay_system, touch_ui_render_system};
 use crate::systems::lifetime::time_to_live_system;
 use crate::systems::profiling::{profile, SystemId};
 use crate::systems::render::{backbuffer_render_system, composite_maze_system, dirty_render_system, present_system, RenderDirty};
-use crate::systems::state::GameStage;
 use crate::systems::state::PauseState;
+use crate::systems::state::Session;
 
 /// System set for all gameplay systems to ensure they run after input processing
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -130,8 +129,11 @@ fn add_animation_systems(schedule: &mut Schedule) {
 fn add_draw_systems(schedule: &mut Schedule) {
     schedule.add_systems(
         (
-            (|mut dirty: ResMut<RenderDirty>, score: Res<ScoreResource>, stage: Res<GameStage>, pause: Res<PauseState>| {
-                dirty.0 |= score.is_changed() || stage.is_changed() || pause.is_changed();
+            (|mut dirty: ResMut<RenderDirty>, session: Res<Session>, pause: Res<PauseState>| {
+                // Session is a superset trigger: it changes on score/lives/level/stage/
+                // intro/pellet edits, all of which warrant a redraw. The per-frame ghost
+                // controllers are separate resources, so they don't over-trigger this.
+                dirty.0 |= session.is_changed() || pause.is_changed();
             }),
             profile(SystemId::DirtyRender, dirty_render_system).run_if(|dirty: Res<RenderDirty>| dirty.0.not()),
             profile(SystemId::Render, backbuffer_render_system),

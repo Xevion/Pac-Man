@@ -17,14 +17,14 @@ use bevy_ecs::{
     entity::Entity,
     event::{EventReader, EventWriter},
     query::{With, Without},
-    resource::Resource,
     system::{Commands, Query, Res, ResMut, Single, SystemParam},
 };
 
-use super::{IntroPlayed, PlayerAnimation, PlayerDeathAnimation, PlayerLives, TooSimilar};
+use super::{PlayerAnimation, PlayerDeathAnimation, Session, TooSimilar};
 
-/// A resource to track the overall stage of the game from a high-level perspective.
-#[derive(Resource, Debug, PartialEq, Eq, Clone, Copy, Default)]
+/// The overall stage of the game from a high-level perspective. Lives inside
+/// [`crate::systems::state::Session`] as the gameplay sub-machine's state.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub enum GameStage {
     /// Waiting for user interaction before starting (Emscripten only).
     /// Game is rendered but audio/gameplay are paused until the user clicks or presses a key.
@@ -45,6 +45,23 @@ pub enum GameStage {
     PlayerDying(DyingSequence),
     /// The game has ended.
     GameOver,
+}
+
+impl GameStage {
+    /// The stage a fresh session begins in. On the web the game waits for a user
+    /// gesture (browser autoplay policy) before the startup sequence runs.
+    pub fn initial() -> Self {
+        #[cfg(target_os = "emscripten")]
+        {
+            GameStage::WaitingForInteraction
+        }
+        #[cfg(not(target_os = "emscripten"))]
+        {
+            GameStage::Starting(StartupSequence::TextOnly {
+                remaining_ticks: constants::startup::STARTUP_FRAMES,
+            })
+        }
+    }
 }
 
 /// A resource that manages the multi-stage startup sequence of the game.
@@ -81,12 +98,10 @@ pub enum DyingSequence {
 /// Grouped resources for the stage system.
 #[derive(SystemParam)]
 pub struct StageResources<'w, 's> {
-    pub game_state: ResMut<'w, GameStage>,
+    pub session: ResMut<'w, Session>,
     pub player_death_animation: Res<'w, PlayerDeathAnimation>,
     pub player_animation: Res<'w, PlayerAnimation>,
-    pub player_lives: ResMut<'w, PlayerLives>,
     pub map: Res<'w, Map>,
-    pub intro_played: ResMut<'w, IntroPlayed>,
     pub commands: Commands<'w, 's>,
     pub audio_events: EventWriter<'w, AudioEvent>,
     pub stage_event_reader: EventReader<'w, 's, StageTransition>,
@@ -104,7 +119,7 @@ pub fn stage_system(
         (With<GhostCollider>, Without<PlayerControlled>),
     >,
 ) {
-    let old_state = *res.game_state;
+    let old_state = res.session.stage;
     let mut new_state_opt: Option<GameStage> = None;
 
     // Handle stage transition requests before normal ticking
@@ -124,15 +139,15 @@ pub fn stage_system(
         });
     }
 
-    let new_state: GameStage = new_state_opt.unwrap_or_else(|| match *res.game_state {
+    let new_state: GameStage = new_state_opt.unwrap_or_else(|| match res.session.stage {
         #[cfg(target_os = "emscripten")]
         GameStage::WaitingForInteraction => {
             // Stay in this state until JS calls start_game()
-            *res.game_state
+            res.session.stage
         }
         GameStage::Playing => {
             // This is the default state, do nothing
-            *res.game_state
+            res.session.stage
         }
         GameStage::GhostEatenPause {
             remaining_ticks,
@@ -155,9 +170,9 @@ pub fn stage_system(
         GameStage::Starting(sequence) => match sequence {
             StartupSequence::TextOnly { remaining_ticks } => {
                 // Play the beginning sound once at the start of TextOnly stage
-                if !res.intro_played.0 {
+                if !res.session.intro_played {
                     res.audio_events.write(AudioEvent::PlaySound(crate::audio::Sound::Beginning));
-                    res.intro_played.0 = true;
+                    res.session.intro_played = true;
                 }
                 if remaining_ticks > 0 {
                     GameStage::Starting(StartupSequence::TextOnly {
@@ -210,11 +225,11 @@ pub fn stage_system(
                         remaining_ticks: remaining_ticks.saturating_sub(1),
                     })
                 } else {
-                    res.player_lives.lose_life();
+                    res.session.lives.lose_life();
 
-                    if res.player_lives.is_alive() {
+                    if res.session.lives.is_alive() {
                         info!(
-                            remaining_lives = res.player_lives.remaining(),
+                            remaining_lives = res.session.lives.remaining(),
                             "Player died, returning to startup sequence"
                         );
                         GameStage::Starting(StartupSequence::CharactersVisible {
@@ -227,7 +242,7 @@ pub fn stage_system(
                 }
             }
         },
-        GameStage::GameOver => *res.game_state,
+        GameStage::GameOver => res.session.stage,
     });
 
     if old_state == new_state {
@@ -359,7 +374,7 @@ pub fn stage_system(
                 res.commands.entity(entity).remove::<Frozen>();
             }
             // Reset intro flag for the next round
-            res.intro_played.0 = false;
+            res.session.intro_played = false;
         }
         (_, GameStage::GameOver) => {
             // Freeze blinking
@@ -370,5 +385,5 @@ pub fn stage_system(
         _ => {}
     }
 
-    *res.game_state = new_state;
+    res.session.stage = new_state;
 }

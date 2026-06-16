@@ -18,6 +18,7 @@ pub mod asset;
 pub mod constants;
 pub mod game;
 pub mod map;
+pub mod scenes;
 pub mod systems;
 pub mod texture;
 #[cfg_attr(coverage_nightly, coverage(off))]

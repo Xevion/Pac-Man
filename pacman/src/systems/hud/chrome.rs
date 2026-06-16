@@ -10,7 +10,6 @@
 //! and the bottom band carries lives (left) and fruit (right). Everything scales with
 //! the maze's integer scale.
 
-use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::{NonSendMut, Res};
 use glam::UVec2;
 use sdl2::pixels::Color;
@@ -18,14 +17,11 @@ use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 
-use crate::error::{GameError, TextureError};
 use crate::map::direction::Direction;
-use crate::systems::common::ScoreResource;
-use crate::systems::ghost::GhostModeController;
 use crate::systems::hud::{FruitSprites, LeaderboardData};
 use crate::systems::layout::{Layout, Orientation};
 use crate::systems::render::{CanvasResource, RenderDirty};
-use crate::systems::state::PlayerLives;
+use crate::systems::state::{PlayerLives, Session};
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 use crate::texture::sprites::{GameSprite, PacmanSprite};
 use crate::texture::text::TextTexture;
@@ -49,7 +45,6 @@ fn draw_text(
     text: &mut TextTexture,
     canvas: &mut Canvas<Window>,
     atlas: &mut SpriteAtlas,
-    errors: &mut EventWriter<GameError>,
     txt: &str,
     x: i32,
     y: i32,
@@ -57,7 +52,7 @@ fn draw_text(
 ) {
     let pos = UVec2::new(x.max(0) as u32, y.max(0) as u32);
     if let Err(e) = text.render_with_color(canvas, atlas, txt, pos, color) {
-        errors.write(TextureError::RenderFailed(format!("chrome text: {e}")).into());
+        tracing::error!("chrome text render failed: {e}");
     }
 }
 
@@ -68,7 +63,6 @@ fn draw_lives_row(
     icon: &AtlasTile,
     canvas: &mut Canvas<Window>,
     atlas: &mut SpriteAtlas,
-    errors: &mut EventWriter<GameError>,
     lives: &PlayerLives,
     x: i32,
     y: i32,
@@ -81,7 +75,7 @@ fn draw_lives_row(
     let displayed = lives.remaining().saturating_sub(1);
     for i in 0..displayed as i32 {
         if let Err(e) = icon.render(canvas, atlas, Rect::new(x + i * step, y, w, h)) {
-            errors.write(TextureError::RenderFailed(format!("chrome life: {e}")).into());
+            tracing::error!("chrome life icon render failed: {e}");
         }
     }
 }
@@ -93,7 +87,6 @@ fn draw_fruit_row(
     fruits: &FruitSprites,
     canvas: &mut Canvas<Window>,
     atlas: &mut SpriteAtlas,
-    errors: &mut EventWriter<GameError>,
     anchor_x: i32,
     y: i32,
     s: f32,
@@ -104,7 +97,7 @@ fn draw_fruit_row(
         let tile = match atlas.get_tile(&GameSprite::Fruit(*fruit).to_path()) {
             Ok(t) => t,
             Err(e) => {
-                errors.write(TextureError::RenderFailed(format!("chrome fruit: {e}")).into());
+                tracing::error!("chrome fruit tile lookup failed: {e}");
                 continue;
             }
         };
@@ -117,7 +110,7 @@ fn draw_fruit_row(
             anchor_x + i as i32 * step
         };
         if let Err(e) = tile.render(canvas, atlas, Rect::new(x, y, w, h)) {
-            errors.write(TextureError::RenderFailed(format!("chrome fruit: {e}")).into());
+            tracing::error!("chrome fruit icon render failed: {e}");
         }
     }
 }
@@ -128,12 +121,9 @@ pub fn chrome_render_system(
     mut atlas: NonSendMut<SpriteAtlas>,
     layout: Res<Layout>,
     dirty: Res<RenderDirty>,
-    score: Res<ScoreResource>,
-    lives: Res<PlayerLives>,
+    session: Res<Session>,
     fruits: Res<FruitSprites>,
     leaderboard: Res<LeaderboardData>,
-    mode: Res<GhostModeController>,
-    mut errors: EventWriter<GameError>,
 ) {
     if !dirty.0 {
         return;
@@ -151,8 +141,8 @@ pub fn chrome_render_system(
     // A blank line separates HUD groups so the readouts read as distinct blocks.
     let group_gap = line;
 
-    let value = format!("{:02}", score.value());
-    let level = format!("{:02}", mode.level);
+    let value = format!("{:02}", session.score.value());
+    let level = format!("{:02}", session.level);
 
     // The life icon also sizes the lives/fruit rows used in cluster-height math.
     let life_icon = atlas
@@ -171,21 +161,21 @@ pub fn chrome_render_system(
             let lx = left.x() + pad;
             let mut ly = left.y() + (left.height() as i32 - cluster_h).max(0) / 2;
 
-            draw_text(&mut text, canvas, atlas, &mut errors, "1UP", lx, ly, LABEL);
-            draw_text(&mut text, canvas, atlas, &mut errors, &value, lx, ly + line, VALUE);
+            draw_text(&mut text, canvas, atlas, "1UP", lx, ly, LABEL);
+            draw_text(&mut text, canvas, atlas, &value, lx, ly + line, VALUE);
             ly += 2 * line + group_gap;
 
-            draw_text(&mut text, canvas, atlas, &mut errors, "HIGH SCORE", lx, ly, LABEL);
-            draw_text(&mut text, canvas, atlas, &mut errors, &value, lx, ly + line, VALUE);
+            draw_text(&mut text, canvas, atlas, "HIGH SCORE", lx, ly, LABEL);
+            draw_text(&mut text, canvas, atlas, &value, lx, ly + line, VALUE);
             ly += 2 * line + group_gap;
 
             if let Some(icon) = &life_icon {
-                draw_lives_row(icon, canvas, atlas, &mut errors, &lives, lx, ly, s, gap);
+                draw_lives_row(icon, canvas, atlas, &session.lives, lx, ly, s, gap);
             }
             ly += icon_h + group_gap;
 
-            draw_text(&mut text, canvas, atlas, &mut errors, "LV", lx, ly, LABEL);
-            draw_text(&mut text, canvas, atlas, &mut errors, &level, lx, ly + line, VALUE);
+            draw_text(&mut text, canvas, atlas, "LV", lx, ly, LABEL);
+            draw_text(&mut text, canvas, atlas, &level, lx, ly + line, VALUE);
 
             // Right column: a right-aligned leaderboard excerpt above the fruit row,
             // centered vertically and flush to the panel's right margin.
@@ -196,7 +186,7 @@ pub fn chrome_render_system(
 
             let header = "HIGH SCORES";
             let hx = right_edge - text.text_width(header) as i32;
-            draw_text(&mut text, canvas, atlas, &mut errors, header, hx, ry, LABEL);
+            draw_text(&mut text, canvas, atlas, header, hx, ry, LABEL);
             ry += line;
             // Square font: horizontal advance per glyph equals its height.
             let char_w = text.text_height() as i32;
@@ -205,13 +195,13 @@ pub fn chrome_render_system(
                 let row = format!("{} {}", entry.name, score);
                 let rx = right_edge - text.text_width(&row) as i32;
                 // Right-aligned as a block, but name and score are colored separately.
-                draw_text(&mut text, canvas, atlas, &mut errors, entry.name, rx, ry, NAME);
+                draw_text(&mut text, canvas, atlas, entry.name, rx, ry, NAME);
                 let score_x = rx + (entry.name.chars().count() as i32 + 1) * char_w;
-                draw_text(&mut text, canvas, atlas, &mut errors, &score, score_x, ry, VALUE);
+                draw_text(&mut text, canvas, atlas, &score, score_x, ry, VALUE);
                 ry += line;
             }
             ry += group_gap;
-            draw_fruit_row(&fruits, canvas, atlas, &mut errors, right_edge, ry, s, gap, true);
+            draw_fruit_row(&fruits, canvas, atlas, right_edge, ry, s, gap, true);
         }
         Orientation::Portrait => {
             let top = layout.top.expect("portrait layout has a top band");
@@ -224,27 +214,27 @@ pub fn chrome_render_system(
             let ty = top.y() + (top.height() as i32 - 2 * line).max(0) / 2;
 
             let lx = top.x() + pad;
-            draw_text(&mut text, canvas, atlas, &mut errors, "1UP", lx, ty, LABEL);
-            draw_text(&mut text, canvas, atlas, &mut errors, &value, lx, ty + line, VALUE);
+            draw_text(&mut text, canvas, atlas, "1UP", lx, ty, LABEL);
+            draw_text(&mut text, canvas, atlas, &value, lx, ty + line, VALUE);
 
             let cx = top.x() + (width - text.text_width("HIGH SCORE") as i32) / 2;
-            draw_text(&mut text, canvas, atlas, &mut errors, "HIGH SCORE", cx, ty, LABEL);
+            draw_text(&mut text, canvas, atlas, "HIGH SCORE", cx, ty, LABEL);
             let cvx = top.x() + (width - text.text_width(&value) as i32) / 2;
-            draw_text(&mut text, canvas, atlas, &mut errors, &value, cvx, ty + line, VALUE);
+            draw_text(&mut text, canvas, atlas, &value, cvx, ty + line, VALUE);
 
             let right_edge = top.x() + width - pad;
             let lvx = right_edge - text.text_width("LV") as i32;
-            draw_text(&mut text, canvas, atlas, &mut errors, "LV", lvx, ty, LABEL);
+            draw_text(&mut text, canvas, atlas, "LV", lvx, ty, LABEL);
             let lvvx = right_edge - text.text_width(&level) as i32;
-            draw_text(&mut text, canvas, atlas, &mut errors, &level, lvvx, ty + line, VALUE);
+            draw_text(&mut text, canvas, atlas, &level, lvvx, ty + line, VALUE);
 
             // Bottom band: lives at the left, fruit history at the right.
             let by = bottom.y() + (bottom.height() as i32 - icon_h).max(0) / 2;
             if let Some(icon) = &life_icon {
-                draw_lives_row(icon, canvas, atlas, &mut errors, &lives, bottom.x() + pad, by, s, gap);
+                draw_lives_row(icon, canvas, atlas, &session.lives, bottom.x() + pad, by, s, gap);
             }
             let fruit_anchor = bottom.x() + bottom.width() as i32 - pad;
-            draw_fruit_row(&fruits, canvas, atlas, &mut errors, fruit_anchor, by, s, gap, true);
+            draw_fruit_row(&fruits, canvas, atlas, fruit_anchor, by, s, gap, true);
         }
     }
 }

@@ -1,4 +1,4 @@
-use pacman::systems::ghost::GhostSpeedConfig;
+use pacman::systems::ghost::movement::GhostSpeedConfig;
 use speculoos::prelude::*;
 #[test]
 fn level_1_normal_speed() {

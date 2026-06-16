@@ -1,7 +1,5 @@
-use crate::error::{GameError, TextureError};
 use crate::systems::input::TouchState;
 use crate::systems::render::{BackbufferResource, CanvasResource};
-use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::{NonSendMut, Res};
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
@@ -12,7 +10,6 @@ pub fn touch_ui_render_system(
     mut backbuffer: NonSendMut<BackbufferResource>,
     mut canvas: NonSendMut<CanvasResource>,
     touch_state: Res<TouchState>,
-    mut errors: EventWriter<GameError>,
 ) {
     if let Some(ref touch_data) = touch_state.active_touch {
         let _ = canvas.with_texture_canvas(&mut backbuffer.0, |canvas| {
@@ -30,7 +27,7 @@ pub fn touch_ui_render_system(
                     if dx * dx + dy * dy <= radius * radius {
                         let point = Point::new(center.x + dx, center.y + dy);
                         if let Err(e) = canvas.draw_point(point) {
-                            errors.write(TextureError::RenderFailed(format!("Touch UI render error: {}", e)).into());
+                            tracing::error!("touch UI point render failed: {e}");
                             return;
                         }
                     }
@@ -52,7 +49,7 @@ pub fn touch_ui_render_system(
 
                 let end_point = Point::new(center.x + dx, center.y + dy);
                 if let Err(e) = canvas.draw_line(center, end_point) {
-                    errors.write(TextureError::RenderFailed(format!("Touch arrow render error: {}", e)).into());
+                    tracing::error!("touch arrow render failed: {e}");
                 }
 
                 // Draw arrowhead (simple approach)

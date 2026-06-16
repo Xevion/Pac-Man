@@ -27,6 +27,7 @@ mod asset;
 mod constants;
 mod game;
 mod map;
+mod scenes;
 mod systems;
 mod texture;
 #[cfg_attr(coverage_nightly, coverage(off))]

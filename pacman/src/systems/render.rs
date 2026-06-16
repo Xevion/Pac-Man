@@ -9,7 +9,6 @@
 //! the window at native resolution) -> `present_system`. Every stage is gated by
 //! `RenderDirty`, so an unchanged frame skips the GPU work entirely.
 
-use crate::error::{GameError, TextureError};
 use crate::map::builder::Map;
 use crate::systems::input::{CursorPosition, TouchState};
 use crate::systems::layout::Layout;
@@ -18,7 +17,6 @@ use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
-use bevy_ecs::event::EventWriter;
 use bevy_ecs::query::{Changed, Or};
 use bevy_ecs::removal_detection::RemovedComponents;
 use bevy_ecs::resource::Resource;
@@ -135,7 +133,6 @@ pub fn render_system(
     map: &Res<Map>,
     dirty: &Res<RenderDirty>,
     renderables: &Query<(Entity, &Renderable, &Position, Option<&Visibility>)>,
-    errors: &mut EventWriter<GameError>,
 ) {
     if !dirty.0 {
         return;
@@ -147,7 +144,7 @@ pub fn render_system(
 
     // Copy the pre-rendered map texture to the backbuffer
     if let Err(e) = canvas.copy(&map_texture.0, None, None) {
-        errors.write(TextureError::RenderFailed(e.to_string()).into());
+        tracing::error!("map backbuffer copy failed: {e}");
     }
 
     // Collect and filter visible entities, then sort by layer
@@ -169,14 +166,12 @@ pub fn render_system(
                     renderable.sprite.size.y as u32,
                 );
 
-                renderable
-                    .sprite
-                    .render(canvas, atlas, dest)
-                    .err()
-                    .map(|e| errors.write(TextureError::RenderFailed(e.to_string()).into()));
+                if let Err(e) = renderable.sprite.render(canvas, atlas, dest) {
+                    tracing::error!("entity sprite render failed: {e}");
+                }
             }
             Err(e) => {
-                errors.write(e);
+                tracing::error!("entity pixel position failed: {e}");
             }
         }
     }
@@ -199,7 +194,6 @@ pub fn backbuffer_render_system(
     map: Res<Map>,
     dirty: Res<RenderDirty>,
     renderables: Query<(Entity, &Renderable, &Position, Option<&Visibility>)>,
-    mut errors: EventWriter<GameError>,
 ) {
     if !dirty.0 {
         return;
@@ -216,12 +210,11 @@ pub fn backbuffer_render_system(
                 &map,
                 &dirty,
                 &renderables,
-                &mut errors,
             );
         });
 
     if let Err(e) = result {
-        errors.write(TextureError::RenderFailed(e.to_string()).into());
+        tracing::error!("backbuffer texture render failed: {e}");
     }
 }
 
@@ -234,7 +227,6 @@ pub fn composite_maze_system(
     dirty: Res<RenderDirty>,
     backbuffer: NonSendMut<BackbufferResource>,
     layout: Res<Layout>,
-    mut errors: EventWriter<GameError>,
 ) {
     if !dirty.0 {
         return;
@@ -244,7 +236,7 @@ pub fn composite_maze_system(
     canvas.set_draw_color(sdl2::pixels::Color::BLACK);
     canvas.clear();
     if let Err(e) = canvas.copy(&backbuffer.0, None, layout.maze) {
-        errors.write(TextureError::RenderFailed(e).into());
+        tracing::error!("maze composite copy failed: {e}");
     }
 }
 

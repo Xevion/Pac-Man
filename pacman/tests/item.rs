@@ -5,6 +5,7 @@ use pacman::{
         common::{EntityType, ScoreResource},
         ghost::GhostState,
         movement::Position,
+        state::Session,
     },
 };
 use speculoos::prelude::*;
@@ -42,7 +43,7 @@ fn test_item_system_pellet_collection() {
     world.flush();
 
     // Check that score was updated
-    let score = world.resource_mut::<ScoreResource>();
+    let score = &world.resource::<Session>().score;
     assert_that(&score.value()).is_equal_to(10);
 
     // Check that the pellet was despawned (query should return empty)
@@ -64,7 +65,7 @@ fn test_item_system_power_pellet_collection() {
     world.flush();
 
     // Check that score was updated with power pellet value
-    let score = world.resource::<ScoreResource>();
+    let score = &world.resource::<Session>().score;
     assert_that(&score.value()).is_equal_to(50);
 
     // Check that the power pellet was despawned (query should return empty)
@@ -91,7 +92,7 @@ fn test_item_system_multiple_collections() {
     world.flush();
 
     // Check final score: 2 pellets (20) + 1 power pellet (50) = 70
-    let score = world.resource::<ScoreResource>();
+    let score = &world.resource::<Session>().score;
     assert_that(&score.value()).is_equal_to(70);
 
     // Check that all items were despawned
@@ -117,7 +118,7 @@ fn test_item_system_ignores_non_item_collisions() {
     let ghost = world.spawn((Position::Stopped { node: 2 }, EntityType::Ghost)).id();
 
     // Initial score
-    let initial_score = world.resource::<ScoreResource>().value();
+    let initial_score = world.resource::<Session>().score.value();
 
     // Send collision event between pacman and ghost
     common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: ghost });
@@ -125,7 +126,7 @@ fn test_item_system_ignores_non_item_collisions() {
     world.flush();
 
     // Score should remain unchanged
-    let score = world.resource::<ScoreResource>();
+    let score = &world.resource::<Session>().score;
     assert_that(&score.value()).is_equal_to(initial_score);
 
     // Ghost should still exist (not despawned)
@@ -143,13 +144,13 @@ fn test_item_system_no_collision_events() {
     let _pacman = common::spawn_test_pacman(&mut world, 0);
     let _pellet = common::spawn_test_item(&mut world, 1, EntityType::Pellet);
 
-    let initial_score = world.resource::<ScoreResource>().value();
+    let initial_score = world.resource::<Session>().score.value();
 
     // Run system without any collision events
     world.flush();
 
     // Nothing should change
-    let score = world.resource::<ScoreResource>();
+    let score = &world.resource::<Session>().score;
     assert_that(&score.value()).is_equal_to(initial_score);
     let pellet_count = world
         .query::<&EntityType>()
@@ -171,7 +172,7 @@ fn test_item_system_collision_with_missing_entity() {
     // System should handle gracefully and not crash
     world.flush();
     // Score should remain unchanged
-    let score = world.resource::<ScoreResource>();
+    let score = &world.resource::<Session>().score;
     assert_that(&score.value()).is_equal_to(0);
 }
 
@@ -180,7 +181,7 @@ fn test_item_system_preserves_existing_score() {
     let (mut world, mut _schedule) = common::create_test_world();
 
     // Set initial score
-    world.insert_resource(ScoreResource::new(100));
+    world.resource_mut::<Session>().score = ScoreResource::new(100);
 
     let pellet = common::spawn_test_item(&mut world, 1, EntityType::Pellet);
 
@@ -189,7 +190,7 @@ fn test_item_system_preserves_existing_score() {
     world.flush();
 
     // Score should be initial + pellet value
-    let score = world.resource::<ScoreResource>();
+    let score = &world.resource::<Session>().score;
     assert_that(&score.value()).is_equal_to(110);
 }
 
@@ -209,7 +210,7 @@ fn test_power_pellet_does_not_affect_ghosts_in_eyes_state() {
     world.flush();
 
     // Check that the power pellet was collected and score updated
-    let score = world.resource::<ScoreResource>();
+    let score = &world.resource::<Session>().score;
     assert_that(&score.value()).is_equal_to(50);
 
     // Check that the power pellet was despawned

@@ -21,7 +21,7 @@ pub mod targeting;
 pub use elroy::{BlinkyMarker, Elroy};
 pub use house::GhostHouseController;
 pub use mode::{GhostModeController, ScatterChaseMode};
-pub use movement::{ghost_movement_system, ghost_targeting_system, GhostSpeedConfig, GhostTarget, TunnelNodes};
+pub use movement::{ghost_movement_system, ghost_targeting_system, GhostTarget, TunnelNodes};
 pub use state::{FrightenedData, GhostAnimationState, GhostState};
 pub use systems::{eaten_ghost_system, elroy_system, ghost_house_system, ghost_mode_tick_system, ghost_state_system};
 pub use targeting::RedZoneNodes;

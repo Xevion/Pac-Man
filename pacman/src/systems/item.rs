@@ -10,9 +10,10 @@ use tracing::debug;
 use crate::constants;
 use crate::map::builder::Map;
 use crate::platform::rng;
-use crate::systems::collision::{Collider, ItemCollider};
-use crate::systems::common::bundles::ItemBundle;
+use crate::scenes::{Scene, SceneOwned};
+use crate::systems::collision::Collider;
 use crate::systems::common::components::EntityType;
+use crate::systems::common::markers::Item;
 use crate::systems::lifetime::TimeToLive;
 use crate::systems::movement::Position;
 use crate::systems::render::Renderable;
@@ -22,7 +23,7 @@ use crate::texture::sprites::{EffectSprite, GameSprite};
 use std::cmp::Ordering;
 
 /// Tracks the number of pellets consumed by the player for fruit spawning mechanics.
-#[derive(bevy_ecs::resource::Resource, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct PelletCount(u32);
 
 impl PelletCount {
@@ -110,18 +111,19 @@ pub fn spawn_fruit_observer(
             let sprite = &atlas
                 .get_tile(&GameSprite::Fruit(FruitType::from_index(0)).to_path())
                 .unwrap();
-            let bundle = ItemBundle {
-                position: map.start_positions.fruit_spawn,
-                sprite: Renderable {
+            let bundle = (
+                Item,
+                map.start_positions.fruit_spawn,
+                Renderable {
                     sprite: *sprite,
                     layer: 1,
                 },
-                entity_type: EntityType::Fruit(FruitType::Cherry),
-                collider: Collider {
+                EntityType::Fruit(FruitType::Cherry),
+                Collider {
                     size: constants::collider::FRUIT_SIZE,
                 },
-                item_collider: ItemCollider,
-            };
+                SceneOwned(Scene::Gameplay),
+            );
 
             let lifetime_ticks = (rng()
                 .random_range(constants::mechanics::FRUIT_LIFETIME_MIN_SECS..constants::mechanics::FRUIT_LIFETIME_MAX_SECS)
@@ -135,6 +137,9 @@ pub fn spawn_fruit_observer(
                 .get_tile(&GameSprite::Effect(EffectSprite::Bonus(value)).to_path())
                 .unwrap();
 
+            // A short-lived score pop-up: deliberately no `Item` marker (so no
+            // collider -- it must not be collectible), but scene-owned so teardown
+            // sweeps it up if one is still on screen.
             let bundle = (
                 position,
                 TimeToLive::new(ttl),
@@ -143,6 +148,7 @@ pub fn spawn_fruit_observer(
                     layer: 1,
                 },
                 EntityType::Effect,
+                SceneOwned(Scene::Gameplay),
             );
 
             commands.spawn(bundle)

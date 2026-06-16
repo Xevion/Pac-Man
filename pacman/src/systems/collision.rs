@@ -14,12 +14,12 @@ use crate::error::GameError;
 use crate::events::{CollisionTrigger, StageTransition};
 use crate::map::builder::Map;
 use crate::systems::audio::AudioEvent;
-use crate::systems::common::{EntityType, ScoreResource};
+use crate::systems::common::EntityType;
 use crate::systems::ghost::{GhostState, GhostType};
 use crate::systems::hud::FruitSprites;
-use crate::systems::item::{PelletCount, SpawnTrigger};
+use crate::systems::item::SpawnTrigger;
 use crate::systems::movement::Position;
-use crate::systems::state::{DyingSequence, GameStage};
+use crate::systems::state::{DyingSequence, GameStage, Session};
 
 /// A component for defining the collision area of an entity.
 #[derive(Component)]
@@ -80,7 +80,6 @@ pub fn collision_system(
     item_query: Query<(Entity, &Position, &Collider), With<ItemCollider>>,
     ghost_query: Query<(Entity, &Position, &Collider, &GhostType, &GhostState), With<GhostCollider>>,
     mut commands: Commands,
-    mut errors: EventWriter<GameError>,
 ) {
     // Check PACMAN × ITEM collisions
     for (pacman_entity, pacman_pos, pacman_collider) in pacman_query.iter() {
@@ -93,10 +92,12 @@ pub fn collision_system(
                     }
                 }
                 Err(e) => {
-                    errors.write(GameError::InvalidState(format!(
+                    tracing::error!(
                         "Collision system failed to check collision between entities {:?} and {:?}: {}",
-                        pacman_entity, item_entity, e
-                    )));
+                        pacman_entity,
+                        item_entity,
+                        e
+                    );
                 }
             }
         }
@@ -117,10 +118,12 @@ pub fn collision_system(
                     });
                 }
                 Err(e) => {
-                    errors.write(GameError::InvalidState(format!(
+                    tracing::error!(
                         "Collision system failed to check collision between entities {:?} and {:?}: {}",
-                        pacman_entity, ghost_entity, e
-                    )));
+                        pacman_entity,
+                        ghost_entity,
+                        e
+                    );
                 }
             }
         }
@@ -131,8 +134,7 @@ pub fn collision_system(
 pub fn ghost_collision_observer(
     trigger: Trigger<CollisionTrigger>,
     mut stage_events: EventWriter<StageTransition>,
-    mut score: ResMut<ScoreResource>,
-    mut game_state: ResMut<GameStage>,
+    mut session: ResMut<Session>,
     mut ghost_state_query: Query<&mut GhostState>,
     mut events: EventWriter<AudioEvent>,
 ) {
@@ -143,7 +145,7 @@ pub fn ghost_collision_observer(
     } = *trigger
     {
         // Check if Pac-Man is already dying
-        if matches!(*game_state, GameStage::PlayerDying(_)) {
+        if matches!(session.stage, GameStage::PlayerDying(_)) {
             return;
         }
 
@@ -152,8 +154,8 @@ pub fn ghost_collision_observer(
             // Check if ghost is in frightened state
             if ghost_state.is_frightened() {
                 // Pac-Man eats the ghost
-                debug!(ghost = ?ghost_type, score_added = constants::mechanics::GHOST_EATEN_SCORE, new_score = score.value() + constants::mechanics::GHOST_EATEN_SCORE, "Pacman ate frightened ghost");
-                score.add(constants::mechanics::GHOST_EATEN_SCORE);
+                debug!(ghost = ?ghost_type, score_added = constants::mechanics::GHOST_EATEN_SCORE, new_score = session.score.value() + constants::mechanics::GHOST_EATEN_SCORE, "Pacman ate frightened ghost");
+                session.score.add(constants::mechanics::GHOST_EATEN_SCORE);
 
                 *ghost_state = GhostState::Eyes;
 
@@ -169,7 +171,7 @@ pub fn ghost_collision_observer(
             } else if matches!(*ghost_state, GhostState::Active { frightened: None }) {
                 // Pac-Man dies
                 warn!(ghost = ?ghost_type, "Pacman hit by normal ghost, player dies");
-                *game_state = GameStage::PlayerDying(DyingSequence::Frozen {
+                session.stage = GameStage::PlayerDying(DyingSequence::Frozen {
                     remaining_ticks: constants::mechanics::DEATH_FREEZE_TICKS,
                 });
                 events.write(AudioEvent::StopAll);
@@ -184,8 +186,7 @@ pub fn ghost_collision_observer(
 #[derive(SystemParam)]
 pub struct ItemCollisionParams<'w, 's> {
     commands: Commands<'w, 's>,
-    score: ResMut<'w, ScoreResource>,
-    pellet_count: ResMut<'w, PelletCount>,
+    session: ResMut<'w, Session>,
     item_query: Query<'w, 's, (Entity, &'static EntityType, &'static Position), With<ItemCollider>>,
     ghost_query: Query<'w, 's, &'static mut GhostState, With<GhostCollider>>,
     ghost_house: ResMut<'w, crate::systems::ghost::GhostHouseController>,
@@ -199,21 +200,21 @@ pub fn item_collision_observer(trigger: Trigger<CollisionTrigger>, mut params: I
         // Get the item type and update score
         if let Ok((item_ent, entity_type, position)) = params.item_query.get(item) {
             if let Some(score_value) = entity_type.score_value() {
-                trace!(item_entity = ?item_ent, item_type = ?entity_type, score_value, new_score = params.score.value() + score_value, "Item collected by player");
-                params.score.add(score_value);
+                trace!(item_entity = ?item_ent, item_type = ?entity_type, score_value, new_score = params.session.score.value() + score_value, "Item collected by player");
+                params.session.score.add(score_value);
 
                 // Remove the collected item
                 params.commands.entity(item_ent).despawn();
 
                 // Track pellet consumption for fruit spawning and ghost house
                 if *entity_type == EntityType::Pellet {
-                    params.pellet_count.increment();
+                    params.session.pellets.increment();
                     params.ghost_house.on_dot_eaten();
-                    trace!(pellet_count = params.pellet_count.count(), "Pellet consumed");
+                    trace!(pellet_count = params.session.pellets.count(), "Pellet consumed");
 
                     // Check if we should spawn a fruit
-                    if constants::mechanics::FRUIT_SPAWN_MILESTONES.contains(&params.pellet_count.count()) {
-                        debug!(pellet_count = params.pellet_count.count(), "Fruit spawn milestone reached");
+                    if constants::mechanics::FRUIT_SPAWN_MILESTONES.contains(&params.session.pellets.count()) {
+                        debug!(pellet_count = params.session.pellets.count(), "Fruit spawn milestone reached");
                         params.commands.trigger(SpawnTrigger::Fruit);
                     }
                 }

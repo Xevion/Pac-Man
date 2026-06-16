@@ -2,53 +2,110 @@
 
 use tracing::{info, trace};
 
+use bevy_ecs::entity::Entity;
+use bevy_ecs::event::Events;
+use bevy_ecs::query::With;
 use bevy_ecs::world::World;
 
 use crate::constants;
 use crate::constants::MapTile;
 use crate::error::GameResult;
+use crate::events::StageTransition;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
-use crate::systems::animation::{Blinking, DirectionalAnimation};
-use crate::systems::collision::{Collider, GhostCollider, ItemCollider, PacmanCollider};
-use crate::systems::common::{EntityType, Frozen, GhostBundle, ItemBundle, MovementModifiers, PlayerBundle};
-use crate::systems::ghost::{GhostAnimationState, GhostAnimations, GhostType, LastAnimationState};
-use crate::systems::movement::{BufferedDirection, NodeId, Position, Velocity};
-use crate::systems::player::PlayerControlled;
+use crate::scenes::{Scene, SceneOwned};
+use crate::systems::animation::Blinking;
+use crate::systems::collision::Collider;
+use crate::systems::common::{EntityType, Frozen, Ghost, Item, Pacman};
+use crate::systems::ghost::{GhostAnimations, GhostHouseController, GhostModeController, GhostType};
+use crate::systems::item::PelletCount;
+use crate::systems::movement::{NodeId, Position, Velocity};
 use crate::systems::render::{Renderable, Visibility};
+use crate::systems::state::{GameStage, Session};
 use crate::texture::sprite::{AtlasTile, SpriteAtlas};
 use crate::texture::sprites::{GameSprite, GhostSprite, MazeSprite};
 
-pub(super) fn create_player_bundle(
-    map: &Map,
-    player_animation: DirectionalAnimation,
-    player_start_sprite: AtlasTile,
-) -> PlayerBundle {
-    PlayerBundle {
-        player: PlayerControlled,
-        position: Position::Stopped {
-            node: map.start_positions.pacman,
-        },
-        velocity: Velocity {
-            speed: constants::mechanics::PLAYER_SPEED,
-            direction: Direction::Left,
-        },
-        movement_modifiers: MovementModifiers::default(),
-        buffered_direction: BufferedDirection::None,
-        sprite: Renderable {
-            sprite: player_start_sprite,
-            layer: 0,
-        },
-        directional_animation: player_animation,
-        entity_type: EntityType::Player,
-        collider: Collider {
-            size: constants::collider::PLAYER_SIZE,
-        },
-        pacman_collider: PacmanCollider,
-    }
+/// Spawns a fresh gameplay scene for `level`: resets the per-level controllers and
+/// pellet progress, then spawns the player, ghosts, and collectibles -- each tagged
+/// [`SceneOwned`] so the scene can be torn down as a unit. Score and lives belong to
+/// the session and are deliberately left untouched here.
+pub fn spawn_gameplay(world: &mut World, level: u8) -> GameResult<()> {
+    configure_level(world, level);
+    spawn_player(world)?;
+    spawn_ghosts(world)?;
+    spawn_items(world)?;
+    Ok(())
 }
 
-pub(super) fn spawn_items(world: &mut World) -> GameResult<()> {
+/// Tears down the gameplay scene without leaking entities or dangling `Entity` ids.
+///
+/// Meant to run between frames, once the schedule has drained its command queue; the
+/// leading `world.flush()` is then defensive cover for at most one queued layer.
+/// Order is load-bearing: queued commands are flushed first so any pending observer
+/// triggers (e.g. `CollisionTrigger`) resolve against still-live entities; then the
+/// `Entity` ids held in gameplay state (`Session::stage`, the `StageTransition`
+/// queue) are dropped so nothing points at a despawned entity; finally every
+/// `SceneOwned` entity is despawned.
+#[allow(dead_code)] // Called once scene routing drives gameplay exit.
+pub fn despawn_gameplay(world: &mut World) {
+    world.flush();
+
+    if let Some(mut session) = world.get_resource_mut::<Session>() {
+        if matches!(session.stage, GameStage::GhostEatenPause { .. }) {
+            session.stage = GameStage::initial();
+        }
+    }
+
+    if let Some(mut transitions) = world.get_resource_mut::<Events<StageTransition>>() {
+        transitions.clear();
+    }
+
+    let doomed: Vec<Entity> = world.query_filtered::<Entity, With<SceneOwned>>().iter(world).collect();
+    for entity in doomed {
+        world.despawn(entity);
+    }
+
+    debug_assert_eq!(
+        world.query_filtered::<Entity, With<SceneOwned>>().iter(world).count(),
+        0,
+        "despawn_gameplay left SceneOwned entities alive"
+    );
+}
+
+/// Resets the level-derived state to `level` through the single update path: the
+/// session's level and pellet progress, plus both ghost controllers.
+fn configure_level(world: &mut World, level: u8) {
+    {
+        let mut session = world.resource_mut::<Session>();
+        session.level = level;
+        session.pellets = PelletCount::default();
+    }
+    world.resource_mut::<GhostModeController>().reset(level);
+    world.resource_mut::<GhostHouseController>().reset(level);
+}
+
+fn spawn_player(world: &mut World) -> GameResult<()> {
+    let pacman_node = world.resource::<Map>().start_positions.pacman;
+    let bundle = {
+        let atlas = world.non_send_resource::<SpriteAtlas>();
+        let (animation, start_sprite) = super::animations::create_player_animations(atlas)?;
+        (
+            Pacman,
+            Position::Stopped { node: pacman_node },
+            Renderable {
+                sprite: start_sprite,
+                layer: 0,
+            },
+            animation,
+        )
+    };
+    world
+        .spawn(bundle)
+        .insert((Frozen, Visibility::hidden(), SceneOwned(Scene::Gameplay)));
+    Ok(())
+}
+
+fn spawn_items(world: &mut World) -> GameResult<()> {
     trace!("Loading item sprites from atlas");
     let pellet_sprite = SpriteAtlas::get_tile(
         world.non_send_resource::<SpriteAtlas>(),
@@ -81,13 +138,14 @@ pub(super) fn spawn_items(world: &mut World) -> GameResult<()> {
     );
 
     for (id, item_type, sprite, size) in nodes {
-        let mut item = world.spawn(ItemBundle {
-            position: Position::Stopped { node: id },
-            sprite: Renderable { sprite, layer: 1 },
-            entity_type: item_type,
-            collider: Collider { size },
-            item_collider: ItemCollider,
-        });
+        let mut item = world.spawn((
+            Item,
+            Position::Stopped { node: id },
+            Renderable { sprite, layer: 1 },
+            item_type,
+            Collider { size },
+            SceneOwned(Scene::Gameplay),
+        ));
 
         if item_type == EntityType::PowerPellet {
             item.insert((Frozen, Blinking::new(constants::ui::POWER_PELLET_BLINK_RATE)));
@@ -102,7 +160,7 @@ pub(super) fn spawn_items(world: &mut World) -> GameResult<()> {
 ///
 /// Returns `GameError::Texture` if any ghost sprite cannot be found in the atlas,
 /// typically indicating missing or misnamed sprite files.
-pub(super) fn spawn_ghosts(world: &mut World) -> GameResult<()> {
+fn spawn_ghosts(world: &mut World) -> GameResult<()> {
     trace!("Spawning ghost entities with AI personalities");
     // Extract the data we need first to avoid borrow conflicts
     let ghost_start_positions = {
@@ -119,27 +177,21 @@ pub(super) fn spawn_ghosts(world: &mut World) -> GameResult<()> {
 
             let ghost_state = ghost_type.initial_state();
 
-            let bundle = GhostBundle {
-                ghost: ghost_type,
-                position: Position::Stopped { node: start_node },
-                velocity: Velocity {
+            let bundle = (
+                Ghost,
+                ghost_type,
+                Position::Stopped { node: start_node },
+                Velocity {
                     speed: ghost_type.base_speed(),
                     direction: Direction::Left,
                 },
-                sprite: Renderable {
+                Renderable {
                     sprite: SpriteAtlas::get_tile(atlas, &sprite_path)?,
                     layer: 0,
                 },
-                directional_animation: animations,
-                entity_type: EntityType::Ghost,
-                collider: Collider {
-                    size: constants::collider::GHOST_SIZE,
-                },
-                ghost_collider: GhostCollider,
+                animations,
                 ghost_state,
-                last_animation_state: LastAnimationState(GhostAnimationState::Normal),
-                ghost_target: crate::systems::ghost::GhostTarget::default(),
-            };
+            );
 
             // Blinky gets additional components
             let extra = if ghost_type == GhostType::Blinky {
@@ -152,7 +204,7 @@ pub(super) fn spawn_ghosts(world: &mut World) -> GameResult<()> {
         };
 
         let mut entity_commands = world.spawn(ghost_bundle);
-        entity_commands.insert((Frozen, Visibility::hidden()));
+        entity_commands.insert((Frozen, Visibility::hidden(), SceneOwned(Scene::Gameplay)));
 
         if let Some((marker, elroy)) = extra_components {
             entity_commands.insert((marker, elroy));

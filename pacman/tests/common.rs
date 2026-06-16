@@ -15,13 +15,13 @@ use pacman::{
     systems::{
         audio::AudioEvent,
         collision::{item_collision_observer, Collider, GhostCollider, ItemCollider, PacmanCollider},
-        common::{DeltaTime, EntityType, GlobalState, MovementModifiers, ScoreResource},
+        common::{DeltaTime, EntityType, GlobalState, MovementModifiers},
         debug::DebugState,
         ghost::{GhostState, GhostType},
         hud::FruitSprites,
-        item::PelletCount,
         movement::{BufferedDirection, Position, Velocity},
         player::PlayerControlled,
+        state::Session,
     },
     texture::sprite::{AtlasMapper, AtlasTile, SpriteAtlas},
 };
@@ -86,13 +86,11 @@ pub fn create_test_world() -> (World, Schedule) {
 
     // Add required resources
     world.insert_resource(Events::<GameEvent>::default());
-    world.insert_resource(Events::<pacman::error::GameError>::default());
     world.insert_resource(Events::<AudioEvent>::default());
-    world.insert_resource(ScoreResource::default());
+    world.insert_resource(Session::default());
     world.insert_resource(FruitSprites::default());
     world.insert_resource(GlobalState { exit: false });
     world.insert_resource(DebugState::default());
-    world.insert_resource(PelletCount::default());
     world.insert_resource(DeltaTime {
         seconds: 1.0 / 60.0,
         ticks: 1,

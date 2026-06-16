@@ -13,7 +13,9 @@ pub struct GhostModeController {
     pub phase_index: usize,
     /// True while any ghost is frightened - pauses the scatter/chase timer
     pub paused: bool,
-    /// Current game level (affects timing)
+    /// Cached copy of `Session::level`, set at construction and on level change;
+    /// used for the internal phase-duration lookup. Gameplay code reads
+    /// `Session::level`, not this field.
     pub level: u8,
 }
 

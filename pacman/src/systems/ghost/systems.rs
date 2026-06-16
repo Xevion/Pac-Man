@@ -10,8 +10,8 @@ use crate::map::direction::Direction;
 use crate::map::graph::{Edge, TraversalFlags};
 use crate::systems::animation::{DirectionalAnimation, LinearAnimation, Looping};
 use crate::systems::common::{DeltaTime, Frozen};
-use crate::systems::item::PelletCount;
 use crate::systems::movement::{NodeId, Position, Velocity};
+use crate::systems::state::Session;
 use bevy_ecs::prelude::*;
 use tracing::{debug, trace};
 
@@ -77,11 +77,7 @@ pub fn ghost_house_system(
 }
 
 /// System to update Elroy state based on remaining pellets
-pub fn elroy_system(
-    pellet_count: Res<PelletCount>,
-    mode_controller: Res<GhostModeController>,
-    mut blinky_query: Query<&mut Elroy, With<BlinkyMarker>>,
-) {
+pub fn elroy_system(session: Res<Session>, mut blinky_query: Query<&mut Elroy, With<BlinkyMarker>>) {
     let Ok(mut elroy) = blinky_query.single_mut() else {
         return;
     };
@@ -90,10 +86,10 @@ pub fn elroy_system(
         return;
     }
 
-    let (threshold_1, threshold_2) = elroy_thresholds(mode_controller.level);
+    let (threshold_1, threshold_2) = elroy_thresholds(session.level);
     // Classic Pac-Man has 244 pellets total (240 regular + 4 power)
     const TOTAL_PELLETS: u32 = 244;
-    let remaining = TOTAL_PELLETS.saturating_sub(pellet_count.count());
+    let remaining = TOTAL_PELLETS.saturating_sub(session.pellets.count());
 
     elroy.stage = if remaining <= threshold_2 {
         ElroyStage::Stage2

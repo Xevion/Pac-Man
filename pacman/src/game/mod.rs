@@ -4,7 +4,7 @@
 mod animations;
 mod init;
 mod schedule;
-mod spawning;
+pub mod spawning;
 
 include!(concat!(env!("OUT_DIR"), "/atlas_data.rs"));
 
@@ -22,9 +22,8 @@ use crate::map::builder::Map;
 use crate::map::render::MapRenderer;
 use crate::platform;
 use crate::systems;
-use crate::systems::common::{DeltaTime, Frozen, GlobalState};
+use crate::systems::common::{DeltaTime, GlobalState};
 use crate::systems::profiling::Timing;
-use crate::systems::render::Visibility;
 
 /// Core game state manager built on the Bevy ECS architecture.
 ///
@@ -84,10 +83,6 @@ impl Game {
         let red_zones = crate::systems::ghost::RedZoneNodes::from_map(&map);
         let tunnel_nodes = crate::systems::ghost::TunnelNodes::from_map(&map);
 
-        debug!("Creating player animations and bundle");
-        let (player_animation, player_start_sprite) = animations::create_player_animations(&atlas)?;
-        let player_bundle = spawning::create_player_bundle(&map, player_animation, player_start_sprite);
-
         debug!("Creating death animation sequence");
         let death_animation = animations::create_death_animation(&atlas)?;
 
@@ -121,12 +116,8 @@ impl Game {
         debug!("Configuring system execution schedule");
         schedule::configure_schedule(&mut schedule);
 
-        debug!("Spawning player entity");
-        world.spawn(player_bundle).insert((Frozen, Visibility::hidden()));
-
-        info!("Spawning game entities");
-        spawning::spawn_ghosts(&mut world)?;
-        spawning::spawn_items(&mut world)?;
+        info!("Spawning initial gameplay scene");
+        spawning::spawn_gameplay(&mut world, 1)?;
 
         info!("Game initialization completed successfully");
         Ok(Game { world, schedule })
@@ -139,7 +130,7 @@ impl Game {
     #[cfg(target_os = "emscripten")]
     pub fn start(&mut self) {
         use crate::systems::audio::AudioResource;
-        use crate::systems::state::{GameStage, StartupSequence};
+        use crate::systems::state::{GameStage, Session, StartupSequence};
 
         // Unlock audio now that user has interacted
         if let Some(mut audio) = self.world.get_non_send_resource_mut::<AudioResource>() {
@@ -147,10 +138,10 @@ impl Game {
         }
 
         // Transition to Starting state if we're waiting
-        if let Some(mut stage) = self.world.get_resource_mut::<GameStage>() {
-            if matches!(*stage, GameStage::WaitingForInteraction) {
+        if let Some(mut session) = self.world.get_resource_mut::<Session>() {
+            if matches!(session.stage, GameStage::WaitingForInteraction) {
                 tracing::info!("User interaction detected, starting game");
-                *stage = GameStage::Starting(StartupSequence::TextOnly {
+                session.stage = GameStage::Starting(StartupSequence::TextOnly {
                     remaining_ticks: constants::startup::STARTUP_FRAMES,
                 });
             }

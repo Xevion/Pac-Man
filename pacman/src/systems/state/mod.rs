@@ -1,12 +1,14 @@
 mod fullscreen;
 mod pause;
 mod resources;
+mod session;
 mod stage;
 
 #[cfg(not(target_os = "emscripten"))]
 pub use self::fullscreen::*;
 pub use self::pause::*;
 pub use self::resources::*;
+pub use self::session::*;
 pub use self::stage::*;
 
 use std::mem::discriminant;

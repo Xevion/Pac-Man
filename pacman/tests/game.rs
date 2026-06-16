@@ -1,10 +1,19 @@
+use bevy_ecs::{entity::Entity, event::Events, query::With, world::World};
 use pacman::error::{GameError, GameResult};
+use pacman::events::StageTransition;
 use pacman::game::Game;
+use pacman::scenes::SceneOwned;
+use pacman::systems::ghost::GhostType;
+use pacman::systems::state::{GameStage, Session};
 use speculoos::prelude::*;
 
 mod common;
 
 use common::setup_sdl;
+
+fn scene_owned_count(world: &mut World) -> usize {
+    world.query_filtered::<Entity, With<SceneOwned>>().iter(world).count()
+}
 
 #[test]
 fn test_game_30_seconds_60fps() -> GameResult<()> {
@@ -75,5 +84,52 @@ fn test_game_30_seconds_variable_timing() -> GameResult<()> {
     }
 
     assert_that(&total_time).is_greater_than_or_equal_to(target_time);
+    Ok(())
+}
+
+/// The gameplay lifecycle (`spawn_gameplay` -> `despawn_gameplay` -> `spawn_gameplay`)
+/// must leave no leaked entities and no dangling `Entity` ids behind.
+#[test]
+fn gameplay_teardown_and_respawn_leave_no_leaks() -> GameResult<()> {
+    let (canvas, texture_creator, _sdl_context) = setup_sdl().map_err(GameError::Sdl)?;
+    let ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
+    let event_pump = _sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
+
+    let mut game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
+
+    // Boot eagerly spawns a full gameplay scene.
+    let initial = scene_owned_count(&mut game.world);
+    assert_that(&initial).is_greater_than(0);
+
+    // Seed the two dangling-`Entity` hazards teardown must clear: a `GhostEatenPause`
+    // stage and a buffered `StageTransition`, both referencing a real ghost that is
+    // about to be despawned.
+    let ghost_entity = {
+        let mut query = game.world.query_filtered::<Entity, With<GhostType>>();
+        query.iter(&game.world).next().expect("boot spawns ghosts")
+    };
+    game.world.resource_mut::<Session>().stage = GameStage::GhostEatenPause {
+        remaining_ticks: 30,
+        ghost_entity,
+        ghost_type: GhostType::Blinky,
+        node: 0,
+    };
+    game.world
+        .resource_mut::<Events<StageTransition>>()
+        .send(StageTransition::GhostEatenPause {
+            ghost_entity,
+            ghost_type: GhostType::Blinky,
+        });
+
+    // Tearing it down removes every scene entity and clears both dangling references.
+    pacman::game::spawning::despawn_gameplay(&mut game.world);
+    assert_that(&scene_owned_count(&mut game.world)).is_equal_to(0);
+    let stage_holds_entity = matches!(game.world.resource::<Session>().stage, GameStage::GhostEatenPause { .. });
+    assert_that(&stage_holds_entity).is_false();
+    assert_that(&game.world.resource::<Events<StageTransition>>().is_empty()).is_true();
+
+    // Respawning restores the same population; the full cycle leaks nothing.
+    pacman::game::spawning::spawn_gameplay(&mut game.world, 1)?;
+    assert_that(&scene_owned_count(&mut game.world)).is_equal_to(initial);
     Ok(())
 }

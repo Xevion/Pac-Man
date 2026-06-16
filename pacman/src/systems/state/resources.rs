@@ -8,12 +8,8 @@ pub struct PlayerAnimation(pub DirectionalAnimation);
 #[derive(Resource, Clone)]
 pub struct PlayerDeathAnimation(pub LinearAnimation);
 
-/// Tracks whether the beginning sound has been played for the current startup sequence
-#[derive(Resource, Debug, Default, Clone, Copy)]
-pub struct IntroPlayed(pub bool);
-
-/// A resource to store the number of player lives.
-#[derive(Resource, Debug)]
+/// The number of player lives remaining in the current session.
+#[derive(Debug)]
 pub struct PlayerLives(u8);
 
 impl PlayerLives {

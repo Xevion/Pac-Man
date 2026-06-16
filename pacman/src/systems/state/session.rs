@@ -1,0 +1,49 @@
+//! Per-game session state.
+
+use bevy_ecs::resource::Resource;
+
+use crate::systems::common::ScoreResource;
+use crate::systems::item::PelletCount;
+
+use super::{GameStage, PlayerLives};
+
+/// All state belonging to a single play-through. Created when the Gameplay scene
+/// is entered and torn down on exit, so "no game in progress" simply means this
+/// resource is absent / freshly reset.
+///
+/// Holds the low-frequency scalars only. The high-frequency ghost controllers
+/// (`GhostModeController`/`GhostHouseController`) stay as separate sibling
+/// resources so their per-frame timer mutations don't pollute `Session`'s
+/// change-detection, which the render dirty-tracking relies on.
+#[derive(Resource, Debug)]
+pub struct Session {
+    /// Current level -- the single source of truth. The ghost controllers cache
+    /// it internally for their per-tick lookups, reconfigured on level change.
+    pub level: u8,
+    pub score: ScoreResource,
+    pub lives: PlayerLives,
+    pub pellets: PelletCount,
+    /// Whether the opening jingle has played for the current startup sequence.
+    pub intro_played: bool,
+    pub stage: GameStage,
+}
+
+impl Session {
+    /// Builds a fresh session at the given level.
+    pub fn new(level: u8) -> Self {
+        Self {
+            level,
+            score: ScoreResource::default(),
+            lives: PlayerLives::default(),
+            pellets: PelletCount::default(),
+            intro_played: false,
+            stage: GameStage::initial(),
+        }
+    }
+}
+
+impl Default for Session {
+    fn default() -> Self {
+        Self::new(1)
+    }
+}

@@ -18,27 +18,22 @@ use glam::UVec2;
 use crate::asset::Asset;
 use crate::constants;
 use crate::error::{GameError, GameResult};
-use crate::events::{CollisionTrigger, GameCommand, GameEvent, StageTransition};
+use crate::events::{GameCommand, GameEvent, StageTransition};
 use crate::map::builder::Map;
 use crate::platform;
 use crate::systems::animation::LinearAnimation;
 use crate::systems::audio::{AudioEvent, AudioResource};
 use crate::systems::collision::{ghost_collision_observer, item_collision_observer};
-use crate::systems::common::{DeltaTime, GlobalState, ScoreResource};
+use crate::systems::common::{DeltaTime, GlobalState};
 use crate::systems::debug::{BatchedLinesResource, DebugState, TtfAtlasResource};
 use crate::systems::hud::{FruitSprites, LeaderboardData};
 use crate::systems::input::{Bindings, CursorPosition, TouchState};
-use crate::systems::item::PelletCount;
 use crate::systems::layout::{Layout, DEFAULT_WINDOW, PLAYFIELD_SIZE};
 use crate::systems::profiling::{SystemTimings, Timing};
 use crate::systems::render::{BackbufferResource, CanvasResource, MapTextureResource, RenderDirty};
-use crate::systems::state::{GameStage, PlayerAnimation, PlayerDeathAnimation, PlayerLives};
-use crate::systems::state::{IntroPlayed, PauseState};
+use crate::systems::state::{PauseState, PlayerAnimation, PlayerDeathAnimation, Session};
 use crate::texture::sprite::{AtlasMapper, SpriteAtlas};
 use crate::texture::sprites::{GameSprite, MazeSprite};
-
-#[cfg(not(target_os = "emscripten"))]
-use crate::systems::state::StartupSequence;
 
 pub(super) fn disable_sdl_events(event_pump: &mut EventPump) {
     for event_type in [
@@ -158,19 +153,15 @@ pub(super) fn load_atlas_and_map_tiles(
 }
 
 pub(super) fn setup_ecs(world: &mut World) {
-    EventRegistry::register_event::<GameError>(world);
     EventRegistry::register_event::<GameEvent>(world);
     EventRegistry::register_event::<AudioEvent>(world);
     EventRegistry::register_event::<StageTransition>(world);
-    EventRegistry::register_event::<CollisionTrigger>(world);
 
-    world.add_observer(
-        |event: Trigger<GameEvent>, mut state: ResMut<GlobalState>, _score: ResMut<ScoreResource>| {
-            if matches!(*event, GameEvent::Command(GameCommand::Exit)) {
-                state.exit = true;
-            }
-        },
-    );
+    world.add_observer(|event: Trigger<GameEvent>, mut state: ResMut<GlobalState>| {
+        if matches!(*event, GameEvent::Command(GameCommand::Exit)) {
+            state.exit = true;
+        }
+    });
 
     world.add_observer(ghost_collision_observer);
     world.add_observer(item_collision_observer);
@@ -204,12 +195,9 @@ pub(super) fn insert_resources(world: &mut World, map: Map, init: InitResources)
     world.insert_resource(BatchedLinesResource::new(&map));
     world.insert_resource(map);
     world.insert_resource(GlobalState { exit: false });
-    world.insert_resource(PlayerLives::default());
-    world.insert_resource(ScoreResource::default());
-    world.insert_resource(PelletCount::default());
+    world.insert_resource(Session::new(1));
     world.insert_resource(crate::systems::ghost::GhostModeController::default());
     world.insert_resource(crate::systems::ghost::GhostHouseController::default());
-    world.insert_resource(crate::systems::ghost::GhostSpeedConfig::for_level(1));
     world.insert_resource(init.red_zones);
     world.insert_resource(init.tunnel_nodes);
     world.insert_resource(SystemTimings::default());
@@ -218,18 +206,8 @@ pub(super) fn insert_resources(world: &mut World, map: Map, init: InitResources)
     world.insert_resource(DeltaTime { seconds: 0.0, ticks: 0 });
     world.insert_resource(RenderDirty::default());
     world.insert_resource(DebugState::default());
-    world.insert_resource(IntroPlayed::default());
     world.insert_resource(CursorPosition::default());
     world.insert_resource(TouchState::default());
-    // On Emscripten, start in WaitingForInteraction state due to browser autoplay policy.
-    // The game will transition to Starting when the user clicks or presses a key.
-    #[cfg(target_os = "emscripten")]
-    world.insert_resource(GameStage::WaitingForInteraction);
-
-    #[cfg(not(target_os = "emscripten"))]
-    world.insert_resource(GameStage::Starting(StartupSequence::TextOnly {
-        remaining_ticks: constants::startup::STARTUP_FRAMES,
-    }));
     world.insert_resource(PauseState::default());
 
     let window_size = init.canvas.output_size().unwrap_or((DEFAULT_WINDOW.x, DEFAULT_WINDOW.y));

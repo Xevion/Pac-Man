@@ -42,7 +42,7 @@ pub struct GlobalState {
     pub exit: bool,
 }
 
-#[derive(Resource, Default)]
+#[derive(Default, Debug)]
 pub struct ScoreResource(u32);
 
 impl ScoreResource {
