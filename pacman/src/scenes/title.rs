@@ -5,8 +5,9 @@ use bevy_ecs::system::{Local, Res, ResMut};
 use bevy_ecs::world::World;
 
 use crate::error::GameResult;
-use crate::events::GameEvent;
+use crate::events::{GameCommand, GameEvent};
 use crate::systems::common::DeltaTime;
+use crate::systems::input::TouchState;
 
 use super::{Scene, SceneHandler, SceneManager};
 
@@ -29,19 +30,26 @@ impl SceneHandler for TitleScene {
     fn on_exit(&self, _world: &mut World) {}
 }
 
-/// Drives the Title's two exits. The first input hands off to gameplay -- any bound
-/// key press surfaces as a [`GameEvent`], which is enough to start (on the web the
-/// JS "Click to Start" overlay instead calls the `start_game` FFI, which queues
-/// gameplay directly). Absent any input for [`ATTRACT_IDLE_SECS`], it falls through
-/// to the self-playing attract demo. The schedule gates this system to the Title
-/// scene, so the idle timer only accrues while the Title is up.
+/// Drives the Title's two exits. A genuine intent to play -- a movement key or a
+/// click/tap -- hands off to gameplay. Meta commands (pause, debug, mute, ...) are
+/// deliberately ignored here: starting on *any* event would let Escape both start the
+/// game and toggle pause in the same frame, and a bare click (which emits no command,
+/// only a touch) would never start at all. On the web the JS "Click to Start" overlay
+/// instead calls the `start_game` FFI, which queues gameplay directly. Absent any input
+/// for [`ATTRACT_IDLE_SECS`], the Title falls through to the self-playing attract demo.
+/// The schedule gates this system to the Title scene, so the idle timer only accrues
+/// while the Title is up.
 pub fn title_input_system(
     mut events: EventReader<GameEvent>,
+    touch: Res<TouchState>,
     time: Res<DeltaTime>,
     mut idle: Local<f32>,
     mut scenes: ResMut<SceneManager>,
 ) {
-    if events.read().next().is_some() {
+    let pressed_to_play = events
+        .read()
+        .any(|event| matches!(event, GameEvent::Command(GameCommand::MovePlayer(_))));
+    if pressed_to_play || touch.active_touch.is_some() {
         *idle = 0.0;
         scenes.request(Scene::Gameplay);
         return;

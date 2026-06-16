@@ -76,6 +76,7 @@ fn configure_level(world: &mut World, level: u8) {
         let mut session = world.resource_mut::<Session>();
         session.level = level;
         session.pellets = PelletCount::default();
+        session.ghost_eaten_chain = 0;
     }
     world.resource_mut::<GhostModeController>().reset(level);
     world.resource_mut::<GhostHouseController>().reset(level);

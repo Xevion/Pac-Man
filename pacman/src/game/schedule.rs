@@ -94,7 +94,9 @@ fn add_input_systems(schedule: &mut Schedule) {
             // applied at the top of the next frame.
             profile(SystemId::Input, scenes::handle_reset_command),
             profile(SystemId::PlayerControls, systems::player::player_control_system),
-            profile(SystemId::Input, systems::state::handle_pause_command),
+            // Pause is a Gameplay-only concept: gating it here keeps Escape on the Title
+            // (or during attract) from toggling a pause that would carry into the game.
+            profile(SystemId::Input, systems::state::handle_pause_command).run_if(scenes::in_scene(scenes::Scene::Gameplay)),
             #[cfg(not(target_os = "emscripten"))]
             profile(SystemId::Input, systems::state::handle_fullscreen_command),
         )

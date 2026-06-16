@@ -102,6 +102,15 @@ impl SceneManager {
         self.active
     }
 
+    /// The scene queued to become active at the next apply, if any. Read by the title
+    /// input tests to assert a transition was requested without applying it (which would
+    /// need SDL); `#[allow(dead_code)]` because the bin recompiles this module and sees
+    /// no internal caller.
+    #[allow(dead_code)]
+    pub fn pending(&self) -> Option<Scene> {
+        self.pending
+    }
+
     /// Queues a transition to `scene`, applied at the top of the next frame by
     /// [`apply_pending_scene`]. A later request in the same frame overrides an
     /// earlier one; requesting the already-active scene collapses to a no-op.

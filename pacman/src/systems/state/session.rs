@@ -25,6 +25,9 @@ pub struct Session {
     pub pellets: PelletCount,
     /// Whether the opening jingle has played for the current startup sequence.
     pub intro_played: bool,
+    /// How many ghosts Pac-Man has eaten during the current fright period. Drives the
+    /// 200/400/800/1600 score chain; reset to 0 each time a power pellet is consumed.
+    pub ghost_eaten_chain: u8,
     pub stage: GameStage,
 }
 
@@ -37,6 +40,7 @@ impl Session {
             lives: PlayerLives::default(),
             pellets: PelletCount::default(),
             intro_played: false,
+            ghost_eaten_chain: 0,
             stage: GameStage::initial(),
         }
     }

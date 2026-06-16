@@ -57,7 +57,13 @@ pub struct ExitRequested;
 /// Data for requesting stage transitions; processed centrally in stage_system
 #[derive(Event, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StageTransition {
-    GhostEatenPause { ghost_entity: Entity, ghost_type: GhostType },
+    /// `value` is the score this eat awarded (200/400/800/1600 along the chain), carried
+    /// through so the pause-stage popup shows the same amount that was added to the score.
+    GhostEatenPause {
+        ghost_entity: Entity,
+        ghost_type: GhostType,
+        value: u32,
+    },
 }
 
 /// Collision triggers for immediate collision handling via observers

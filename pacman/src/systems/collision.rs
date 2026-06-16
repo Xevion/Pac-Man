@@ -153,9 +153,12 @@ pub fn ghost_collision_observer(
         if let Ok(mut ghost_state) = ghost_state_query.get_mut(ghost) {
             // Check if ghost is in frightened state
             if ghost_state.is_frightened() {
-                // Pac-Man eats the ghost
-                debug!(ghost = ?ghost_type, score_added = constants::mechanics::GHOST_EATEN_SCORE, new_score = session.score.value() + constants::mechanics::GHOST_EATEN_SCORE, "Pacman ate frightened ghost");
-                session.score.add(constants::mechanics::GHOST_EATEN_SCORE);
+                // Pac-Man eats the ghost. Consecutive eats within one fright period double:
+                // 200, 400, 800, 1600 (chain 0..=3); the chain resets on the next power pellet.
+                let value = constants::mechanics::GHOST_EATEN_SCORE << session.ghost_eaten_chain;
+                debug!(ghost = ?ghost_type, chain = session.ghost_eaten_chain, score_added = value, new_score = session.score.value() + value, "Pacman ate frightened ghost");
+                session.score.add(value);
+                session.ghost_eaten_chain = (session.ghost_eaten_chain + 1).min(3);
 
                 *ghost_state = GhostState::Eyes;
 
@@ -165,6 +168,7 @@ pub fn ghost_collision_observer(
                 commands.trigger(StageTransition::GhostEatenPause {
                     ghost_entity: ghost,
                     ghost_type,
+                    value,
                 });
 
                 // Play ghost eaten sound
@@ -250,6 +254,8 @@ pub fn item_collision_observer(trigger: Trigger<CollisionTrigger>, mut params: I
                         duration_ticks = constants::animation::GHOST_FRIGHTENED_TICKS,
                         "Power pellet collected, frightening ghosts"
                     );
+                    // A fresh fright period restarts the ghost-eat score chain at 200.
+                    params.session.ghost_eaten_chain = 0;
                     for mut ghost_state in params.ghost_query.iter_mut() {
                         if matches!(*ghost_state, GhostState::Active { frightened: None }) {
                             *ghost_state = GhostState::Active {

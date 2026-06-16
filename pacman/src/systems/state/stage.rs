@@ -371,6 +371,7 @@ pub fn enter_ghost_eaten_pause(
     let StageTransition::GhostEatenPause {
         ghost_entity,
         ghost_type,
+        value,
     } = *trigger;
 
     // Only enter the pause from live gameplay: if a fatal collision already flipped the
@@ -396,11 +397,10 @@ pub fn enter_ghost_eaten_pause(
     commands.entity(player_entity).insert(Visibility::hidden());
     commands.entity(ghost_entity).insert(Visibility::hidden());
 
-    // Spawn the bonus-score entity at Pac-Man's node.
+    // Spawn the bonus-score entity at Pac-Man's node, showing the eat's actual value.
     commands.trigger(SpawnTrigger::Bonus {
         position: Position::Stopped { node },
-        // TODO: Doubling score value for each consecutive ghost eaten
-        value: constants::mechanics::GHOST_EATEN_SCORE,
+        value,
         ttl: constants::mechanics::GHOST_EATEN_PAUSE_TICKS,
     });
 

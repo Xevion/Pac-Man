@@ -1,9 +1,14 @@
+use bevy_ecs::event::EventRegistry;
 use bevy_ecs::system::RunSystemOnce;
 use bevy_ecs::world::World;
-use pacman::events::StageTransition;
-use pacman::systems::collision::{check_collision, collision_system, Collider};
+use pacman::events::{CollisionTrigger, StageTransition};
+use pacman::systems::audio::AudioEvent;
+use pacman::systems::collision::{
+    check_collision, collision_system, ghost_collision_observer, item_collision_observer, Collider, ItemCollider,
+};
 use pacman::systems::common::{EntityType, Frozen};
-use pacman::systems::ghost::{GhostState, GhostType};
+use pacman::systems::ghost::{FrightenedData, GhostHouseController, GhostState, GhostType};
+use pacman::systems::hud::FruitSprites;
 use pacman::systems::movement::Position;
 use pacman::systems::state::{enter_ghost_eaten_pause, GameStage, Session};
 use speculoos::prelude::*;
@@ -102,6 +107,7 @@ fn ghost_eaten_observer_enters_pause_and_freezes() {
     world.trigger(StageTransition::GhostEatenPause {
         ghost_entity: eaten,
         ghost_type: GhostType::Blinky,
+        value: 200,
     });
     world.flush();
 
@@ -113,4 +119,82 @@ fn ghost_eaten_observer_enters_pause_and_freezes() {
     assert_that(&world.get::<Frozen>(player).is_some()).is_true();
     assert_that(&world.get::<Frozen>(eaten).is_some()).is_true();
     assert_that(&world.get::<Frozen>(bystander).is_some()).is_true();
+}
+
+/// Eating consecutive frightened ghosts in one fright period must double the award:
+/// 200, 400, 800, 1600 (cumulative 200, 600, 1400, 3000).
+#[test]
+fn ghost_eat_score_doubles_along_the_chain() {
+    let mut world = World::new();
+    EventRegistry::register_event::<AudioEvent>(&mut world);
+    world.insert_resource(Session::default());
+    world.resource_mut::<Session>().stage = GameStage::Playing;
+    world.add_observer(ghost_collision_observer);
+
+    // The pacman field is carried but unused by the observer; a valid entity suffices.
+    let pacman = common::spawn_test_player(&mut world, 0);
+
+    // Each eat flips the ghost to Eyes, so spawn a fresh frightened ghost per step.
+    for cumulative in [200u32, 600, 1400, 3000] {
+        let ghost = common::spawn_test_ghost(
+            &mut world,
+            0,
+            GhostState::Active {
+                frightened: Some(FrightenedData::new(100, 50)),
+            },
+        );
+        world.trigger(CollisionTrigger::GhostCollision {
+            pacman,
+            ghost,
+            ghost_type: GhostType::Blinky,
+        });
+        world.flush();
+        assert_that(&world.resource::<Session>().score.value()).is_equal_to(cumulative);
+    }
+}
+
+/// Collecting a power pellet (via the real item observer) must restart the eat chain,
+/// so the next ghost eaten after a fresh fright period scores 200 again, not 400.
+#[test]
+fn power_pellet_resets_ghost_eat_chain() {
+    let mut world = World::new();
+    EventRegistry::register_event::<AudioEvent>(&mut world);
+    world.insert_resource(Session::default());
+    world.resource_mut::<Session>().stage = GameStage::Playing;
+    world.insert_resource(GhostHouseController::default());
+    world.insert_resource(FruitSprites::default());
+    world.add_observer(ghost_collision_observer);
+    world.add_observer(item_collision_observer);
+
+    let pacman = common::spawn_test_player(&mut world, 0);
+    let eat_ghost = |world: &mut World| {
+        let ghost = common::spawn_test_ghost(
+            world,
+            0,
+            GhostState::Active {
+                frightened: Some(FrightenedData::new(100, 50)),
+            },
+        );
+        world.trigger(CollisionTrigger::GhostCollision {
+            pacman,
+            ghost,
+            ghost_type: GhostType::Blinky,
+        });
+        world.flush();
+    };
+
+    eat_ghost(&mut world); // chain 0 -> awards 200, chain now 1
+    assert_that(&world.resource::<Session>().score.value()).is_equal_to(200);
+
+    // Eat a power pellet through the real observer; it must reset the chain to 0.
+    let pellet = world
+        .spawn((EntityType::PowerPellet, Position::Stopped { node: 0 }, ItemCollider))
+        .id();
+    world.trigger(CollisionTrigger::ItemCollision { item: pellet });
+    world.flush();
+    assert_that(&world.resource::<Session>().ghost_eaten_chain).is_equal_to(0);
+
+    eat_ghost(&mut world); // chain 0 again -> awards 200, not 400
+                           // Cumulative: 200 (first eat) + 50 (power pellet) + 200 (reset eat) = 450.
+    assert_that(&world.resource::<Session>().score.value()).is_equal_to(450);
 }

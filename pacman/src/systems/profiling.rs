@@ -331,6 +331,7 @@ where
 {
     let mut system: Box<dyn System<In = (), Out = ()>> = Box::new(IntoSystem::into_system(system));
     let mut is_initialized = false;
+    let mut warned = false;
     let name: &'static str = id.into();
     move |world: &mut bevy_ecs::world::World| {
         if !is_initialized {
@@ -341,7 +342,20 @@ where
         let start = std::time::Instant::now();
         {
             let _zone = crate::tracy::zone(name, file!(), line!());
-            system.run((), world);
+            // Mirror Bevy's stock scheduler: skip a system whose params aren't
+            // satisfiable this frame (an empty `Single`, a missing resource, ...) rather
+            // than running it. `System::run` -- unlike the executor -- does not validate,
+            // so we do it explicitly. Warn once per system so a persistent skip stays
+            // visible without spamming a line every frame.
+            match system.validate_param(world) {
+                Ok(()) => system.run((), world),
+                Err(error) => {
+                    if !warned {
+                        warned = true;
+                        tracing::warn!(system = name, "skipping system: parameter validation failed: {error}");
+                    }
+                }
+            }
         }
         let duration = start.elapsed();
 
