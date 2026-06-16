@@ -4,7 +4,6 @@ use tracing::{info, trace};
 
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::Events;
-use bevy_ecs::query::With;
 use bevy_ecs::world::World;
 
 use crate::constants;
@@ -46,7 +45,6 @@ pub fn spawn_gameplay(world: &mut World, level: u8) -> GameResult<()> {
 /// `Entity` ids held in gameplay state (`Session::stage`, the `StageTransition`
 /// queue) are dropped so nothing points at a despawned entity; finally every
 /// `SceneOwned` entity is despawned.
-#[allow(dead_code)] // Called once scene routing drives gameplay exit.
 pub fn despawn_gameplay(world: &mut World) {
     world.flush();
 
@@ -60,15 +58,21 @@ pub fn despawn_gameplay(world: &mut World) {
         transitions.clear();
     }
 
-    let doomed: Vec<Entity> = world.query_filtered::<Entity, With<SceneOwned>>().iter(world).collect();
+    let doomed: Vec<Entity> = world
+        .query::<(Entity, &SceneOwned)>()
+        .iter(world)
+        .filter_map(|(entity, owned)| (owned.0 == Scene::Gameplay).then_some(entity))
+        .collect();
     for entity in doomed {
         world.despawn(entity);
     }
 
-    debug_assert_eq!(
-        world.query_filtered::<Entity, With<SceneOwned>>().iter(world).count(),
-        0,
-        "despawn_gameplay left SceneOwned entities alive"
+    debug_assert!(
+        world
+            .query::<&SceneOwned>()
+            .iter(world)
+            .all(|owned| owned.0 != Scene::Gameplay),
+        "despawn_gameplay left Gameplay-owned entities alive"
     );
 }
 

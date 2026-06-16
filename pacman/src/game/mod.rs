@@ -116,34 +116,36 @@ impl Game {
         debug!("Configuring system execution schedule");
         schedule::configure_schedule(&mut schedule);
 
-        info!("Spawning initial gameplay scene");
-        spawning::spawn_gameplay(&mut world, 1)?;
+        info!("Entering initial scene");
+        let scenes = crate::scenes::SceneManager::new(crate::scenes::Scene::Title);
+        scenes.enter_initial(&mut world)?;
+        world.insert_resource(scenes);
 
         info!("Game initialization completed successfully");
         Ok(Game { world, schedule })
     }
 
-    /// Starts the game after user interaction (Emscripten only).
+    /// Starts the game after the first user interaction (Emscripten only).
     ///
-    /// Transitions from WaitingForInteraction to Starting state and unlocks audio.
-    /// Called from JavaScript when the user clicks or presses a key.
+    /// Unlocks audio within the user gesture (browser autoplay policy) and queues
+    /// the Gameplay scene, leaving the Title. Called from JavaScript when the user
+    /// clicks or presses a key.
     #[cfg(target_os = "emscripten")]
     pub fn start(&mut self) {
+        use crate::scenes::{Scene, SceneManager};
         use crate::systems::audio::AudioResource;
-        use crate::systems::state::{GameStage, Session, StartupSequence};
 
-        // Unlock audio now that user has interacted
+        // Unlock audio now that the user has interacted; autoplay policy requires
+        // this to happen from within the gesture.
         if let Some(mut audio) = self.world.get_non_send_resource_mut::<AudioResource>() {
             audio.0.unlock();
         }
 
-        // Transition to Starting state if we're waiting
-        if let Some(mut session) = self.world.get_resource_mut::<Session>() {
-            if matches!(session.stage, GameStage::WaitingForInteraction) {
+        // Queue the Gameplay scene; the router applies it at the top of the next frame.
+        if let Some(mut scenes) = self.world.get_resource_mut::<SceneManager>() {
+            if scenes.active() == Scene::Title {
                 tracing::info!("User interaction detected, starting game");
-                session.stage = GameStage::Starting(StartupSequence::TextOnly {
-                    remaining_ticks: constants::startup::STARTUP_FRAMES,
-                });
+                scenes.request(Scene::Gameplay);
             }
         }
     }

@@ -56,7 +56,7 @@ impl<T> WasmCell<T> {
 static APP: WasmCell<Option<App>> = WasmCell::new(None);
 
 /// Called from JavaScript when the user interacts with the page.
-/// Transitions the game from WaitingForInteraction to Starting state.
+/// Unlocks audio and starts the game by leaving the Title for Gameplay.
 #[cfg(target_os = "emscripten")]
 #[no_mangle]
 pub extern "C" fn start_game() {

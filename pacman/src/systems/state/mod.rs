@@ -21,14 +21,6 @@ impl TooSimilar for GameStage {
     fn too_similar(&self, other: &Self) -> bool {
         discriminant(self) == discriminant(other) && {
             // These states are very simple, so they're 'too similar' automatically
-            #[cfg(target_os = "emscripten")]
-            if matches!(
-                self,
-                GameStage::Playing | GameStage::GameOver | GameStage::WaitingForInteraction
-            ) {
-                return true;
-            }
-            #[cfg(not(target_os = "emscripten"))]
             if matches!(self, GameStage::Playing | GameStage::GameOver) {
                 return true;
             }
@@ -53,9 +45,6 @@ impl TooSimilar for GameStage {
                     },
                 ) => ghost_entity == other_ghost_entity && ghost_type == other_ghost_type && node == other_node,
                 // Already handled, but kept to properly exhaust the match
-                #[cfg(target_os = "emscripten")]
-                (GameStage::Playing, _) | (GameStage::GameOver, _) | (GameStage::WaitingForInteraction, _) => unreachable!(),
-                #[cfg(not(target_os = "emscripten"))]
                 (GameStage::Playing, _) | (GameStage::GameOver, _) => unreachable!(),
                 _ => unreachable!(),
             }

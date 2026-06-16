@@ -6,6 +6,7 @@ use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule, SystemSet};
 use bevy_ecs::system::{Res, ResMut};
 
+use crate::scenes;
 use crate::systems;
 use crate::systems::animation::{blinking_system, directional_render_system, linear_render_system};
 use crate::systems::audio::audio_system;
@@ -42,6 +43,11 @@ enum RenderSet {
 /// ordering for a given phase lives in one place; `configure_sets` then chains
 /// the sets into their run order.
 pub(super) fn configure_schedule(schedule: &mut Schedule) {
+    // Scene transitions are applied before anything else runs, so a freshly entered
+    // scene's entities exist for the rest of the frame. This is an exclusive system
+    // (it spawns/despawns whole populations) and so sits outside the parallel sets.
+    schedule.add_systems(scenes::apply_pending_scene.before(GameplaySet::Input));
+
     add_input_systems(schedule);
     add_update_systems(schedule);
     add_respond_systems(schedule);
@@ -49,12 +55,15 @@ pub(super) fn configure_schedule(schedule: &mut Schedule) {
     add_draw_systems(schedule);
     add_present_systems(schedule);
 
+    // The simulation sets run only inside a live gameplay scene that isn't paused.
+    // Input, Draw, and Present run every frame regardless of scene (input must drain
+    // the SDL pump; the title/menu still needs to render and present).
     schedule.configure_sets(
         (
             GameplaySet::Input,
-            GameplaySet::Update.run_if(|paused: Res<PauseState>| !paused.active()),
-            GameplaySet::Respond.run_if(|paused: Res<PauseState>| !paused.active()),
-            RenderSet::Animation.run_if(|paused: Res<PauseState>| !paused.active()),
+            GameplaySet::Update.run_if(scenes::sim_active),
+            GameplaySet::Respond.run_if(scenes::sim_active),
+            RenderSet::Animation.run_if(scenes::sim_active),
             RenderSet::Draw,
             RenderSet::Present,
         )
@@ -73,6 +82,9 @@ fn add_input_systems(schedule: &mut Schedule) {
             #[cfg(target_os = "emscripten")]
             profile(SystemId::Input, systems::input::apply_pending_resize),
             profile(SystemId::Input, systems::input::input_system),
+            // While the Title is up, the first input hands off to gameplay. Ordered
+            // after input_system so it sees this frame's GameEvents.
+            profile(SystemId::Input, scenes::title_input_system).run_if(scenes::in_scene(scenes::Scene::Title)),
             profile(SystemId::PlayerControls, systems::player::player_control_system),
             profile(SystemId::Input, systems::state::handle_pause_command),
             #[cfg(not(target_os = "emscripten"))]
@@ -137,7 +149,9 @@ fn add_draw_systems(schedule: &mut Schedule) {
             }),
             profile(SystemId::DirtyRender, dirty_render_system).run_if(|dirty: Res<RenderDirty>| dirty.0.not()),
             profile(SystemId::Render, backbuffer_render_system),
-            profile(SystemId::HudRender, hud_overlay_system),
+            // Maze-overlay text (READY!, GAME OVER, pause dimmer) is gameplay-specific,
+            // so it stays off the Title's empty maze.
+            profile(SystemId::HudRender, hud_overlay_system).run_if(scenes::in_scene(scenes::Scene::Gameplay)),
             touch_ui_render_system,
         )
             .chain()

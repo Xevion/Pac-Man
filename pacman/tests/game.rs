@@ -2,7 +2,7 @@ use bevy_ecs::{entity::Entity, event::Events, query::With, world::World};
 use pacman::error::{GameError, GameResult};
 use pacman::events::StageTransition;
 use pacman::game::Game;
-use pacman::scenes::SceneOwned;
+use pacman::scenes::{Scene, SceneManager, SceneOwned};
 use pacman::systems::ghost::GhostType;
 use pacman::systems::state::{GameStage, Session};
 use speculoos::prelude::*;
@@ -24,6 +24,8 @@ fn test_game_30_seconds_60fps() -> GameResult<()> {
         .map_err(|e| pacman::error::GameError::Sdl(e.to_string()))?;
 
     let mut game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
+    // Boot lands in the Title; enter gameplay so the loop exercises the simulation.
+    game.world.resource_mut::<SceneManager>().request(Scene::Gameplay);
 
     // Run for 30 seconds at 60 FPS = 1800 frames
     let frame_time = 1.0 / 60.0;
@@ -58,6 +60,8 @@ fn test_game_30_seconds_variable_timing() -> GameResult<()> {
         .map_err(|e| pacman::error::GameError::Sdl(e.to_string()))?;
 
     let mut game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
+    // Boot lands in the Title; enter gameplay so the loop exercises the simulation.
+    game.world.resource_mut::<SceneManager>().request(Scene::Gameplay);
 
     // Simulate 30 seconds with variable frame timing
     let mut total_time = 0.0;
@@ -97,7 +101,8 @@ fn gameplay_teardown_and_respawn_leave_no_leaks() -> GameResult<()> {
 
     let mut game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
 
-    // Boot eagerly spawns a full gameplay scene.
+    // Boot lands in the Title (no gameplay entities); populate one scene to tear down.
+    pacman::game::spawning::spawn_gameplay(&mut game.world, 1)?;
     let initial = scene_owned_count(&mut game.world);
     assert_that(&initial).is_greater_than(0);
 
@@ -131,5 +136,28 @@ fn gameplay_teardown_and_respawn_leave_no_leaks() -> GameResult<()> {
     // Respawning restores the same population; the full cycle leaks nothing.
     pacman::game::spawning::spawn_gameplay(&mut game.world, 1)?;
     assert_that(&scene_owned_count(&mut game.world)).is_equal_to(initial);
+    Ok(())
+}
+
+/// Boot lands in the Title scene with no gameplay entities; requesting Gameplay and
+/// ticking once must route through `apply_pending_scene` and populate the scene.
+#[test]
+fn scene_router_boots_in_title_then_enters_gameplay() -> GameResult<()> {
+    let (canvas, texture_creator, _sdl_context) = setup_sdl().map_err(GameError::Sdl)?;
+    let ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
+    let event_pump = _sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
+
+    let mut game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
+
+    // Boot scene is the Title, which owns no entities.
+    assert_that(&game.world.resource::<SceneManager>().active()).is_equal_to(Scene::Title);
+    assert_that(&scene_owned_count(&mut game.world)).is_equal_to(0);
+
+    // Queue Gameplay; the router applies it at the top of the next tick.
+    game.world.resource_mut::<SceneManager>().request(Scene::Gameplay);
+    game.tick(1.0 / 60.0);
+
+    assert_that(&game.world.resource::<SceneManager>().active()).is_equal_to(Scene::Gameplay);
+    assert_that(&scene_owned_count(&mut game.world)).is_greater_than(0);
     Ok(())
 }

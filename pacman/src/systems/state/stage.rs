@@ -26,10 +26,6 @@ use super::{PlayerAnimation, PlayerDeathAnimation, Session, TooSimilar};
 /// [`crate::systems::state::Session`] as the gameplay sub-machine's state.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub enum GameStage {
-    /// Waiting for user interaction before starting (Emscripten only).
-    /// Game is rendered but audio/gameplay are paused until the user clicks or presses a key.
-    #[cfg(target_os = "emscripten")]
-    WaitingForInteraction,
     Starting(StartupSequence),
     /// The main gameplay loop is active.
     #[default]
@@ -48,19 +44,13 @@ pub enum GameStage {
 }
 
 impl GameStage {
-    /// The stage a fresh session begins in. On the web the game waits for a user
-    /// gesture (browser autoplay policy) before the startup sequence runs.
+    /// The stage a fresh gameplay session begins in: the opening startup sequence.
+    /// Waiting for a user gesture (browser autoplay policy) is now the Title scene's
+    /// job, not a stage.
     pub fn initial() -> Self {
-        #[cfg(target_os = "emscripten")]
-        {
-            GameStage::WaitingForInteraction
-        }
-        #[cfg(not(target_os = "emscripten"))]
-        {
-            GameStage::Starting(StartupSequence::TextOnly {
-                remaining_ticks: constants::startup::STARTUP_FRAMES,
-            })
-        }
+        GameStage::Starting(StartupSequence::TextOnly {
+            remaining_ticks: constants::startup::STARTUP_FRAMES,
+        })
     }
 }
 
@@ -140,11 +130,6 @@ pub fn stage_system(
     }
 
     let new_state: GameStage = new_state_opt.unwrap_or_else(|| match res.session.stage {
-        #[cfg(target_os = "emscripten")]
-        GameStage::WaitingForInteraction => {
-            // Stay in this state until JS calls start_game()
-            res.session.stage
-        }
         GameStage::Playing => {
             // This is the default state, do nothing
             res.session.stage
