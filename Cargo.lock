@@ -1724,9 +1724,9 @@ dependencies = [
 
 [[package]]
 name = "glam"
-version = "0.30.10"
+version = "0.33.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19fc433e8437a212d1b6f1e68c7824af3aed907da60afa994e7f542d18d12aa9"
+checksum = "898f5a568a84989b6c0f8caa50a93074b97dbdc58fc6d9543157bb4562758933"
 
 [[package]]
 name = "h2"
@@ -2821,7 +2821,7 @@ dependencies = [
  "bevy_ecs",
  "bitflags 2.13.0",
  "circular-buffer",
- "glam 0.30.10",
+ "glam 0.33.1",
  "libc",
  "num-width",
  "parking_lot",
@@ -2837,7 +2837,7 @@ dependencies = [
  "speculoos",
  "spin_sleep",
  "strum",
- "strum_macros",
+ "strum_macros 0.28.0",
  "thiserror 2.0.18",
  "thousands",
  "time",
@@ -3817,7 +3817,7 @@ dependencies = [
  "rustls",
  "serde",
  "sha2 0.10.9",
- "strum_macros",
+ "strum_macros 0.27.2",
  "thiserror 2.0.18",
  "time",
  "tokio",
@@ -4416,15 +4416,27 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.27.2"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
+checksum = "9628de9b8791db39ceda2b119bbe13134770b56c138ec1d3af810d045c04f9bd"
 
 [[package]]
 name = "strum_macros"
 version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab85eea0270ee17587ed4156089e10b9e6880ee688791d45a905f5b1ca36f664"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -4497,10 +4509,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
