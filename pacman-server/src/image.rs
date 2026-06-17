@@ -101,7 +101,10 @@ impl ImageStorage {
         let img_rgba = img.to_rgba8();
 
         // Generate a simple hash for the avatar (using the URL for now)
-        let avatar_hash = format!("{:x}", sha2::Sha256::digest(avatar_url.as_bytes()));
+        let avatar_hash = sha2::Sha256::digest(avatar_url.as_bytes())
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>();
         trace!(
             width = img_rgba.width(),
             height = img_rgba.height(),
