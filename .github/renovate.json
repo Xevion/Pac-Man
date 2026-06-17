@@ -9,6 +9,7 @@
   "schedule": ["before 6am on monday"],
   "minimumReleaseAge": "5 days",
   "internalChecksFilter": "strict",
+  "branchNameStrict": true,
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
   "labels": ["dependencies"],
