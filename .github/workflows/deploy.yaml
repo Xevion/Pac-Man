@@ -4,9 +4,17 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - '**.md'
+      - '.github/renovate.json'
+      - LICENSE
   pull_request:
     branches:
       - master
+    paths-ignore:
+      - '**.md'
+      - '.github/renovate.json'
+      - LICENSE
   workflow_dispatch:
 
 permissions:
