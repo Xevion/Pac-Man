@@ -48,6 +48,13 @@
       "addLabels": ["rust", "major"]
     },
     {
+      "description": "Pre-1.0 Rust minor bumps are breaking under Cargo semver: ungroup into individual PRs so one blocked migration cannot stall the rest",
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["minor"],
+      "matchCurrentVersion": "<1.0.0",
+      "groupName": null
+    },
+    {
       "description": "Frontend (web): group all non-major updates into one PR",
       "matchManagers": ["npm", "bun"],
       "matchFileNames": ["web/package.json"],
