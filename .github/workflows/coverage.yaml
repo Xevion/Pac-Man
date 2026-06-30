@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
+        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master
         with:
           toolchain: nightly
           components: llvm-tools-preview
@@ -32,9 +32,9 @@ jobs:
       - name: Setup vcpkg
         uses: ./.github/actions/vcpkg-setup
 
-      - uses: taiki-e/install-action@91534edaf9fd796a162759d80d49cdff574bff2c # cargo-llvm-cov
-      - uses: taiki-e/install-action@11c82bec3ad7f6041db8bd552d47469a973381cd # nextest
-      - uses: taiki-e/install-action@bafb217ce243dd135aa0204d91238f387d005863 # just
+      - uses: taiki-e/install-action@c6d51ded7cde3c421f6cd6046cd601f2248f3710 # cargo-llvm-cov
+      - uses: taiki-e/install-action@0c80bcf54d007ab0e714c95f3bcc43c387707535 # nextest
+      - uses: taiki-e/install-action@f4f7c6f1cc934d4ea1ecdd859ece8eef80a7d6ea # just
 
       - name: Generate coverage report
         run: |

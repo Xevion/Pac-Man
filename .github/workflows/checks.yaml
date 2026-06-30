@@ -41,7 +41,7 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-      - uses: taiki-e/install-action@1cacf5c5198b25f60b90968ce45860e926d584b0 # cargo-audit
+      - uses: taiki-e/install-action@5626e41434f03ab3022d9685405c0645c879f441 # cargo-audit
 
       - name: Run security audit
         run: cargo audit
