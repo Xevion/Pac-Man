@@ -19,9 +19,7 @@ export interface PacmanModule {
 }
 
 export type LoadingError =
-	| { type: 'timeout' }
-	| { type: 'script'; message: string }
-	| { type: 'runtime'; message: string };
+	{ type: 'timeout' } | { type: 'script'; message: string } | { type: 'runtime'; message: string };
 
 export interface PacmanWindow extends Window {
 	Module?: PacmanModule;
