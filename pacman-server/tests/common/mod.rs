@@ -178,7 +178,7 @@ pub async fn test_context(
     }
 
     let router = create_router(app_state.clone());
-    let mut server = TestServer::new(router).unwrap();
+    let mut server = TestServer::new(router);
     server.save_cookies();
 
     TestContext {
