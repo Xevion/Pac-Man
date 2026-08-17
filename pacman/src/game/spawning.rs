@@ -85,7 +85,7 @@ fn configure_level(world: &mut World, level: u8) {
 fn spawn_player(world: &mut World) -> GameResult<()> {
     let pacman_node = world.resource::<Map>().start_positions.pacman;
     let bundle = {
-        let atlas = world.non_send_resource::<SpriteAtlas>();
+        let atlas = world.non_send::<SpriteAtlas>();
         let (animation, start_sprite) = super::animations::create_player_animations(atlas)?;
         (
             Pacman,
@@ -106,11 +106,11 @@ fn spawn_player(world: &mut World) -> GameResult<()> {
 fn spawn_items(world: &mut World) -> GameResult<()> {
     trace!("Loading item sprites from atlas");
     let pellet_sprite = SpriteAtlas::get_tile(
-        world.non_send_resource::<SpriteAtlas>(),
+        world.non_send::<SpriteAtlas>(),
         &GameSprite::Maze(MazeSprite::Pellet).to_path(),
     )?;
     let energizer_sprite = SpriteAtlas::get_tile(
-        world.non_send_resource::<SpriteAtlas>(),
+        world.non_send::<SpriteAtlas>(),
         &GameSprite::Maze(MazeSprite::Energizer).to_path(),
     )?;
 
@@ -170,7 +170,7 @@ fn spawn_ghosts(world: &mut World) -> GameResult<()> {
         // Create the ghost bundle in a separate scope to manage borrows
         let (ghost_bundle, extra_components) = {
             let animations = world.resource::<GhostAnimations>().get_normal(&ghost_type).unwrap().clone();
-            let atlas = world.non_send_resource::<SpriteAtlas>();
+            let atlas = world.non_send::<SpriteAtlas>();
             let sprite_path = GameSprite::Ghost(GhostSprite::Normal(ghost_type, Direction::Left, 0)).to_path();
 
             let ghost_state = ghost_type.initial_state();

@@ -1,4 +1,4 @@
-use bevy_ecs::{entity::Entity, event::Event};
+use bevy_ecs::{entity::Entity, event::Event, message::Message};
 
 use crate::map::direction::Direction;
 use crate::systems::ghost::GhostType;
@@ -35,7 +35,7 @@ pub enum GameCommand {
 ///
 /// Events enable loose coupling between systems - input generates commands and
 /// various systems respond appropriately without direct dependencies.
-#[derive(Event, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GameEvent {
     /// Player input command to be processed by relevant game systems
     Command(GameCommand),

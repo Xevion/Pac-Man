@@ -4,7 +4,7 @@
 //! click/tap -- so meta commands (notably Escape/pause) neither start the game nor
 //! leak a pause into it.
 
-use bevy_ecs::event::EventRegistry;
+use bevy_ecs::message::MessageRegistry;
 use bevy_ecs::system::RunSystemOnce;
 use bevy_ecs::world::World;
 use glam::Vec2;
@@ -19,7 +19,7 @@ use speculoos::prelude::*;
 /// A minimal world holding exactly what `title_input_system` reads, sitting on the Title.
 fn title_world() -> World {
     let mut world = World::new();
-    EventRegistry::register_event::<GameEvent>(&mut world);
+    MessageRegistry::register_message::<GameEvent>(&mut world);
     world.insert_resource(TouchState::default());
     world.insert_resource(DeltaTime { seconds: 0.0, ticks: 0 });
     world.insert_resource(SceneManager::new(Scene::Title));
@@ -30,7 +30,7 @@ fn title_world() -> World {
 #[test]
 fn title_starts_on_movement_input() {
     let mut world = title_world();
-    world.send_event(GameEvent::Command(GameCommand::MovePlayer(Direction::Up)));
+    world.write_message(GameEvent::Command(GameCommand::MovePlayer(Direction::Up)));
     world.run_system_once(title_input_system).unwrap();
     assert_that(&world.resource::<SceneManager>().pending()).is_equal_to(Some(Scene::Gameplay));
 }
@@ -49,7 +49,7 @@ fn title_starts_on_tap() {
 #[test]
 fn title_ignores_meta_command() {
     let mut world = title_world();
-    world.send_event(GameEvent::Command(GameCommand::TogglePause));
+    world.write_message(GameEvent::Command(GameCommand::TogglePause));
     world.run_system_once(title_input_system).unwrap();
     assert_that(&world.resource::<SceneManager>().pending()).is_equal_to(None);
 }

@@ -15,8 +15,8 @@ use crate::systems::player::PlayerControlled;
 use crate::systems::render::Visibility;
 use bevy_ecs::{
     entity::Entity,
-    event::EventWriter,
-    observer::Trigger,
+    message::MessageWriter,
+    observer::On,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, Single, SystemParam},
 };
@@ -152,8 +152,8 @@ pub struct StageResources<'w, 's> {
     pub player_animation: Res<'w, PlayerAnimation>,
     pub map: Res<'w, Map>,
     pub commands: Commands<'w, 's>,
-    pub audio_events: EventWriter<'w, AudioEvent>,
-    pub player: Single<'w, Entity, With<PlayerControlled>>,
+    pub audio_events: MessageWriter<'w, AudioEvent>,
+    pub player: Single<'w, 's, Entity, With<PlayerControlled>>,
     pub blinking: Query<'w, 's, Entity, With<Blinking>>,
     pub items: Query<'w, 's, (Entity, &'static EntityType), With<ItemCollider>>,
     #[allow(clippy::type_complexity)]
@@ -406,7 +406,7 @@ pub fn stage_system(mut res: StageResources) {
 /// `StageTransition` event (and the teardown drain it forced on `despawn_gameplay`).
 #[allow(clippy::type_complexity)]
 pub fn enter_ghost_eaten_pause(
-    trigger: Trigger<StageTransition>,
+    trigger: On<StageTransition>,
     mut session: ResMut<Session>,
     mut commands: Commands,
     player: Single<(Entity, &Position), With<PlayerControlled>>,

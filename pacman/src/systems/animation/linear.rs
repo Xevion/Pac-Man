@@ -1,13 +1,12 @@
 use crate::texture::animated::TileSequence;
 use bevy_ecs::component::Component;
-use bevy_ecs::resource::Resource;
 
 /// Tag component to mark animations that should loop when they reach the end
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Looping;
 
 /// Linear animation component for non-directional animations (frightened ghosts)
-#[derive(Component, Resource, Clone)]
+#[derive(Component, Clone)]
 pub struct LinearAnimation {
     pub tiles: TileSequence,
     pub current_frame: usize,

@@ -1,8 +1,8 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    event::EventWriter,
-    observer::Trigger,
+    message::MessageWriter,
+    observer::On,
     query::With,
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
@@ -132,11 +132,11 @@ pub fn collision_system(
 
 /// Observer for handling ghost collisions immediately when they occur
 pub fn ghost_collision_observer(
-    trigger: Trigger<CollisionTrigger>,
+    trigger: On<CollisionTrigger>,
     mut commands: Commands,
     mut session: ResMut<Session>,
     mut ghost_state_query: Query<&mut GhostState>,
-    mut events: EventWriter<AudioEvent>,
+    mut events: MessageWriter<AudioEvent>,
 ) {
     if let CollisionTrigger::GhostCollision {
         pacman: _pacman,
@@ -195,11 +195,11 @@ pub struct ItemCollisionParams<'w, 's> {
     item_query: Query<'w, 's, (Entity, &'static EntityType, &'static Position), With<ItemCollider>>,
     ghost_house: ResMut<'w, crate::systems::ghost::GhostHouseController>,
     fruit_sprites: ResMut<'w, FruitSprites>,
-    events: EventWriter<'w, AudioEvent>,
+    events: MessageWriter<'w, AudioEvent>,
 }
 
 /// Observer for handling item collisions immediately when they occur
-pub fn item_collision_observer(trigger: Trigger<CollisionTrigger>, mut params: ItemCollisionParams) {
+pub fn item_collision_observer(trigger: On<CollisionTrigger>, mut params: ItemCollisionParams) {
     if let CollisionTrigger::ItemCollision { item } = *trigger {
         // Get the item type and update score
         if let Ok((item_ent, entity_type, position)) = params.item_query.get(item) {

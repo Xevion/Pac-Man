@@ -199,7 +199,7 @@ mod integration_tests {
 
     // Simplified helper for testing SDL integration
     fn run_input_system_with_events(events: Vec<sdl2::event::Event>, delta_time: f32) -> (CursorPosition, TouchState) {
-        use bevy_ecs::{event::Events, system::RunSystemOnce, world::World};
+        use bevy_ecs::{message::Messages, system::RunSystemOnce, world::World};
         use pacman::systems::common::DeltaTime;
         use pacman::systems::input::{input_system, HumanInput, InputSource};
         use pacman::systems::layout::{Layout, Orientation};
@@ -209,7 +209,7 @@ mod integration_tests {
         let event_pump = sdl_context.event_pump().expect("Failed to create event pump");
 
         let mut world = World::new();
-        world.insert_resource(Events::<GameEvent>::default());
+        world.insert_resource(Messages::<GameEvent>::default());
         world.insert_resource(DeltaTime {
             seconds: delta_time,
             ticks: 1,
@@ -231,7 +231,7 @@ mod integration_tests {
             top: None,
             bottom: None,
         });
-        world.insert_non_send_resource(event_pump);
+        world.insert_non_send(event_pump);
 
         // Inject events into SDL's event queue
         for event in events {

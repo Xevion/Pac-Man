@@ -5,7 +5,7 @@
 //! must pick a Pac-Man-traversable, non-reversing edge that greedily steps toward
 //! the target.
 
-use bevy_ecs::event::{EventRegistry, Events};
+use bevy_ecs::message::{MessageRegistry, Messages};
 use bevy_ecs::world::World;
 
 use pacman::events::{GameCommand, GameEvent};
@@ -133,7 +133,7 @@ fn run_ai_player_system(world: &mut World) {
 #[test]
 fn ai_player_system_skips_frozen_player_without_panicking() {
     let mut world = World::new();
-    EventRegistry::register_event::<GameEvent>(&mut world);
+    MessageRegistry::register_message::<GameEvent>(&mut world);
     world.insert_resource(common::create_test_map());
 
     world.spawn((
@@ -154,7 +154,7 @@ fn ai_player_system_skips_frozen_player_without_panicking() {
 #[test]
 fn ai_player_system_skips_absent_player_without_panicking() {
     let mut world = World::new();
-    EventRegistry::register_event::<GameEvent>(&mut world);
+    MessageRegistry::register_message::<GameEvent>(&mut world);
     world.insert_resource(common::create_test_map());
 
     run_ai_player_system(&mut world);
@@ -166,7 +166,7 @@ fn ai_player_system_skips_absent_player_without_panicking() {
 #[test]
 fn ai_player_system_emits_move_toward_pellet() {
     let mut world = World::new();
-    EventRegistry::register_event::<GameEvent>(&mut world);
+    MessageRegistry::register_message::<GameEvent>(&mut world);
 
     let map = common::create_test_map();
     let start = map.start_positions.pacman;
@@ -195,7 +195,7 @@ fn ai_player_system_emits_move_toward_pellet() {
 
     run_ai_player_system(&mut world);
 
-    let emitted: Vec<GameEvent> = world.resource_mut::<Events<GameEvent>>().drain().collect();
+    let emitted: Vec<GameEvent> = world.resource_mut::<Messages<GameEvent>>().drain().collect();
     let moved = emitted
         .iter()
         .any(|e| matches!(e, GameEvent::Command(GameCommand::MovePlayer(_))));

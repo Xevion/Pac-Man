@@ -1,7 +1,7 @@
 use tracing::info;
 
 use bevy_ecs::{
-    event::{EventReader, EventWriter},
+    message::{MessageReader, MessageWriter},
     resource::Resource,
     system::ResMut,
 };
@@ -57,9 +57,9 @@ impl PauseState {
 }
 
 pub fn handle_pause_command(
-    mut events: EventReader<GameEvent>,
+    mut events: MessageReader<GameEvent>,
     mut pause_state: ResMut<PauseState>,
-    mut audio_events: EventWriter<AudioEvent>,
+    mut audio_events: MessageWriter<AudioEvent>,
 ) {
     for event in events.read() {
         match event {
@@ -93,7 +93,7 @@ pub fn handle_pause_command(
     }
 }
 
-pub fn manage_pause_state_system(mut pause_state: ResMut<PauseState>, mut audio_events: EventWriter<AudioEvent>) {
+pub fn manage_pause_state_system(mut pause_state: ResMut<PauseState>, mut audio_events: MessageWriter<AudioEvent>) {
     let changed = pause_state.tick();
 
     // If the pause state changed, send the appropriate audio event

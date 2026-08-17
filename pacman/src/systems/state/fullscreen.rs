@@ -1,5 +1,5 @@
 #[cfg(not(target_os = "emscripten"))]
-use bevy_ecs::{event::EventReader, system::NonSendMut};
+use bevy_ecs::{message::MessageReader, system::NonSendMut};
 #[cfg(not(target_os = "emscripten"))]
 use sdl2::video::FullscreenType;
 #[cfg(not(target_os = "emscripten"))]
@@ -11,7 +11,7 @@ use crate::events::{GameCommand, GameEvent};
 use crate::systems::render::CanvasResource;
 
 #[cfg(not(target_os = "emscripten"))]
-pub fn handle_fullscreen_command(mut events: EventReader<GameEvent>, mut canvas: NonSendMut<CanvasResource>) {
+pub fn handle_fullscreen_command(mut events: MessageReader<GameEvent>, mut canvas: NonSendMut<CanvasResource>) {
     for event in events.read() {
         if let GameEvent::Command(GameCommand::ToggleFullscreen) = event {
             let window = canvas.window_mut();

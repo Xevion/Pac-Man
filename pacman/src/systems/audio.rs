@@ -5,7 +5,7 @@
 //! main-thread requirements while maintaining Bevy ECS compatibility.
 
 use bevy_ecs::{
-    event::{Event, EventReader},
+    message::{Message, MessageReader},
     system::NonSendMut,
 };
 use tracing::{debug, trace};
@@ -13,7 +13,7 @@ use tracing::{debug, trace};
 use crate::{audio::Audio, audio::Sound};
 
 /// Events for triggering audio playback
-#[derive(Event, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AudioEvent {
     /// Play a specific sound effect
     PlaySound(Sound),
@@ -41,7 +41,7 @@ pub struct AudioResource(pub Audio);
 ///
 /// The `Audio` resource's internal state is the single source of truth for mute,
 /// volume, and waka cycling. This system simply dispatches events to it.
-pub fn audio_system(mut audio: NonSendMut<AudioResource>, mut events: EventReader<AudioEvent>) {
+pub fn audio_system(mut audio: NonSendMut<AudioResource>, mut events: MessageReader<AudioEvent>) {
     for event in events.read() {
         match event {
             AudioEvent::Waka => {

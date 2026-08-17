@@ -1,6 +1,6 @@
 use bevy_ecs::{
     component::Component,
-    event::{EventReader, EventWriter},
+    message::{MessageReader, MessageWriter},
     query::{With, Without},
     system::{Query, Res, ResMut, Single},
 };
@@ -32,9 +32,9 @@ pub fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
 /// separately via the `ExitRequested` observer.)
 #[allow(clippy::type_complexity)]
 pub fn player_control_system(
-    mut events: EventReader<GameEvent>,
+    mut events: MessageReader<GameEvent>,
     mut debug_state: ResMut<DebugState>,
-    mut audio_events: EventWriter<AudioEvent>,
+    mut audio_events: MessageWriter<AudioEvent>,
     mut player: Option<Single<&mut BufferedDirection, (With<PlayerControlled>, Without<Frozen>)>>,
 ) {
     // Handle events

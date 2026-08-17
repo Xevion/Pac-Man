@@ -23,7 +23,7 @@ use tracing::{debug, trace};
 /// free of ghost-state knowledge: collision merely reports the event, and the ghost
 /// domain decides what frightening means. `GhostState` lives only on ghosts, so an
 /// unfiltered query needs no collider marker.
-pub fn frighten_ghosts_on_power_pellet(_trigger: Trigger<PowerPelletEaten>, mut ghost_query: Query<&mut GhostState>) {
+pub fn frighten_ghosts_on_power_pellet(_trigger: On<PowerPelletEaten>, mut ghost_query: Query<&mut GhostState>) {
     let mut frightened = 0;
     for mut ghost_state in ghost_query.iter_mut() {
         if matches!(*ghost_state, GhostState::Active { frightened: None }) {

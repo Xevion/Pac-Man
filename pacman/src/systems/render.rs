@@ -18,7 +18,7 @@ use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::query::{Changed, Or};
-use bevy_ecs::removal_detection::RemovedComponents;
+use bevy_ecs::lifecycle::RemovedComponents;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{NonSendMut, Query, Res, ResMut, SystemParam};
 use sdl2::rect::{Point, Rect};
