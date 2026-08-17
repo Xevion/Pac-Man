@@ -65,7 +65,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["server", "tokio", "http1"] }
 bytes = "1"
 anyhow = "1"
-axum-test = "18.1.0"
+axum-test = "21"
 pretty_assertions = "1.4.1"
 bon = "3.7.2"
 cookie = "0.18.1"
