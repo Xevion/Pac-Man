@@ -33,6 +33,7 @@ use crate::systems::animation::{DirectionalAnimation, LinearAnimation};
 
 /// Ghost personality type -- determines targeting behavior
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[component(immutable)]
 pub enum GhostType {
     Blinky,
     Pinky,

@@ -16,6 +16,7 @@ use crate::systems::player::PlayerControlled;
 /// The player entity. Spawn alongside `Position`, `Renderable`, and a
 /// `DirectionalAnimation`.
 #[derive(Component)]
+#[component(immutable)]
 #[require(
     PlayerControlled,
     Velocity = Velocity { speed: constants::mechanics::PLAYER_SPEED, direction: Direction::Left },
@@ -30,6 +31,7 @@ pub struct Pacman;
 /// A ghost entity. Spawn alongside `GhostType`, `Position`, `Velocity`,
 /// `Renderable`, a `DirectionalAnimation`, and the initial `GhostState`.
 #[derive(Component)]
+#[component(immutable)]
 #[require(
     EntityType = EntityType::Ghost,
     Collider = Collider { size: constants::collider::GHOST_SIZE },
@@ -42,5 +44,6 @@ pub struct Ghost;
 /// A collectible item (pellet, power pellet, or fruit). Spawn alongside
 /// `Position`, `Renderable`, an `EntityType`, and a `Collider`.
 #[derive(Component)]
+#[component(immutable)]
 #[require(ItemCollider = ItemCollider)]
 pub struct Item;

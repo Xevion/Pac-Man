@@ -50,4 +50,5 @@ pub fn elroy_speed(stage: ElroyStage, level: u8) -> f32 {
 
 /// Marker component for Blinky (to easily query him for Inky's targeting)
 #[derive(Component, Debug, Default)]
+#[component(immutable)]
 pub struct BlinkyMarker;

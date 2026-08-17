@@ -81,6 +81,7 @@ impl Scene {
 /// down, every entity carrying this component is despawned together, so no scene
 /// entity outlives the scene that owns it.
 #[derive(Component, Debug, Clone, Copy)]
+#[component(immutable)]
 pub struct SceneOwned(pub Scene);
 
 /// Owns the active scene and any pending transition to apply between frames.

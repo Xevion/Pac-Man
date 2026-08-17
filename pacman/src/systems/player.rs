@@ -16,6 +16,7 @@ use crate::systems::movement::{BufferedDirection, Position, Velocity};
 
 /// A tag component for entities that are controlled by the player.
 #[derive(Default, Component)]
+#[component(immutable)]
 pub struct PlayerControlled;
 
 pub fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {

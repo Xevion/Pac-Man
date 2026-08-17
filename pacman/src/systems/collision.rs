@@ -37,12 +37,15 @@ impl Collider {
 
 /// Marker components for collision filtering optimization
 #[derive(Component)]
+#[component(immutable)]
 pub struct PacmanCollider;
 
 #[derive(Component)]
+#[component(immutable)]
 pub struct GhostCollider;
 
 #[derive(Component)]
+#[component(immutable)]
 pub struct ItemCollider;
 
 /// Helper function to check collision between two entities with colliders.

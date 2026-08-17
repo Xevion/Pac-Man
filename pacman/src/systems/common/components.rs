@@ -5,6 +5,7 @@ use crate::systems::item::FruitType;
 
 /// A tag component denoting the type of entity.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[component(immutable)]
 pub enum EntityType {
     Player,
     Ghost,
@@ -111,4 +112,5 @@ impl Default for MovementModifiers {
 
 /// Tag component for entities that should be frozen during startup
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+#[component(immutable)]
 pub struct Frozen;

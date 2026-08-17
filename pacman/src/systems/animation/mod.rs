@@ -12,4 +12,5 @@ use bevy_ecs::component::Component;
 /// This is mainly because the Frozen tag would stop both movement and animation,
 /// while the Dying tag can signal that the animation should continue despite being frozen.
 #[derive(Component, Debug, Clone, Copy)]
+#[component(immutable)]
 pub struct Dying;

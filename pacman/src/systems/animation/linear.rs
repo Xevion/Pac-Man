@@ -3,6 +3,7 @@ use bevy_ecs::component::Component;
 
 /// Tag component to mark animations that should loop when they reach the end
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+#[component(immutable)]
 pub struct Looping;
 
 /// Linear animation component for non-directional animations (frightened ghosts)
