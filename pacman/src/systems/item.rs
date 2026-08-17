@@ -3,7 +3,7 @@ use bevy_ecs::{
     observer::Trigger,
     system::{Commands, NonSendMut, Res},
 };
-use rand::Rng;
+use rand::RngExt;
 use strum_macros::IntoStaticStr;
 use tracing::debug;
 

@@ -2,7 +2,8 @@
 
 use crate::error::PlatformError;
 use crate::formatter::CustomFormatter;
-use rand::{rngs::SmallRng, SeedableRng};
+use rand::rngs::{SmallRng, SysRng};
+use rand::SeedableRng;
 use std::ffi::CString;
 use std::io::{self, Write};
 use std::time::Duration;
@@ -99,5 +100,5 @@ impl Write for EmscriptenConsoleWriter {
 }
 
 pub fn rng() -> SmallRng {
-    SmallRng::from_os_rng()
+    SmallRng::try_from_rng(&mut SysRng).expect("failed to seed RNG from system entropy source")
 }

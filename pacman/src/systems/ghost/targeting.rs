@@ -54,7 +54,7 @@ pub fn choose_direction_at_intersection(
     target_node: NodeId,
     current_direction: Direction,
     is_frightened: bool,
-    rng: Option<&mut dyn rand::RngCore>,
+    rng: Option<&mut dyn rand::Rng>,
 ) -> Option<Direction> {
     let intersection = &map.graph.adjacency_list[current_node as usize];
     let opposite = current_direction.opposite();

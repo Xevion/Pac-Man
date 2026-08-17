@@ -26,7 +26,6 @@ ignored = ["s3-tokio"]
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 oauth2 = "5"
-reqwest = { version = "0.12", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sqlx = { version = "0.9", features = [
@@ -40,18 +39,19 @@ figment = { version = "0.10", features = ["env"] }
 dotenvy = "0.15"
 axum-cookie = "0.3"
 async-trait = "0.1"
-jsonwebtoken = { version = "10", default-features = false, features = ["rust_crypto"] }
+jsonwebtoken = { version = "11", default-features = false, features = ["rust_crypto"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
-tower-http = { version = "0.6", features = ["trace", "fs", "normalize-path"] }
+tower-http = { version = "0.7", features = ["trace", "fs", "normalize-path"] }
 time = { version = "0.3", features = ["macros", "formatting"] }
 yansi = "1"
 s3-tokio = { version = "0.39.6", default-features = false }
 rustls = { version = "0.23", features = ["ring"] }
 image = { version = "0.25", features = ["png", "jpeg"] }
 sha2 = "0.11"
-mockall = "0.14.0"
-testcontainers = { version = "0.27.0", optional = true }
+mockall = "0.15"
+testcontainers = { version = "0.28", optional = true }
+reqwest = { version = "0.12", features = ["json"] }
 # validator = { version = "0.16", features = ["derive"] }
 
 [features]

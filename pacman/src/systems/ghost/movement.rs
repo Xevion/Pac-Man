@@ -211,7 +211,7 @@ pub fn ghost_movement_system(
                         target_node,
                         velocity.direction,
                         is_frightened,
-                        rng.as_mut().map(|r| r as &mut dyn rand::RngCore),
+                        rng.as_mut().map(|r| r as &mut dyn rand::Rng),
                     );
 
                     if let Some(dir) = new_direction {
