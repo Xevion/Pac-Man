@@ -5,7 +5,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { type Plugin } from 'vite';
 import { execSync } from 'child_process';
-import { fontSubsetPlugin, type FontSubsetConfig } from './vite-plugin-font-subset';
+import { fontSubsetPlugin, type FontSubsetConfig } from './vite-plugin-font-subset.ts';
 
 // Character sets for font subsetting
 const TITLE_CHARS = 'PACMN-';

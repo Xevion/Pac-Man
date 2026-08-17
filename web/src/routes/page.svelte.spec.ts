@@ -3,8 +3,8 @@ import { render } from 'vitest-browser-svelte';
 import Page from './+page.svelte';
 
 describe('/+page.svelte', () => {
-	it('should render game canvas', () => {
-		render(Page);
+	it('should render game canvas', async () => {
+		await render(Page);
 
 		const canvas = document.querySelector('#canvas');
 		expect(canvas).not.toBeNull();
