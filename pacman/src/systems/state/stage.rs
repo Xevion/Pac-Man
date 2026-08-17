@@ -106,6 +106,16 @@ impl GameStage {
             }
             GameStage::GameOver => {
                 res.freeze_blinking();
+                #[cfg(target_os = "emscripten")]
+                {
+                    let duration_ms = res.session.elapsed_ticks as u64 * constants::LOOP_TIME.as_millis() as u64;
+                    crate::platform::run_script(&format!(
+                        "window.pacmanGameOver && window.pacmanGameOver({}, {}, {})",
+                        res.session.score.value(),
+                        res.session.level,
+                        duration_ms
+                    ));
+                }
             }
         }
     }
@@ -282,6 +292,8 @@ impl StageResources<'_, '_> {
 /// transition. The per-stage tick logic decides the next stage; [`GameStage::on_enter`]
 /// then applies the freeze/hide/reset effects.
 pub fn stage_system(mut res: StageResources) {
+    res.session.elapsed_ticks += 1;
+
     let old_state = res.session.stage();
 
     let new_state: GameStage = match res.session.stage() {

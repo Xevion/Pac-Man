@@ -28,6 +28,10 @@ pub struct Session {
     /// How many ghosts Pac-Man has eaten during the current fright period. Drives the
     /// 200/400/800/1600 score chain; reset to 0 each time a power pellet is consumed.
     pub ghost_eaten_chain: u8,
+    /// Ticks of unpaused gameplay elapsed this session, for reporting play duration on
+    /// game over. Incremented by [`stage_system`](super::stage_system), which only runs
+    /// while gameplay is unpaused, so paused time is excluded automatically.
+    pub elapsed_ticks: u32,
     /// The gameplay sub-machine's current stage. Private so every transition goes through
     /// [`Session::set_stage`] -- the single, searchable mutation point for the machine.
     stage: GameStage,
@@ -43,6 +47,7 @@ impl Session {
             pellets: PelletCount::default(),
             intro_played: false,
             ghost_eaten_chain: 0,
+            elapsed_ticks: 0,
             stage: GameStage::initial(),
         }
     }

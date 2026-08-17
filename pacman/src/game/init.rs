@@ -179,9 +179,7 @@ pub(super) struct InitResources {
 
 pub(super) fn insert_resources(world: &mut World, map: Map, init: InitResources) -> GameResult<()> {
     world.insert_non_send(init.atlas);
-    world.insert_resource(super::animations::create_ghost_animations(
-        world.non_send::<SpriteAtlas>(),
-    )?);
+    world.insert_resource(super::animations::create_ghost_animations(world.non_send::<SpriteAtlas>())?);
     let player_animation = super::animations::create_player_animations(world.non_send::<SpriteAtlas>())?.0;
     world.insert_resource(PlayerAnimation(player_animation));
     world.insert_resource(PlayerDeathAnimation(init.death_animation));

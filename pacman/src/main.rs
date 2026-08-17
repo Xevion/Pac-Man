@@ -126,6 +126,39 @@ pub extern "C" fn pacman_resize(width: i32, height: i32) {
     }
 }
 
+/// Called from JavaScript to reset the HUD leaderboard panel before repopulating it
+/// with live rows via [`pacman_leaderboard_push`].
+#[cfg(target_os = "emscripten")]
+#[no_mangle]
+pub extern "C" fn pacman_leaderboard_clear() {
+    unsafe {
+        if let Some(ref mut app) = *APP.0.get() {
+            app.game.world.resource_mut::<systems::hud::LeaderboardData>().0.clear();
+        }
+    }
+}
+
+/// Called from JavaScript to append one live leaderboard row (rank order), fetched
+/// from the leaderboard API.
+///
+/// # Safety
+/// `name` must be a valid pointer to a null-terminated UTF-8 C string, as `ccall`'s
+/// `"string"` argument marshaling produces.
+#[cfg(target_os = "emscripten")]
+#[no_mangle]
+pub unsafe extern "C" fn pacman_leaderboard_push(name: *const std::os::raw::c_char, score: u32) {
+    let name = unsafe { std::ffi::CStr::from_ptr(name) }.to_string_lossy().into_owned();
+    unsafe {
+        if let Some(ref mut app) = *APP.0.get() {
+            app.game
+                .world
+                .resource_mut::<systems::hud::LeaderboardData>()
+                .0
+                .push(systems::hud::LeaderboardEntry { name, score });
+        }
+    }
+}
+
 /// Emscripten main loop callback - runs once per frame
 #[cfg(target_os = "emscripten")]
 unsafe extern "C" fn main_loop_callback(_arg: *mut std::ffi::c_void) {

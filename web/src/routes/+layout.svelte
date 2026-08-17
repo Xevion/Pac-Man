@@ -12,6 +12,7 @@
 		IconTrophy
 	} from '@tabler/icons-svelte';
 	import NavLink from '$lib/components/NavLink.svelte';
+	import AuthStatus from '$lib/components/AuthStatus.svelte';
 
 	let { children } = $props();
 
@@ -202,6 +203,7 @@
 			</div>
 
 			<div class="absolute right-4 hidden sm:flex gap-4 items-center">
+				<AuthStatus />
 				{#each sourceLinks as link (link.href)}
 					<a
 						href={link.href}
@@ -275,6 +277,9 @@
 							size={28}
 						/>
 					{/each}
+				</div>
+				<div class="mt-4 pt-4 border-t border-yellow-400/25">
+					<AuthStatus />
 				</div>
 			</div>
 		</div>

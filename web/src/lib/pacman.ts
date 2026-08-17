@@ -8,6 +8,14 @@ export interface PacmanModule {
 	// Hand the canvas's drawable size (physical pixels) to the game so SDL resizes
 	// its window and the adaptive layout recomputes.
 	_pacman_resize?: (width: number, height: number) => void;
+	// Emscripten's runtime helper for calling exported C functions with marshaled
+	// arguments (used to push leaderboard rows, which carry a string, into the game).
+	ccall?: (
+		ident: string,
+		returnType: string | null,
+		argTypes: string[],
+		args: unknown[]
+	) => unknown;
 	locateFile: (path: string) => string;
 	preRun: Array<() => void>;
 	// Emscripten lifecycle hooks
@@ -25,7 +33,31 @@ export interface PacmanWindow extends Window {
 	Module?: PacmanModule;
 	pacmanReady?: () => void;
 	pacmanError?: (error: LoadingError) => void;
+	// Called by the game via `run_script` when a run ends, carrying the final score,
+	// level reached, and play duration.
+	pacmanGameOver?: (score: number, levelCount: number, durationMs: number) => void;
 	SDL_CANVAS_ID?: string;
 }
 
 export const getPacmanWindow = (): PacmanWindow => window as unknown as PacmanWindow;
+
+/** A leaderboard row in the shape the game's FFI exports expect. */
+export interface LeaderboardRow {
+	name: string;
+	score: number;
+}
+
+/** Pushes ranked leaderboard rows into the running game via the
+ * `pacman_leaderboard_clear`/`pacman_leaderboard_push` FFI exports. A no-op if the
+ * module isn't loaded yet or was built without `ccall` exported. */
+export function pushLeaderboardToGame(
+	entries: LeaderboardRow[],
+	module: PacmanModule | undefined
+): void {
+	if (!module?.ccall) return;
+
+	module.ccall('pacman_leaderboard_clear', null, [], []);
+	for (const entry of entries) {
+		module.ccall('pacman_leaderboard_push', null, ['string', 'number'], [entry.name, entry.score]);
+	}
+}

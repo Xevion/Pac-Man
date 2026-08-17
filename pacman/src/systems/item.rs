@@ -99,12 +99,7 @@ pub enum SpawnTrigger {
     Bonus { position: Position, value: u32, ttl: u32 },
 }
 
-pub fn spawn_fruit_observer(
-    trigger: On<SpawnTrigger>,
-    mut commands: Commands,
-    atlas: NonSendMut<SpriteAtlas>,
-    map: Res<Map>,
-) {
+pub fn spawn_fruit_observer(trigger: On<SpawnTrigger>, mut commands: Commands, atlas: NonSendMut<SpriteAtlas>, map: Res<Map>) {
     let entity = match *trigger {
         SpawnTrigger::Fruit => {
             // Use cherry sprite as the default fruit (first fruit in original Pac-Man)

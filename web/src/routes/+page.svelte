@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
-	import { getPacmanWindow, type LoadingError } from '$lib/pacman';
+	import { getPacmanWindow, pushLeaderboardToGame, type LoadingError } from '$lib/pacman';
+	import { submitScore, submitPendingScoreIfAny } from '$lib/score';
+	import { fetchLeaderboard } from '$lib/leaderboard';
+	import { fetchProviders, type AuthProvider } from '$lib/auth';
 
 	const LOADING_FADE_DURATION = 300;
 	const LOADING_TIMEOUT_MS = 15000;
@@ -33,6 +36,29 @@
 	let loadingVisible = $state(true);
 	let loadError = $state<LoadingError | null>(null);
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
+	let showLoginPrompt = $state(false);
+	let loginProviders = $state<AuthProvider[]>([]);
+
+	// Refresh the HUD's live leaderboard panel from the API.
+	async function refreshGameLeaderboard() {
+		const win = getPacmanWindow();
+		try {
+			const entries = await fetchLeaderboard('global');
+			pushLeaderboardToGame(entries, win.Module);
+		} catch (error) {
+			console.warn('Failed to refresh in-game leaderboard:', error);
+		}
+	}
+
+	async function handleGameOver(score: number, levelCount: number, durationMs: number) {
+		const result = await submitScore(score, levelCount, durationMs);
+		if (result === 'unauthenticated') {
+			loginProviders = await fetchProviders().catch(() => []);
+			showLoginPrompt = true;
+		} else if (result === 'submitted') {
+			refreshGameLeaderboard();
+		}
+	}
 
 	// Manage loading overlay fade and timeout cleanup
 	$effect(() => {
@@ -123,6 +149,7 @@
 			// The game boots at a fixed size; push the real canvas size once ready
 			// (and again after a restart, which re-fires this callback).
 			pushCanvasSize();
+			refreshGameLeaderboard();
 		};
 
 		// Error callback for WASM runtime errors
@@ -130,6 +157,14 @@
 			console.error('Pacman error:', error);
 			loadError = error;
 		};
+
+		// Called by the game on GameStage::GameOver with the finished run's score.
+		win.pacmanGameOver = (score, levelCount, durationMs) => {
+			handleGameOver(score, levelCount, durationMs);
+		};
+
+		// Resubmit a score stashed before an OAuth login redirect, if any.
+		submitPendingScoreIfAny();
 
 		// Canvas is needed for both first-time init and return navigation
 		const canvas = document.getElementById('canvas') as HTMLCanvasElement | null;
@@ -225,6 +260,7 @@
 		const win = getPacmanWindow();
 		delete win.pacmanReady;
 		delete win.pacmanError;
+		delete win.pacmanGameOver;
 		if (timeoutId) {
 			clearTimeout(timeoutId);
 		}
@@ -295,6 +331,30 @@
 	{#if gameReady && !gameStarted}
 		<div class="absolute inset-0 flex items-center justify-center bg-black/60 cursor-pointer">
 			<span class="text-yellow-400 text-5xl font-bold">Click to Start</span>
+		</div>
+	{/if}
+
+	<!-- Log in to save your score prompt, shown after an unauthenticated game-over submit -->
+	{#if showLoginPrompt}
+		<div
+			class="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded border border-yellow-400/40 bg-black/90 px-4 py-2"
+		>
+			<span class="text-yellow-300 text-sm">Log in to save your score:</span>
+			{#each loginProviders.filter((p) => p.active) as provider (provider.id)}
+				<a
+					href={`/api/auth/${provider.id}`}
+					class="text-sm text-yellow-400 underline hover:text-yellow-200"
+				>
+					{provider.name}
+				</a>
+			{/each}
+			<button
+				aria-label="Dismiss"
+				onclick={() => (showLoginPrompt = false)}
+				class="ml-2 text-gray-500 hover:text-gray-300"
+			>
+				✕
+			</button>
 		</div>
 	{/if}
 </div>

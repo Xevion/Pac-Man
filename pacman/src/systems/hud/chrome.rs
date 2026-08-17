@@ -195,7 +195,7 @@ pub fn chrome_render_system(
                 let row = format!("{} {}", entry.name, score);
                 let rx = right_edge - text.text_width(&row) as i32;
                 // Right-aligned as a block, but name and score are colored separately.
-                draw_text(&mut text, canvas, atlas, entry.name, rx, ry, NAME);
+                draw_text(&mut text, canvas, atlas, &entry.name, rx, ry, NAME);
                 let score_x = rx + (entry.name.chars().count() as i32 + 1) * char_w;
                 draw_text(&mut text, canvas, atlas, &score, score_x, ry, VALUE);
                 ry += line;

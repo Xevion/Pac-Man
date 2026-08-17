@@ -13,6 +13,8 @@ rustflags = [
     # wasm-bindgen's UnwindSafe check under panic=unwind); this target ships abort anyway.
     "-C",
     "panic=abort",
+    "-C",
+    "link-args=-sEXPORTED_RUNTIME_METHODS=ccall",
 ]
 runner = "node"
 
