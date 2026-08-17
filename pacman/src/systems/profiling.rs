@@ -1,6 +1,6 @@
 use bevy_ecs::system::IntoSystem;
 use bevy_ecs::{resource::Resource, system::System};
-use circular_buffer::CircularBuffer;
+use circular_buffer::FixedCircularBuffer;
 use num_width::NumberWidth;
 use parking_lot::Mutex;
 use smallvec::SmallVec;
@@ -19,7 +19,7 @@ const TIMING_WINDOW_SIZE: usize = 30;
 #[derive(Debug, Default)]
 pub struct TimingBuffer {
     /// Circular buffer storing timing durations
-    buffer: CircularBuffer<TIMING_WINDOW_SIZE, Duration>,
+    buffer: FixedCircularBuffer<Duration, TIMING_WINDOW_SIZE>,
     /// The last tick when this buffer was updated
     last_tick: u64,
 }
