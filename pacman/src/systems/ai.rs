@@ -7,7 +7,7 @@
 //! [`InputSource`](crate::systems::input::InputSource)).
 
 use bevy_ecs::{
-    event::EventWriter,
+    message::MessageWriter,
     query::{With, Without},
     system::{Query, Res, Single},
 };
@@ -29,7 +29,7 @@ pub fn ai_player_system(
     map: Res<Map>,
     player: Option<Single<(&Position, &Velocity), (With<PlayerControlled>, Without<Frozen>)>>,
     pellets: Query<&Position, With<ItemCollider>>,
-    mut writer: EventWriter<GameEvent>,
+    mut writer: MessageWriter<GameEvent>,
 ) {
     // Nothing to steer until there is exactly one movable player. The player spawns
     // `Frozen` and stays so through the intro sequence (and again during death and the

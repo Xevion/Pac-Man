@@ -165,7 +165,7 @@ fn test_item_system_collision_with_missing_entity() {
     let (mut world, mut _schedule) = common::create_test_world();
 
     // Create a fake entity ID that doesn't exist
-    let fake_entity = Entity::from_raw(999);
+    let fake_entity = Entity::from_raw_u32(999).unwrap();
 
     common::trigger_collision(&mut world, CollisionTrigger::ItemCollision { item: fake_entity });
 

@@ -1,4 +1,4 @@
-use bevy_ecs::event::EventRegistry;
+use bevy_ecs::message::MessageRegistry;
 use bevy_ecs::system::RunSystemOnce;
 use bevy_ecs::world::World;
 use pacman::events::{CollisionTrigger, PowerPelletEaten, StageTransition};
@@ -126,7 +126,7 @@ fn ghost_eaten_observer_enters_pause_and_freezes() {
 #[test]
 fn ghost_eat_score_doubles_along_the_chain() {
     let mut world = World::new();
-    EventRegistry::register_event::<AudioEvent>(&mut world);
+    MessageRegistry::register_message::<AudioEvent>(&mut world);
     world.insert_resource(Session::default());
     world.resource_mut::<Session>().set_stage(GameStage::Playing);
     world.add_observer(ghost_collision_observer);
@@ -158,7 +158,7 @@ fn ghost_eat_score_doubles_along_the_chain() {
 #[test]
 fn power_pellet_resets_ghost_eat_chain() {
     let mut world = World::new();
-    EventRegistry::register_event::<AudioEvent>(&mut world);
+    MessageRegistry::register_message::<AudioEvent>(&mut world);
     world.insert_resource(Session::default());
     world.resource_mut::<Session>().set_stage(GameStage::Playing);
     world.insert_resource(GhostHouseController::default());

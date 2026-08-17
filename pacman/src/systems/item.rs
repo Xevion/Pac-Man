@@ -1,6 +1,6 @@
 use bevy_ecs::{
     event::Event,
-    observer::Trigger,
+    observer::On,
     system::{Commands, NonSendMut, Res},
 };
 use rand::RngExt;
@@ -100,7 +100,7 @@ pub enum SpawnTrigger {
 }
 
 pub fn spawn_fruit_observer(
-    trigger: Trigger<SpawnTrigger>,
+    trigger: On<SpawnTrigger>,
     mut commands: Commands,
     atlas: NonSendMut<SpriteAtlas>,
     map: Res<Map>,

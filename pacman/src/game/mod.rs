@@ -137,7 +137,7 @@ impl Game {
 
         // Unlock audio now that the user has interacted; autoplay policy requires
         // this to happen from within the gesture.
-        if let Some(mut audio) = self.world.get_non_send_resource_mut::<AudioResource>() {
+        if let Some(mut audio) = self.world.get_non_send_mut::<AudioResource>() {
             audio.0.unlock();
         }
 

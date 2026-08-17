@@ -11,7 +11,7 @@
 //! one exhaustive `handler` arm -- the compiler forces all three.
 
 use bevy_ecs::component::Component;
-use bevy_ecs::event::EventReader;
+use bevy_ecs::message::MessageReader;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::Schedule;
 use bevy_ecs::system::{Res, ResMut};
@@ -219,7 +219,7 @@ pub fn sim_active(scenes: Res<SceneManager>, pause: Res<PauseState>) -> bool {
 
 /// Handles the debug `ResetLevel` command by queuing an in-place reload of the
 /// active scene; the rebuild itself happens next frame in [`apply_pending_scene`].
-pub fn handle_reset_command(mut events: EventReader<GameEvent>, mut scenes: ResMut<SceneManager>) {
+pub fn handle_reset_command(mut events: MessageReader<GameEvent>, mut scenes: ResMut<SceneManager>) {
     if events
         .read()
         .any(|e| matches!(e, GameEvent::Command(GameCommand::ResetLevel)))

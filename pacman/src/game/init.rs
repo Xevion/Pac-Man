@@ -2,7 +2,7 @@
 
 use tracing::trace;
 
-use bevy_ecs::event::EventRegistry;
+use bevy_ecs::message::MessageRegistry;
 use bevy_ecs::world::World;
 use sdl2::event::EventType;
 use sdl2::image::LoadTexture;
@@ -152,8 +152,8 @@ pub(super) fn load_atlas_and_map_tiles(
 }
 
 pub(super) fn setup_ecs(world: &mut World) {
-    EventRegistry::register_event::<GameEvent>(world);
-    EventRegistry::register_event::<AudioEvent>(world);
+    MessageRegistry::register_message::<GameEvent>(world);
+    MessageRegistry::register_message::<AudioEvent>(world);
 
     world.add_observer(exit_observer);
 
@@ -178,11 +178,11 @@ pub(super) struct InitResources {
 }
 
 pub(super) fn insert_resources(world: &mut World, map: Map, init: InitResources) -> GameResult<()> {
-    world.insert_non_send_resource(init.atlas);
+    world.insert_non_send(init.atlas);
     world.insert_resource(super::animations::create_ghost_animations(
-        world.non_send_resource::<SpriteAtlas>(),
+        world.non_send::<SpriteAtlas>(),
     )?);
-    let player_animation = super::animations::create_player_animations(world.non_send_resource::<SpriteAtlas>())?.0;
+    let player_animation = super::animations::create_player_animations(world.non_send::<SpriteAtlas>())?.0;
     world.insert_resource(PlayerAnimation(player_animation));
     world.insert_resource(PlayerDeathAnimation(init.death_animation));
 
@@ -211,11 +211,11 @@ pub(super) fn insert_resources(world: &mut World, map: Map, init: InitResources)
     let window_size = init.canvas.output_size().unwrap_or((DEFAULT_WINDOW.x, DEFAULT_WINDOW.y));
     world.insert_resource(Layout::compute(UVec2::new(window_size.0, window_size.1)));
 
-    world.insert_non_send_resource(init.event_pump);
-    world.insert_non_send_resource(CanvasResource(init.canvas));
-    world.insert_non_send_resource(BackbufferResource(init.backbuffer));
-    world.insert_non_send_resource(MapTextureResource(init.map_texture));
-    world.insert_non_send_resource(TtfAtlasResource(init.ttf_atlas));
-    world.insert_non_send_resource(AudioResource(init.audio));
+    world.insert_non_send(init.event_pump);
+    world.insert_non_send(CanvasResource(init.canvas));
+    world.insert_non_send(BackbufferResource(init.backbuffer));
+    world.insert_non_send(MapTextureResource(init.map_texture));
+    world.insert_non_send(TtfAtlasResource(init.ttf_atlas));
+    world.insert_non_send(AudioResource(init.audio));
     Ok(())
 }

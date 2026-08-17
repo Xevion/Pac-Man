@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use bevy_ecs::{entity::Entity, event::Events, schedule::Schedule, world::World};
+use bevy_ecs::{entity::Entity, message::Messages, schedule::Schedule, world::World};
 use glam::{U16Vec2, Vec2};
 use pacman::{
     asset::Asset,
@@ -85,8 +85,8 @@ pub fn create_test_world() -> (World, Schedule) {
     let mut world = World::new();
 
     // Add required resources
-    world.insert_resource(Events::<GameEvent>::default());
-    world.insert_resource(Events::<AudioEvent>::default());
+    world.insert_resource(Messages::<GameEvent>::default());
+    world.insert_resource(Messages::<AudioEvent>::default());
     world.insert_resource(Session::default());
     world.insert_resource(FruitSprites::default());
     world.insert_resource(GlobalState { exit: false });
@@ -168,8 +168,8 @@ pub fn spawn_test_ghost(world: &mut World, node: usize, ghost_state: GhostState)
 
 /// Sends a game event to the world
 pub fn send_game_event(world: &mut World, event: GameEvent) {
-    let mut events = world.resource_mut::<Events<GameEvent>>();
-    events.send(event);
+    let mut events = world.resource_mut::<Messages<GameEvent>>();
+    events.write(event);
 }
 
 /// Sends a collision event between two entities

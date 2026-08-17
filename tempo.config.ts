@@ -88,8 +88,10 @@ export default defineConfig({
         // tempo runs string commands via dash's `sh -c`, but emsdk_env.sh self-locates
         // through $BASH_SOURCE (unset in dash), so source it under bash. This puts emcc
         // on PATH for the wasm build scripts; EMSDK_QUIET silences its setup banner.
+        // --lib --bins, not --all-targets: this target builds panic=abort (.cargo/config.toml),
+        // and test harnesses can't be built with panic=abort on stable Rust.
         "lint-wasm":
-          "bash -c 'EMSDK_QUIET=1 . ./emsdk/emsdk_env.sh && cargo clippy -p pacman --target wasm32-unknown-emscripten --all-targets --all-features --quiet -- -D warnings'",
+          "bash -c 'EMSDK_QUIET=1 . ./emsdk/emsdk_env.sh && cargo clippy -p pacman --target wasm32-unknown-emscripten --lib --bins --all-features --quiet -- -D warnings'",
         test: "cargo nextest run --workspace --no-fail-fast",
         build: "cargo build -p pacman-server",
       },

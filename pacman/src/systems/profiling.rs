@@ -1,5 +1,8 @@
 use bevy_ecs::system::IntoSystem;
-use bevy_ecs::{resource::Resource, system::System};
+use bevy_ecs::{
+    resource::Resource,
+    system::{RunSystemError, System},
+};
 use circular_buffer::FixedCircularBuffer;
 use num_width::NumberWidth;
 use parking_lot::Mutex;
@@ -262,12 +265,12 @@ impl SystemTimings {
 /// at startup; keeping each element pointer-sized keeps that construction well
 /// within Emscripten's small main stack, regardless of how many systems exist.
 ///
-/// The wrapped system is invoked via [`System::run`], which does **not** run Bevy's
-/// param validation. The stock scheduler validates params first and silently skips a
-/// system whose params aren't satisfiable (e.g. an empty `Single`); that skip does not
-/// happen here. A system that can legitimately have unsatisfiable params must opt into
-/// tolerance itself -- use `Option<Single>`/`Populated` or an explicit guard rather
-/// than a bare `Single`, or it will panic here instead of being skipped.
+/// The wrapped system is invoked via [`System::run`], which validates params itself and
+/// returns `Err(RunSystemError::Skipped)` for a system whose params aren't satisfiable
+/// this frame (e.g. an empty `Single`) rather than running it -- matching the stock
+/// scheduler's skip behavior. A system that can legitimately have unsatisfiable params
+/// must opt into tolerance itself -- use `Option<Single>`/`Populated` or an explicit
+/// guard rather than a bare `Single`, or every skip here will spam a warning.
 pub fn profile<S, M>(label: &'static str, system: S) -> impl FnMut(&mut bevy_ecs::world::World)
 where
     S: IntoSystem<(), (), M> + 'static,
@@ -285,18 +288,18 @@ where
         let start = std::time::Instant::now();
         {
             let _zone = crate::tracy::zone(name, file!(), line!());
-            // Mirror Bevy's stock scheduler: skip a system whose params aren't
-            // satisfiable this frame (an empty `Single`, a missing resource, ...) rather
-            // than running it. `System::run` -- unlike the executor -- does not validate,
-            // so we do it explicitly. Warn once per system so a persistent skip stays
-            // visible without spamming a line every frame.
-            match system.validate_param(world) {
-                Ok(()) => system.run((), world),
-                Err(error) => {
+            // Warn once per system so a persistent skip stays visible without spamming a
+            // line every frame.
+            match system.run((), world) {
+                Ok(()) => {}
+                Err(RunSystemError::Skipped(error)) => {
                     if !warned {
                         warned = true;
                         tracing::warn!(system = name, "skipping system: parameter validation failed: {error}");
                     }
+                }
+                Err(RunSystemError::Failed(error)) => {
+                    panic!("system {name} failed: {error}");
                 }
             }
         }

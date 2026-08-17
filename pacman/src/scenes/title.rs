@@ -1,6 +1,6 @@
 //! The Title scene: a minimal press-to-start gate shown at boot.
 
-use bevy_ecs::event::EventReader;
+use bevy_ecs::message::MessageReader;
 use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule};
 use bevy_ecs::system::{Local, Res, ResMut};
 use bevy_ecs::world::World;
@@ -52,7 +52,7 @@ impl SceneHandler for TitleScene {
 /// The schedule gates this system to the Title scene, so the idle timer only accrues
 /// while the Title is up.
 pub fn title_input_system(
-    mut events: EventReader<GameEvent>,
+    mut events: MessageReader<GameEvent>,
     touch: Res<TouchState>,
     time: Res<DeltaTime>,
     mut idle: Local<f32>,

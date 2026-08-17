@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use bevy_ecs::{
-    event::EventWriter,
-    observer::Trigger,
+    message::MessageWriter,
+    observer::On,
     resource::Resource,
     schedule::SystemSet,
     system::{Commands, NonSendMut, Res, ResMut},
@@ -304,7 +304,7 @@ pub fn apply_pending_resize(mut canvas: NonSendMut<crate::systems::render::Canva
 /// Observer for [`ExitRequested`]: flips the global exit flag so the main loop tears
 /// down after the current frame. Raised by the quit key and the window close button,
 /// it resolves the same frame rather than waiting on a buffered-event read.
-pub fn exit_observer(_: Trigger<ExitRequested>, mut state: ResMut<GlobalState>) {
+pub fn exit_observer(_: On<ExitRequested>, mut state: ResMut<GlobalState>) {
     state.exit = true;
 }
 
@@ -314,7 +314,7 @@ pub fn input_system(
     input_source: Res<InputSource>,
     mut commands: Commands,
     mut bindings: ResMut<Bindings>,
-    mut writer: EventWriter<GameEvent>,
+    mut writer: MessageWriter<GameEvent>,
     mut pump: NonSendMut<EventPump>,
     mut cursor: ResMut<CursorPosition>,
     mut touch_state: ResMut<TouchState>,

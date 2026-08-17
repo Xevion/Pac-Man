@@ -9,6 +9,10 @@ rustflags = [
     "link-args=--preload-file pacman/assets/game/",
     "-C",
     "link-args=-sASSERTIONS=1",
+    # bevy_tasks's wasm32 web-task backend needs panic=abort (its Closure::new call fails
+    # wasm-bindgen's UnwindSafe check under panic=unwind); this target ships abort anyway.
+    "-C",
+    "panic=abort",
 ]
 runner = "node"
 
