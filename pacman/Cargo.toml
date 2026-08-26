@@ -27,7 +27,7 @@ time = { version = "0.3.43", features = ["formatting", "macros"] }
 thiserror = "2.0.16"
 smallvec = "1.15.1"
 bitflags = "2.9.4"
-circular-buffer = "2.0.0"
+circular-buffer = "2.0.1"
 parking_lot = "0.12.3"
 strum = "0.28.0"
 strum_macros = "0.28.0"
