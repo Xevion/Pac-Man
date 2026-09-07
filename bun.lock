@@ -6,7 +6,7 @@
       "name": "pacman",
       "devDependencies": {
         "@logtape/logtape": "^2.3.1",
-        "@xevion/tempo": "^0.1.4",
+        "@xevion/tempo": "^0.2.0",
         "ts-pattern": "^5.5.0",
       },
     },
@@ -14,11 +14,9 @@
   "packages": {
     "@catppuccin/palette": ["@catppuccin/palette@1.8.0", "", {}, "sha512-qXhwKiLzQomUygUJYB36YAFgs+dET5bIocfkiaFIatQF5Pwc7L112TlF9P8J5Oqs3x3XTjYSucG0ncHXSCuk7Q=="],
 
-    "@logtape/file": ["@logtape/file@2.1.4", "", { "peerDependencies": { "@logtape/logtape": "^2.1.4" } }, "sha512-jC90wtZTShrXYEeT/TdFDsZ4ipQEKPGhSL8rNcHJ/u4j3bWNJ9W/OnMGs94UEdJcSL6q5r01bIAGNmqpoSOQFQ=="],
-
     "@logtape/logtape": ["@logtape/logtape@2.3.1", "", {}, "sha512-nYLsBWMKk0Llp62U6cDbQxNcEKc0E0s5hWbAxkmUM8ax6VchGkPSjPrVp3ixFQUuvUB9ku7MSgPzFhmVTSh2Jw=="],
 
-    "@xevion/tempo": ["@xevion/tempo@0.1.4", "", { "dependencies": { "@catppuccin/palette": "^1.8.0", "@logtape/file": "^2.0.4", "@logtape/logtape": "^2.0.4", "ansis": "^4.2.0", "cleye": "^2.3.0" }, "bin": { "tempo": "dist/cli.mjs" } }, "sha512-Q4JnK+/MqZIYCq2NT0xcx2OWYDX4t+B01KCgIRrD06eJ+sdJjFh7mXvFC4DjjdfZM4qsp7B+AgfMM+GAwPBjmQ=="],
+    "@xevion/tempo": ["@xevion/tempo@0.2.0", "", { "dependencies": { "@catppuccin/palette": "^1.8.0", "ansis": "^4.2.0", "cleye": "^2.3.0" }, "peerDependencies": { "@types/node": ">=22" }, "optionalPeers": ["@types/node"], "bin": { "tempo": "dist/cli.mjs" } }, "sha512-N/JksvmMWh08nAyYDhsYJUihSj+U64aRR6YbNj4cY+et5B+g9xAGPMmJKN4NnFnYxryQqmtU/QzDEQjvuwHVEQ=="],
 
     "ansis": ["ansis@4.3.1", "", {}, "sha512-BJ8/l4R5LRE7hW9WdSuGYrLSHi2ynxeFpDFbH0K/CgNeY/tyhk+vO6TYxXC5r5CpUhNVX310xzPsN/H9lCdfOA=="],
 
@@ -29,7 +27,5 @@
     "ts-pattern": ["ts-pattern@5.9.0", "", {}, "sha512-6s5V71mX8qBUmlgbrfL33xDUwO0fq48rxAu2LBE11WBeGdpCPOsXksQbZJHvHwhrd3QjUusd3mAOM5Gg0mFBLg=="],
 
     "type-flag": ["type-flag@4.3.0", "", {}, "sha512-XwZWK+SOWleva2EjynfJT6tXHUkS+/TZAIc5fTJXVMArNf/5jBEt7Y/yBtGcxLFThtQCQ9v6nxXon0QZ86ZJhA=="],
-
-    "@xevion/tempo/@logtape/logtape": ["@logtape/logtape@2.1.4", "", {}, "sha512-ZQbAeHSxAd/bZKWwAfRIb4phTNuoSiaZoeE5GgfNwKxhik6L1+XZXQr0r8x2Bsm4K98B/d5InORVy0jcmA4kCA=="],
   }
 }
