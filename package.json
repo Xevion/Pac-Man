@@ -13,7 +13,7 @@
   },
   "devDependencies": {
     "@logtape/logtape": "^2.3.1",
-    "@xevion/tempo": "^0.1.4",
+    "@xevion/tempo": "^0.2.0",
     "ts-pattern": "^5.5.0"
   }
 }
