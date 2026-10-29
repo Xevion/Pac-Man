@@ -112,10 +112,10 @@
       "addLabels": ["docker"]
     },
     {
-      "description": "bevy_ecs: blocked until the 0.17 ECS API migration is done",
+      "description": "reqwest: oauth2 5.x implements its HTTP client trait only for reqwest 0.12",
       "matchManagers": ["cargo"],
-      "matchPackageNames": ["bevy_ecs"],
-      "allowedVersions": "<0.17.0"
+      "matchPackageNames": ["reqwest"],
+      "allowedVersions": "<0.13.0"
     }
   ],
   "customManagers": [
