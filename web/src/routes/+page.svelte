@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
-	import { getPacmanWindow, pushLeaderboardToGame, type LoadingError } from '$lib/pacman';
-	import { submitScore, submitPendingScoreIfAny } from '$lib/score';
-	import { fetchLeaderboard } from '$lib/leaderboard';
-	import { fetchProviders, type AuthProvider } from '$lib/auth';
+	import { getPacmanWindow, pushLeaderboardToGame, type LoadingError } from '#lib/pacman.ts';
+	import { submitScore, submitPendingScoreIfAny } from '#lib/score.ts';
+	import { fetchLeaderboard } from '#lib/leaderboard.ts';
+	import { fetchProviders, type AuthProvider } from '#lib/auth.ts';
 
 	const LOADING_FADE_DURATION = 300;
 	const LOADING_TIMEOUT_MS = 15000;

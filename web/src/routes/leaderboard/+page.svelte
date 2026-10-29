@@ -5,7 +5,7 @@
 		fetchLeaderboard,
 		type LeaderboardEntry,
 		type LeaderboardPeriod
-	} from '$lib/leaderboard';
+	} from '#lib/leaderboard.ts';
 
 	type LoadState =
 		| { status: 'loading' }

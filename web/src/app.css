@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* Custom subsetted fonts (glyphhanger-optimized) */
-@import '$lib/fonts.css';
+@import '#lib/fonts.css';
 
 /* OverlayScrollbars styles */
 @import 'overlayscrollbars/overlayscrollbars.css';

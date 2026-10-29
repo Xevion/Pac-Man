@@ -6,7 +6,7 @@
 		displayName,
 		type Profile,
 		type AuthProvider
-	} from '$lib/auth';
+	} from '#lib/auth.ts';
 
 	let profile = $state<Profile | null>(null);
 	let providers = $state<AuthProvider[]>([]);

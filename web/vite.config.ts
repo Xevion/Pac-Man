@@ -2,6 +2,8 @@ import devtoolsJson from 'vite-plugin-devtools-json';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
+import adapter from '@sveltejs/adapter-static';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { type Plugin } from 'vite';
 import { execSync } from 'child_process';
@@ -81,7 +83,17 @@ export default defineConfig({
 	plugins: [
 		fontSubsetPlugin(fontConfig),
 		pacmanVersionPlugin(),
-		sveltekit(),
+		sveltekit({
+			preprocess: vitePreprocess(),
+			adapter: adapter({
+				pages: 'dist/client',
+				assets: 'dist/client',
+				fallback: undefined,
+				precompress: false,
+				strict: true
+			}),
+			inlineStyleThreshold: 5000
+		}),
 		tailwindcss(),
 		devtoolsJson()
 	],

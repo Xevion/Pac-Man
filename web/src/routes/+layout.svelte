@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
-	import { page } from '$app/stores';
-	import { browser } from '$app/environment';
+	import { page } from '$app/state';
+	import { browser } from '$app/env';
 	import { onMount } from 'svelte';
 	import { onNavigate } from '$app/navigation';
 	import { OverlayScrollbarsComponent } from 'overlayscrollbars-svelte';
@@ -11,8 +11,8 @@
 		IconDeviceGamepad3,
 		IconTrophy
 	} from '@tabler/icons-svelte';
-	import NavLink from '$lib/components/NavLink.svelte';
-	import AuthStatus from '$lib/components/AuthStatus.svelte';
+	import NavLink from '#lib/components/NavLink.svelte';
+	import AuthStatus from '#lib/components/AuthStatus.svelte';
 
 	let { children } = $props();
 
@@ -139,7 +139,7 @@
 	const toggle = () => (opened = !opened);
 	const close = () => (opened = false);
 
-	let currentPath = $derived($page.url.pathname);
+	let currentPath = $derived(page.url.pathname);
 	let isIndexPage = $derived(currentPath === '/');
 
 	function isActive(href: string): boolean {
