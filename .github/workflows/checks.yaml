@@ -36,7 +36,7 @@ jobs:
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
       - name: Run clippy (wasm)
-        run: cargo clippy -p pacman --target wasm32-unknown-emscripten --all-targets --all-features -- -D warnings
+        run: cargo clippy -p pacman --target wasm32-unknown-emscripten --lib --bins --all-features -- -D warnings
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -45,3 +45,28 @@ jobs:
 
       - name: Run security audit
         run: cargo audit
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type check
+        run: bun run check
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Check formatting
+        run: bunx prettier --check .
