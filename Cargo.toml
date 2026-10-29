@@ -4,7 +4,7 @@ resolver = "2"
 
 [workspace.package]
 authors = ["Xevion"]
-edition = "2021"
+edition = "2024"
 readme = true
 homepage = "https://pacman.xevion.dev"
 repository = "https://github.com/Xevion/Pac-Man"
