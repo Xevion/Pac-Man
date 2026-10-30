@@ -6,32 +6,10 @@
 #[cfg(not(target_os = "emscripten"))]
 use std::env;
 
-use crate::{app::App, constants::LOOP_TIME};
+#[cfg(target_os = "emscripten")]
+use pacman::systems;
+use pacman::{app::App, constants::LOOP_TIME, platform};
 use tracing::info;
-
-// These modules are excluded from coverage.
-#[cfg_attr(coverage_nightly, coverage(off))]
-mod app;
-#[cfg_attr(coverage_nightly, coverage(off))]
-mod audio;
-#[cfg_attr(coverage_nightly, coverage(off))]
-mod error;
-#[cfg_attr(coverage_nightly, coverage(off))]
-mod events;
-#[cfg_attr(coverage_nightly, coverage(off))]
-mod formatter;
-#[cfg_attr(coverage_nightly, coverage(off))]
-mod platform;
-
-mod asset;
-mod constants;
-mod game;
-mod map;
-mod scenes;
-mod systems;
-mod texture;
-#[cfg_attr(coverage_nightly, coverage(off))]
-mod tracy;
 
 /// Single-threaded global storage for Emscripten FFI callbacks.
 ///
