@@ -205,20 +205,20 @@ fn render_timing_display(
 /// the maze has been composited. Maze-local annotations (colliders, graph edges,
 /// nodes, the highlighted node ID) are transformed onto the scaled maze via the
 /// layout, while the timing panel is pinned to the window's top-left corner.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "bevy system params exceed clippy's argument limit")]
 #[cfg_attr(coverage_nightly, coverage(off))]
 pub fn debug_overlay_system(
-    mut canvas: NonSendMut<CanvasResource>,
-    mut ttf_atlas: NonSendMut<TtfAtlasResource>,
-    batched_lines: Res<BatchedLinesResource>,
-    debug_state: Res<DebugState>,
-    timings: Res<SystemTimings>,
-    timing: Res<crate::systems::profiling::Timing>,
-    map: Res<Map>,
-    colliders: Query<(&Collider, &Position)>,
-    cursor: Res<CursorPosition>,
-    layout: Res<Layout>,
-    dirty: Res<RenderDirty>,
+    mut canvas: NonSendMut<'_, CanvasResource>,
+    mut ttf_atlas: NonSendMut<'_, TtfAtlasResource>,
+    batched_lines: Res<'_, BatchedLinesResource>,
+    debug_state: Res<'_, DebugState>,
+    timings: Res<'_, SystemTimings>,
+    timing: Res<'_, crate::systems::profiling::Timing>,
+    map: Res<'_, Map>,
+    colliders: Query<'_, '_, (&Collider, &Position)>,
+    cursor: Res<'_, CursorPosition>,
+    layout: Res<'_, Layout>,
+    dirty: Res<'_, RenderDirty>,
 ) {
     if !dirty.0 || !debug_state.enabled {
         return;

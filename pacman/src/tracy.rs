@@ -19,7 +19,7 @@ pub use tracy_client as client;
 /// RAII guard that ends its Tracy zone when dropped. Bind it to a named local
 /// (`let _zone = ...`) for the lifetime of the region you want measured.
 #[cfg(all(feature = "tracy", not(target_os = "emscripten")))]
-pub struct ZoneGuard(#[allow(dead_code)] Option<tracy_client::Span>);
+pub struct ZoneGuard(#[expect(dead_code, reason = "held only so the span closes on drop")] Option<tracy_client::Span>);
 
 #[cfg(not(all(feature = "tracy", not(target_os = "emscripten"))))]
 pub struct ZoneGuard;

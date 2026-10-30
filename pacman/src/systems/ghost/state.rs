@@ -38,7 +38,6 @@ impl Default for GhostState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // Variants needed once ghost house spawning uses correct per-ghost positions
 pub enum HousePosition {
     Left,
     Center,
@@ -46,7 +45,6 @@ pub enum HousePosition {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // Down used once ghost house bounce animation is wired up
 pub enum BounceDirection {
     Up,
     Down,

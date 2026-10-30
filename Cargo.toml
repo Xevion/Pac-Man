@@ -1,6 +1,6 @@
 [workspace]
 members = ["pacman", "pacman-common", "pacman-server"]
-resolver = "2"
+resolver = "3"
 
 [workspace.package]
 authors = ["Xevion"]
@@ -12,6 +12,28 @@ license = "GPL-3.0-or-later"
 keywords = ["game", "pacman", "arcade", "sdl2"]
 categories = ["games", "emulators"]
 publish = false
+
+[workspace.dependencies]
+serde = { version = "1.0.225", features = ["derive"] }
+serde_json = "1.0.145"
+time = "0.3.43"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.20"
+
+assert2 = "0.4.1"
+rstest = "0.28.0"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage,coverage_nightly)", "cfg(use_console)"] }
+unsafe_op_in_unsafe_fn = "deny"
+unused_lifetimes = "warn"
+unused_qualifications = "warn"
+trivial_numeric_casts = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+allow_attributes_without_reason = "warn"
+undocumented_unsafe_blocks = "warn"
 
 [profile.dev]
 incremental = true

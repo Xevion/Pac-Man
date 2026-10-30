@@ -1,5 +1,5 @@
+use assert2::check;
 use pacman::systems::profiling::format_timing_display;
-use speculoos::prelude::*;
 use std::time::Duration;
 
 fn get_timing_data() -> Vec<(String, Duration, Duration)> {
@@ -52,8 +52,8 @@ fn test_complex_formatting_alignment() {
     });
 
     // Assert that all positions were found
-    assert_that(
-        &[
+    check!(
+        [
             &colon_positions,
             &first_decimal_positions,
             &second_decimal_positions,
@@ -62,15 +62,14 @@ fn test_complex_formatting_alignment() {
         ]
         .iter()
         .all(|p| p.len() == 6),
-    )
-    .is_true();
+    );
 
     // Assert that all positions are the same
-    assert_that(&colon_positions.iter().all(|&p| p == colon_positions[0])).is_true();
-    assert_that(&first_decimal_positions.iter().all(|&p| p == first_decimal_positions[0])).is_true();
-    assert_that(&second_decimal_positions.iter().all(|&p| p == second_decimal_positions[0])).is_true();
-    assert_that(&first_unit_positions.iter().all(|&p| p == first_unit_positions[0])).is_true();
-    assert_that(&second_unit_positions.iter().all(|&p| p == second_unit_positions[0])).is_true();
+    check!(colon_positions.iter().all(|&p| p == colon_positions[0]));
+    check!(first_decimal_positions.iter().all(|&p| p == first_decimal_positions[0]));
+    check!(second_decimal_positions.iter().all(|&p| p == second_decimal_positions[0]));
+    check!(first_unit_positions.iter().all(|&p| p == first_unit_positions[0]));
+    check!(second_unit_positions.iter().all(|&p| p == second_unit_positions[0]));
 }
 
 #[test]
@@ -84,17 +83,17 @@ fn test_format_timing_display_basic() {
     let formatted = format_timing_display(timing_data);
 
     // Should have 3 lines (one for each system)
-    assert_that(&formatted.len()).is_equal_to(3);
+    check!(formatted.len() == 3);
 
     // Each line should contain the system name
-    assert_that(&formatted.iter().any(|line| line.contains("render"))).is_true();
-    assert_that(&formatted.iter().any(|line| line.contains("input"))).is_true();
-    assert_that(&formatted.iter().any(|line| line.contains("physics"))).is_true();
+    check!(formatted.iter().any(|line| line.contains("render")));
+    check!(formatted.iter().any(|line| line.contains("input")));
+    check!(formatted.iter().any(|line| line.contains("physics")));
 
     // Each line should contain timing information with proper units
     for line in formatted.iter() {
-        assert_that(&line.contains(":")).is_true();
-        assert_that(&line.contains("±")).is_true();
+        check!(line.contains(":"));
+        check!(line.contains("±"));
     }
 }
 
@@ -111,10 +110,10 @@ fn test_format_timing_display_units() {
 
     // Check that appropriate units are used
     let all_lines = formatted.join(" ");
-    assert_that(&all_lines.contains("s")).is_true();
-    assert_that(&all_lines.contains("ms")).is_true();
-    assert_that(&all_lines.contains("µs")).is_true();
-    assert_that(&all_lines.contains("ns")).is_true();
+    check!(all_lines.contains("s"));
+    check!(all_lines.contains("ms"));
+    check!(all_lines.contains("µs"));
+    check!(all_lines.contains("ns"));
 }
 
 #[test]
@@ -136,6 +135,6 @@ fn test_format_timing_display_alignment() {
     // All colons should be at the same position (aligned)
     if colon_positions.len() > 1 {
         let first_pos = colon_positions[0];
-        assert_that(&colon_positions.iter().all(|&pos| pos == first_pos)).is_true();
+        check!(colon_positions.iter().all(|&pos| pos == first_pos));
     }
 }

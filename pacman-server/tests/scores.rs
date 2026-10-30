@@ -3,9 +3,9 @@ mod common;
 #[cfg(feature = "postgres-tests")]
 mod scores {
     use crate::common::{TestContext, test_context};
+    use assert2::{assert, check};
     use cookie::Cookie;
     use pacman_server::{auth::provider::AuthUser, data::user as user_repo, session};
-    use pretty_assertions::assert_eq;
     use serde_json::{Value, json};
 
     /// Create a user with a linked OAuth account and return a session cookie for them.
@@ -44,9 +44,9 @@ mod scores {
 
         let response = context.server.get("/api/scores").await;
 
-        assert_eq!(response.status_code(), 200);
+        assert!(response.status_code() == 200);
         let body: Value = response.json();
-        assert_eq!(body.as_array().expect("array response").len(), 0);
+        check!(body.as_array().expect("array response").len() == 0);
     }
 
     #[tokio::test]
@@ -59,7 +59,7 @@ mod scores {
             .json(&json!({ "score": 1000, "level_count": 1, "duration_ms": 5000 }))
             .await;
 
-        assert_eq!(response.status_code(), 401);
+        check!(response.status_code() == 401);
     }
 
     #[tokio::test]
@@ -73,17 +73,17 @@ mod scores {
             .add_cookie(cookie)
             .json(&json!({ "score": 12345, "level_count": 3, "duration_ms": 60000 }))
             .await;
-        assert_eq!(submit.status_code(), 201);
+        assert!(submit.status_code() == 201);
 
         let board = context.server.get("/api/scores").await;
-        assert_eq!(board.status_code(), 200);
+        assert!(board.status_code() == 200);
         let entries = board.json::<Value>();
         let entries = entries.as_array().expect("array response");
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0]["score"], 12345);
-        assert_eq!(entries[0]["level_count"], 3);
-        assert_eq!(entries[0]["name"], "Wakka Wakka");
-        assert_eq!(entries[0]["rank"], 1);
+        assert!(entries.len() == 1);
+        check!(entries[0]["score"] == 12345);
+        check!(entries[0]["level_count"] == 3);
+        check!(entries[0]["name"] == "Wakka Wakka");
+        check!(entries[0]["rank"] == 1);
     }
 
     #[tokio::test]
@@ -98,14 +98,14 @@ mod scores {
                 .add_cookie(cookie.clone())
                 .json(&json!({ "score": score, "level_count": 1, "duration_ms": 1000 }))
                 .await;
-            assert_eq!(response.status_code(), 201);
+            assert!(response.status_code() == 201);
         }
 
         let board = context.server.get("/api/scores").await;
         let entries = board.json::<Value>();
         let entries = entries.as_array().expect("array response");
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0]["score"], 5000);
+        assert!(entries.len() == 1);
+        check!(entries[0]["score"] == 5000);
     }
 
     #[tokio::test]
@@ -120,6 +120,6 @@ mod scores {
             .json(&json!({ "score": -500, "level_count": 1, "duration_ms": 1000 }))
             .await;
 
-        assert_eq!(response.status_code(), 400);
+        check!(response.status_code() == 400);
     }
 }

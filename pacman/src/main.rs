@@ -21,6 +21,7 @@ use tracing::info;
 struct WasmCell<T>(std::cell::UnsafeCell<T>);
 
 #[cfg(target_os = "emscripten")]
+// SAFETY: wasm is single-threaded, so no other thread can observe the cell.
 unsafe impl<T> Sync for WasmCell<T> {}
 
 #[cfg(target_os = "emscripten")]
@@ -38,6 +39,8 @@ static APP: WasmCell<Option<App>> = WasmCell::new(None);
 #[cfg(target_os = "emscripten")]
 #[unsafe(no_mangle)]
 pub extern "C" fn start_game() {
+    // SAFETY: wasm is single-threaded and the main loop never re-enters, so no other
+    // reference to APP exists while this one is live.
     unsafe {
         if let Some(ref mut app) = *APP.0.get() {
             app.game.start();
@@ -51,6 +54,7 @@ pub extern "C" fn start_game() {
 #[unsafe(no_mangle)]
 pub extern "C" fn stop_game() {
     tracing::info!("Stopping game loop and halting audio");
+    // SAFETY: both calls are plain emscripten/SDL calls made from the single wasm thread.
     unsafe {
         platform::emscripten_cancel_main_loop();
         sdl2::mixer::Channel::all().halt();
@@ -66,6 +70,8 @@ pub extern "C" fn restart_game() {
 
     tracing::info!("Restarting game with fresh App instance");
 
+    // SAFETY: APP is only written through this raw pointer, never a held `&mut`; if
+    // App::new yields mid-init, a main-loop tick in between sees None and skips.
     unsafe {
         let app_ptr = APP.0.get();
 
@@ -109,6 +115,8 @@ pub extern "C" fn pacman_resize(width: i32, height: i32) {
 #[cfg(target_os = "emscripten")]
 #[unsafe(no_mangle)]
 pub extern "C" fn pacman_leaderboard_clear() {
+    // SAFETY: wasm is single-threaded and the main loop never re-enters, so no other
+    // reference to APP exists while this one is live.
     unsafe {
         if let Some(ref mut app) = *APP.0.get() {
             app.game.world.resource_mut::<systems::hud::LeaderboardData>().0.clear();
@@ -125,7 +133,10 @@ pub extern "C" fn pacman_leaderboard_clear() {
 #[cfg(target_os = "emscripten")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn pacman_leaderboard_push(name: *const std::os::raw::c_char, score: u32) {
+    // SAFETY: the caller contract requires `name` to be a valid NUL-terminated C string.
     let name = unsafe { std::ffi::CStr::from_ptr(name) }.to_string_lossy().into_owned();
+    // SAFETY: wasm is single-threaded and the main loop never re-enters, so no other
+    // reference to APP exists while this one is live.
     unsafe {
         if let Some(ref mut app) = *APP.0.get() {
             app.game
@@ -140,6 +151,8 @@ pub unsafe extern "C" fn pacman_leaderboard_push(name: *const std::os::raw::c_ch
 /// Emscripten main loop callback - runs once per frame
 #[cfg(target_os = "emscripten")]
 unsafe extern "C" fn main_loop_callback(_arg: *mut std::ffi::c_void) {
+    // SAFETY: wasm is single-threaded and the main loop never re-enters, so no other
+    // reference to APP exists while this one is live.
     unsafe {
         if let Some(ref mut app) = *APP.0.get() {
             let _ = app.run();
@@ -173,6 +186,7 @@ pub fn main() {
         use std::ptr;
 
         // Store app in static for callback access
+        // SAFETY: runs once on the single wasm thread before the main loop starts, so APP is unaliased.
         unsafe {
             *APP.0.get() = Some(app);
         }
@@ -183,6 +197,7 @@ pub fn main() {
         // Use emscripten_set_main_loop_arg for browser-friendly loop
         // fps=0 means use requestAnimationFrame for optimal performance
         // simulate_infinite_loop=1 means this call won't return
+        // SAFETY: main_loop_callback has the required C ABI and the null arg is never read.
         unsafe {
             platform::emscripten_set_main_loop_arg(main_loop_callback, ptr::null_mut(), 0, 1);
         }

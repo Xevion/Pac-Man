@@ -1,15 +1,15 @@
+use assert2::check;
 use glam::Vec2;
 use pacman::constants::{CELL_SIZE, RAW_BOARD};
 use pacman::map::builder::Map;
 use pacman::map::graph::TraversalFlags;
-use speculoos::prelude::*;
 
 #[test]
 fn test_map_creation_success() {
     let map = Map::new(RAW_BOARD).unwrap();
 
-    assert_that(&map.graph.nodes().count()).is_greater_than(0);
-    assert_that(&map.grid_to_node.is_empty()).is_false();
+    check!(map.graph.nodes().count() > 0);
+    check!(!map.grid_to_node.is_empty());
 
     // Check that some connections were made
     let mut has_connections = false;
@@ -19,7 +19,7 @@ fn test_map_creation_success() {
             break;
         }
     }
-    assert_that(&has_connections).is_true();
+    check!(has_connections);
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn test_map_node_positions_accuracy() {
             (grid_pos.y as i32 * CELL_SIZE as i32) as f32,
         ) + Vec2::splat(CELL_SIZE as f32 / 2.0);
 
-        assert_that(&node.position).is_equal_to(expected_pos);
+        check!(node.position == expected_pos);
     }
 }
 
@@ -43,11 +43,11 @@ fn test_start_positions_are_valid() {
     let positions = &map.start_positions;
 
     // All start positions should exist in the graph
-    assert_that(&map.graph.get_node(positions.pacman)).is_some();
-    assert_that(&map.graph.get_node(positions.blinky)).is_some();
-    assert_that(&map.graph.get_node(positions.pinky)).is_some();
-    assert_that(&map.graph.get_node(positions.inky)).is_some();
-    assert_that(&map.graph.get_node(positions.clyde)).is_some();
+    check!(map.graph.get_node(positions.pacman).is_some());
+    check!(map.graph.get_node(positions.blinky).is_some());
+    check!(map.graph.get_node(positions.pinky).is_some());
+    check!(map.graph.get_node(positions.inky).is_some());
+    check!(map.graph.get_node(positions.clyde).is_some());
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn test_ghost_house_has_ghost_only_entrance() {
             break;
         }
     }
-    assert_that(&has_ghost_only_connection).is_true();
+    check!(has_ghost_only_connection);
 }
 
 #[test]
@@ -85,5 +85,5 @@ fn test_tunnel_connections_exist() {
             break;
         }
     }
-    assert_that(&has_tunnel_connection).is_true();
+    check!(has_tunnel_connection);
 }

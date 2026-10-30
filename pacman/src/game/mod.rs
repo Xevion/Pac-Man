@@ -80,8 +80,8 @@ impl Game {
         let map = Map::new(constants::RAW_BOARD)?;
 
         debug!("Initializing ghost AI special nodes");
-        let red_zones = crate::systems::ghost::RedZoneNodes::from_map(&map);
-        let tunnel_nodes = crate::systems::ghost::TunnelNodes::from_map(&map);
+        let red_zones = systems::ghost::RedZoneNodes::from_map(&map);
+        let tunnel_nodes = systems::ghost::TunnelNodes::from_map(&map);
 
         debug!("Creating death animation sequence");
         let death_animation = animations::create_death_animation(&atlas)?;

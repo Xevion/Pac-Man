@@ -23,7 +23,7 @@ use tracing::{debug, trace};
 /// free of ghost-state knowledge: collision merely reports the event, and the ghost
 /// domain decides what frightening means. `GhostState` lives only on ghosts, so an
 /// unfiltered query needs no collider marker.
-pub fn frighten_ghosts_on_power_pellet(_trigger: On<PowerPelletEaten>, mut ghost_query: Query<&mut GhostState>) {
+pub fn frighten_ghosts_on_power_pellet(_trigger: On<'_, '_, PowerPelletEaten>, mut ghost_query: Query<'_, '_, &mut GhostState>) {
     let mut frightened = 0;
     for mut ghost_state in ghost_query.iter_mut() {
         if matches!(*ghost_state, GhostState::Active { frightened: None }) {
@@ -41,8 +41,8 @@ pub fn frighten_ghosts_on_power_pellet(_trigger: On<PowerPelletEaten>, mut ghost
 
 /// System to tick the ghost mode controller and trigger reversals
 pub fn ghost_mode_tick_system(
-    mut mode_controller: ResMut<GhostModeController>,
-    mut ghost_query: Query<(&GhostState, &mut crate::systems::movement::Velocity)>,
+    mut mode_controller: ResMut<'_, GhostModeController>,
+    mut ghost_query: Query<'_, '_, (&GhostState, &mut Velocity)>,
 ) {
     // Check if any ghosts are frightened
     let any_frightened = ghost_query.iter().any(|(state, _)| state.is_frightened());
@@ -68,8 +68,8 @@ pub fn ghost_mode_tick_system(
 
 /// System to manage ghost house exits based on dot counters and timers
 pub fn ghost_house_system(
-    mut house_controller: ResMut<GhostHouseController>,
-    mut ghost_query: Query<(&GhostType, &mut GhostState)>,
+    mut house_controller: ResMut<'_, GhostHouseController>,
+    mut ghost_query: Query<'_, '_, (&GhostType, &mut GhostState)>,
 ) {
     // Tick the no-dot timer and check if we should force out a ghost
     if let Some(force_out_idx) = house_controller.tick() {
@@ -101,7 +101,7 @@ pub fn ghost_house_system(
 }
 
 /// System to update Elroy state based on remaining pellets
-pub fn elroy_system(session: Res<Session>, mut blinky_query: Query<&mut Elroy, With<BlinkyMarker>>) {
+pub fn elroy_system(session: Res<'_, Session>, mut blinky_query: Query<'_, '_, &mut Elroy, With<BlinkyMarker>>) {
     let Ok(mut elroy) = blinky_query.single_mut() else {
         return;
     };
@@ -133,9 +133,9 @@ pub fn elroy_system(session: Res<Session>, mut blinky_query: Query<&mut Elroy, W
 ///
 /// This system runs after the main movement system to override eaten ghost movement.
 pub fn eaten_ghost_system(
-    map: Res<Map>,
-    delta_time: Res<DeltaTime>,
-    mut eaten_ghosts: Query<(&GhostType, &mut Position, &mut Velocity, &mut GhostState), Without<Frozen>>,
+    map: Res<'_, Map>,
+    delta_time: Res<'_, DeltaTime>,
+    mut eaten_ghosts: Query<'_, '_, (&GhostType, &mut Position, &mut Velocity, &mut GhostState), Without<Frozen>>,
 ) {
     for (ghost_type, mut position, mut velocity, mut ghost_state) in eaten_ghosts.iter_mut() {
         // Only process ghosts that are in Eyes state
@@ -232,9 +232,9 @@ fn find_direction_to_target(map: &Map, from_node: NodeId, target_node: NodeId) -
 
 /// Unified system that manages ghost state transitions and animations with component swapping
 pub fn ghost_state_system(
-    mut commands: Commands,
-    animations: Res<GhostAnimations>,
-    mut ghosts: Query<(Entity, &GhostType, &mut GhostState, &mut LastAnimationState)>,
+    mut commands: Commands<'_, '_>,
+    animations: Res<'_, GhostAnimations>,
+    mut ghosts: Query<'_, '_, (Entity, &GhostType, &mut GhostState, &mut LastAnimationState)>,
 ) {
     for (entity, ghost_type, mut ghost_state, mut last_animation_state) in ghosts.iter_mut() {
         // Tick the ghost state to handle internal transitions (like flashing, reviving)

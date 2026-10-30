@@ -5,9 +5,9 @@ mod common;
 #[cfg(feature = "postgres-tests")]
 async fn test_session_management() {
     use crate::common::test_context;
+    use assert2::check;
     use cookie::Cookie;
     use pacman_server::{data::user as user_repo, session};
-    use pretty_assertions::assert_eq;
 
     let context = test_context().use_database(true).call().await;
 
@@ -45,13 +45,13 @@ async fn test_session_management() {
         .get("/api/profile")
         .add_cookie(Cookie::new(session::SESSION_COOKIE_NAME, token))
         .await;
-    assert_eq!(response.status_code(), 200);
+    check!(response.status_code() == 200);
 
     // 4. Sign out
     let response = context.server.get("/api/logout").await;
-    assert_eq!(response.status_code(), 302); // Redirect after logout
+    check!(response.status_code() == 302); // Redirect after logout
 
     // 5. Make a request to the protected route without a session, expect failure
     let response = context.server.get("/api/profile").await;
-    assert_eq!(response.status_code(), 401); // Unauthorized without session
+    check!(response.status_code() == 401); // Unauthorized without session
 }

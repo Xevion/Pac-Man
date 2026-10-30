@@ -9,12 +9,12 @@ use bevy_ecs::system::RunSystemOnce;
 use bevy_ecs::world::World;
 use glam::Vec2;
 
+use assert2::check;
 use pacman::events::{GameCommand, GameEvent};
 use pacman::map::direction::Direction;
 use pacman::scenes::{Scene, SceneManager, title_input_system};
 use pacman::systems::common::DeltaTime;
 use pacman::systems::input::{TouchData, TouchState};
-use speculoos::prelude::*;
 
 /// A minimal world holding exactly what `title_input_system` reads, sitting on the Title.
 fn title_world() -> World {
@@ -32,7 +32,7 @@ fn title_starts_on_movement_input() {
     let mut world = title_world();
     world.write_message(GameEvent::Command(GameCommand::MovePlayer(Direction::Up)));
     world.run_system_once(title_input_system).unwrap();
-    assert_that(&world.resource::<SceneManager>().pending()).is_equal_to(Some(Scene::Gameplay));
+    check!(world.resource::<SceneManager>().pending() == Some(Scene::Gameplay));
 }
 
 /// A click/tap (a touch with no command) also starts -- the desktop click-to-start path.
@@ -41,7 +41,7 @@ fn title_starts_on_tap() {
     let mut world = title_world();
     world.resource_mut::<TouchState>().active_touch = Some(TouchData::new(0, Vec2::ZERO));
     world.run_system_once(title_input_system).unwrap();
-    assert_that(&world.resource::<SceneManager>().pending()).is_equal_to(Some(Scene::Gameplay));
+    check!(world.resource::<SceneManager>().pending() == Some(Scene::Gameplay));
 }
 
 /// A meta command (pause) must not start the game -- otherwise Escape would both start
@@ -51,5 +51,5 @@ fn title_ignores_meta_command() {
     let mut world = title_world();
     world.write_message(GameEvent::Command(GameCommand::TogglePause));
     world.run_system_once(title_input_system).unwrap();
-    assert_that(&world.resource::<SceneManager>().pending()).is_equal_to(None);
+    check!(world.resource::<SceneManager>().pending() == None);
 }

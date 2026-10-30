@@ -145,72 +145,72 @@ impl Layout {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pretty_assertions::assert_eq;
+    use assert2::check;
 
     #[test]
     fn landscape_orientation_and_scale() {
         let layout = Layout::compute(UVec2::new(1280, 720));
-        assert_eq!(layout.orientation, Orientation::Landscape);
+        check!(layout.orientation == Orientation::Landscape);
         // height binds: floor(720/248) = 2; width allows 3.
-        assert_eq!(layout.scale, 2);
+        check!(layout.scale == 2);
     }
 
     #[test]
     fn portrait_orientation_and_scale() {
         let layout = Layout::compute(UVec2::new(600, 900));
-        assert_eq!(layout.orientation, Orientation::Portrait);
+        check!(layout.orientation == Orientation::Portrait);
         // min(floor(600/224)=2, floor(900/288)=3) = 2.
-        assert_eq!(layout.scale, 2);
+        check!(layout.scale == 2);
     }
 
     #[test]
     fn landscape_maze_is_centered() {
         let layout = Layout::compute(UVec2::new(1280, 720));
         // 224*2 x 248*2 = 448x496, centered in 1280x720.
-        assert_eq!(layout.maze, Rect::new(416, 112, 448, 496));
+        check!(layout.maze == Rect::new(416, 112, 448, 496));
     }
 
     #[test]
     fn window_to_maze_inverts_the_compositor_transform() {
         let layout = Layout::compute(UVec2::new(1280, 720)); // maze at (416, 112), scale 2
         // The maze top-left maps to the texture origin.
-        assert_eq!(layout.window_to_maze(Vec2::new(416.0, 112.0)), Vec2::new(0.0, 0.0));
+        check!(layout.window_to_maze(Vec2::new(416.0, 112.0)) == Vec2::new(0.0, 0.0));
         // A point 20px right / 10px down of the maze origin is (10, 5) at scale 2.
-        assert_eq!(layout.window_to_maze(Vec2::new(436.0, 122.0)), Vec2::new(10.0, 5.0));
+        check!(layout.window_to_maze(Vec2::new(436.0, 122.0)) == Vec2::new(10.0, 5.0));
     }
 
     #[test]
     fn maze_to_window_is_the_inverse_of_window_to_maze() {
         let layout = Layout::compute(UVec2::new(1280, 720)); // maze at (416, 112), scale 2
         // The maze-local origin maps back to the maze's window origin.
-        assert_eq!(layout.maze_to_window(Vec2::new(0.0, 0.0)), Vec2::new(416.0, 112.0));
+        check!(layout.maze_to_window(Vec2::new(0.0, 0.0)) == Vec2::new(416.0, 112.0));
         // (10, 5) maze-local scales by 2 and offsets: (10*2+416, 5*2+112) = (436, 122).
-        assert_eq!(layout.maze_to_window(Vec2::new(10.0, 5.0)), Vec2::new(436.0, 122.0));
+        check!(layout.maze_to_window(Vec2::new(10.0, 5.0)) == Vec2::new(436.0, 122.0));
     }
 
     #[test]
     fn landscape_panels_flank_the_maze() {
         let layout = Layout::compute(UVec2::new(1280, 720));
-        assert_eq!(layout.left, Some(Rect::new(0, 0, 416, 720)));
-        assert_eq!(layout.right, Some(Rect::new(864, 0, 416, 720)));
-        assert_eq!(layout.top, None);
-        assert_eq!(layout.bottom, None);
+        check!(layout.left == Some(Rect::new(0, 0, 416, 720)));
+        check!(layout.right == Some(Rect::new(864, 0, 416, 720)));
+        check!(layout.top == None);
+        check!(layout.bottom == None);
     }
 
     #[test]
     fn portrait_stacks_hud_bands_around_the_maze() {
         let layout = Layout::compute(UVec2::new(600, 900));
         // group 448x576 centered at origin (76, 162).
-        assert_eq!(layout.top, Some(Rect::new(76, 162, 448, 48)));
-        assert_eq!(layout.maze, Rect::new(76, 210, 448, 496));
-        assert_eq!(layout.bottom, Some(Rect::new(76, 706, 448, 32)));
-        assert_eq!(layout.left, None);
-        assert_eq!(layout.right, None);
+        check!(layout.top == Some(Rect::new(76, 162, 448, 48)));
+        check!(layout.maze == Rect::new(76, 210, 448, 496));
+        check!(layout.bottom == Some(Rect::new(76, 706, 448, 32)));
+        check!(layout.left == None);
+        check!(layout.right == None);
     }
 
     #[test]
     fn scale_never_drops_below_one() {
         let layout = Layout::compute(UVec2::new(100, 100));
-        assert_eq!(layout.scale, 1);
+        check!(layout.scale == 1);
     }
 }

@@ -63,7 +63,7 @@ impl GameStage {
     ///
     /// GhostEatenPause *entry* is event-driven (a ghost is eaten, not a tick elapsing),
     /// so it lives in [`enter_ghost_eaten_pause`] and is a deliberate no-op here.
-    fn on_enter(self, old: GameStage, res: &mut StageResources) {
+    fn on_enter(self, old: GameStage, res: &mut StageResources<'_, '_>) {
         match self {
             GameStage::Starting(StartupSequence::TextOnly { .. }) => {
                 // No entity effects: characters stay hidden, energizers stay static.
@@ -166,7 +166,7 @@ pub struct StageResources<'w, 's> {
     pub player: Single<'w, 's, Entity, With<PlayerControlled>>,
     pub blinking: Query<'w, 's, Entity, With<Blinking>>,
     pub items: Query<'w, 's, (Entity, &'static EntityType), With<ItemCollider>>,
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity, reason = "bevy query filter tuples are inherently nested")]
     pub ghosts: Query<'w, 's, (Entity, &'static GhostType), (With<GhostCollider>, Without<PlayerControlled>)>,
 }
 
@@ -291,7 +291,7 @@ impl StageResources<'_, '_> {
 /// Advances the gameplay sub-machine one tick and applies the side-effects of any
 /// transition. The per-stage tick logic decides the next stage; [`GameStage::on_enter`]
 /// then applies the freeze/hide/reset effects.
-pub fn stage_system(mut res: StageResources) {
+pub fn stage_system(mut res: StageResources<'_, '_>) {
     res.session.elapsed_ticks += 1;
 
     let old_state = res.session.stage();
@@ -416,13 +416,13 @@ pub fn stage_system(mut res: StageResources) {
 /// rather than through `stage_system`'s tick-driven [`GameStage::on_enter`] -- the entry
 /// is a discrete event, not a tick elapsing. This replaces the old buffered
 /// `StageTransition` event (and the teardown drain it forced on `despawn_gameplay`).
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity, reason = "bevy query filter tuples are inherently nested")]
 pub fn enter_ghost_eaten_pause(
-    trigger: On<StageTransition>,
-    mut session: ResMut<Session>,
-    mut commands: Commands,
-    player: Single<(Entity, &Position), With<PlayerControlled>>,
-    ghosts: Query<(Entity, &GhostState), (With<GhostCollider>, Without<PlayerControlled>)>,
+    trigger: On<'_, '_, StageTransition>,
+    mut session: ResMut<'_, Session>,
+    mut commands: Commands<'_, '_>,
+    player: Single<'_, '_, (Entity, &Position), With<PlayerControlled>>,
+    ghosts: Query<'_, '_, (Entity, &GhostState), (With<GhostCollider>, Without<PlayerControlled>)>,
 ) {
     let StageTransition::GhostEatenPause {
         ghost_entity,

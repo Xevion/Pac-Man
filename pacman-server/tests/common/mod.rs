@@ -20,13 +20,13 @@ use testcontainers::{
 #[cfg(feature = "postgres-tests")]
 use tracing::debug;
 
-#[allow(dead_code)]
+#[allow(dead_code, reason = "shared test module; not every test binary uses it")]
 static INIT: Once = Once::new();
 
 /// Test configuration for integration tests.
 /// Do not destructure this struct if you need the database container - it will be dropped
 /// implicitly, which will kill the database container prematurely.
-#[allow(dead_code)]
+#[allow(dead_code, reason = "shared test module; not every test binary uses it")]
 pub struct TestContext {
     pub config: Config,
     pub server: TestServer,
@@ -36,7 +36,7 @@ pub struct TestContext {
     pub container: Option<ContainerAsync<GenericImage>>,
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, reason = "shared test module; not every test binary uses it")]
 fn init_once() {
     INIT.call_once(|| {
         pacman_server::http::install_crypto_provider();

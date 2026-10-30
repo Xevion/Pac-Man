@@ -1,4 +1,5 @@
 //! Tests for the sprite path generation.
+use assert2::check;
 use pacman::{
     game::ATLAS_FRAMES,
     map::direction::Direction,
@@ -45,7 +46,7 @@ fn test_all_sprite_paths_exist() {
 
     for sprite in sprites_to_test {
         let path = sprite.to_path();
-        assert!(
+        check!(
             ATLAS_FRAMES.contains_key(&path),
             "Sprite path '{}' does not exist in the atlas.",
             path
@@ -64,7 +65,7 @@ fn test_invalid_sprite_paths_do_not_exist() {
 
     for sprite in invalid_sprites {
         let path = sprite.to_path();
-        assert!(
+        check!(
             !ATLAS_FRAMES.contains_key(&path),
             "Invalid sprite path '{}' was found in the atlas, but it should not exist.",
             path

@@ -1,3 +1,4 @@
+use assert2::check;
 use bevy_ecs::entity::Entity;
 use pacman::{
     events::CollisionTrigger,
@@ -8,28 +9,27 @@ use pacman::{
         state::Session,
     },
 };
-use speculoos::prelude::*;
 
 mod common;
 
 #[test]
 fn test_calculate_score_for_item() {
-    assert_that(&(EntityType::Pellet.score_value() < EntityType::PowerPellet.score_value())).is_true();
-    assert_that(&EntityType::Pellet.score_value().is_some()).is_true();
-    assert_that(&EntityType::PowerPellet.score_value().is_some()).is_true();
-    assert_that(&EntityType::Player.score_value().is_none()).is_true();
-    assert_that(&EntityType::Ghost.score_value().is_none()).is_true();
+    check!(EntityType::Pellet.score_value() < EntityType::PowerPellet.score_value());
+    check!(EntityType::Pellet.score_value().is_some());
+    check!(EntityType::PowerPellet.score_value().is_some());
+    check!(EntityType::Player.score_value().is_none());
+    check!(EntityType::Ghost.score_value().is_none());
 }
 
 #[test]
 fn test_is_collectible_item() {
     // Collectible
-    assert_that(&EntityType::Pellet.is_collectible()).is_true();
-    assert_that(&EntityType::PowerPellet.is_collectible()).is_true();
+    check!(EntityType::Pellet.is_collectible());
+    check!(EntityType::PowerPellet.is_collectible());
 
     // Non-collectible
-    assert_that(&EntityType::Player.is_collectible()).is_false();
-    assert_that(&EntityType::Ghost.is_collectible()).is_false();
+    check!(!EntityType::Player.is_collectible());
+    check!(!EntityType::Ghost.is_collectible());
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn test_item_system_pellet_collection() {
 
     // Check that score was updated
     let score = &world.resource::<Session>().score;
-    assert_that(&score.value()).is_equal_to(10);
+    check!(score.value() == 10);
 
     // Check that the pellet was despawned (query should return empty)
     let item_count = world
@@ -52,7 +52,7 @@ fn test_item_system_pellet_collection() {
         .iter(&world)
         .filter(|&entity_type| matches!(entity_type, EntityType::Pellet))
         .count();
-    assert_that(&item_count).is_equal_to(0);
+    check!(item_count == 0);
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn test_item_system_power_pellet_collection() {
 
     // Check that score was updated with power pellet value
     let score = &world.resource::<Session>().score;
-    assert_that(&score.value()).is_equal_to(50);
+    check!(score.value() == 50);
 
     // Check that the power pellet was despawned (query should return empty)
     let item_count = world
@@ -74,7 +74,7 @@ fn test_item_system_power_pellet_collection() {
         .iter(&world)
         .filter(|&entity_type| matches!(entity_type, EntityType::PowerPellet))
         .count();
-    assert_that(&item_count).is_equal_to(0);
+    check!(item_count == 0);
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn test_item_system_multiple_collections() {
 
     // Check final score: 2 pellets (20) + 1 power pellet (50) = 70
     let score = &world.resource::<Session>().score;
-    assert_that(&score.value()).is_equal_to(70);
+    check!(score.value() == 70);
 
     // Check that all items were despawned
     let pellet_count = world
@@ -106,8 +106,8 @@ fn test_item_system_multiple_collections() {
         .iter(&world)
         .filter(|&entity_type| matches!(entity_type, EntityType::PowerPellet))
         .count();
-    assert_that(&pellet_count).is_equal_to(0);
-    assert_that(&power_pellet_count).is_equal_to(0);
+    check!(pellet_count == 0);
+    check!(power_pellet_count == 0);
 }
 
 #[test]
@@ -127,7 +127,7 @@ fn test_item_system_ignores_non_item_collisions() {
 
     // Score should remain unchanged
     let score = &world.resource::<Session>().score;
-    assert_that(&score.value()).is_equal_to(initial_score);
+    check!(score.value() == initial_score);
 
     // Ghost should still exist (not despawned)
     let ghost_count = world
@@ -135,7 +135,7 @@ fn test_item_system_ignores_non_item_collisions() {
         .iter(&world)
         .filter(|&entity_type| matches!(entity_type, EntityType::Ghost))
         .count();
-    assert_that(&ghost_count).is_equal_to(1);
+    check!(ghost_count == 1);
 }
 
 #[test]
@@ -151,13 +151,13 @@ fn test_item_system_no_collision_events() {
 
     // Nothing should change
     let score = &world.resource::<Session>().score;
-    assert_that(&score.value()).is_equal_to(initial_score);
+    check!(score.value() == initial_score);
     let pellet_count = world
         .query::<&EntityType>()
         .iter(&world)
         .filter(|&entity_type| matches!(entity_type, EntityType::Pellet))
         .count();
-    assert_that(&pellet_count).is_equal_to(1);
+    check!(pellet_count == 1);
 }
 
 #[test]
@@ -173,7 +173,7 @@ fn test_item_system_collision_with_missing_entity() {
     world.flush();
     // Score should remain unchanged
     let score = &world.resource::<Session>().score;
-    assert_that(&score.value()).is_equal_to(0);
+    check!(score.value() == 0);
 }
 
 #[test]
@@ -191,7 +191,7 @@ fn test_item_system_preserves_existing_score() {
 
     // Score should be initial + pellet value
     let score = &world.resource::<Session>().score;
-    assert_that(&score.value()).is_equal_to(110);
+    check!(score.value() == 110);
 }
 
 #[test]
@@ -211,7 +211,7 @@ fn test_power_pellet_does_not_affect_ghosts_in_eyes_state() {
 
     // Check that the power pellet was collected and score updated
     let score = &world.resource::<Session>().score;
-    assert_that(&score.value()).is_equal_to(50);
+    check!(score.value() == 50);
 
     // Check that the power pellet was despawned
     let power_pellet_count = world
@@ -219,13 +219,13 @@ fn test_power_pellet_does_not_affect_ghosts_in_eyes_state() {
         .iter(&world)
         .filter(|&entity_type| matches!(entity_type, EntityType::PowerPellet))
         .count();
-    assert_that(&power_pellet_count).is_equal_to(0);
+    check!(power_pellet_count == 0);
 
     // Check that the Eyes ghost state was not changed
     let eyes_ghost_state = world.entity(eyes_ghost).get::<GhostState>().unwrap();
-    assert_that(&matches!(*eyes_ghost_state, GhostState::Eyes)).is_true();
+    check!(matches!(*eyes_ghost_state, GhostState::Eyes));
 
     // Check that the Normal ghost state was changed to Frightened
     let normal_ghost_state = world.entity(normal_ghost).get::<GhostState>().unwrap();
-    assert_that(&matches!(*normal_ghost_state, GhostState::Active { frightened: Some(_) })).is_true();
+    check!(matches!(*normal_ghost_state, GhostState::Active { frightened: Some(_) }));
 }

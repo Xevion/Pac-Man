@@ -1,3 +1,4 @@
+use assert2::check;
 use bevy_ecs::{message::Messages, system::RunSystemOnce, world::World};
 use pacman::{
     events::{ExitRequested, GameCommand, GameEvent},
@@ -14,7 +15,6 @@ use pacman::{
         player::{can_traverse, player_control_system, player_movement_system},
     },
 };
-use speculoos::prelude::*;
 
 mod common;
 
@@ -27,7 +27,7 @@ fn test_can_traverse_player_on_all_edges() {
         traversal_flags: TraversalFlags::ALL,
     };
 
-    assert_that(&can_traverse(EntityType::Player, edge)).is_true();
+    check!(can_traverse(EntityType::Player, edge));
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn test_can_traverse_player_on_pacman_only_edges() {
         traversal_flags: TraversalFlags::PACMAN,
     };
 
-    assert_that(&can_traverse(EntityType::Player, edge)).is_true();
+    check!(can_traverse(EntityType::Player, edge));
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn test_can_traverse_player_blocked_on_ghost_only_edges() {
         traversal_flags: TraversalFlags::GHOST,
     };
 
-    assert_that(&can_traverse(EntityType::Player, edge)).is_false();
+    check!(!can_traverse(EntityType::Player, edge));
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn test_can_traverse_ghost_on_all_edges() {
         traversal_flags: TraversalFlags::ALL,
     };
 
-    assert_that(&can_traverse(EntityType::Ghost, edge)).is_true();
+    check!(can_traverse(EntityType::Ghost, edge));
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn test_can_traverse_ghost_on_ghost_only_edges() {
         traversal_flags: TraversalFlags::GHOST,
     };
 
-    assert_that(&can_traverse(EntityType::Ghost, edge)).is_true();
+    check!(can_traverse(EntityType::Ghost, edge));
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn test_can_traverse_ghost_blocked_on_pacman_only_edges() {
         traversal_flags: TraversalFlags::PACMAN,
     };
 
-    assert_that(&can_traverse(EntityType::Ghost, edge)).is_false();
+    check!(!can_traverse(EntityType::Ghost, edge));
 }
 
 #[test]
@@ -102,16 +102,16 @@ fn test_can_traverse_static_entities_flags() {
     // Static entities have empty traversal flags but can still "traverse"
     // in the sense that empty flags are contained in any flag set
     // This is the expected behavior since empty ⊆ any set
-    assert_that(&can_traverse(EntityType::Pellet, edge)).is_true();
-    assert_that(&can_traverse(EntityType::PowerPellet, edge)).is_true();
+    check!(can_traverse(EntityType::Pellet, edge));
+    check!(can_traverse(EntityType::PowerPellet, edge));
 }
 
 #[test]
 fn test_entity_type_traversal_flags() {
-    assert_that(&EntityType::Player.traversal_flags()).is_equal_to(TraversalFlags::PACMAN);
-    assert_that(&EntityType::Ghost.traversal_flags()).is_equal_to(TraversalFlags::GHOST);
-    assert_that(&EntityType::Pellet.traversal_flags()).is_equal_to(TraversalFlags::empty());
-    assert_that(&EntityType::PowerPellet.traversal_flags()).is_equal_to(TraversalFlags::empty());
+    check!(EntityType::Player.traversal_flags() == TraversalFlags::PACMAN);
+    check!(EntityType::Ghost.traversal_flags() == TraversalFlags::GHOST);
+    check!(EntityType::Pellet.traversal_flags() == TraversalFlags::empty());
+    check!(EntityType::PowerPellet.traversal_flags() == TraversalFlags::empty());
 }
 
 #[test]
@@ -136,8 +136,8 @@ fn test_player_control_system_move_command() {
             direction,
             remaining_time,
         } => {
-            assert_that(&direction).is_equal_to(Direction::Up);
-            assert_that(&remaining_time).is_equal_to(0.25);
+            check!(direction == Direction::Up);
+            check!(remaining_time == 0.25);
         }
         BufferedDirection::None => panic!("Expected buffered direction to be set"),
     }
@@ -154,7 +154,7 @@ fn exit_requested_observer_sets_exit_flag() {
     world.trigger(ExitRequested);
     world.flush();
 
-    assert_that(&world.resource::<GlobalState>().exit).is_true();
+    check!(world.resource::<GlobalState>().exit);
 }
 
 #[test]
@@ -172,7 +172,7 @@ fn test_player_control_system_toggle_debug() {
 
     // Check that debug state changed
     let debug_state = world.resource::<DebugState>();
-    assert_that(&debug_state.enabled).is_true();
+    check!(debug_state.enabled);
 }
 
 #[test]
@@ -192,7 +192,7 @@ fn test_player_control_system_mute_audio() {
     let audio_events = world.resource::<Messages<AudioEvent>>();
     let mut cursor = audio_events.get_cursor();
     let toggle_count = cursor.read(audio_events).filter(|e| **e == AudioEvent::ToggleMute).count();
-    assert_that(&toggle_count).is_equal_to(1);
+    check!(toggle_count == 1);
 
     // Send mute audio command again - should emit another ToggleMute
     world.resource_mut::<Messages<GameEvent>>().clear();
@@ -206,7 +206,7 @@ fn test_player_control_system_mute_audio() {
     let audio_events = world.resource::<Messages<AudioEvent>>();
     let mut cursor = audio_events.get_cursor();
     let toggle_count = cursor.read(audio_events).filter(|e| **e == AudioEvent::ToggleMute).count();
-    assert_that(&toggle_count).is_equal_to(1);
+    check!(toggle_count == 1);
 }
 
 #[test]
@@ -249,7 +249,7 @@ fn test_player_movement_system_buffered_direction_expires() {
     match *buffered_direction {
         BufferedDirection::None => {} // Expected - fully expired
         BufferedDirection::Some { remaining_time, .. } => {
-            assert_that(&(remaining_time <= 0.0)).is_true();
+            check!(remaining_time <= 0.0);
         }
     }
 }
@@ -272,7 +272,7 @@ fn test_player_movement_system_start_moving_from_stopped() {
 
     match *position {
         Position::Moving { from, .. } => {
-            assert_that(&from).is_equal_to(0);
+            check!(from == 0);
             // Don't assert exact target node since the real map has different connectivity
         }
         Position::Stopped { .. } => {} // May stay stopped if no valid edge in current direction
@@ -300,8 +300,8 @@ fn test_player_movement_system_buffered_direction_change() {
 
     match *position {
         Position::Moving { from, to, .. } => {
-            assert_that(&from).is_equal_to(0);
-            assert_that(&to).is_equal_to(2); // Should be moving to node 2 (down)
+            check!(from == 0);
+            check!(to == 2); // Should be moving to node 2 (down)
         }
         Position::Stopped { .. } => panic!("Player should have started moving"),
     }
@@ -330,7 +330,9 @@ fn test_player_movement_system_no_valid_edge() {
     let position = query.single(&world).expect("Player should exist");
 
     match *position {
-        Position::Stopped { node } => assert_that(&node).is_equal_to(0),
+        Position::Stopped { node } => {
+            check!(node == 0);
+        }
         Position::Moving { .. } => panic!("Player shouldn't be able to move without valid edge"),
     }
 }
@@ -357,7 +359,7 @@ fn test_player_movement_system_continue_moving() {
 
     match *position {
         Position::Moving { remaining_distance, .. } => {
-            assert_that(&(remaining_distance < 50.0)).is_true(); // Should have moved
+            check!(remaining_distance < 50.0); // Should have moved
         }
         Position::Stopped { .. } => {
             // If player reached destination, that's also valid
@@ -389,8 +391,8 @@ fn test_full_player_input_to_movement_flow() {
 
     match *position {
         Position::Moving { from, to, .. } => {
-            assert_that(&from).is_equal_to(0);
-            assert_that(&to).is_equal_to(2); // Moving to node 2 (down)
+            check!(from == 0);
+            check!(to == 2); // Moving to node 2 (down)
         }
         Position::Stopped { .. } => panic!("Player should be moving"),
     }
@@ -422,8 +424,8 @@ fn test_buffered_direction_timing() {
 
     match *buffered_direction {
         BufferedDirection::Some { remaining_time, .. } => {
-            assert_that(&(remaining_time > 0.0)).is_true();
-            assert_that(&(remaining_time < 0.25)).is_true();
+            check!(remaining_time > 0.0);
+            check!(remaining_time < 0.25);
         }
         BufferedDirection::None => panic!("Buffered direction should still be active"),
     }
@@ -435,7 +437,7 @@ fn test_buffered_direction_timing() {
         .expect("System should run successfully");
 
     let buffered_direction = query.single(&world).expect("Player should exist");
-    assert_that(buffered_direction).is_equal_to(BufferedDirection::None);
+    check!(*buffered_direction == BufferedDirection::None);
 }
 
 #[test]
@@ -465,7 +467,7 @@ fn test_multiple_rapid_direction_changes() {
 
     match *buffered_direction {
         BufferedDirection::Some { direction, .. } => {
-            assert_that(&direction).is_equal_to(Direction::Left);
+            check!(direction == Direction::Left);
         }
         BufferedDirection::None => panic!("Expected buffered direction"),
     }
@@ -514,8 +516,8 @@ fn test_player_state_persistence_across_systems() {
     let position = *query.single(&world).expect("Player should exist");
 
     // Check that the state changes persisted individually
-    assert_that(&debug_state_after_toggle.enabled).is_true();
-    assert_that(&audio_toggle_emitted).is_true();
+    check!(debug_state_after_toggle.enabled);
+    check!(audio_toggle_emitted);
 
     // Player position depends on actual map connectivity
     match position {

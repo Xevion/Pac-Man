@@ -1,7 +1,7 @@
+use assert2::check;
 use glam::Vec2;
 use pacman::map::direction::Direction;
 use pacman::systems::movement::{BufferedDirection, Position, Velocity};
-use speculoos::prelude::*;
 
 mod common;
 
@@ -14,8 +14,8 @@ fn test_position_is_at_node() {
         remaining_distance: 8.0,
     };
 
-    assert_that(&stopped_pos.is_at_node()).is_true();
-    assert_that(&moving_pos.is_at_node()).is_false();
+    check!(stopped_pos.is_at_node());
+    check!(!moving_pos.is_at_node());
 }
 
 #[test]
@@ -27,8 +27,8 @@ fn test_position_current_node() {
         remaining_distance: 12.0,
     };
 
-    assert_that(&stopped_pos.current_node()).is_equal_to(5);
-    assert_that(&moving_pos.current_node()).is_equal_to(3);
+    check!(stopped_pos.current_node() == 5);
+    check!(moving_pos.current_node() == 3);
 }
 
 #[test]
@@ -36,8 +36,8 @@ fn test_position_tick_no_movement_when_stopped() {
     let mut pos = Position::Stopped { node: 0 };
     let result = pos.tick(5.0);
 
-    assert_that(&result.is_none()).is_true();
-    assert_that(&pos).is_equal_to(Position::Stopped { node: 0 });
+    check!(result.is_none());
+    check!(pos == Position::Stopped { node: 0 });
 }
 
 #[test]
@@ -49,12 +49,14 @@ fn test_position_tick_no_movement_when_zero_distance() {
     };
     let result = pos.tick(0.0);
 
-    assert_that(&result.is_none()).is_true();
-    assert_that(&pos).is_equal_to(Position::Moving {
-        from: 0,
-        to: 1,
-        remaining_distance: 10.0,
-    });
+    check!(result.is_none());
+    check!(
+        pos == Position::Moving {
+            from: 0,
+            to: 1,
+            remaining_distance: 10.0,
+        }
+    );
 }
 
 #[test]
@@ -66,12 +68,14 @@ fn test_position_tick_partial_movement() {
     };
     let result = pos.tick(3.0);
 
-    assert_that(&result.is_none()).is_true();
-    assert_that(&pos).is_equal_to(Position::Moving {
-        from: 0,
-        to: 1,
-        remaining_distance: 7.0,
-    });
+    check!(result.is_none());
+    check!(
+        pos == Position::Moving {
+            from: 0,
+            to: 1,
+            remaining_distance: 7.0,
+        }
+    );
 }
 
 #[test]
@@ -83,8 +87,8 @@ fn test_position_tick_exact_arrival() {
     };
     let result = pos.tick(5.0);
 
-    assert_that(&result.is_none()).is_true();
-    assert_that(&pos).is_equal_to(Position::Stopped { node: 1 });
+    check!(result.is_none());
+    check!(pos == Position::Stopped { node: 1 });
 }
 
 #[test]
@@ -96,8 +100,8 @@ fn test_position_tick_overshoot_with_overflow() {
     };
     let result = pos.tick(8.0);
 
-    assert_that(&result).is_equal_to(Some(5.0));
-    assert_that(&pos).is_equal_to(Position::Stopped { node: 1 });
+    check!(result == Some(5.0));
+    check!(pos == Position::Stopped { node: 1 });
 }
 
 #[test]
@@ -109,7 +113,7 @@ fn test_position_get_pixel_position_stopped() {
     // Maze-local: node 0 sits at the playfield origin, no HUD offset baked in.
     let expected = Vec2::new(0.0, 0.0);
 
-    assert_that(&pixel_pos).is_equal_to(expected);
+    check!(pixel_pos == expected);
 }
 
 #[test]
@@ -125,7 +129,7 @@ fn test_position_get_pixel_position_moving() {
     // Maze-local: halfway between (0,0) and (16,0).
     let expected = Vec2::new(8.0, 0.0);
 
-    assert_that(&pixel_pos).is_equal_to(expected);
+    check!(pixel_pos == expected);
 }
 
 #[test]
@@ -135,14 +139,14 @@ fn test_velocity_basic_properties() {
         direction: Direction::Up,
     };
 
-    assert_that(&velocity.speed).is_equal_to(2.5);
-    assert_that(&velocity.direction).is_equal_to(Direction::Up);
+    check!(velocity.speed == 2.5);
+    check!(velocity.direction == Direction::Up);
 }
 
 #[test]
 fn test_buffered_direction_none() {
     let buffered = BufferedDirection::None;
-    assert_that(&buffered).is_equal_to(BufferedDirection::None);
+    check!(buffered == BufferedDirection::None);
 }
 
 #[test]
@@ -157,8 +161,8 @@ fn test_buffered_direction_some() {
         remaining_time,
     } = buffered
     {
-        assert_that(&direction).is_equal_to(Direction::Left);
-        assert_that(&remaining_time).is_equal_to(0.5);
+        check!(direction == Direction::Left);
+        check!(remaining_time == 0.5);
     } else {
         panic!("Expected BufferedDirection::Some");
     }

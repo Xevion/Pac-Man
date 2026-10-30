@@ -1,5 +1,5 @@
+use assert2::{assert, check};
 use pacman::texture::{sprite::SpriteAtlas, text::TextTexture};
-use speculoos::prelude::*;
 
 mod common;
 
@@ -17,16 +17,16 @@ fn get_all_chars() -> String {
 /// Helper function to check if a character is in the atlas and char_map
 fn check_char(text_texture: &mut TextTexture, atlas: &mut SpriteAtlas, c: char) {
     // Check that the character is not in the char_map yet
-    assert_that(&text_texture.get_char_map().contains_key(&c)).is_false();
+    check!(!text_texture.get_char_map().contains_key(&c));
 
     // Get the tile from the atlas, which caches the tile in the char_map
-    let tile = text_texture.get_tile(c, atlas);
+    let result = text_texture.get_tile(c, atlas);
 
-    assert_that(&tile.is_ok()).is_true();
-    assert_that(&tile.unwrap().is_some()).is_true();
+    assert!(let Ok(tile) = result);
+    check!(tile.is_some());
 
     // Check that the tile is now cached in the char_map
-    assert_that(&text_texture.get_char_map().contains_key(&c)).is_true();
+    check!(text_texture.get_char_map().contains_key(&c));
 }
 
 #[test]
@@ -75,8 +75,8 @@ fn test_text_width() -> Result<(), String> {
         let width = text_texture.text_width(&string);
         let height = text_texture.text_height();
 
-        assert_that(&(width > 0)).is_true();
-        assert_that(&(height > 0)).is_true();
+        check!(width > 0);
+        check!(height > 0);
     }
 
     Ok(())
@@ -88,19 +88,19 @@ fn test_text_scale() -> Result<(), String> {
     let base_width = (string.len() * 8) as u32;
 
     let text_texture = TextTexture::new(0.5);
-    assert_that(&text_texture.text_height()).is_equal_to(4);
-    assert_that(&text_texture.text_width("")).is_equal_to(0);
-    assert_that(&text_texture.text_width(string)).is_equal_to(base_width / 2);
+    check!(text_texture.text_height() == 4);
+    check!(text_texture.text_width("") == 0);
+    check!(text_texture.text_width(string) == base_width / 2);
 
     let text_texture = TextTexture::new(2.0);
-    assert_that(&text_texture.text_height()).is_equal_to(16);
-    assert_that(&text_texture.text_width(string)).is_equal_to(base_width * 2);
-    assert_that(&text_texture.text_width("")).is_equal_to(0);
+    check!(text_texture.text_height() == 16);
+    check!(text_texture.text_width(string) == base_width * 2);
+    check!(text_texture.text_width("") == 0);
 
     let text_texture = TextTexture::new(1.0);
-    assert_that(&text_texture.text_height()).is_equal_to(8);
-    assert_that(&text_texture.text_width(string)).is_equal_to(base_width);
-    assert_that(&text_texture.text_width("")).is_equal_to(0);
+    check!(text_texture.text_height() == 8);
+    check!(text_texture.text_width(string) == base_width);
+    check!(text_texture.text_width("") == 0);
 
     Ok(())
 }

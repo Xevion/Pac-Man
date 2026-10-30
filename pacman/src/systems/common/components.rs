@@ -47,7 +47,6 @@ pub struct GlobalState {
 pub struct ScoreResource(u32);
 
 impl ScoreResource {
-    #[allow(dead_code)]
     pub fn new(value: u32) -> Self {
         Self(value)
     }
@@ -69,7 +68,6 @@ pub struct DeltaTime {
     pub ticks: u32,
 }
 
-#[allow(dead_code)]
 impl DeltaTime {
     /// Creates a new DeltaTime from a floating-point delta time in seconds
     ///

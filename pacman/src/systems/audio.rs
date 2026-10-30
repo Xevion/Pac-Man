@@ -41,7 +41,7 @@ pub struct AudioResource(pub Audio);
 ///
 /// The `Audio` resource's internal state is the single source of truth for mute,
 /// volume, and waka cycling. This system simply dispatches events to it.
-pub fn audio_system(mut audio: NonSendMut<AudioResource>, mut events: MessageReader<AudioEvent>) {
+pub fn audio_system(mut audio: NonSendMut<'_, AudioResource>, mut events: MessageReader<'_, '_, AudioEvent>) {
     for event in events.read() {
         match event {
             AudioEvent::Waka => {

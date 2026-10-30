@@ -118,7 +118,6 @@ impl GhostModeController {
     }
 
     /// Reset for new level or after death
-    #[allow(dead_code)] // Called once level progression is wired up
     pub fn reset(&mut self, level: u8) {
         self.level = level;
         self.phase_index = 0;

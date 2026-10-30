@@ -41,7 +41,10 @@ pub async fn find_user_by_email(pool: &PgPool, email: &str) -> Result<Option<Use
     .await
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "each column of the oauth link row is a separate argument"
+)]
 pub async fn link_oauth_account(
     pool: &PgPool,
     user_id: i64,

@@ -1,10 +1,10 @@
+use assert2::check;
 use bevy_ecs::{entity::Entity, query::With, world::World};
 use pacman::error::{GameError, GameResult};
 use pacman::game::Game;
 use pacman::scenes::{Scene, SceneManager, SceneOwned};
 use pacman::systems::ghost::GhostType;
 use pacman::systems::state::{GameStage, Session};
-use speculoos::prelude::*;
 
 mod common;
 
@@ -18,9 +18,7 @@ fn scene_owned_count(world: &mut World) -> usize {
 fn test_game_30_seconds_60fps() -> GameResult<()> {
     let (canvas, texture_creator, _sdl_context) = setup_sdl().map_err(GameError::Sdl)?;
     let ttf_context = sdl2::ttf::init().map_err(GameError::Sdl)?;
-    let event_pump = _sdl_context
-        .event_pump()
-        .map_err(|e| pacman::error::GameError::Sdl(e.to_string()))?;
+    let event_pump = _sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
 
     let mut game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
     // Boot lands in the Title; enter gameplay so the loop exercises the simulation.
@@ -41,8 +39,8 @@ fn test_game_30_seconds_60fps() -> GameResult<()> {
         frame_count += 1;
     }
 
-    assert_eq!(
-        frame_count, total_frames,
+    check!(
+        frame_count == total_frames,
         "Should have processed exactly {} frames",
         total_frames
     );
@@ -54,9 +52,7 @@ fn test_game_30_seconds_60fps() -> GameResult<()> {
 fn test_game_30_seconds_variable_timing() -> GameResult<()> {
     let (canvas, texture_creator, _sdl_context) = setup_sdl().map_err(GameError::Sdl)?;
     let ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
-    let event_pump = _sdl_context
-        .event_pump()
-        .map_err(|e| pacman::error::GameError::Sdl(e.to_string()))?;
+    let event_pump = _sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
 
     let mut game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
     // Boot lands in the Title; enter gameplay so the loop exercises the simulation.
@@ -86,7 +82,7 @@ fn test_game_30_seconds_variable_timing() -> GameResult<()> {
         frame_count += 1;
     }
 
-    assert_that(&total_time).is_greater_than_or_equal_to(target_time);
+    check!(total_time >= target_time);
     Ok(())
 }
 
@@ -103,7 +99,7 @@ fn gameplay_teardown_and_respawn_leave_no_leaks() -> GameResult<()> {
     // Boot lands in the Title (no gameplay entities); populate one scene to tear down.
     pacman::game::spawning::spawn_gameplay(&mut game.world, 1)?;
     let initial = scene_owned_count(&mut game.world);
-    assert_that(&initial).is_greater_than(0);
+    check!(initial > 0);
 
     // Seed the dangling-`Entity` hazard teardown must clear: a `GhostEatenPause` stage
     // referencing a real ghost that is about to be despawned.
@@ -120,13 +116,13 @@ fn gameplay_teardown_and_respawn_leave_no_leaks() -> GameResult<()> {
 
     // Tearing it down removes every scene entity and drops the dangling stage reference.
     pacman::game::spawning::despawn_gameplay(&mut game.world);
-    assert_that(&scene_owned_count(&mut game.world)).is_equal_to(0);
+    check!(scene_owned_count(&mut game.world) == 0);
     let stage_holds_entity = matches!(game.world.resource::<Session>().stage(), GameStage::GhostEatenPause { .. });
-    assert_that(&stage_holds_entity).is_false();
+    check!(!stage_holds_entity);
 
     // Respawning restores the same population; the full cycle leaks nothing.
     pacman::game::spawning::spawn_gameplay(&mut game.world, 1)?;
-    assert_that(&scene_owned_count(&mut game.world)).is_equal_to(initial);
+    check!(scene_owned_count(&mut game.world) == initial);
     Ok(())
 }
 
@@ -141,14 +137,14 @@ fn scene_router_boots_in_title_then_enters_gameplay() -> GameResult<()> {
     let mut game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
 
     // Boot scene is the Title, which owns no entities.
-    assert_that(&game.world.resource::<SceneManager>().active()).is_equal_to(Scene::Title);
-    assert_that(&scene_owned_count(&mut game.world)).is_equal_to(0);
+    check!(game.world.resource::<SceneManager>().active() == Scene::Title);
+    check!(scene_owned_count(&mut game.world) == 0);
 
     // Queue Gameplay; the router applies it at the top of the next tick.
     game.world.resource_mut::<SceneManager>().request(Scene::Gameplay);
     game.tick(1.0 / 60.0);
 
-    assert_that(&game.world.resource::<SceneManager>().active()).is_equal_to(Scene::Gameplay);
-    assert_that(&scene_owned_count(&mut game.world)).is_greater_than(0);
+    check!(game.world.resource::<SceneManager>().active() == Scene::Gameplay);
+    check!(scene_owned_count(&mut game.world) > 0);
     Ok(())
 }

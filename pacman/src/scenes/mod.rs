@@ -27,10 +27,7 @@ mod attract;
 mod gameplay;
 mod title;
 
-// Re-exported for the title/attract integration tests, which exercise these systems in
-// isolation. The scene modules now register them internally, so the bin has no other
-// caller -- allow the otherwise-unused re-export rather than widen the submodules to pub.
-#[allow(unused_imports)]
+// Re-exported for the title/attract integration tests, which exercise these systems in isolation.
 pub use {attract::attract_input_system, title::title_input_system};
 
 /// The behavior of a scene: what happens when it becomes active and when it is
@@ -119,9 +116,7 @@ impl SceneManager {
 
     /// The scene queued to become active at the next apply, if any. Read by the title
     /// input tests to assert a transition was requested without applying it (which would
-    /// need SDL); `#[allow(dead_code)]` because the bin recompiles this module and sees
-    /// no internal caller.
-    #[allow(dead_code)]
+    /// need SDL).
     pub fn pending(&self) -> Option<Scene> {
         self.pending
     }
@@ -201,26 +196,26 @@ pub fn register_scene_systems(schedule: &mut Schedule) {
 }
 
 /// Run-condition: true only while `scene` is active. Gates per-scene systems.
-pub fn in_scene(scene: Scene) -> impl Fn(Res<SceneManager>) -> bool + Clone {
-    move |scenes: Res<SceneManager>| scenes.active() == scene
+pub fn in_scene(scene: Scene) -> impl Fn(Res<'_, SceneManager>) -> bool + Clone {
+    move |scenes: Res<'_, SceneManager>| scenes.active() == scene
 }
 
 /// Run-condition: the active scene is a live gameplay simulation -- player-driven
 /// Gameplay or AI-driven Attract -- regardless of pause. Gates rendering that should
 /// follow the simulation either way, like the READY!/GAME OVER maze overlays.
-pub fn in_simulation(scenes: Res<SceneManager>) -> bool {
+pub fn in_simulation(scenes: Res<'_, SceneManager>) -> bool {
     matches!(scenes.active(), Scene::Gameplay | Scene::Attract)
 }
 
 /// Run-condition for the simulation sets (Update/Respond/Animation): a live gameplay
 /// simulation that also isn't paused.
-pub fn sim_active(scenes: Res<SceneManager>, pause: Res<PauseState>) -> bool {
+pub fn sim_active(scenes: Res<'_, SceneManager>, pause: Res<'_, PauseState>) -> bool {
     matches!(scenes.active(), Scene::Gameplay | Scene::Attract) && !pause.active()
 }
 
 /// Handles the debug `ResetLevel` command by queuing an in-place reload of the
 /// active scene; the rebuild itself happens next frame in [`apply_pending_scene`].
-pub fn handle_reset_command(mut events: MessageReader<GameEvent>, mut scenes: ResMut<SceneManager>) {
+pub fn handle_reset_command(mut events: MessageReader<'_, '_, GameEvent>, mut scenes: ResMut<'_, SceneManager>) {
     if events
         .read()
         .any(|e| matches!(e, GameEvent::Command(GameCommand::ResetLevel)))

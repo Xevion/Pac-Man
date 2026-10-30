@@ -278,14 +278,12 @@ impl Audio {
     /// Returns `true` if audio is in the Enabled state, `false` if suspended,
     /// muted, or disabled.
     #[cfg(target_os = "emscripten")]
-    #[allow(dead_code)]
     pub fn is_ready(&self) -> bool {
         matches!(self.state, AudioState::Enabled { .. })
     }
 
     /// Returns whether audio is suspended waiting for user interaction.
     #[cfg(target_os = "emscripten")]
-    #[allow(dead_code)]
     pub fn is_suspended(&self) -> bool {
         matches!(self.state, AudioState::Suspended { .. })
     }

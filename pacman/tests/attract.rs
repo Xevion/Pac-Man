@@ -4,9 +4,9 @@
 use bevy_ecs::system::RunSystemOnce;
 use bevy_ecs::world::World;
 
+use assert2::check;
 use pacman::scenes::{Scene, SceneManager, attract_input_system, in_simulation};
 use pacman::systems::input::HumanInput;
-use speculoos::prelude::*;
 
 /// Any human input during attract queues the transition to a real game.
 #[test]
@@ -17,7 +17,7 @@ fn attract_starts_on_any_human_input() {
 
     world.run_system_once(attract_input_system).unwrap();
 
-    assert_that(&world.resource::<SceneManager>().pending()).is_equal_to(Some(Scene::Gameplay));
+    check!(world.resource::<SceneManager>().pending() == Some(Scene::Gameplay));
 }
 
 /// With no human input, the demo keeps playing -- no transition is queued.
@@ -29,7 +29,7 @@ fn attract_keeps_playing_without_human_input() {
 
     world.run_system_once(attract_input_system).unwrap();
 
-    assert_that(&world.resource::<SceneManager>().pending()).is_equal_to(None);
+    check!(world.resource::<SceneManager>().pending() == None);
 }
 
 /// The overlay-gating run-condition treats Attract as a live simulation (so READY!/GAME
@@ -39,11 +39,11 @@ fn simulation_gate_includes_attract_excludes_title() {
     let mut world = World::new();
 
     world.insert_resource(SceneManager::new(Scene::Attract));
-    assert_that(&world.run_system_once(in_simulation).unwrap()).is_true();
+    check!(world.run_system_once(in_simulation).unwrap());
 
     world.insert_resource(SceneManager::new(Scene::Gameplay));
-    assert_that(&world.run_system_once(in_simulation).unwrap()).is_true();
+    check!(world.run_system_once(in_simulation).unwrap());
 
     world.insert_resource(SceneManager::new(Scene::Title));
-    assert_that(&world.run_system_once(in_simulation).unwrap()).is_false();
+    check!(!world.run_system_once(in_simulation).unwrap());
 }

@@ -8,6 +8,7 @@
 use bevy_ecs::message::{MessageRegistry, Messages};
 use bevy_ecs::world::World;
 
+use assert2::check;
 use pacman::events::{GameCommand, GameEvent};
 use pacman::map::direction::Direction;
 use pacman::map::graph::TraversalFlags;
@@ -18,7 +19,6 @@ use pacman::systems::ghost::targeting::choose_direction_at_intersection;
 use pacman::systems::movement::{Position, Velocity};
 use pacman::systems::player::PlayerControlled;
 use pacman::systems::profiling::profile;
-use speculoos::prelude::*;
 
 mod common;
 
@@ -55,8 +55,8 @@ fn ai_chooser_picks_pacman_traversable_step_toward_target() {
 
     // The chosen direction is a real, Pac-Man-traversable, non-reversing edge.
     let chosen_edge = intersection.get(chosen).expect("chosen direction has an edge");
-    assert_that(&chosen_edge.traversal_flags.contains(TraversalFlags::PACMAN)).is_true();
-    assert_that(&(chosen == current_direction.opposite())).is_false();
+    check!(chosen_edge.traversal_flags.contains(TraversalFlags::PACMAN));
+    check!(!(chosen == current_direction.opposite()));
 
     // It is the greedy step: no other valid candidate lands nearer the target.
     let target_pos = map.graph.get_node(target).unwrap().position;
@@ -78,7 +78,7 @@ fn ai_chooser_picks_pacman_traversable_step_toward_target() {
             continue;
         }
         let dist = map.graph.get_node(edge.target).unwrap().position.distance_squared(target_pos);
-        assert_that(&(chosen_dist <= dist)).is_true();
+        check!(chosen_dist <= dist);
     }
 }
 
@@ -112,8 +112,8 @@ fn ai_chooser_respects_pacman_flags_at_ghost_door() {
     let ghost_choice =
         choose_direction_at_intersection(&map, None, TraversalFlags::GHOST, src, target, ghost_only_dir, false, None);
 
-    assert_that(&(pacman_choice == Some(ghost_only_dir))).is_false();
-    assert_that(&ghost_choice).is_equal_to(Some(ghost_only_dir));
+    check!(!(pacman_choice == Some(ghost_only_dir)));
+    check!(ghost_choice == Some(ghost_only_dir));
 }
 
 /// Builds a minimal world holding just what `ai_player_system` reads, then runs the
@@ -199,5 +199,5 @@ fn ai_player_system_emits_move_toward_pellet() {
     let moved = emitted
         .iter()
         .any(|e| matches!(e, GameEvent::Command(GameCommand::MovePlayer(_))));
-    assert_that(&moved).is_true();
+    check!(moved);
 }

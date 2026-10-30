@@ -1,3 +1,4 @@
+use assert2::{assert, check};
 use bevy_ecs::message::MessageRegistry;
 use bevy_ecs::system::RunSystemOnce;
 use bevy_ecs::world::World;
@@ -11,7 +12,6 @@ use pacman::systems::ghost::{FrightenedData, GhostHouseController, GhostState, G
 use pacman::systems::hud::FruitSprites;
 use pacman::systems::movement::Position;
 use pacman::systems::state::{GameStage, Session, enter_ghost_eaten_pause};
-use speculoos::prelude::*;
 
 mod common;
 
@@ -21,8 +21,8 @@ fn test_collider_collision_detection() {
     let collider2 = Collider { size: 8.0 };
 
     // Test collision detection
-    assert_that(&collider1.collides_with(collider2.size, 5.0)).is_true(); // Should collide (distance < 9.0)
-    assert_that(&collider1.collides_with(collider2.size, 15.0)).is_false(); // Should not collide (distance > 9.0)
+    check!(collider1.collides_with(collider2.size, 5.0)); // Should collide (distance < 9.0)
+    check!(!collider1.collides_with(collider2.size, 15.0)); // Should not collide (distance > 9.0)
 }
 
 #[test]
@@ -35,13 +35,13 @@ fn test_check_collision_helper() {
 
     // Test collision at same position
     let result = check_collision(&pos1, &collider1, &pos2, &collider2, &map);
-    assert_that(&result.is_ok()).is_true();
-    assert_that(&result.unwrap()).is_true(); // Should collide at same position
+    assert!(let Ok(collides) = result);
+    check!(collides); // Should collide at same position
 
     // Test collision at different positions
     let pos3 = Position::Stopped { node: 1 }; // Different position
     let result = check_collision(&pos1, &collider1, &pos3, &collider2, &map);
-    assert_that(&result.is_ok()).is_true();
+    check!(result.is_ok());
     // May or may not collide depending on actual node positions
 }
 
@@ -111,14 +111,13 @@ fn ghost_eaten_observer_enters_pause_and_freezes() {
     });
     world.flush();
 
-    assert_that(&matches!(
+    check!(matches!(
         world.resource::<Session>().stage(),
         GameStage::GhostEatenPause { .. }
-    ))
-    .is_true();
-    assert_that(&world.get::<Frozen>(player).is_some()).is_true();
-    assert_that(&world.get::<Frozen>(eaten).is_some()).is_true();
-    assert_that(&world.get::<Frozen>(bystander).is_some()).is_true();
+    ));
+    check!(world.get::<Frozen>(player).is_some());
+    check!(world.get::<Frozen>(eaten).is_some());
+    check!(world.get::<Frozen>(bystander).is_some());
 }
 
 /// Eating consecutive frightened ghosts in one fright period must double the award:
@@ -149,7 +148,7 @@ fn ghost_eat_score_doubles_along_the_chain() {
             ghost_type: GhostType::Blinky,
         });
         world.flush();
-        assert_that(&world.resource::<Session>().score.value()).is_equal_to(cumulative);
+        check!(world.resource::<Session>().score.value() == cumulative);
     }
 }
 
@@ -184,7 +183,7 @@ fn power_pellet_resets_ghost_eat_chain() {
     };
 
     eat_ghost(&mut world); // chain 0 -> awards 200, chain now 1
-    assert_that(&world.resource::<Session>().score.value()).is_equal_to(200);
+    check!(world.resource::<Session>().score.value() == 200);
 
     // Eat a power pellet through the real observer; it must reset the chain to 0.
     let pellet = world
@@ -192,11 +191,11 @@ fn power_pellet_resets_ghost_eat_chain() {
         .id();
     world.trigger(CollisionTrigger::ItemCollision { item: pellet });
     world.flush();
-    assert_that(&world.resource::<Session>().ghost_eaten_chain).is_equal_to(0);
+    check!(world.resource::<Session>().ghost_eaten_chain == 0);
 
     eat_ghost(&mut world); // chain 0 again -> awards 200, not 400
     // Cumulative: 200 (first eat) + 50 (power pellet) + 200 (reset eat) = 450.
-    assert_that(&world.resource::<Session>().score.value()).is_equal_to(450);
+    check!(world.resource::<Session>().score.value() == 450);
 }
 
 /// Eating a power pellet now reaches ghosts only through the `PowerPelletEaten` trigger:
@@ -213,6 +212,8 @@ fn power_pellet_frightens_active_ghosts_via_observer() {
     world.trigger(PowerPelletEaten);
     world.flush();
 
-    assert_that(&world.get::<GhostState>(active).unwrap().is_frightened()).is_true();
-    assert_that(&matches!(world.get::<GhostState>(returning).unwrap(), GhostState::Eyes)).is_true();
+    assert!(let Some(active_state) = world.get::<GhostState>(active));
+    check!(active_state.is_frightened());
+    assert!(let Some(returning_state) = world.get::<GhostState>(returning));
+    check!(matches!(returning_state, GhostState::Eyes));
 }

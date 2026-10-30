@@ -57,9 +57,9 @@ impl PauseState {
 }
 
 pub fn handle_pause_command(
-    mut events: MessageReader<GameEvent>,
-    mut pause_state: ResMut<PauseState>,
-    mut audio_events: MessageWriter<AudioEvent>,
+    mut events: MessageReader<'_, '_, GameEvent>,
+    mut pause_state: ResMut<'_, PauseState>,
+    mut audio_events: MessageWriter<'_, AudioEvent>,
 ) {
     for event in events.read() {
         match event {
@@ -93,7 +93,7 @@ pub fn handle_pause_command(
     }
 }
 
-pub fn manage_pause_state_system(mut pause_state: ResMut<PauseState>, mut audio_events: MessageWriter<AudioEvent>) {
+pub fn manage_pause_state_system(mut pause_state: ResMut<'_, PauseState>, mut audio_events: MessageWriter<'_, AudioEvent>) {
     let changed = pause_state.tick();
 
     // If the pause state changed, send the appropriate audio event

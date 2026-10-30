@@ -48,7 +48,7 @@ impl SceneHandler for AttractScene {
 /// are suppressed before they surface as events; this instead keys off the
 /// `InputSource`-independent [`HumanInput`] pulse (set from raw SDL input). The schedule
 /// gates this to the Attract scene, so it only fires while the demo is up.
-pub fn attract_input_system(human_input: Res<HumanInput>, mut scenes: ResMut<SceneManager>) {
+pub fn attract_input_system(human_input: Res<'_, HumanInput>, mut scenes: ResMut<'_, SceneManager>) {
     if human_input.active {
         scenes.request(Scene::Gameplay);
     }

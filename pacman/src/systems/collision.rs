@@ -78,11 +78,11 @@ pub fn check_collision(
 /// Also detects collisions between Pac-Man and ghosts for gameplay mechanics like
 /// power pellet effects, ghost eating, and player death.
 pub fn collision_system(
-    map: Res<Map>,
-    pacman_query: Query<(Entity, &Position, &Collider), With<PacmanCollider>>,
-    item_query: Query<(Entity, &Position, &Collider), With<ItemCollider>>,
-    ghost_query: Query<(Entity, &Position, &Collider, &GhostType, &GhostState), With<GhostCollider>>,
-    mut commands: Commands,
+    map: Res<'_, Map>,
+    pacman_query: Query<'_, '_, (Entity, &Position, &Collider), With<PacmanCollider>>,
+    item_query: Query<'_, '_, (Entity, &Position, &Collider), With<ItemCollider>>,
+    ghost_query: Query<'_, '_, (Entity, &Position, &Collider, &GhostType, &GhostState), With<GhostCollider>>,
+    mut commands: Commands<'_, '_>,
 ) {
     // Check PACMAN × ITEM collisions
     for (pacman_entity, pacman_pos, pacman_collider) in pacman_query.iter() {
@@ -135,11 +135,11 @@ pub fn collision_system(
 
 /// Observer for handling ghost collisions immediately when they occur
 pub fn ghost_collision_observer(
-    trigger: On<CollisionTrigger>,
-    mut commands: Commands,
-    mut session: ResMut<Session>,
-    mut ghost_state_query: Query<&mut GhostState>,
-    mut events: MessageWriter<AudioEvent>,
+    trigger: On<'_, '_, CollisionTrigger>,
+    mut commands: Commands<'_, '_>,
+    mut session: ResMut<'_, Session>,
+    mut ghost_state_query: Query<'_, '_, &mut GhostState>,
+    mut events: MessageWriter<'_, AudioEvent>,
 ) {
     if let CollisionTrigger::GhostCollision {
         pacman: _pacman,
@@ -202,7 +202,7 @@ pub struct ItemCollisionParams<'w, 's> {
 }
 
 /// Observer for handling item collisions immediately when they occur
-pub fn item_collision_observer(trigger: On<CollisionTrigger>, mut params: ItemCollisionParams) {
+pub fn item_collision_observer(trigger: On<'_, '_, CollisionTrigger>, mut params: ItemCollisionParams<'_, '_>) {
     if let CollisionTrigger::ItemCollision { item } = *trigger {
         // Get the item type and update score
         if let Ok((item_ent, entity_type, position)) = params.item_query.get(item)

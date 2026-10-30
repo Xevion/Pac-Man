@@ -20,12 +20,12 @@ const PLAYER_LINE_Y: u32 = 89;
 
 /// Renders gameplay overlay text centered over the maze playfield.
 pub fn hud_overlay_system(
-    mut backbuffer: NonSendMut<BackbufferResource>,
-    mut canvas: NonSendMut<CanvasResource>,
-    mut atlas: NonSendMut<SpriteAtlas>,
-    session: Res<Session>,
-    pause_state: Res<PauseState>,
-    dirty: Res<RenderDirty>,
+    mut backbuffer: NonSendMut<'_, BackbufferResource>,
+    mut canvas: NonSendMut<'_, CanvasResource>,
+    mut atlas: NonSendMut<'_, SpriteAtlas>,
+    session: Res<'_, Session>,
+    pause_state: Res<'_, PauseState>,
+    dirty: Res<'_, RenderDirty>,
 ) {
     if !dirty.0 {
         return;

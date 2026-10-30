@@ -42,7 +42,7 @@ impl TtfAtlas {
     ///
     /// This should be called once at startup. It renders all characters that might
     /// be used in text rendering into a single texture atlas for efficient GPU rendering.
-    pub fn new(texture_creator: &TextureCreator<WindowContext>, font: &Font) -> Result<Self, GameError> {
+    pub fn new(texture_creator: &TextureCreator<WindowContext>, font: &Font<'_, '_>) -> Result<Self, GameError> {
         // Calculate character dimensions and advance widths for proportional fonts
         let mut char_tiles = HashMap::new();
         let mut max_height = 0u32;
@@ -113,7 +113,7 @@ impl TtfAtlas {
         &mut self,
         canvas: &mut Canvas<C>,
         texture_creator: &TextureCreator<WindowContext>,
-        font: &Font,
+        font: &Font<'_, '_>,
     ) -> Result<(), GameError> {
         let mut render_error: Option<GameError> = None;
 

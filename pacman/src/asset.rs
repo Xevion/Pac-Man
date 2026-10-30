@@ -24,7 +24,6 @@ pub enum Asset {
 use strum::IntoEnumIterator;
 
 impl Asset {
-    #[allow(dead_code)]
     pub fn into_iter() -> AssetIter {
         AssetIter {
             sound_iter: None,
@@ -33,7 +32,7 @@ impl Asset {
     }
 }
 
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity, reason = "the field names a concrete iterator adapter chain")]
 pub struct AssetIter {
     sound_iter: Option<iter::Map<<Sound as IntoEnumIterator>::Iterator, fn(Sound) -> Asset>>,
     state: u8,

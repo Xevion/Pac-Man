@@ -1,3 +1,4 @@
+use assert2::check;
 use glam::Vec2;
 use pacman::events::{GameCommand, GameEvent};
 use pacman::map::direction::Direction;
@@ -5,8 +6,8 @@ use pacman::systems::input::{
     Bindings, CursorPosition, SimpleKeyEvent, TOUCH_DIRECTION_THRESHOLD, TOUCH_EASING_DISTANCE_THRESHOLD, TouchData, TouchState,
     calculate_direction_from_delta, process_simple_key_events, update_touch_reference_position,
 };
+use rstest::rstest;
 use sdl2::keyboard::Keycode;
-use speculoos::prelude::*;
 
 // Test modules for better organization
 mod keyboard_tests {
@@ -16,21 +17,21 @@ mod keyboard_tests {
     fn key_down_emits_bound_command() {
         let mut bindings = Bindings::default();
         let events = process_simple_key_events(&mut bindings, &[SimpleKeyEvent::KeyDown(Keycode::W)]);
-        assert_that(&events).contains(GameEvent::Command(GameCommand::MovePlayer(Direction::Up)));
+        check!(events.contains(&GameEvent::Command(GameCommand::MovePlayer(Direction::Up))));
     }
 
     #[test]
     fn key_down_emits_non_movement_commands() {
         let mut bindings = Bindings::default();
         let events = process_simple_key_events(&mut bindings, &[SimpleKeyEvent::KeyDown(Keycode::Escape)]);
-        assert_that(&events).contains(GameEvent::Command(GameCommand::TogglePause));
+        check!(events.contains(&GameEvent::Command(GameCommand::TogglePause)));
     }
 
     #[test]
     fn unbound_key_emits_nothing() {
         let mut bindings = Bindings::default();
         let events = process_simple_key_events(&mut bindings, &[SimpleKeyEvent::KeyDown(Keycode::Z)]);
-        assert_that(&events).is_empty();
+        check!(events.is_empty());
     }
 
     #[test]
@@ -38,7 +39,7 @@ mod keyboard_tests {
         let mut bindings = Bindings::default();
         process_simple_key_events(&mut bindings, &[SimpleKeyEvent::KeyDown(Keycode::Left)]);
         let events = process_simple_key_events(&mut bindings, &[]);
-        assert_that(&events).contains(GameEvent::Command(GameCommand::MovePlayer(Direction::Left)));
+        check!(events.contains(&GameEvent::Command(GameCommand::MovePlayer(Direction::Left))));
     }
 
     #[test]
@@ -46,7 +47,7 @@ mod keyboard_tests {
         let mut bindings = Bindings::default();
         process_simple_key_events(&mut bindings, &[SimpleKeyEvent::KeyDown(Keycode::Up)]);
         let events = process_simple_key_events(&mut bindings, &[SimpleKeyEvent::KeyUp(Keycode::Up)]);
-        assert_that(&events).is_empty();
+        check!(events.is_empty());
     }
 
     #[test]
@@ -55,52 +56,42 @@ mod keyboard_tests {
         process_simple_key_events(&mut bindings, &[SimpleKeyEvent::KeyDown(Keycode::W)]);
         process_simple_key_events(&mut bindings, &[SimpleKeyEvent::KeyDown(Keycode::D)]);
         let events = process_simple_key_events(&mut bindings, &[SimpleKeyEvent::KeyUp(Keycode::D)]);
-        assert_that(&events).contains(GameEvent::Command(GameCommand::MovePlayer(Direction::Up)));
+        check!(events.contains(&GameEvent::Command(GameCommand::MovePlayer(Direction::Up))));
     }
 }
 
 mod direction_calculation_tests {
     use super::*;
 
-    #[test]
-    fn prioritizes_horizontal_movement() {
-        let test_cases = vec![
-            (Vec2::new(6.0, 5.0), Direction::Right),
-            (Vec2::new(-6.0, 5.0), Direction::Left),
-        ];
-
-        for (delta, expected) in test_cases {
-            assert_that(&calculate_direction_from_delta(delta)).is_equal_to(expected);
-        }
+    #[rstest]
+    #[case(Vec2::new(6.0, 5.0), Direction::Right)]
+    #[case(Vec2::new(-6.0, 5.0), Direction::Left)]
+    fn prioritizes_horizontal_movement(#[case] delta: Vec2, #[case] expected: Direction) {
+        check!(calculate_direction_from_delta(delta) == expected);
     }
 
-    #[test]
-    fn uses_vertical_when_dominant() {
-        let test_cases = vec![
-            (Vec2::new(3.0, 10.0), Direction::Down),
-            (Vec2::new(3.0, -10.0), Direction::Up),
-        ];
-
-        for (delta, expected) in test_cases {
-            assert_that(&calculate_direction_from_delta(delta)).is_equal_to(expected);
-        }
+    #[rstest]
+    #[case(Vec2::new(3.0, 10.0), Direction::Down)]
+    #[case(Vec2::new(3.0, -10.0), Direction::Up)]
+    fn uses_vertical_when_dominant(#[case] delta: Vec2, #[case] expected: Direction) {
+        check!(calculate_direction_from_delta(delta) == expected);
     }
 
     #[test]
     fn handles_zero_delta() {
         let delta = Vec2::ZERO;
         // Should default to Up when both components are zero
-        assert_that(&calculate_direction_from_delta(delta)).is_equal_to(Direction::Up);
+        check!(calculate_direction_from_delta(delta) == Direction::Up);
     }
 
     #[test]
     fn handles_equal_magnitudes() {
         // When x and y have equal absolute values, should prioritize vertical
         let delta = Vec2::new(5.0, 5.0);
-        assert_that(&calculate_direction_from_delta(delta)).is_equal_to(Direction::Down);
+        check!(calculate_direction_from_delta(delta) == Direction::Down);
 
         let delta = Vec2::new(-5.0, 5.0);
-        assert_that(&calculate_direction_from_delta(delta)).is_equal_to(Direction::Down);
+        check!(calculate_direction_from_delta(delta) == Direction::Down);
     }
 }
 
@@ -114,8 +105,8 @@ mod touch_easing_tests {
 
         let (_delta, distance) = update_touch_reference_position(&mut touch_data, 0.016);
 
-        assert_that(&distance).is_less_than(TOUCH_EASING_DISTANCE_THRESHOLD);
-        assert_that(&touch_data.start_pos).is_equal_to(Vec2::new(100.0, 100.0));
+        check!(distance < TOUCH_EASING_DISTANCE_THRESHOLD);
+        check!(touch_data.start_pos == Vec2::new(100.0, 100.0));
     }
 
     #[test]
@@ -126,9 +117,9 @@ mod touch_easing_tests {
         let original_start_pos = touch_data.start_pos;
         let (_delta, distance) = update_touch_reference_position(&mut touch_data, 0.016);
 
-        assert_that(&distance).is_greater_than(TOUCH_EASING_DISTANCE_THRESHOLD);
-        assert_that(&touch_data.start_pos.x).is_greater_than(original_start_pos.x);
-        assert_that(&touch_data.start_pos.x).is_less_than(touch_data.current_pos.x);
+        check!(distance > TOUCH_EASING_DISTANCE_THRESHOLD);
+        check!(touch_data.start_pos.x > original_start_pos.x);
+        check!(touch_data.start_pos.x < touch_data.current_pos.x);
     }
 
     #[test]
@@ -138,7 +129,7 @@ mod touch_easing_tests {
 
         let (_delta, _distance) = update_touch_reference_position(&mut touch_data, 10.0);
 
-        assert_that(&touch_data.start_pos).is_equal_to(touch_data.current_pos);
+        check!(touch_data.start_pos == touch_data.current_pos);
     }
 
     #[test]
@@ -151,14 +142,15 @@ mod touch_easing_tests {
         let expected_delta = Vec2::new(20.0, 10.0);
         let expected_distance = expected_delta.length();
 
-        assert_that(&delta).is_equal_to(expected_delta);
-        assert_that(&distance).is_equal_to(expected_distance);
+        check!(delta == expected_delta);
+        check!(distance == expected_distance);
     }
 }
 
 // Integration tests for the full input system
 mod integration_tests {
     use super::*;
+    use assert2::assert;
 
     fn mouse_motion_event(x: i32, y: i32) -> sdl2::event::Event {
         sdl2::event::Event::MouseMotion {
@@ -259,8 +251,8 @@ mod integration_tests {
                 position,
                 remaining_time,
             } => {
-                assert_that(&position).is_equal_to(Vec2::new(100.0, 200.0));
-                assert_that(&remaining_time).is_equal_to(0.20);
+                check!(position == Vec2::new(100.0, 200.0));
+                check!(remaining_time == 0.20);
             }
             CursorPosition::None => panic!("Expected cursor position to be set"),
         }
@@ -271,11 +263,9 @@ mod integration_tests {
         let events = vec![mouse_button_down_event(150, 250)];
         let (_cursor, touch_state) = run_input_system_with_events(events, 0.016);
 
-        assert_that(&touch_state.active_touch).is_some();
-        if let Some(touch_data) = &touch_state.active_touch {
-            assert_that(&touch_data.finger_id).is_equal_to(0);
-            assert_that(&touch_data.start_pos).is_equal_to(Vec2::new(150.0, 250.0));
-        }
+        assert!(let Some(touch_data) = &touch_state.active_touch);
+        check!(touch_data.finger_id == 0);
+        check!(touch_data.start_pos == Vec2::new(150.0, 250.0));
     }
 
     #[test]
@@ -283,7 +273,7 @@ mod integration_tests {
         let events = vec![mouse_button_down_event(150, 250), mouse_button_up_event(150, 250)];
         let (_cursor, touch_state) = run_input_system_with_events(events, 0.016);
 
-        assert_that(&touch_state.active_touch).is_none();
+        check!(touch_state.active_touch.is_none());
     }
 }
 
@@ -298,9 +288,9 @@ mod touch_direction_tests {
 
         let (delta, distance) = update_touch_reference_position(&mut touch_data, 0.016);
 
-        assert_that(&distance).is_greater_than_or_equal_to(TOUCH_DIRECTION_THRESHOLD);
+        check!(distance >= TOUCH_DIRECTION_THRESHOLD);
         let direction = calculate_direction_from_delta(delta);
-        assert_that(&direction).is_equal_to(Direction::Right);
+        check!(direction == Direction::Right);
     }
 
     #[test]
@@ -310,27 +300,22 @@ mod touch_direction_tests {
 
         let (_delta, distance) = update_touch_reference_position(&mut touch_data, 0.016);
 
-        assert_that(&distance).is_less_than(TOUCH_DIRECTION_THRESHOLD);
+        check!(distance < TOUCH_DIRECTION_THRESHOLD);
     }
 
-    #[test]
-    fn all_directions_work_correctly() {
-        let test_cases = vec![
-            (Vec2::new(TOUCH_DIRECTION_THRESHOLD + 5.0, 0.0), Direction::Right),
-            (Vec2::new(-TOUCH_DIRECTION_THRESHOLD - 5.0, 0.0), Direction::Left),
-            (Vec2::new(0.0, TOUCH_DIRECTION_THRESHOLD + 5.0), Direction::Down),
-            (Vec2::new(0.0, -TOUCH_DIRECTION_THRESHOLD - 5.0), Direction::Up),
-        ];
+    #[rstest]
+    #[case(Vec2::new(TOUCH_DIRECTION_THRESHOLD + 5.0, 0.0), Direction::Right)]
+    #[case(Vec2::new(-TOUCH_DIRECTION_THRESHOLD - 5.0, 0.0), Direction::Left)]
+    #[case(Vec2::new(0.0, TOUCH_DIRECTION_THRESHOLD + 5.0), Direction::Down)]
+    #[case(Vec2::new(0.0, -TOUCH_DIRECTION_THRESHOLD - 5.0), Direction::Up)]
+    fn all_directions_work_correctly(#[case] offset: Vec2, #[case] expected_direction: Direction) {
+        let mut touch_data = TouchData::new(1, Vec2::new(100.0, 100.0));
+        touch_data.current_pos = Vec2::new(100.0, 100.0) + offset;
 
-        for (offset, expected_direction) in test_cases {
-            let mut touch_data = TouchData::new(1, Vec2::new(100.0, 100.0));
-            touch_data.current_pos = Vec2::new(100.0, 100.0) + offset;
+        let (delta, distance) = update_touch_reference_position(&mut touch_data, 0.016);
 
-            let (delta, distance) = update_touch_reference_position(&mut touch_data, 0.016);
-
-            assert_that(&distance).is_greater_than_or_equal_to(TOUCH_DIRECTION_THRESHOLD);
-            let direction = calculate_direction_from_delta(delta);
-            assert_that(&direction).is_equal_to(expected_direction);
-        }
+        check!(distance >= TOUCH_DIRECTION_THRESHOLD);
+        let direction = calculate_direction_from_delta(delta);
+        check!(direction == expected_direction);
     }
 }

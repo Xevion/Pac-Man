@@ -31,12 +31,12 @@ pub fn can_traverse(entity_type: EntityType, edge: Edge) -> bool {
 /// changes before reaching intersections, improving gameplay responsiveness.
 /// Non-movement commands immediately modify global game state. (Exit is handled
 /// separately via the `ExitRequested` observer.)
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity, reason = "bevy query filter tuples are inherently nested")]
 pub fn player_control_system(
-    mut events: MessageReader<GameEvent>,
-    mut debug_state: ResMut<DebugState>,
-    mut audio_events: MessageWriter<AudioEvent>,
-    mut player: Option<Single<&mut BufferedDirection, (With<PlayerControlled>, Without<Frozen>)>>,
+    mut events: MessageReader<'_, '_, GameEvent>,
+    mut debug_state: ResMut<'_, DebugState>,
+    mut audio_events: MessageWriter<'_, AudioEvent>,
+    mut player: Option<Single<'_, '_, &mut BufferedDirection, (With<PlayerControlled>, Without<Frozen>)>>,
 ) {
     // Handle events
     for event in events.read() {
@@ -69,15 +69,17 @@ pub fn player_control_system(
 /// Handles movement logic including buffered direction changes, edge traversal validation, and continuous movement between nodes.
 /// When stopped, prioritizes buffered directions for responsive controls, falling back to current direction.
 /// Supports movement chaining within a single frame when traveling at high speeds.
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity, reason = "bevy query filter tuples are inherently nested")]
 pub fn player_movement_system(
-    map: Res<Map>,
-    delta_time: Res<DeltaTime>,
+    map: Res<'_, Map>,
+    delta_time: Res<'_, DeltaTime>,
     mut entities: Query<
+        '_,
+        '_,
         (&MovementModifiers, &mut Position, &mut Velocity, &mut BufferedDirection),
         (With<PlayerControlled>, Without<Frozen>),
     >,
-    mut last_stopped_node: bevy_ecs::system::Local<Option<crate::systems::movement::NodeId>>,
+    mut last_stopped_node: bevy_ecs::system::Local<'_, Option<crate::systems::movement::NodeId>>,
 ) {
     for (modifiers, mut position, mut velocity, mut buffered_direction) in entities.iter_mut() {
         // Decrement the buffered direction remaining time
@@ -157,12 +159,15 @@ pub fn player_movement_system(
 }
 
 /// Applies tunnel slowdown based on the current node tile
-pub fn player_tunnel_slowdown_system(map: Res<Map>, player: Single<(&Position, &mut MovementModifiers), With<PlayerControlled>>) {
+pub fn player_tunnel_slowdown_system(
+    map: Res<'_, Map>,
+    player: Single<'_, '_, (&Position, &mut MovementModifiers), With<PlayerControlled>>,
+) {
     let (position, mut modifiers) = player.into_inner();
     let node = position.current_node();
     let in_tunnel = map
         .tile_at_node(node)
-        .map(|t| t == crate::constants::MapTile::Tunnel)
+        .map(|t| t == constants::MapTile::Tunnel)
         .unwrap_or(false);
 
     if modifiers.tunnel_slowdown_active != in_tunnel {

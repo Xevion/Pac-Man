@@ -282,7 +282,7 @@ pub fn request_canvas_resize(width: u32, height: u32) {
 /// web. The drawable size is already in physical pixels (the JS side scaled by the
 /// device pixel ratio), so no high-DPI handling is needed here.
 #[cfg(target_os = "emscripten")]
-pub fn apply_pending_resize(mut canvas: NonSendMut<crate::systems::render::CanvasResource>) {
+pub fn apply_pending_resize(mut canvas: NonSendMut<'_, crate::systems::render::CanvasResource>) {
     let packed = PENDING_CANVAS_SIZE.swap(0, std::sync::atomic::Ordering::Relaxed);
     if packed == 0 {
         return;
@@ -299,22 +299,22 @@ pub fn apply_pending_resize(mut canvas: NonSendMut<crate::systems::render::Canva
 /// Observer for [`ExitRequested`]: flips the global exit flag so the main loop tears
 /// down after the current frame. Raised by the quit key and the window close button,
 /// it resolves the same frame rather than waiting on a buffered-event read.
-pub fn exit_observer(_: On<ExitRequested>, mut state: ResMut<GlobalState>) {
+pub fn exit_observer(_: On<'_, '_, ExitRequested>, mut state: ResMut<'_, GlobalState>) {
     state.exit = true;
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "bevy system params exceed clippy's argument limit")]
 pub fn input_system(
-    delta_time: Res<DeltaTime>,
-    input_source: Res<InputSource>,
-    mut commands: Commands,
-    mut bindings: ResMut<Bindings>,
-    mut writer: MessageWriter<GameEvent>,
-    mut pump: NonSendMut<EventPump>,
-    mut cursor: ResMut<CursorPosition>,
-    mut touch_state: ResMut<TouchState>,
-    mut human_input: ResMut<HumanInput>,
-    mut layout: ResMut<Layout>,
+    delta_time: Res<'_, DeltaTime>,
+    input_source: Res<'_, InputSource>,
+    mut commands: Commands<'_, '_>,
+    mut bindings: ResMut<'_, Bindings>,
+    mut writer: MessageWriter<'_, GameEvent>,
+    mut pump: NonSendMut<'_, EventPump>,
+    mut cursor: ResMut<'_, CursorPosition>,
+    mut touch_state: ResMut<'_, TouchState>,
+    mut human_input: ResMut<'_, HumanInput>,
+    mut layout: ResMut<'_, Layout>,
 ) {
     let mut cursor_seen = false;
     // Collect all events for this frame.

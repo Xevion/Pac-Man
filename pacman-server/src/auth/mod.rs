@@ -13,8 +13,7 @@ pub mod discord;
 pub mod github;
 pub mod provider;
 
-type OAuthClient =
-    BasicClient<oauth2::EndpointSet, oauth2::EndpointNotSet, oauth2::EndpointNotSet, oauth2::EndpointNotSet, oauth2::EndpointSet>;
+type OAuthClient = BasicClient<EndpointSet, EndpointNotSet, EndpointNotSet, EndpointNotSet, EndpointSet>;
 
 pub struct AuthRegistry {
     pub providers: HashMap<&'static str, Arc<dyn provider::OAuthProvider>>,
@@ -85,7 +84,6 @@ impl AuthRegistry {
         self.providers.len()
     }
 
-    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.providers.is_empty()
     }

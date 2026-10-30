@@ -38,6 +38,7 @@ unsafe extern "C" {
 /// Useful for signaling events to the frontend.
 pub fn run_script(script: &str) {
     if let Ok(cstr) = CString::new(script) {
+        // SAFETY: `cstr` is NUL-terminated and outlives the call.
         unsafe {
             emscripten_run_script(cstr.as_ptr());
         }
@@ -45,6 +46,7 @@ pub fn run_script(script: &str) {
 }
 
 pub fn sleep(duration: Duration, _focused: bool) {
+    // SAFETY: emscripten_sleep takes a plain integer and is valid under ASYNCIFY.
     unsafe {
         emscripten_sleep(duration.as_millis() as u32);
     }
@@ -54,6 +56,7 @@ pub fn sleep(duration: Duration, _focused: bool) {
 /// Allows page transitions, animations, and events to process during initialization.
 /// Uses ASYNCIFY to pause/resume WASM execution.
 pub fn yield_to_browser() {
+    // SAFETY: emscripten_sleep takes a plain integer and is valid under ASYNCIFY.
     unsafe {
         emscripten_sleep(0);
     }
@@ -87,6 +90,7 @@ impl Write for EmscriptenConsoleWriter {
             && let Ok(cstr) = CString::new(s.trim_end_matches('\n'))
         {
             let format_str = CString::new("%s\n").unwrap();
+            // SAFETY: format_str and cstr are NUL-terminated and outlive the call; "%s" consumes one C string.
             unsafe {
                 printf(format_str.as_ptr().cast(), cstr.as_ptr());
             }

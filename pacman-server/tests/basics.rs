@@ -1,17 +1,17 @@
 mod common;
 
-use pretty_assertions::assert_eq;
+use assert2::check;
+use rstest::rstest;
 
 use crate::common::{TestContext, test_context};
 
 // A basic test of all the server's routes that aren't covered by other tests.
+#[rstest]
+#[case::api_root("/api/")]
+#[case::auth_providers("/api/auth/providers")]
 #[tokio::test]
-async fn test_basic_routes() {
-    let routes = vec!["/api/", "/api/auth/providers"];
-
-    for route in routes {
-        let TestContext { server, .. } = test_context().use_database(false).call().await;
-        let response = server.get(route).await;
-        assert_eq!(response.status_code(), 200);
-    }
+async fn test_basic_routes(#[case] route: &str) {
+    let TestContext { server, .. } = test_context().use_database(false).call().await;
+    let response = server.get(route).await;
+    check!(response.status_code() == 200);
 }

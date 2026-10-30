@@ -19,7 +19,7 @@ pub fn sleep(duration: Duration, focused: bool) {
 #[inline]
 pub fn yield_to_browser() {}
 
-#[allow(unused_variables)]
+#[allow(unused_variables, reason = "force_console is only read on Windows")]
 pub fn init_console(force_console: bool) -> Result<(), PlatformError> {
     use crate::formatter::CustomFormatter;
     use tracing::Level;

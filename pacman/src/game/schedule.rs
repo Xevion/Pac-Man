@@ -106,7 +106,7 @@ fn add_input_systems(schedule: &mut Schedule) {
             // In AI-driven scenes (attract), the stub AI is the movement producer.
             // Ordered before player_control_system so its MovePlayer command is consumed
             // the same frame; both already run after Drain via the set ordering.
-            profile("playercontrols", systems::ai::ai_player_system).run_if(|source: Res<InputSource>| source.is_ai()),
+            profile("playercontrols", systems::ai::ai_player_system).run_if(|source: Res<'_, InputSource>| source.is_ai()),
             profile("playercontrols", systems::player::player_control_system),
             // Debug ResetLevel rebuilds the active scene in place; queued here,
             // applied at the top of the next frame. Scene-agnostic, so it stays central.
@@ -165,13 +165,13 @@ fn add_animation_systems(schedule: &mut Schedule) {
 fn add_draw_systems(schedule: &mut Schedule) {
     schedule.add_systems(
         (
-            (|mut dirty: ResMut<RenderDirty>, session: Res<Session>, pause: Res<PauseState>| {
+            (|mut dirty: ResMut<'_, RenderDirty>, session: Res<'_, Session>, pause: Res<'_, PauseState>| {
                 // Session is a superset trigger: it changes on score/lives/level/stage/
                 // intro/pellet edits, all of which warrant a redraw. The per-frame ghost
                 // controllers are separate resources, so they don't over-trigger this.
                 dirty.0 |= session.is_changed() || pause.is_changed();
             }),
-            profile("dirtyrender", dirty_render_system).run_if(|dirty: Res<RenderDirty>| dirty.0.not()),
+            profile("dirtyrender", dirty_render_system).run_if(|dirty: Res<'_, RenderDirty>| dirty.0.not()),
             profile("render", backbuffer_render_system),
             // Maze-overlay text (READY!, GAME OVER, pause dimmer) follows the live
             // simulation -- shown in Gameplay and in the attract demo, off the Title's

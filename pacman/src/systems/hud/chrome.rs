@@ -40,7 +40,6 @@ const VALUE: Color = Color::RGB(255, 255, 0);
 const NAME: Color = Color::RGB(0, 222, 222);
 
 /// Draws one line of HUD text at a window pixel position, reporting failures.
-#[allow(clippy::too_many_arguments)]
 fn draw_text(
     text: &mut TextTexture,
     canvas: &mut Canvas<Window>,
@@ -58,7 +57,10 @@ fn draw_text(
 
 /// Draws a row of remaining-life icons left-to-right from `x`. The in-play life is
 /// excluded from the count.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "render helper takes canvas, atlas and layout state explicitly"
+)]
 fn draw_lives_row(
     icon: &AtlasTile,
     canvas: &mut Canvas<Window>,
@@ -82,7 +84,10 @@ fn draw_lives_row(
 
 /// Draws the collected-fruit history (most recent first). When `grow_left`, icons
 /// march leftward from `anchor_x` as a right edge; otherwise rightward from it.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "render helper takes canvas, atlas and layout state explicitly"
+)]
 fn draw_fruit_row(
     fruits: &FruitSprites,
     canvas: &mut Canvas<Window>,
@@ -115,15 +120,14 @@ fn draw_fruit_row(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn chrome_render_system(
-    mut canvas: NonSendMut<CanvasResource>,
-    mut atlas: NonSendMut<SpriteAtlas>,
-    layout: Res<Layout>,
-    dirty: Res<RenderDirty>,
-    session: Res<Session>,
-    fruits: Res<FruitSprites>,
-    leaderboard: Res<LeaderboardData>,
+    mut canvas: NonSendMut<'_, CanvasResource>,
+    mut atlas: NonSendMut<'_, SpriteAtlas>,
+    layout: Res<'_, Layout>,
+    dirty: Res<'_, RenderDirty>,
+    session: Res<'_, Session>,
+    fruits: Res<'_, FruitSprites>,
+    leaderboard: Res<'_, LeaderboardData>,
 ) {
     if !dirty.0 {
         return;

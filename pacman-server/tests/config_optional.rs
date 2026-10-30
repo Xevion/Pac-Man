@@ -7,8 +7,9 @@
 
 mod common;
 
+use assert2::{assert, check};
 use axum::http::StatusCode;
-use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 use crate::common::{TestContext, test_context};
 
@@ -23,63 +24,43 @@ async fn test_server_without_oauth_providers() {
         .await;
 
     // Verify no providers registered
-    assert_eq!(app_state.auth.len(), 0);
+    check!(app_state.auth.len() == 0);
 
     // Health check should work
     let response = server.get("/api/health").await;
-    assert_eq!(response.status_code(), StatusCode::OK);
+    check!(response.status_code() == StatusCode::OK);
 
     // Providers endpoint should return empty list
     let response = server.get("/api/auth/providers").await;
-    assert_eq!(response.status_code(), StatusCode::OK);
+    assert!(response.status_code() == StatusCode::OK);
     let body: Vec<serde_json::Value> = response.json();
-    assert!(body.is_empty());
+    check!(body.is_empty());
 }
 
-/// Test that the server starts with only Discord configured
+/// Test that the server starts with only one provider configured
+#[rstest]
+#[case::discord_only("discord", "github")]
+#[case::github_only("github", "discord")]
 #[tokio::test]
-async fn test_server_with_discord_only() {
+async fn test_server_with_single_provider(#[case] enabled: &str, #[case] disabled: &str) {
     let TestContext { server, app_state, .. } = test_context()
-        .with_discord(true)
-        .with_github(false)
+        .with_discord(enabled == "discord")
+        .with_github(enabled == "github")
         .use_database(false)
         .call()
         .await;
 
-    // Verify only Discord is registered
-    assert_eq!(app_state.auth.len(), 1);
-    assert!(app_state.auth.get("discord").is_some());
-    assert!(app_state.auth.get("github").is_none());
+    // Verify only the enabled provider is registered
+    check!(app_state.auth.len() == 1);
+    check!(app_state.auth.get(enabled).is_some());
+    check!(app_state.auth.get(disabled).is_none());
 
-    // Providers endpoint should return only Discord
+    // Providers endpoint should return only the enabled provider
     let response = server.get("/api/auth/providers").await;
-    assert_eq!(response.status_code(), StatusCode::OK);
+    assert!(response.status_code() == StatusCode::OK);
     let body: Vec<serde_json::Value> = response.json();
-    assert_eq!(body.len(), 1);
-    assert_eq!(body[0]["id"], "discord");
-}
-
-/// Test that the server starts with only GitHub configured
-#[tokio::test]
-async fn test_server_with_github_only() {
-    let TestContext { server, app_state, .. } = test_context()
-        .with_discord(false)
-        .with_github(true)
-        .use_database(false)
-        .call()
-        .await;
-
-    // Verify only GitHub is registered
-    assert_eq!(app_state.auth.len(), 1);
-    assert!(app_state.auth.get("github").is_some());
-    assert!(app_state.auth.get("discord").is_none());
-
-    // Providers endpoint should return only GitHub
-    let response = server.get("/api/auth/providers").await;
-    assert_eq!(response.status_code(), StatusCode::OK);
-    let body: Vec<serde_json::Value> = response.json();
-    assert_eq!(body.len(), 1);
-    assert_eq!(body[0]["id"], "github");
+    assert!(body.len() == 1);
+    check!(body[0]["id"] == enabled);
 }
 
 /// Test that the server starts without database configured
@@ -93,16 +74,16 @@ async fn test_server_without_database() {
     } = test_context().use_database(false).call().await;
 
     // Verify database is not configured
-    assert!(config.database.is_none());
-    assert!(!app_state.database_configured);
+    check!(config.database.is_none());
+    check!(!app_state.database_configured);
 
     // Health check should still work
     let response = server.get("/api/health").await;
-    assert_eq!(response.status_code(), StatusCode::OK);
+    assert!(response.status_code() == StatusCode::OK);
 
     let body: serde_json::Value = response.json();
-    assert_eq!(body["ok"], true);
-    assert_eq!(body["database_configured"], false);
+    check!(body["ok"] == true);
+    check!(body["database_configured"] == false);
 }
 
 /// Test that profile endpoint returns 503 when database is not configured
@@ -114,10 +95,10 @@ async fn test_profile_without_database_returns_503() {
     let response = server.get("/api/profile").await;
 
     // Should return 503 Service Unavailable because database is not configured
-    assert_eq!(response.status_code(), StatusCode::SERVICE_UNAVAILABLE);
+    assert!(response.status_code() == StatusCode::SERVICE_UNAVAILABLE);
 
     let body: serde_json::Value = response.json();
-    assert_eq!(body["error"], "database_not_configured");
+    check!(body["error"] == "database_not_configured");
 }
 
 /// Test that OAuth callback returns 503 when database is not configured
@@ -133,10 +114,10 @@ async fn test_oauth_callback_without_database_returns_503() {
         .await;
 
     // Should return 503 Service Unavailable because database is not configured
-    assert_eq!(response.status_code(), StatusCode::SERVICE_UNAVAILABLE);
+    assert!(response.status_code() == StatusCode::SERVICE_UNAVAILABLE);
 
     let body: serde_json::Value = response.json();
-    assert_eq!(body["error"], "database_not_configured");
+    check!(body["error"] == "database_not_configured");
 }
 
 /// Test that unknown provider returns 400
@@ -146,10 +127,10 @@ async fn test_unknown_provider_returns_400() {
 
     // Try to access non-existent provider
     let response = server.get("/api/auth/twitter").await;
-    assert_eq!(response.status_code(), StatusCode::BAD_REQUEST);
+    assert!(response.status_code() == StatusCode::BAD_REQUEST);
 
     let body: serde_json::Value = response.json();
-    assert_eq!(body["error"], "invalid_provider");
+    check!(body["error"] == "invalid_provider");
 }
 
 /// Test that logout works without database
@@ -161,7 +142,7 @@ async fn test_logout_without_database() {
     let response = server.get("/api/logout").await;
 
     // Logout redirects to home
-    assert_eq!(response.status_code(), StatusCode::FOUND);
+    check!(response.status_code() == StatusCode::FOUND);
 }
 
 /// Test basic routes work without database or OAuth
@@ -176,15 +157,15 @@ async fn test_basic_routes_minimal_config() {
 
     // Root API endpoint
     let response = server.get("/api/").await;
-    assert_eq!(response.status_code(), StatusCode::OK);
+    check!(response.status_code() == StatusCode::OK);
 
     // Health endpoint
     let response = server.get("/api/health").await;
-    assert_eq!(response.status_code(), StatusCode::OK);
+    check!(response.status_code() == StatusCode::OK);
 
     // Providers endpoint (empty list)
     let response = server.get("/api/auth/providers").await;
-    assert_eq!(response.status_code(), StatusCode::OK);
+    check!(response.status_code() == StatusCode::OK);
 }
 
 /// Test health endpoint includes feature status
@@ -198,11 +179,11 @@ async fn test_health_includes_feature_status() {
         .await;
 
     let response = server.get("/api/health").await;
-    assert_eq!(response.status_code(), StatusCode::OK);
+    assert!(response.status_code() == StatusCode::OK);
 
     let body: serde_json::Value = response.json();
-    assert_eq!(body["ok"], true);
-    assert_eq!(body["database_configured"], false);
-    assert_eq!(body["auth_providers"], 1); // Only Discord
-    assert_eq!(body["image_storage_enabled"], false); // No S3 configured
+    check!(body["ok"] == true);
+    check!(body["database_configured"] == false);
+    check!(body["auth_providers"] == 1); // Only Discord
+    check!(body["image_storage_enabled"] == false); // No S3 configured
 }

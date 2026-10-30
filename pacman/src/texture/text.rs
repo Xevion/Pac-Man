@@ -96,7 +96,6 @@ impl TextTexture {
         }
     }
 
-    #[allow(dead_code)]
     pub fn get_char_map(&self) -> &HashMap<char, AtlasTile> {
         &self.char_map
     }

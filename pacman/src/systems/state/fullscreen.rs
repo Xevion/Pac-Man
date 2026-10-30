@@ -11,7 +11,7 @@ use crate::events::{GameCommand, GameEvent};
 use crate::systems::render::CanvasResource;
 
 #[cfg(not(target_os = "emscripten"))]
-pub fn handle_fullscreen_command(mut events: MessageReader<GameEvent>, mut canvas: NonSendMut<CanvasResource>) {
+pub fn handle_fullscreen_command(mut events: MessageReader<'_, '_, GameEvent>, mut canvas: NonSendMut<'_, CanvasResource>) {
     for event in events.read() {
         if let GameEvent::Command(GameCommand::ToggleFullscreen) = event {
             let window = canvas.window_mut();

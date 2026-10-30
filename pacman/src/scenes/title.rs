@@ -52,11 +52,11 @@ impl SceneHandler for TitleScene {
 /// The schedule gates this system to the Title scene, so the idle timer only accrues
 /// while the Title is up.
 pub fn title_input_system(
-    mut events: MessageReader<GameEvent>,
-    touch: Res<TouchState>,
-    time: Res<DeltaTime>,
-    mut idle: Local<f32>,
-    mut scenes: ResMut<SceneManager>,
+    mut events: MessageReader<'_, '_, GameEvent>,
+    touch: Res<'_, TouchState>,
+    time: Res<'_, DeltaTime>,
+    mut idle: Local<'_, f32>,
+    mut scenes: ResMut<'_, SceneManager>,
 ) {
     let pressed_to_play = events
         .read()

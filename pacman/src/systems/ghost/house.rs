@@ -57,7 +57,6 @@ impl GhostHouseController {
     }
 
     /// Called when Pac-Man dies -- switches to global counter mode
-    #[allow(dead_code)] // Called once death handling resets ghost house state
     pub fn on_player_death(&mut self) {
         self.global_counter = Some(0);
         self.active_counter = None;
@@ -155,7 +154,6 @@ impl GhostHouseController {
     }
 
     /// Reset for new level
-    #[allow(dead_code)] // Called once level progression is wired up
     pub fn reset(&mut self, level: u8) {
         *self = Self::new(level);
     }

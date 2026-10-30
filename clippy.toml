@@ -1,0 +1,5 @@
+disallowed-macros = [
+  { path = "std::assert_eq", reason = "use assert2::check!(a == b) for diagnostics without a Debug-on-both-sides requirement" },
+  { path = "std::assert_ne", reason = "use assert2::check!(a != b)" },
+]
+

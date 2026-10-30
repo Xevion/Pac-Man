@@ -45,7 +45,10 @@ impl RedZoneNodes {
 /// AI passes [`TraversalFlags::PACMAN`]). `red_zones` applies the ghost-only "no
 /// upward turn" restriction; pass `None` for entities (Pac-Man) that aren't bound
 /// by it.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "targeting inputs are passed explicitly rather than bundled"
+)]
 pub fn choose_direction_at_intersection(
     map: &Map,
     red_zones: Option<&RedZoneNodes>,

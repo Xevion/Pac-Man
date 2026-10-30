@@ -80,12 +80,12 @@ impl GhostSpeedConfig {
 
 /// System to update ghost targets based on mode and personality
 pub fn ghost_targeting_system(
-    map: Res<Map>,
-    mode_controller: Res<GhostModeController>,
-    pacman_query: Query<(&Position, &Velocity), With<PlayerControlled>>,
-    mut ghost_query: Query<(&GhostType, &GhostState, &Position, &mut GhostTarget)>,
-    blinky_query: Query<&Position, With<BlinkyMarker>>,
-    elroy_query: Query<&Elroy, With<BlinkyMarker>>,
+    map: Res<'_, Map>,
+    mode_controller: Res<'_, GhostModeController>,
+    pacman_query: Query<'_, '_, (&Position, &Velocity), With<PlayerControlled>>,
+    mut ghost_query: Query<'_, '_, (&GhostType, &GhostState, &Position, &mut GhostTarget)>,
+    blinky_query: Query<'_, '_, &Position, With<BlinkyMarker>>,
+    elroy_query: Query<'_, '_, &Elroy, With<BlinkyMarker>>,
 ) {
     let Ok((pac_pos, pac_vel)) = pacman_query.single() else {
         return;
@@ -163,11 +163,11 @@ pub struct GhostMovementConfig<'w> {
 
 /// Main ghost movement system
 pub fn ghost_movement_system(
-    map: Res<Map>,
-    delta_time: Res<DeltaTime>,
-    config: GhostMovementConfig,
-    elroy_query: Query<&Elroy, With<BlinkyMarker>>,
-    mut ghost_query: Query<(&GhostType, &GhostState, &mut Position, &mut Velocity, &GhostTarget), Without<Frozen>>,
+    map: Res<'_, Map>,
+    delta_time: Res<'_, DeltaTime>,
+    config: GhostMovementConfig<'_>,
+    elroy_query: Query<'_, '_, &Elroy, With<BlinkyMarker>>,
+    mut ghost_query: Query<'_, '_, (&GhostType, &GhostState, &mut Position, &mut Velocity, &GhostTarget), Without<Frozen>>,
 ) {
     // Level is constant across this frame, so derive the speed table once.
     let speed_config = GhostSpeedConfig::for_level(config.session.level);

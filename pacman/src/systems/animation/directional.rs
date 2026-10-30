@@ -40,8 +40,8 @@ impl DirectionalAnimation {
 /// This runs before the render system to update sprites based on current direction and movement state.
 /// All directions share the same frame timing to ensure perfect synchronization.
 pub fn directional_render_system(
-    dt: Res<DeltaTime>,
-    mut query: Query<(&Position, &Velocity, &mut DirectionalAnimation, &mut Renderable, Has<Frozen>)>,
+    dt: Res<'_, DeltaTime>,
+    mut query: Query<'_, '_, (&Position, &Velocity, &mut DirectionalAnimation, &mut Renderable, Has<Frozen>)>,
 ) {
     let ticks = (dt.seconds * 60.0).round() as u16; // Convert from seconds to ticks at 60 ticks/sec
 
@@ -75,10 +75,10 @@ pub fn directional_render_system(
 }
 
 /// System that updates `Renderable` sprites for entities with `LinearAnimation`.
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity, reason = "bevy query filter tuples are inherently nested")]
 pub fn linear_render_system(
-    dt: Res<DeltaTime>,
-    mut query: Query<(&mut LinearAnimation, &mut Renderable, Has<Looping>), Or<(Without<Frozen>, With<Dying>)>>,
+    dt: Res<'_, DeltaTime>,
+    mut query: Query<'_, '_, (&mut LinearAnimation, &mut Renderable, Has<Looping>), Or<(Without<Frozen>, With<Dying>)>>,
 ) {
     for (mut anim, mut renderable, looping) in query.iter_mut() {
         if anim.finished {

@@ -113,7 +113,7 @@ where
                 fields: &'a mut Map<String, Value>,
             }
             impl Visit for FieldVisitor<'_> {
-                fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
+                fn record_debug(&mut self, field: &Field, value: &dyn fmt::Debug) {
                     let key = field.name();
                     if key == "message" {
                         *self.message = Some(format!("{:?}", value));

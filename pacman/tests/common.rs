@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![allow(dead_code, reason = "shared test module; not every test binary uses every helper")]
 
 use bevy_ecs::{entity::Entity, message::Messages, schedule::Schedule, world::World};
 use glam::{U16Vec2, Vec2};
@@ -55,7 +55,7 @@ pub fn setup_sdl() -> Result<(Canvas<Window>, TextureCreator<WindowContext>, Sdl
     Ok((canvas, texture_creator, sdl_context))
 }
 
-pub fn create_atlas(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) -> SpriteAtlas {
+pub fn create_atlas(canvas: &mut Canvas<Window>) -> SpriteAtlas {
     let texture_creator = canvas.texture_creator();
     let atlas_bytes = Asset::AtlasImage.get_bytes().unwrap();
 

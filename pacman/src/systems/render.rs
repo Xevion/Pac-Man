@@ -68,7 +68,6 @@ impl Visibility {
     }
 
     /// Returns true if the entity is hidden
-    #[allow(dead_code)] // Used in tests
     pub fn is_hidden(&self) -> bool {
         !self.0
     }
@@ -84,14 +83,14 @@ impl Visibility {
     }
 }
 
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity, reason = "bevy query filter tuples are inherently nested")]
 pub fn dirty_render_system(
-    mut dirty: ResMut<RenderDirty>,
-    changed: Query<(), Or<(Changed<Renderable>, Changed<Position>, Changed<Visibility>)>>,
-    removed_renderables: RemovedComponents<Renderable>,
-    cursor: Res<CursorPosition>,
-    touch_state: Res<TouchState>,
-    layout: Res<Layout>,
+    mut dirty: ResMut<'_, RenderDirty>,
+    changed: Query<'_, '_, (), Or<(Changed<Renderable>, Changed<Position>, Changed<Visibility>)>>,
+    removed_renderables: RemovedComponents<'_, '_, Renderable>,
+    cursor: Res<'_, CursorPosition>,
+    touch_state: Res<'_, TouchState>,
+    layout: Res<'_, Layout>,
 ) {
     if changed.iter().count() > 0
         || !removed_renderables.is_empty()
@@ -125,14 +124,13 @@ impl std::ops::DerefMut for CanvasResource {
     }
 }
 
-#[allow(clippy::type_complexity)]
 pub fn render_system(
     canvas: &mut Canvas<Window>,
-    map_texture: &NonSendMut<MapTextureResource>,
+    map_texture: &NonSendMut<'_, MapTextureResource>,
     atlas: &mut SpriteAtlas,
-    map: &Res<Map>,
-    dirty: &Res<RenderDirty>,
-    renderables: &Query<(Entity, &Renderable, &Position, Option<&Visibility>)>,
+    map: &Res<'_, Map>,
+    dirty: &Res<'_, RenderDirty>,
+    renderables: &Query<'_, '_, (Entity, &Renderable, &Position, Option<&Visibility>)>,
 ) {
     if !dirty.0 {
         return;
@@ -190,10 +188,10 @@ pub struct RenderSurfaces<'w> {
 /// recorded by the schedule's `profile` wrapper; the compositor and the
 /// window-space debug overlay run as their own later stages.
 pub fn backbuffer_render_system(
-    mut surfaces: RenderSurfaces,
-    map: Res<Map>,
-    dirty: Res<RenderDirty>,
-    renderables: Query<(Entity, &Renderable, &Position, Option<&Visibility>)>,
+    mut surfaces: RenderSurfaces<'_>,
+    map: Res<'_, Map>,
+    dirty: Res<'_, RenderDirty>,
+    renderables: Query<'_, '_, (Entity, &Renderable, &Position, Option<&Visibility>)>,
 ) {
     if !dirty.0 {
         return;
@@ -223,10 +221,10 @@ pub fn backbuffer_render_system(
 /// bands) and blits the maze backbuffer into the scaled maze rect. Window-space
 /// chrome and the debug overlay draw on top of this in later stages.
 pub fn composite_maze_system(
-    mut canvas: NonSendMut<CanvasResource>,
-    dirty: Res<RenderDirty>,
-    backbuffer: NonSendMut<BackbufferResource>,
-    layout: Res<Layout>,
+    mut canvas: NonSendMut<'_, CanvasResource>,
+    dirty: Res<'_, RenderDirty>,
+    backbuffer: NonSendMut<'_, BackbufferResource>,
+    layout: Res<'_, Layout>,
 ) {
     if !dirty.0 {
         return;
@@ -241,7 +239,7 @@ pub fn composite_maze_system(
 }
 
 /// Presents the fully composited frame and clears the dirty flag.
-pub fn present_system(mut canvas: NonSendMut<CanvasResource>, mut dirty: ResMut<RenderDirty>) {
+pub fn present_system(mut canvas: NonSendMut<'_, CanvasResource>, mut dirty: ResMut<'_, RenderDirty>) {
     if dirty.0 {
         let _zone = tracing::debug_span!("sdl_present").entered();
         canvas.present();

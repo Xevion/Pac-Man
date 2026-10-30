@@ -20,7 +20,11 @@ impl TimeToLive {
 
 /// System that manages entities with TimeToLive components, decrementing their remaining ticks
 /// and despawning them when they expire
-pub fn time_to_live_system(mut commands: Commands, dt: Res<DeltaTime>, mut query: Query<(Entity, &mut TimeToLive)>) {
+pub fn time_to_live_system(
+    mut commands: Commands<'_, '_>,
+    dt: Res<'_, DeltaTime>,
+    mut query: Query<'_, '_, (Entity, &mut TimeToLive)>,
+) {
     for (entity, mut ttl) in query.iter_mut() {
         if ttl.remaining_ticks <= dt.ticks {
             // Entity has expired, despawn it

@@ -1,5 +1,5 @@
+use assert2::check;
 use pacman::asset::Asset;
-use speculoos::prelude::*;
 
 #[test]
 fn all_asset_paths_exist() {
@@ -10,7 +10,7 @@ fn all_asset_paths_exist() {
         let metadata = std::fs::metadata(&full_path)
             .map_err(|e| format!("Error getting metadata for {}: {}", full_path, e))
             .unwrap();
-        assert_that(&metadata.is_file()).is_true();
-        assert_that(&metadata.len()).is_greater_than(1024);
+        check!(metadata.is_file());
+        check!(metadata.len() > 1024);
     }
 }

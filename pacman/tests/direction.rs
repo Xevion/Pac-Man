@@ -1,25 +1,21 @@
+use assert2::check;
 use pacman::map::direction::*;
-use speculoos::prelude::*;
+use rstest::rstest;
 
-#[test]
-fn test_direction_opposite() {
-    let test_cases = [
-        (Direction::Up, Direction::Down),
-        (Direction::Down, Direction::Up),
-        (Direction::Left, Direction::Right),
-        (Direction::Right, Direction::Left),
-    ];
-
-    for (dir, expected) in test_cases {
-        assert_that(&dir.opposite()).is_equal_to(expected);
-    }
+#[rstest]
+#[case(Direction::Up, Direction::Down)]
+#[case(Direction::Down, Direction::Up)]
+#[case(Direction::Left, Direction::Right)]
+#[case(Direction::Right, Direction::Left)]
+fn test_direction_opposite(#[case] dir: Direction, #[case] expected: Direction) {
+    check!(dir.opposite() == expected);
 }
 
 #[test]
 fn test_direction_opposite_symmetry() {
     // Test that opposite() is symmetric: opposite(opposite(d)) == d
     for &dir in &Direction::DIRECTIONS {
-        assert_that(&dir.opposite().opposite()).is_equal_to(dir);
+        check!(dir.opposite().opposite() == dir);
     }
 }
 
@@ -29,9 +25,9 @@ fn test_direction_opposite_exhaustive() {
     let mut opposites = std::collections::HashSet::new();
     for &dir in &Direction::DIRECTIONS {
         let opposite = dir.opposite();
-        assert_that(&opposites.insert(opposite)).is_true();
+        check!(opposites.insert(opposite));
     }
-    assert_that(&opposites).has_length(4);
+    check!(opposites.len() == 4);
 }
 
 #[test]
@@ -40,9 +36,9 @@ fn test_direction_as_usize_exhaustive() {
     let mut usizes = std::collections::HashSet::new();
     for &dir in &Direction::DIRECTIONS {
         let usize_val = dir.as_usize();
-        assert_that(&usizes.insert(usize_val)).is_true();
+        check!(usizes.insert(usize_val));
     }
-    assert_that(&usizes).has_length(4);
+    check!(usizes.len() == 4);
 }
 
 #[test]
@@ -51,7 +47,7 @@ fn test_direction_as_ivec2_exhaustive() {
     let mut ivec2s = std::collections::HashSet::new();
     for &dir in &Direction::DIRECTIONS {
         let ivec2_val = dir.as_ivec2();
-        assert_that(&ivec2s.insert(ivec2_val)).is_true();
+        check!(ivec2s.insert(ivec2_val));
     }
-    assert_that(&ivec2s).has_length(4);
+    check!(ivec2s.len() == 4);
 }

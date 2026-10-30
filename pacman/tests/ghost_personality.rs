@@ -1,11 +1,11 @@
 mod common;
 
+use assert2::check;
 use common::create_test_map;
 use glam::Vec2;
 use pacman::map::direction::Direction;
 use pacman::systems::ghost::GhostType;
 use pacman::systems::ghost::personality::{TargetingContext, calculate_chase_target};
-use speculoos::prelude::*;
 
 /// Helper to build a TargetingContext with known positions
 fn make_ctx(
@@ -38,7 +38,7 @@ fn blinky_targets_pacman_node() {
         Vec2::ZERO,
     );
     let target = calculate_chase_target(GhostType::Blinky, &ctx, &map);
-    assert_that(&target).is_equal_to(pacman_node);
+    check!(target == pacman_node);
 }
 
 #[test]
@@ -47,7 +47,7 @@ fn blinky_targets_pacman_node_regardless_of_direction() {
     for dir in Direction::DIRECTIONS {
         let ctx = make_ctx(42, dir, Vec2::new(200.0, 200.0), Vec2::ZERO, 0, Vec2::ZERO);
         let target = calculate_chase_target(GhostType::Blinky, &ctx, &map);
-        assert_that(&target).is_equal_to(42);
+        check!(target == 42);
     }
 }
 #[test]
@@ -60,7 +60,7 @@ fn pinky_targets_ahead_right() {
     // Target should be nearest node to (100 + 4*8, 100) = (132, 100)
     let expected_pos = pac_pos + Vec2::new(4.0 * 8.0, 0.0);
     let nearest = find_nearest_node_manual(&map, expected_pos);
-    assert_that(&target).is_equal_to(nearest);
+    check!(target == nearest);
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn pinky_targets_ahead_left() {
 
     let expected_pos = pac_pos + Vec2::new(-4.0 * 8.0, 0.0);
     let nearest = find_nearest_node_manual(&map, expected_pos);
-    assert_that(&target).is_equal_to(nearest);
+    check!(target == nearest);
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn pinky_targets_ahead_down() {
 
     let expected_pos = pac_pos + Vec2::new(0.0, 4.0 * 8.0);
     let nearest = find_nearest_node_manual(&map, expected_pos);
-    assert_that(&target).is_equal_to(nearest);
+    check!(target == nearest);
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn pinky_up_direction_overflow_bug() {
     // Bug: when facing up, offset is (-4, -4) * TILE_SIZE = (-32, -32)
     let expected_pos = pac_pos + Vec2::new(-4.0 * 8.0, -4.0 * 8.0);
     let nearest = find_nearest_node_manual(&map, expected_pos);
-    assert_that(&target).is_equal_to(nearest);
+    check!(target == nearest);
 }
 #[test]
 fn inky_vector_doubling_right() {
@@ -114,7 +114,7 @@ fn inky_vector_doubling_right() {
     let vector = intermediate - blinky_pos;
     let expected_pos = blinky_pos + vector * 2.0;
     let nearest = find_nearest_node_manual(&map, expected_pos);
-    assert_that(&target).is_equal_to(nearest);
+    check!(target == nearest);
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn inky_up_direction_also_has_overflow_bug() {
     let vector = intermediate - blinky_pos;
     let expected_pos = blinky_pos + vector * 2.0;
     let nearest = find_nearest_node_manual(&map, expected_pos);
-    assert_that(&target).is_equal_to(nearest);
+    check!(target == nearest);
 }
 #[test]
 fn clyde_chases_when_far() {
@@ -141,7 +141,7 @@ fn clyde_chases_when_far() {
     let ctx = make_ctx(10, Direction::Right, pac_pos, Vec2::ZERO, 0, self_pos);
     let target = calculate_chase_target(GhostType::Clyde, &ctx, &map);
     // Should target pacman_node
-    assert_that(&target).is_equal_to(10);
+    check!(target == 10);
 }
 
 #[test]
@@ -154,7 +154,7 @@ fn clyde_scatters_when_close() {
     let ctx = make_ctx(10, Direction::Right, pac_pos, Vec2::ZERO, self_node, self_pos);
     let target = calculate_chase_target(GhostType::Clyde, &ctx, &map);
     // Should return self_node (signal for scatter)
-    assert_that(&target).is_equal_to(self_node);
+    check!(target == self_node);
 }
 
 #[test]
@@ -167,7 +167,7 @@ fn clyde_threshold_exactly_8_tiles_chases() {
     let self_pos = Vec2::new(164.0, 100.0);
     let ctx = make_ctx(10, Direction::Right, pac_pos, Vec2::ZERO, 5, self_pos);
     let target = calculate_chase_target(GhostType::Clyde, &ctx, &map);
-    assert_that(&target).is_equal_to(10); // pacman_node
+    check!(target == 10); // pacman_node
 }
 
 #[test]
@@ -179,7 +179,7 @@ fn clyde_threshold_just_under_8_tiles_scatters() {
     let self_node = 5u16;
     let ctx = make_ctx(10, Direction::Right, pac_pos, Vec2::ZERO, self_node, self_pos);
     let target = calculate_chase_target(GhostType::Clyde, &ctx, &map);
-    assert_that(&target).is_equal_to(self_node); // scatter
+    check!(target == self_node); // scatter
 }
 
 /// Manual implementation of find_nearest_node for test validation

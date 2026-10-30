@@ -27,8 +27,10 @@ impl Blinking {
 /// This system manages entities that have both `Blinking` and `Renderable` components,
 /// accumulating ticks and toggling visibility when the specified interval is reached.
 /// Uses integer arithmetic for deterministic behavior.
-#[allow(clippy::type_complexity)]
-pub fn blinking_system(time: Res<DeltaTime>, mut query: Query<(&mut Blinking, &mut Visibility, Has<Frozen>), With<Renderable>>) {
+pub fn blinking_system(
+    time: Res<'_, DeltaTime>,
+    mut query: Query<'_, '_, (&mut Blinking, &mut Visibility, Has<Frozen>), With<Renderable>>,
+) {
     for (mut blinking, mut visibility, frozen) in query.iter_mut() {
         // If the entity is frozen, blinking is disabled and the entity is made visible
         if frozen {

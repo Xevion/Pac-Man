@@ -24,12 +24,12 @@ use crate::systems::player::PlayerControlled;
 /// Drives Pac-Man toward the nearest remaining pellet. Runs only under
 /// `InputSource::Ai` (the attract scene); skips while the player is frozen (intro)
 /// or absent, so there is nothing to steer until play actually begins.
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity, reason = "bevy query filter tuples are inherently nested")]
 pub fn ai_player_system(
-    map: Res<Map>,
-    player: Option<Single<(&Position, &Velocity), (With<PlayerControlled>, Without<Frozen>)>>,
-    pellets: Query<&Position, With<ItemCollider>>,
-    mut writer: MessageWriter<GameEvent>,
+    map: Res<'_, Map>,
+    player: Option<Single<'_, '_, (&Position, &Velocity), (With<PlayerControlled>, Without<Frozen>)>>,
+    pellets: Query<'_, '_, &Position, With<ItemCollider>>,
+    mut writer: MessageWriter<'_, GameEvent>,
 ) {
     // Nothing to steer until there is exactly one movable player. The player spawns
     // `Frozen` and stays so through the intro sequence (and again during death and the
@@ -66,7 +66,7 @@ pub fn ai_player_system(
 
 /// Returns the graph node of the pellet nearest `from` by straight-line distance,
 /// or `None` when no pellets remain.
-fn nearest_pellet_node(map: &Map, from: NodeId, pellets: &Query<&Position, With<ItemCollider>>) -> Option<NodeId> {
+fn nearest_pellet_node(map: &Map, from: NodeId, pellets: &Query<'_, '_, &Position, With<ItemCollider>>) -> Option<NodeId> {
     let origin = map.graph.get_node(from)?.position;
     pellets
         .iter()
