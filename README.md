@@ -88,10 +88,9 @@ Since this project is still in progress, I'm only going to cover non-obvious bui
 - Install `cargo-vcpkg` with `cargo install cargo-vcpkg`, then run `cargo vcpkg build --manifest-path pacman/Cargo.toml` to build the requisite dependencies via vcpkg.
   - `--manifest-path` is only required if you run it from the root directory; you can omit it if you `cd` into the `pacman` directory first.
   - This is only required for the desktop builds, not the web build.
-- We use rustc 1.86.0 for the build, due to bulk-memory-opt related issues on wasm32-unknown-emscripten.
-  - Technically, we could probably use stable or even nightly on desktop targets, but using different versions for different targets is a pain, mainly because of clippy warnings changing between versions.
+- The Rust toolchain is pinned in `rust-toolchain.toml` and shared by every target, so clippy behaves the same on desktop and wasm32-unknown-emscripten.
 - For the WASM build, you need to have the Emscripten SDK cloned; you can do so with `git clone https://github.com/emscripten-core/emsdk.git`
-  - The project's emsdk version is specified in `package.json` (`config.emsdkVersion`, currently 4.0.22)
+  - The project's emsdk version is specified in `package.json` (`config.emsdkVersion`)
   - To install manually:
     ```bash
     # Linux/macOS
@@ -108,11 +107,8 @@ Since this project is still in progress, I'm only going to cover non-obvious bui
   - While using the `web.build.ts` is not technically required, it simplifies the build process and is very helpful.
     - It is intended to be run with `bun`, which you can acquire at [bun.sh](https://bun.sh/)
     - Occasionally, the build will fail due to dependencies failing to download.
-  - Tip: You can launch a fileserver with `python` or `caddy` to serve the files in the `dist` folder.
-    - `python3 -m http.server 8080 -d dist`
-    - `caddy file-server --root dist` (install with `[sudo apt|brew|choco] install caddy` or [a dozen other ways](https://caddyserver.com/docs/install))
-- `web.build.ts` auto installs dependencies, but you may need to pass `-i` or `--install=fallback|force` to install missing packages. My guess is that if you have some packages installed, it won't install any missing ones. If you have no packages installed, it will install all of them.
-  - If you want to have TypeScript resolution for development, you can manually install the dependencies with `bun install` in the `assets/site` folder.
+  - `web.build.ts` builds in release mode by default; pass `-d` or `--debug` for a debug build.
+  - It copies the game into `web/static/`; `just web-build` then builds the SvelteKit site into `web/dist/client`, and `just serve` serves it with [Caddy](https://caddyserver.com/docs/install).
 
 ## Contributing
 
