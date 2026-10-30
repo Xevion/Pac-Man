@@ -1,6 +1,6 @@
 # Fallback defaults for standalone `docker build`. CI (deploy.yaml) overrides these from
 # the canonical sources: rust-toolchain.toml (Rust channel) and package.json (emsdkVersion).
-ARG RUST_VERSION=1.96.0
+ARG RUST_VERSION=1.97.1
 ARG EMSDK_VERSION=4.0.23
 ARG GIT_COMMIT_SHA
 
@@ -16,7 +16,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup target add wasm32-unknown-emscripten && \
-    cargo install cargo-chef --locked
+    cargo install cargo-chef --version 0.1.78 --locked
 
 # Pre-build the emscripten ports cache. The crate has three wasm bins (pacman,
 # timing_demo, aspect_demo) whose link steps run in parallel; on a cold cache they
@@ -97,7 +97,7 @@ RUN test -f ./static/pacman.wasm && \
 RUN bun run build
 
 # ========== Stage 6: Backend Chef ==========
-FROM lukemathwalker/cargo-chef:latest-rust-${RUST_VERSION} AS chef
+FROM lukemathwalker/cargo-chef:0.1.78-rust-${RUST_VERSION}-trixie AS chef
 WORKDIR /app
 
 # Install build dependencies FIRST (cached layer - rarely changes)
@@ -122,7 +122,7 @@ COPY . .
 RUN cargo build --package pacman-server --release --bin pacman-server
 
 # ========== Stage 9: Runtime ==========
-FROM debian:bookworm-slim AS runtime
+FROM debian:trixie-slim AS runtime
 WORKDIR /app
 
 # Install runtime dependencies (curl needed for healthcheck)

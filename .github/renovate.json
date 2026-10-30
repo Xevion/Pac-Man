@@ -121,17 +121,23 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Track the Emscripten SDK version pinned in package.json",
-      "managerFilePatterns": ["/(^|/)package\\.json$/"],
-      "matchStrings": ["\"emsdkVersion\"\\s*:\\s*\"(?<currentValue>[^\"]+)\""],
+      "description": "Track the Emscripten SDK version pinned in package.json and the Dockerfile fallback",
+      "managerFilePatterns": ["/(^|/)package\\.json$/", "/(^|/)Dockerfile$/"],
+      "matchStrings": [
+        "\"emsdkVersion\"\\s*:\\s*\"(?<currentValue>[^\"]+)\"",
+        "ARG EMSDK_VERSION=(?<currentValue>\\S+)"
+      ],
       "datasourceTemplate": "github-tags",
       "depNameTemplate": "emscripten-core/emsdk"
     },
     {
       "customType": "regex",
-      "description": "Track the Rust toolchain channel in rust-toolchain.toml",
-      "managerFilePatterns": ["/(^|/)rust-toolchain\\.toml$/"],
-      "matchStrings": ["channel\\s*=\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""],
+      "description": "Track the Rust toolchain channel in rust-toolchain.toml and the Dockerfile fallback",
+      "managerFilePatterns": ["/(^|/)rust-toolchain\\.toml$/", "/(^|/)Dockerfile$/"],
+      "matchStrings": [
+        "channel\\s*=\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\"",
+        "ARG RUST_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
       "datasourceTemplate": "docker",
       "depNameTemplate": "rust",
       "versioningTemplate": "docker"
