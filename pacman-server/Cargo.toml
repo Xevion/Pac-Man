@@ -3,7 +3,7 @@ name = "pacman-server"
 version = "0.4.0"
 authors.workspace = true
 edition.workspace = true
-rust-version = "1.86.0"
+rust-version = "1.94.0"
 description = "A leaderboard API for the Pac-Man game"
 readme.workspace = true
 homepage.workspace = true
@@ -39,7 +39,7 @@ figment = { version = "0.10", features = ["env"] }
 dotenvy = "0.15"
 axum-cookie = "0.3"
 async-trait = "0.1"
-jsonwebtoken = { version = "11", default-features = false, features = ["rust_crypto"] }
+jsonwebtoken = { version = "11", default-features = false, features = ["aws_lc_rs"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
 tower-http = { version = "0.7", features = ["trace", "fs", "normalize-path"] }
