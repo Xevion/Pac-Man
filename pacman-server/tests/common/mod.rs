@@ -39,9 +39,7 @@ pub struct TestContext {
 #[allow(dead_code)]
 fn init_once() {
     INIT.call_once(|| {
-        rustls::crypto::ring::default_provider()
-            .install_default()
-            .expect("Failed to install default crypto provider");
+        pacman_server::http::install_crypto_provider();
     });
 }
 

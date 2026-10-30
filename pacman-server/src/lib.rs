@@ -10,6 +10,7 @@ pub mod formatter;
 pub mod app;
 pub mod auth;
 pub mod data;
+pub mod http;
 pub mod image;
 pub mod logging;
 pub mod routes;

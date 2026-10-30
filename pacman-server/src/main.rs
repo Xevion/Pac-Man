@@ -1,11 +1,13 @@
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
 
-use crate::{
+use pacman_server::{
     app::{AppState, create_router},
     auth::AuthRegistry,
+    config,
     config::Config,
     data::pool::{create_dummy_pool, create_pool},
+    http, logging,
 };
 use std::sync::Arc;
 use std::time::Instant;
@@ -15,26 +17,9 @@ use tracing::{info, trace, warn};
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::{Notify, watch};
 
-#[cfg_attr(coverage_nightly, coverage(off))]
-mod config;
-#[cfg_attr(coverage_nightly, coverage(off))]
-mod errors;
-#[cfg_attr(coverage_nightly, coverage(off))]
-mod formatter;
-
-mod app;
-mod auth;
-mod data;
-mod image;
-mod logging;
-mod routes;
-mod session;
-
 #[tokio::main]
 async fn main() {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .expect("Failed to install default crypto provider");
+    http::install_crypto_provider();
 
     // Load environment variables
     #[cfg(debug_assertions)]

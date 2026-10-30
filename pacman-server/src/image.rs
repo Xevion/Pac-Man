@@ -1,80 +1,77 @@
-use std::sync::Arc;
+use std::time::Duration;
 
 use image::codecs::png::PngEncoder;
-use s3::Bucket;
+use rusty_s3::actions::{PutObject, S3Action as _};
+use rusty_s3::{Bucket, Credentials, UrlStyle};
 use sha2::Digest;
 use tracing::trace;
 
 use crate::config::S3Config;
 
-/// Minimal S3-backed image storage. This keeps things intentionally simple for now:
-/// - construct from existing `S3Config`
-/// - upload raw bytes under a key
-/// - upload a local file by path (reads whole file into memory)
-/// - generate a simple presigned GET URL
-/// - process avatars with resizing and upload
+/// How long a presigned upload URL stays valid; uploads start immediately after signing.
+const PRESIGN_TTL: Duration = Duration::from_secs(60);
+
+/// Minimal S3-compatible image storage (Cloudflare R2).
 ///
-/// Backed by `s3-tokio` (hyper 1 + rustls) and compatible with S3/R2/MinIO endpoints.
+/// Requests are presigned with `rusty-s3` and sent with the shared `reqwest` client, so this
+/// adds no second HTTP or TLS stack.
 #[derive(Clone)]
 pub struct ImageStorage {
-    bucket: Arc<s3::Bucket>,
+    bucket: Bucket,
+    credentials: Credentials,
+    http: reqwest::Client,
     public_base_url: String,
 }
 
 impl ImageStorage {
-    /// Create a new storage for a specific `bucket_name` using the provided S3 config.
-    ///
-    /// This uses a custom region + endpoint so it works across AWS S3 and compatible services
-    /// such as Cloudflare R2 and MinIO.
+    /// Create a new storage for a specific `bucket_name` in the configured R2 account.
     pub fn new(config: &S3Config, bucket_name: impl Into<String>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let credentials = s3::creds::Credentials::new(
-            Some(&config.access_key),
-            Some(&config.secret_access_key),
-            None, // security token
-            None, // session token
-            None, // profile
-        )?;
+        let endpoint = format!("https://{}.r2.cloudflarestorage.com", config.account_id).parse()?;
+        Self::with_endpoint(endpoint, "auto", config, bucket_name)
+    }
 
-        let bucket = Bucket::new(
-            &bucket_name.into(),
-            s3::Region::R2 {
-                account_id: config.account_id.clone(),
-            },
-            credentials,
-        )?
-        .with_path_style();
+    /// Create a storage against an arbitrary S3-compatible endpoint, such as a local MinIO.
+    pub fn with_endpoint(
+        endpoint: reqwest::Url,
+        region: &str,
+        config: &S3Config,
+        bucket_name: impl Into<String>,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let bucket = Bucket::new(endpoint, UrlStyle::Path, bucket_name.into(), region.to_owned())?;
 
         Ok(Self {
-            bucket: Arc::new(bucket),
+            bucket,
+            credentials: Credentials::new(&config.access_key, &config.secret_access_key),
+            http: crate::http::client_builder().build()?,
             public_base_url: config.public_base_url.clone(),
         })
     }
 
     /// Upload a byte slice to `key` with optional content type.
-    ///
-    /// Returns the ETag (if present) from the server response.
     pub async fn upload_bytes(
         &self,
         key: &str,
-        bytes: impl AsRef<[u8]>,
+        bytes: impl Into<reqwest::Body>,
         content_type: Option<&str>,
-    ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
-        let data = bytes.as_ref();
-        let content_type = content_type.unwrap_or("application/octet-stream");
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let url = PutObject::new(&self.bucket, Some(&self.credentials), key).sign(PRESIGN_TTL);
+        let response = self
+            .http
+            .put(url)
+            .header(
+                reqwest::header::CONTENT_TYPE,
+                content_type.unwrap_or("application/octet-stream"),
+            )
+            .body(bytes)
+            .send()
+            .await?;
 
-        // Prefer the content-type variant for correct metadata
-        let status = {
-            let response = self.bucket.put_object_with_content_type(key, data, content_type).await?;
-            response.status_code()
-        };
-
-        if (200..300).contains(&status) {
-            // s3-tokio returns headers separately; attempt to pull the ETag if available
-            // Note: the current API returns (status, headers) where headers is `http::HeaderMap`.
-            // Some providers omit ETag on PUT; we handle that by returning `None`.
-            Ok(None)
+        let status = response.status();
+        if status.is_success() {
+            Ok(())
         } else {
-            Err(format!("upload failed with status {}", status).into())
+            let body = response.text().await.unwrap_or_default();
+            Err(format!("upload of {key} failed with status {status}: {body}").into())
         }
     }
 
@@ -88,7 +85,7 @@ impl ImageStorage {
         avatar_url: &str,
     ) -> Result<AvatarUrls, Box<dyn std::error::Error + Send + Sync>> {
         // Download the avatar image
-        let response = reqwest::get(avatar_url).await?;
+        let response = self.http.get(avatar_url).send().await?;
         if !response.status().is_success() {
             return Err(format!("Failed to download avatar: {}", response.status()).into());
         }
@@ -115,13 +112,13 @@ impl ImageStorage {
         // Process original (512x512 max, square)
         let original_key = format!("avatars/{}/{}.original.png", user_public_id, avatar_hash);
         let original_png = self.resize_to_square_png(&img_rgba, 512)?;
-        self.upload_bytes(&original_key, &original_png, Some("image/png")).await?;
+        self.upload_bytes(&original_key, original_png, Some("image/png")).await?;
         trace!(key = original_key, "Uploaded original avatar");
 
         // Process mini (32x32)
         let mini_key = format!("avatars/{}/{}.mini.png", user_public_id, avatar_hash);
         let mini_png = self.resize_to_square_png(&img_rgba, 32)?;
-        self.upload_bytes(&mini_key, &mini_png, Some("image/png")).await?;
+        self.upload_bytes(&mini_key, mini_png, Some("image/png")).await?;
         trace!(key = mini_key, "Uploaded mini avatar");
 
         Ok(AvatarUrls {
@@ -173,7 +170,3 @@ impl ImageStorage {
         Self::new(config, &config.bucket_name)
     }
 }
-
-// References:
-// - Example (R2): https://github.com/FemLolStudio/s3-tokio/blob/master/examples/r2-tokio.rs
-// - Crate docs:   https://lib.rs/crates/s3-tokio

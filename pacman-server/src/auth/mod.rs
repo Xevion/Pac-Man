@@ -24,7 +24,7 @@ impl AuthRegistry {
     /// Create a new AuthRegistry with providers based on configuration.
     /// Only providers with complete configuration will be registered.
     pub fn new(config: &Config) -> Result<Self, oauth2::url::ParseError> {
-        let http = reqwest::ClientBuilder::new()
+        let http = crate::http::client_builder()
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .expect("HTTP client should build");
