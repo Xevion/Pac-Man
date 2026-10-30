@@ -12,17 +12,10 @@ slow-timeout = { period = "30s", terminate-after = 4 } # max 2 minutes for slow 
 slow-timeout = { period = "45s", terminate-after = 5 } # max 3.75 minutes for slow tests
 status-level = "none"
 
-# Integration tests in SDL2 run serially (may not be required)
+# With postgres-tests, each oauth test starts its own Postgres container.
 [[profile.default.overrides]]
-filter = 'test(pacman::game::)'
-test-group = 'serial'
-
-# Integration tests run max 4 at a time
-[[profile.default.overrides]]
-filter = 'test(pacman-server::tests::oauth)'
+filter = 'binary(oauth)'
 test-group = 'integration'
 
 [test-groups]
-# Ensure serial tests don't run in parallel
-serial = { max-threads = 1 }
 integration = { max-threads = 4 }
