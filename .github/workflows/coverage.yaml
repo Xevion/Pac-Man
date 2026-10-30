@@ -8,6 +8,9 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -43,7 +46,7 @@ jobs:
 
       - name: Check Coveralls Token
         run: |
-          if [ -z "${{ secrets.COVERALLS_REPO_TOKEN }}" ]; then
+          if [ -z "$COVERALLS_REPO_TOKEN" ]; then
             echo "::warning::COVERALLS_REPO_TOKEN not available - coverage upload skipped (common for Dependabot PRs)"
           else
             echo "COVERALLS_REPO_TOKEN is available - will upload coverage"
