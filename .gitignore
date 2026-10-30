@@ -28,9 +28,6 @@ web/static/pacman.js
 web/static/pacman.wasm
 web/static/pacman.wasm.map
 
-# Site build files
-tailwindcss-*
-pacman/assets/site/build.css
 
 # Coverage reports
 lcov.info
