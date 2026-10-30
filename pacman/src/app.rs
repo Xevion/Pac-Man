@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use crate::error::{GameError, GameResult};
+use crate::error::{GameResult, SdlResultExt};
 
 use crate::constants::LOOP_TIME;
 use crate::formatter;
@@ -32,15 +32,15 @@ impl App {
     /// errors from `Game::new()` during game state setup.
     pub fn new() -> GameResult<Self> {
         info!("Initializing SDL2 application");
-        let sdl_context = sdl2::init().map_err(|e| GameError::Sdl(e.to_string()))?;
+        let sdl_context = sdl2::init().sdl("init sdl")?;
         trace!("Yielding after SDL init");
         platform::yield_to_browser();
 
         debug!("Initializing SDL2 subsystems");
-        let ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
-        let video_subsystem = sdl_context.video().map_err(|e| GameError::Sdl(e.to_string()))?;
-        let audio_subsystem = sdl_context.audio().map_err(|e| GameError::Sdl(e.to_string()))?;
-        let event_pump = sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
+        let ttf_context = sdl2::ttf::init().sdl("init ttf")?;
+        let video_subsystem = sdl_context.video().sdl("init video subsystem")?;
+        let audio_subsystem = sdl_context.audio().sdl("init audio subsystem")?;
+        let event_pump = sdl_context.event_pump().sdl("create event pump")?;
         trace!("Yielding after subsystem init");
         platform::yield_to_browser();
 
@@ -50,7 +50,7 @@ impl App {
             .resizable()
             .position_centered()
             .build()
-            .map_err(|e| GameError::Sdl(e.to_string()))?;
+            .sdl("create window")?;
 
         #[derive(Debug)]
         struct DriverDetail {
@@ -92,7 +92,7 @@ impl App {
             .accelerated()
             // .index(index)
             .build()
-            .map_err(|e| GameError::Sdl(e.to_string()))?;
+            .sdl("create canvas")?;
         trace!("Yielding after canvas creation");
         platform::yield_to_browser();
 

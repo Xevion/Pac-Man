@@ -10,7 +10,8 @@ use glam::{I8Vec2, IVec2, Vec2};
 use std::collections::{HashMap, VecDeque};
 use tracing::debug;
 
-use crate::error::{GameResult, MapError};
+use crate::error::{GameResult, map_error};
+use snafu::OptionExt;
 
 /// Predefined spawn locations for all game entities within the navigation graph.
 ///
@@ -104,9 +105,9 @@ impl Map {
         let cell_offset = Vec2::splat(CELL_SIZE as f32 / 2.0);
 
         // Find a starting point for the graph generation, preferably Pac-Man's position.
-        let start_pos = parsed_map
-            .pacman_start
-            .ok_or_else(|| MapError::InvalidConfig("Pac-Man's starting position not found".to_string()))?;
+        let start_pos = parsed_map.pacman_start.context(map_error::InvalidConfig {
+            message: "Pac-Man's starting position not found",
+        })?;
 
         // Add the starting position to the graph/queue
         let mut queue = VecDeque::new();
@@ -157,9 +158,12 @@ impl Map {
                         .unwrap_or_else(|| panic!("Source node not found for {source_position}"));
 
                     // Connect the new node to the source node
-                    graph
-                        .connect(*source_node_id, new_node_id, false, None, dir)
-                        .map_err(|e| MapError::InvalidConfig(format!("Failed to add edge: {e}")))?;
+                    graph.connect(*source_node_id, new_node_id, false, None, dir).map_err(|e| {
+                        map_error::InvalidConfig {
+                            message: format!("Failed to add edge: {e}"),
+                        }
+                        .build()
+                    })?;
                 }
             }
         }
@@ -172,9 +176,12 @@ impl Map {
                     let neighbor = grid_pos + dir.as_ivec2();
                     // If the neighbor exists, connect the node to it
                     if let Some(&neighbor_id) = grid_to_node.get(&neighbor) {
-                        graph
-                            .connect(node_id, neighbor_id, false, None, dir)
-                            .map_err(|e| MapError::InvalidConfig(format!("Failed to add edge: {e}")))?;
+                        graph.connect(node_id, neighbor_id, false, None, dir).map_err(|e| {
+                            map_error::InvalidConfig {
+                                message: format!("Failed to add edge: {e}"),
+                            }
+                            .build()
+                        })?;
                     }
                 }
             }
@@ -267,28 +274,36 @@ impl Map {
             // Translate the grid positions to the actual node ids
             let left_node = grid_to_node
                 .get(
-                    &(house_door[0]
-                        .ok_or_else(|| MapError::InvalidConfig("First house door position not acquired".to_string()))?
-                        + Direction::Left.as_ivec2()),
+                    &(house_door[0].context(map_error::InvalidConfig {
+                        message: "First house door position not acquired",
+                    })? + Direction::Left.as_ivec2()),
                 )
-                .ok_or_else(|| MapError::InvalidConfig("Left house door node not found".to_string()))?;
+                .context(map_error::InvalidConfig {
+                    message: "Left house door node not found",
+                })?;
             let right_node = grid_to_node
                 .get(
-                    &(house_door[1]
-                        .ok_or_else(|| MapError::InvalidConfig("Second house door position not acquired".to_string()))?
-                        + Direction::Right.as_ivec2()),
+                    &(house_door[1].context(map_error::InvalidConfig {
+                        message: "Second house door position not acquired",
+                    })? + Direction::Right.as_ivec2()),
                 )
-                .ok_or_else(|| MapError::InvalidConfig("Right house door node not found".to_string()))?;
+                .context(map_error::InvalidConfig {
+                    message: "Right house door node not found",
+                })?;
 
             // Calculate the position of the house node
             let (node_id, node_position) = {
                 let left_pos = graph
                     .get_node(*left_node)
-                    .ok_or(MapError::NodeNotFound(*left_node as usize))?
+                    .context(map_error::NodeNotFound {
+                        node: *left_node as usize,
+                    })?
                     .position;
                 let right_pos = graph
                     .get_node(*right_node)
-                    .ok_or(MapError::NodeNotFound(*right_node as usize))?
+                    .context(map_error::NodeNotFound {
+                        node: *right_node as usize,
+                    })?
                     .position;
                 let house_node = graph.add_node(Node {
                     position: left_pos.lerp(right_pos, 0.5),
@@ -297,12 +312,20 @@ impl Map {
             };
 
             // Connect the house door to the left and right nodes
-            graph
-                .connect(node_id, *left_node, true, None, Direction::Left)
-                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house door to left node: {e}")))?;
+            graph.connect(node_id, *left_node, true, None, Direction::Left).map_err(|e| {
+                map_error::InvalidConfig {
+                    message: format!("Failed to connect house door to left node: {e}"),
+                }
+                .build()
+            })?;
             graph
                 .connect(node_id, *right_node, true, None, Direction::Right)
-                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house door to right node: {e}")))?;
+                .map_err(|e| {
+                    map_error::InvalidConfig {
+                        message: format!("Failed to connect house door to right node: {e}"),
+                    }
+                    .build()
+                })?;
 
             (node_id, node_position)
         };
@@ -321,10 +344,20 @@ impl Map {
             // Connect the center node to the top and bottom nodes
             graph
                 .connect(center_node_id, top_node_id, false, None, Direction::Up)
-                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house line to top node: {e}")))?;
+                .map_err(|e| {
+                    map_error::InvalidConfig {
+                        message: format!("Failed to connect house line to top node: {e}"),
+                    }
+                    .build()
+                })?;
             graph
                 .connect(center_node_id, bottom_node_id, false, None, Direction::Down)
-                .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house line to bottom node: {e}")))?;
+                .map_err(|e| {
+                    map_error::InvalidConfig {
+                        message: format!("Failed to connect house line to bottom node: {e}"),
+                    }
+                    .build()
+                })?;
 
             Ok((center_node_id, top_node_id))
         };
@@ -347,7 +380,12 @@ impl Map {
                 Direction::Down,
                 TraversalFlags::GHOST,
             )
-            .map_err(|e| MapError::InvalidConfig(format!("Failed to create ghost-only entrance to house: {e}")))?;
+            .map_err(|e| {
+                map_error::InvalidConfig {
+                    message: format!("Failed to create ghost-only entrance to house: {e}"),
+                }
+                .build()
+            })?;
 
         graph
             .add_edge(
@@ -358,7 +396,12 @@ impl Map {
                 Direction::Up,
                 TraversalFlags::GHOST,
             )
-            .map_err(|e| MapError::InvalidConfig(format!("Failed to create ghost-only exit from house: {e}")))?;
+            .map_err(|e| {
+                map_error::InvalidConfig {
+                    message: format!("Failed to create ghost-only exit from house: {e}"),
+                }
+                .build()
+            })?;
 
         // Create the left line
         let (left_center_node_id, _) = create_house_line(
@@ -377,11 +420,21 @@ impl Map {
         // Connect the center line to the left and right lines
         graph
             .connect(center_center_node_id, left_center_node_id, false, None, Direction::Left)
-            .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house entrance to left top line: {e}")))?;
+            .map_err(|e| {
+                map_error::InvalidConfig {
+                    message: format!("Failed to connect house entrance to left top line: {e}"),
+                }
+                .build()
+            })?;
 
         graph
             .connect(center_center_node_id, right_center_node_id, false, None, Direction::Right)
-            .map_err(|e| MapError::InvalidConfig(format!("Failed to connect house entrance to right top line: {e}")))?;
+            .map_err(|e| {
+                map_error::InvalidConfig {
+                    message: format!("Failed to connect house entrance to right top line: {e}"),
+                }
+                .build()
+            })?;
 
         debug!("House entrance node id: {house_entrance_node_id}");
 
@@ -404,11 +457,14 @@ impl Map {
     ) -> GameResult<()> {
         // Create the hidden tunnel nodes
         let left_tunnel_hidden_node_id = {
-            let left_tunnel_entrance_node_id =
-                grid_to_node[&tunnel_ends[0].ok_or_else(|| MapError::InvalidConfig("Left tunnel end not found".to_string()))?];
+            let left_tunnel_entrance_node_id = grid_to_node[&tunnel_ends[0].context(map_error::InvalidConfig {
+                message: "Left tunnel end not found",
+            })?];
             let left_tunnel_entrance_node = graph
                 .get_node(left_tunnel_entrance_node_id)
-                .ok_or_else(|| MapError::InvalidConfig("Left tunnel entrance node not found".to_string()))?;
+                .context(map_error::InvalidConfig {
+                    message: "Left tunnel entrance node not found",
+                })?;
 
             graph
                 .add_connected(
@@ -424,11 +480,14 @@ impl Map {
 
         // Create the right tunnel nodes
         let right_tunnel_hidden_node_id = {
-            let right_tunnel_entrance_node_id =
-                grid_to_node[&tunnel_ends[1].ok_or_else(|| MapError::InvalidConfig("Right tunnel end not found".to_string()))?];
+            let right_tunnel_entrance_node_id = grid_to_node[&tunnel_ends[1].context(map_error::InvalidConfig {
+                message: "Right tunnel end not found",
+            })?];
             let right_tunnel_entrance_node = graph
                 .get_node(right_tunnel_entrance_node_id)
-                .ok_or_else(|| MapError::InvalidConfig("Right tunnel entrance node not found".to_string()))?;
+                .context(map_error::InvalidConfig {
+                    message: "Right tunnel entrance node not found",
+                })?;
 
             graph
                 .add_connected(

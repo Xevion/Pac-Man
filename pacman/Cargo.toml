@@ -3,7 +3,7 @@ name = "pacman"
 version = "0.81.1"
 authors.workspace = true
 edition.workspace = true
-rust-version = "1.95.0"
+rust-version.workspace = true
 description = "A cross-platform retro Pac-Man clone, written in Rust and supported by SDL2"
 readme.workspace = true
 homepage.workspace = true
@@ -24,7 +24,7 @@ tracing = { workspace = true, features = ["max_level_trace", "release_max_level_
 tracing-error = "0.2.0"
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 time = { workspace = true, features = ["formatting", "macros"] }
-thiserror = "2.0.16"
+snafu.workspace = true
 smallvec = "1.15.1"
 bitflags = "2.9.4"
 circular-buffer = "2.0.0"

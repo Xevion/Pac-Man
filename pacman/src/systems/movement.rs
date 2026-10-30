@@ -1,8 +1,9 @@
-use crate::error::{EntityError, GameResult};
+use crate::error::{GameResult, entity_error};
 use crate::map::direction::Direction;
 use crate::map::graph::Graph;
 use bevy_ecs::component::Component;
 use glam::Vec2;
+use snafu::OptionExt;
 
 /// Zero-based index identifying a specific node in the navigation graph.
 ///
@@ -59,7 +60,9 @@ impl Position {
         let pos = match &self {
             Position::Stopped { node } => {
                 // Entity is stationary at a node
-                let node = graph.get_node(*node).ok_or(EntityError::NodeNotFound(*node as usize))?;
+                let node = graph
+                    .get_node(*node)
+                    .context(entity_error::NodeNotFound { node: *node as usize })?;
                 node.position
             }
             Position::Moving {
@@ -68,9 +71,13 @@ impl Position {
                 remaining_distance,
             } => {
                 // Entity is traveling between nodes
-                let from_node = graph.get_node(*from).ok_or(EntityError::NodeNotFound(*from as usize))?;
-                let to_node = graph.get_node(*to).ok_or(EntityError::NodeNotFound(*to as usize))?;
-                let edge = graph.find_edge(*from, *to).ok_or(EntityError::EdgeNotFound {
+                let from_node = graph
+                    .get_node(*from)
+                    .context(entity_error::NodeNotFound { node: *from as usize })?;
+                let to_node = graph
+                    .get_node(*to)
+                    .context(entity_error::NodeNotFound { node: *to as usize })?;
+                let edge = graph.find_edge(*from, *to).context(entity_error::EdgeNotFound {
                     from: *from as usize,
                     to: *to as usize,
                 })?;

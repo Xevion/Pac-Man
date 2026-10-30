@@ -3,8 +3,11 @@
 use std::time::Duration;
 
 use rand::rngs::ThreadRng;
+use snafu::ResultExt;
 
-use crate::error::PlatformError;
+use crate::error::{PlatformError, platform_error};
+
+const LOG_PATH: &str = "pacman.log";
 
 /// Desktop platform implementation.
 pub fn sleep(duration: Duration, focused: bool) {
@@ -38,8 +41,7 @@ pub fn init_console(force_console: bool) -> Result<(), PlatformError> {
         tracing_subscriber::registry().with(layers).init();
     }
 
-    let log_file = std::fs::File::create("pacman.log")
-        .map_err(|e| PlatformError::ConsoleInit(format!("Failed to create log file: {}", e)))?;
+    let log_file = std::fs::File::create(LOG_PATH).context(platform_error::LogFile { path: LOG_PATH })?;
     let file_layer: BoxedLayer = fmt::layer()
         .with_ansi(false)
         .with_writer(log_file)
@@ -71,9 +73,12 @@ pub fn init_console(force_console: bool) -> Result<(), PlatformError> {
             allocate_console()?;
             enable_ansi_support()?;
 
-            switchable_writer
-                .switch_to_direct_mode()
-                .map_err(|e| PlatformError::ConsoleInit(format!("Failed to switch to direct mode: {}", e)))?;
+            switchable_writer.switch_to_direct_mode().map_err(|e| {
+                platform_error::ConsoleInit {
+                    message: format!("Failed to switch to direct mode: {}", e),
+                }
+                .build()
+            })?;
         } else {
             let console_layer: BoxedLayer = fmt::layer()
                 .with_ansi(true)
@@ -116,30 +121,54 @@ fn enable_ansi_support() -> Result<(), PlatformError> {
 
     // Enable ANSI processing for stdout
     unsafe {
-        let stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE)
-            .map_err(|e| PlatformError::ConsoleInit(format!("Failed to get stdout handle: {:?}", e)))?;
+        let stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE).map_err(|e| {
+            platform_error::ConsoleInit {
+                message: format!("Failed to get stdout handle: {:?}", e),
+            }
+            .build()
+        })?;
 
         let mut console_mode = CONSOLE_MODE(0);
-        GetConsoleMode(stdout_handle, &mut console_mode)
-            .map_err(|e| PlatformError::ConsoleInit(format!("Failed to get console mode: {:?}", e)))?;
+        GetConsoleMode(stdout_handle, &mut console_mode).map_err(|e| {
+            platform_error::ConsoleInit {
+                message: format!("Failed to get console mode: {:?}", e),
+            }
+            .build()
+        })?;
 
         console_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-        SetConsoleMode(stdout_handle, console_mode)
-            .map_err(|e| PlatformError::ConsoleInit(format!("Failed to enable ANSI for stdout: {:?}", e)))?;
+        SetConsoleMode(stdout_handle, console_mode).map_err(|e| {
+            platform_error::ConsoleInit {
+                message: format!("Failed to enable ANSI for stdout: {:?}", e),
+            }
+            .build()
+        })?;
     }
 
     // Enable ANSI processing for stderr
     unsafe {
-        let stderr_handle = GetStdHandle(STD_ERROR_HANDLE)
-            .map_err(|e| PlatformError::ConsoleInit(format!("Failed to get stderr handle: {:?}", e)))?;
+        let stderr_handle = GetStdHandle(STD_ERROR_HANDLE).map_err(|e| {
+            platform_error::ConsoleInit {
+                message: format!("Failed to get stderr handle: {:?}", e),
+            }
+            .build()
+        })?;
 
         let mut console_mode = CONSOLE_MODE(0);
-        GetConsoleMode(stderr_handle, &mut console_mode)
-            .map_err(|e| PlatformError::ConsoleInit(format!("Failed to get console mode: {:?}", e)))?;
+        GetConsoleMode(stderr_handle, &mut console_mode).map_err(|e| {
+            platform_error::ConsoleInit {
+                message: format!("Failed to get console mode: {:?}", e),
+            }
+            .build()
+        })?;
 
         console_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-        SetConsoleMode(stderr_handle, console_mode)
-            .map_err(|e| PlatformError::ConsoleInit(format!("Failed to enable ANSI for stderr: {:?}", e)))?;
+        SetConsoleMode(stderr_handle, console_mode).map_err(|e| {
+            platform_error::ConsoleInit {
+                message: format!("Failed to enable ANSI for stderr: {:?}", e),
+            }
+            .build()
+        })?;
     }
 
     Ok(())
@@ -159,7 +188,12 @@ fn allocate_console() -> Result<(), PlatformError> {
     };
 
     // Allocate a new console for this process
-    unsafe { AllocConsole() }.map_err(|e| PlatformError::ConsoleInit(format!("Failed to allocate console: {:?}", e)))?;
+    unsafe { AllocConsole() }.map_err(|e| {
+        platform_error::ConsoleInit {
+            message: format!("Failed to allocate console: {:?}", e),
+        }
+        .build()
+    })?;
 
     // Note: SetConsoleTitle is not available in the imported modules, skipping title setting
 
@@ -176,7 +210,12 @@ fn allocate_console() -> Result<(), PlatformError> {
             None,
         )
     }
-    .map_err(|e| PlatformError::ConsoleInit(format!("Failed to create stdout handle: {:?}", e)))?;
+    .map_err(|e| {
+        platform_error::ConsoleInit {
+            message: format!("Failed to create stdout handle: {:?}", e),
+        }
+        .build()
+    })?;
 
     // Redirect stdin
     let stdin_handle = unsafe {
@@ -191,17 +230,34 @@ fn allocate_console() -> Result<(), PlatformError> {
             None,
         )
     }
-    .map_err(|e| PlatformError::ConsoleInit(format!("Failed to create stdin handle: {:?}", e)))?;
+    .map_err(|e| {
+        platform_error::ConsoleInit {
+            message: format!("Failed to create stdin handle: {:?}", e),
+        }
+        .build()
+    })?;
 
     // Set the standard handles
-    unsafe { SetStdHandle(STD_OUTPUT_HANDLE, stdout_handle) }
-        .map_err(|e| PlatformError::ConsoleInit(format!("Failed to set stdout handle: {:?}", e)))?;
+    unsafe { SetStdHandle(STD_OUTPUT_HANDLE, stdout_handle) }.map_err(|e| {
+        platform_error::ConsoleInit {
+            message: format!("Failed to set stdout handle: {:?}", e),
+        }
+        .build()
+    })?;
 
-    unsafe { SetStdHandle(STD_ERROR_HANDLE, stdout_handle) }
-        .map_err(|e| PlatformError::ConsoleInit(format!("Failed to set stderr handle: {:?}", e)))?;
+    unsafe { SetStdHandle(STD_ERROR_HANDLE, stdout_handle) }.map_err(|e| {
+        platform_error::ConsoleInit {
+            message: format!("Failed to set stderr handle: {:?}", e),
+        }
+        .build()
+    })?;
 
-    unsafe { SetStdHandle(STD_INPUT_HANDLE, stdin_handle) }
-        .map_err(|e| PlatformError::ConsoleInit(format!("Failed to set stdin handle: {:?}", e)))?;
+    unsafe { SetStdHandle(STD_INPUT_HANDLE, stdin_handle) }.map_err(|e| {
+        platform_error::ConsoleInit {
+            message: format!("Failed to set stdin handle: {:?}", e),
+        }
+        .build()
+    })?;
 
     Ok(())
 }

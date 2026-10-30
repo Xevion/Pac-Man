@@ -10,7 +10,7 @@ use tracing::{debug, trace, warn};
 
 use crate::audio::Sound;
 use crate::constants;
-use crate::error::GameError;
+use crate::error::{GameError, game_error};
 use crate::events::{CollisionTrigger, PowerPelletEaten, StageTransition};
 use crate::map::builder::Map;
 use crate::systems::audio::AudioEvent;
@@ -56,12 +56,18 @@ pub fn check_collision(
     collider2: &Collider,
     map: &Map,
 ) -> Result<bool, GameError> {
-    let pixel1 = pos1
-        .get_pixel_position(&map.graph)
-        .map_err(|e| GameError::InvalidState(format!("Failed to get pixel position for entity 1: {}", e)))?;
-    let pixel2 = pos2
-        .get_pixel_position(&map.graph)
-        .map_err(|e| GameError::InvalidState(format!("Failed to get pixel position for entity 2: {}", e)))?;
+    let pixel1 = pos1.get_pixel_position(&map.graph).map_err(|e| {
+        game_error::InvalidState {
+            message: format!("Failed to get pixel position for entity 1: {e}"),
+        }
+        .build()
+    })?;
+    let pixel2 = pos2.get_pixel_position(&map.graph).map_err(|e| {
+        game_error::InvalidState {
+            message: format!("Failed to get pixel position for entity 2: {e}"),
+        }
+        .build()
+    })?;
 
     let distance = pixel1.distance(pixel2);
     Ok(collider1.collides_with(collider2.size, distance))

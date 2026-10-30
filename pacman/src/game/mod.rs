@@ -17,7 +17,7 @@ use sdl2::render::{Canvas, TextureCreator};
 use sdl2::video::{Window, WindowContext};
 
 use crate::constants;
-use crate::error::{GameError, GameResult};
+use crate::error::{GameResult, SdlResultExt};
 use crate::map::builder::Map;
 use crate::map::render::MapRenderer;
 use crate::platform;
@@ -73,7 +73,7 @@ impl Game {
             .with_texture_canvas(&mut map_texture, |map_canvas| {
                 MapRenderer::render_map(map_canvas, &mut atlas, &map_tiles);
             })
-            .map_err(|e| GameError::Sdl(e.to_string()))?;
+            .sdl("render map texture")?;
         platform::yield_to_browser();
 
         debug!("Building navigation graph from map layout");

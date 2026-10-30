@@ -15,7 +15,7 @@ use glam::UVec2;
 
 use crate::asset::Asset;
 use crate::constants;
-use crate::error::{GameError, GameResult};
+use crate::error::{GameResult, SdlResultExt, TextureError, texture_error};
 use crate::events::GameEvent;
 use crate::map::builder::Map;
 use crate::platform;
@@ -90,23 +90,23 @@ pub(super) fn setup_textures_and_fonts(
     trace!("Creating backbuffer texture");
     let mut backbuffer = texture_creator
         .create_texture_target(None, PLAYFIELD_SIZE.x, PLAYFIELD_SIZE.y)
-        .map_err(|e| GameError::Sdl(e.to_string()))?;
+        .sdl("create backbuffer texture")?;
     backbuffer.set_scale_mode(ScaleMode::Nearest);
     platform::yield_to_browser();
 
     trace!("Creating map texture");
     let mut map_texture = texture_creator
         .create_texture_target(None, PLAYFIELD_SIZE.x, PLAYFIELD_SIZE.y)
-        .map_err(|e| GameError::Sdl(e.to_string()))?;
+        .sdl("create map texture")?;
     map_texture.set_scale_mode(ScaleMode::Nearest);
     platform::yield_to_browser();
 
     trace!("Loading font");
     let font_data: &'static [u8] = Asset::Font.get_bytes()?.to_vec().leak();
-    let font_asset = RWops::from_bytes(font_data).map_err(|_| GameError::Sdl("Failed to load font".to_string()))?;
+    let font_asset = RWops::from_bytes(font_data).sdl("load font data")?;
     let debug_font = ttf_context
         .load_font_from_rwops(font_asset, constants::ui::DEBUG_FONT_SIZE)
-        .map_err(|e| GameError::Sdl(e.to_string()))?;
+        .sdl("load debug font")?;
 
     trace!("Creating TTF atlas");
     let mut ttf_atlas = crate::texture::ttf::TtfAtlas::new(texture_creator, &debug_font)?;
@@ -124,15 +124,15 @@ pub(super) fn load_atlas_and_map_tiles(
 ) -> GameResult<(SpriteAtlas, Vec<crate::texture::sprite::AtlasTile>)> {
     trace!("Loading atlas image from embedded assets");
     let atlas_bytes = Asset::AtlasImage.get_bytes()?;
-    let atlas_texture = texture_creator.load_texture_bytes(&atlas_bytes).map_err(|e| {
-        if e.to_string().contains("format") || e.to_string().contains("unsupported") {
-            GameError::Texture(crate::error::TextureError::InvalidFormat(format!(
-                "Unsupported texture format: {e}"
-            )))
-        } else {
-            GameError::Texture(crate::error::TextureError::LoadFailed(e.to_string()))
-        }
-    })?;
+    let atlas_texture = texture_creator
+        .load_texture_bytes(&atlas_bytes)
+        .map_err(|e| -> TextureError {
+            if e.contains("format") || e.contains("unsupported") {
+                texture_error::InvalidFormat { message: e }.build()
+            } else {
+                texture_error::LoadFailed { message: e }.build()
+            }
+        })?;
 
     tracing::debug!(frame_count = atlas_frames.len(), "Creating sprite atlas from texture");
     let atlas_mapper = AtlasMapper {

@@ -1,6 +1,6 @@
 use assert2::check;
 use bevy_ecs::{entity::Entity, query::With, world::World};
-use pacman::error::{GameError, GameResult};
+use pacman::error::{GameResult, SdlResultExt};
 use pacman::game::Game;
 use pacman::scenes::{Scene, SceneManager, SceneOwned};
 use pacman::systems::ghost::GhostType;
@@ -16,9 +16,9 @@ fn scene_owned_count(world: &mut World) -> usize {
 
 #[test]
 fn test_game_30_seconds_60fps() -> GameResult<()> {
-    let (canvas, texture_creator, _sdl_context) = setup_sdl().map_err(GameError::Sdl)?;
-    let ttf_context = sdl2::ttf::init().map_err(GameError::Sdl)?;
-    let event_pump = _sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
+    let (canvas, texture_creator, _sdl_context) = setup_sdl().sdl("set up sdl")?;
+    let ttf_context = sdl2::ttf::init().sdl("init ttf")?;
+    let event_pump = _sdl_context.event_pump().sdl("create event pump")?;
 
     let mut game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
     // Boot lands in the Title; enter gameplay so the loop exercises the simulation.
@@ -50,9 +50,9 @@ fn test_game_30_seconds_60fps() -> GameResult<()> {
 /// Test that runs the game for 30 seconds with variable frame timing
 #[test]
 fn test_game_30_seconds_variable_timing() -> GameResult<()> {
-    let (canvas, texture_creator, _sdl_context) = setup_sdl().map_err(GameError::Sdl)?;
-    let ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
-    let event_pump = _sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
+    let (canvas, texture_creator, _sdl_context) = setup_sdl().sdl("set up sdl")?;
+    let ttf_context = sdl2::ttf::init().sdl("init ttf")?;
+    let event_pump = _sdl_context.event_pump().sdl("create event pump")?;
 
     let mut game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
     // Boot lands in the Title; enter gameplay so the loop exercises the simulation.
@@ -90,9 +90,9 @@ fn test_game_30_seconds_variable_timing() -> GameResult<()> {
 /// must leave no leaked entities and no dangling `Entity` ids behind.
 #[test]
 fn gameplay_teardown_and_respawn_leave_no_leaks() -> GameResult<()> {
-    let (canvas, texture_creator, _sdl_context) = setup_sdl().map_err(GameError::Sdl)?;
-    let ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
-    let event_pump = _sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
+    let (canvas, texture_creator, _sdl_context) = setup_sdl().sdl("set up sdl")?;
+    let ttf_context = sdl2::ttf::init().sdl("init ttf")?;
+    let event_pump = _sdl_context.event_pump().sdl("create event pump")?;
 
     let mut game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
 
@@ -130,9 +130,9 @@ fn gameplay_teardown_and_respawn_leave_no_leaks() -> GameResult<()> {
 /// ticking once must route through `apply_pending_scene` and populate the scene.
 #[test]
 fn scene_router_boots_in_title_then_enters_gameplay() -> GameResult<()> {
-    let (canvas, texture_creator, _sdl_context) = setup_sdl().map_err(GameError::Sdl)?;
-    let ttf_context = sdl2::ttf::init().map_err(|e| GameError::Sdl(e.to_string()))?;
-    let event_pump = _sdl_context.event_pump().map_err(|e| GameError::Sdl(e.to_string()))?;
+    let (canvas, texture_creator, _sdl_context) = setup_sdl().sdl("set up sdl")?;
+    let ttf_context = sdl2::ttf::init().sdl("init ttf")?;
+    let event_pump = _sdl_context.event_pump().sdl("create event pump")?;
 
     let mut game = Game::new(canvas, ttf_context, texture_creator, event_pump)?;
 

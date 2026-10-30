@@ -1,9 +1,10 @@
 //! Emscripten platform implementation.
 
-use crate::error::PlatformError;
+use crate::error::{PlatformError, platform_error};
 use crate::formatter::CustomFormatter;
 use rand::SeedableRng;
 use rand::rngs::{SmallRng, SysRng};
+use snafu::ResultExt;
 use std::ffi::CString;
 use std::io::{self, Write};
 use std::time::Duration;
@@ -75,8 +76,7 @@ pub fn init_console(_force_console: bool) -> Result<(), PlatformError> {
         )
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug")));
 
-    tracing::subscriber::set_global_default(subscriber)
-        .map_err(|e| PlatformError::ConsoleInit(format!("Failed to set tracing subscriber: {}", e)))?;
+    tracing::subscriber::set_global_default(subscriber).context(platform_error::Subscriber)?;
 
     Ok(())
 }

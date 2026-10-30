@@ -2,11 +2,12 @@
 use std::collections::HashMap;
 
 use crate::asset::Asset;
-use crate::error::AudioError;
+use crate::error::{AudioError, audio_error};
 use sdl2::{
     mixer::{self, AUDIO_S16LSB, Chunk, InitFlag, LoaderRWops},
     rwops::RWops,
 };
+use snafu::ensure;
 use strum::IntoEnumIterator;
 
 const AUDIO_FREQUENCY: i32 = 16_000;
@@ -114,8 +115,12 @@ impl Audio {
         };
 
         // Try to open audio, but don't panic if it fails
-        mixer::open_audio(AUDIO_FREQUENCY, format, AUDIO_CHANNELS, chunk_size)
-            .map_err(|e| AudioError::InitFailed(format!("Failed to open audio: {}", e)))?;
+        mixer::open_audio(AUDIO_FREQUENCY, format, AUDIO_CHANNELS, chunk_size).map_err(|e| {
+            audio_error::InitFailed {
+                message: format!("Failed to open audio: {e}"),
+            }
+            .build()
+        })?;
 
         mixer::allocate_channels(AUDIO_CHANNELS);
 
@@ -125,8 +130,12 @@ impl Audio {
         }
 
         // Try to initialize mixer, but don't panic if it fails
-        let mixer_context =
-            mixer::init(InitFlag::OGG).map_err(|e| AudioError::InitFailed(format!("Failed to initialize SDL2_mixer: {}", e)))?;
+        let mixer_context = mixer::init(InitFlag::OGG).map_err(|e| {
+            audio_error::InitFailed {
+                message: format!("Failed to initialize SDL2_mixer: {e}"),
+            }
+            .build()
+        })?;
 
         // Try to load sounds, but don't panic if any fail
         let sounds: HashMap<Sound, Chunk> = Sound::iter()
@@ -140,9 +149,12 @@ impl Audio {
             .collect();
 
         // If no sounds loaded successfully, disable audio
-        if sounds.is_empty() {
-            return Err(AudioError::InitFailed("No sounds loaded successfully".to_string()));
-        }
+        ensure!(
+            !sounds.is_empty(),
+            audio_error::InitFailed {
+                message: "No sounds loaded successfully"
+            }
+        );
 
         // On Emscripten, start suspended due to browser autoplay policy.
         // Audio will be unlocked when the user interacts with the page.
@@ -162,14 +174,24 @@ impl Audio {
 
     fn load_sound(sound_type: Sound) -> Result<Chunk, AudioError> {
         let asset = Asset::SoundFile(sound_type);
-        let data = asset
-            .get_bytes()
-            .map_err(|e| AudioError::LoadFailed(format!("Failed to get bytes for {:?}: {}", sound_type, e)))?;
-        let rwops = RWops::from_bytes(&data)
-            .map_err(|e| AudioError::LoadFailed(format!("Failed to create RWops for {:?}: {}", sound_type, e)))?;
-        rwops
-            .load_wav()
-            .map_err(|e| AudioError::LoadFailed(format!("Failed to load wav for {:?}: {}", sound_type, e)))
+        let data = asset.get_bytes().map_err(|e| {
+            audio_error::LoadFailed {
+                message: format!("Failed to get bytes for {sound_type:?}: {e}"),
+            }
+            .build()
+        })?;
+        let rwops = RWops::from_bytes(&data).map_err(|e| {
+            audio_error::LoadFailed {
+                message: format!("Failed to create RWops for {sound_type:?}: {e}"),
+            }
+            .build()
+        })?;
+        rwops.load_wav().map_err(|e| {
+            audio_error::LoadFailed {
+                message: format!("Failed to load wav for {sound_type:?}: {e}"),
+            }
+            .build()
+        })
     }
 
     /// Plays the next waka eating sound in the cycle of four variants.

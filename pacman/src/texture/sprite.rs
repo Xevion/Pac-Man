@@ -5,7 +5,9 @@ use sdl2::render::{Canvas, RenderTarget, Texture};
 use std::collections::HashMap;
 use tracing::debug;
 
-use crate::error::TextureError;
+use snafu::OptionExt;
+
+use crate::error::{TextureError, texture_error};
 
 /// Atlas frame mapping data loaded from JSON metadata files.
 #[derive(Clone, Debug)]
@@ -54,7 +56,9 @@ impl AtlasTile {
             atlas.last_modulation = Some(color);
         }
 
-        canvas.copy(&atlas.texture, src, dest).map_err(TextureError::RenderFailed)?;
+        canvas
+            .copy(&atlas.texture, src, dest)
+            .map_err(|message| texture_error::RenderFailed { message }.build())?;
         Ok(())
     }
 }
@@ -96,9 +100,9 @@ impl SpriteAtlas {
     /// atlas. The returned tile can be used for immediate rendering or stored
     /// for repeated use in animations and entity sprites.
     pub fn get_tile(&self, name: &str) -> Result<AtlasTile, TextureError> {
-        let frame = self.tiles.get(name).ok_or_else(|| {
+        let frame = self.tiles.get(name).with_context(|| {
             debug!(tile_name = name, "Atlas tile not found");
-            TextureError::AtlasTileNotFound(name.to_string())
+            texture_error::AtlasTileNotFound { name }
         })?;
         Ok(AtlasTile {
             pos: frame.pos,

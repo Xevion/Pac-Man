@@ -4,8 +4,10 @@
 use std::borrow::Cow;
 use std::iter;
 
+use snafu::OptionExt;
+
 use crate::audio::Sound;
-use crate::error::AssetError;
+use crate::error::{AssetError, asset_error};
 
 /// Enumeration of all game assets with cross-platform loading support.
 ///
@@ -115,21 +117,24 @@ impl Asset {
         let path = self.path();
         EmbeddedAssets::get(path)
             .map(|file| file.data)
-            .ok_or_else(|| AssetError::NotFound(path.to_string()))
+            .context(asset_error::NotFound { path })
     }
 
     #[cfg(target_os = "emscripten")]
     fn get_bytes_platform(&self) -> Result<Cow<'static, [u8]>, AssetError> {
         use sdl2::rwops::RWops;
-        use std::io::{self, Read};
+        use snafu::ResultExt;
+        use std::io::Read;
 
         let path = format!("pacman/assets/game/{}", self.path());
-        let mut rwops = RWops::from_file(&path, "rb").map_err(|_| AssetError::NotFound(self.path().to_string()))?;
+        let mut rwops = RWops::from_file(&path, "rb")
+            .ok()
+            .context(asset_error::NotFound { path: self.path() })?;
 
-        let len = rwops.len().ok_or_else(|| AssetError::NotFound(self.path().to_string()))?;
+        let len = rwops.len().context(asset_error::NotFound { path: self.path() })?;
 
         let mut buf = vec![0u8; len];
-        rwops.read_exact(&mut buf).map_err(|e| AssetError::Io(io::Error::other(e)))?;
+        rwops.read_exact(&mut buf).context(asset_error::Io { path: self.path() })?;
 
         Ok(Cow::Owned(buf))
     }

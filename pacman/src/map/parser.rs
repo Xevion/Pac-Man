@@ -1,8 +1,9 @@
 //! Map parsing functionality for converting raw board layouts into structured data.
 
 use crate::constants::{BOARD_CELL_SIZE, MapTile};
-use crate::error::ParseError;
+use crate::error::{ParseError, parse_error};
 use glam::I8Vec2;
+use snafu::ensure;
 
 /// Structured representation of parsed ASCII board layout with extracted special positions.
 ///
@@ -47,7 +48,7 @@ impl MapTileParser {
             'T' => Ok(MapTile::Tunnel),
             'X' => Ok(MapTile::Empty), // Pac-Man's starting position, treated as empty
             '=' => Ok(MapTile::Wall),  // House door is represented as a wall tile
-            _ => Err(ParseError::UnknownCharacter(c)),
+            _ => parse_error::UnknownCharacter { character: c }.fail(),
         }
     }
 
@@ -67,23 +68,29 @@ impl MapTileParser {
     /// is not properly defined by exactly two '=' characters.
     pub fn parse_board(raw_board: [&str; BOARD_CELL_SIZE.y as usize]) -> Result<ParsedMap, ParseError> {
         // Validate board dimensions
-        if raw_board.len() != BOARD_CELL_SIZE.y as usize {
-            return Err(ParseError::ParseFailed(format!(
-                "Invalid board height: expected {}, got {}",
-                BOARD_CELL_SIZE.y,
-                raw_board.len()
-            )));
-        }
+        ensure!(
+            raw_board.len() == BOARD_CELL_SIZE.y as usize,
+            parse_error::ParseFailed {
+                message: format!(
+                    "Invalid board height: expected {}, got {}",
+                    BOARD_CELL_SIZE.y,
+                    raw_board.len()
+                )
+            }
+        );
 
         for (i, line) in raw_board.iter().enumerate() {
-            if line.len() != BOARD_CELL_SIZE.x as usize {
-                return Err(ParseError::ParseFailed(format!(
-                    "Invalid board width at line {}: expected {}, got {}",
-                    i,
-                    BOARD_CELL_SIZE.x,
-                    line.len()
-                )));
-            }
+            ensure!(
+                line.len() == BOARD_CELL_SIZE.x as usize,
+                parse_error::ParseFailed {
+                    message: format!(
+                        "Invalid board width at line {}: expected {}, got {}",
+                        i,
+                        BOARD_CELL_SIZE.x,
+                        line.len()
+                    )
+                }
+            );
         }
         let mut tiles = [[MapTile::Empty; BOARD_CELL_SIZE.y as usize]; BOARD_CELL_SIZE.x as usize];
         let mut house_door = [None; 2];
@@ -124,9 +131,10 @@ impl MapTileParser {
 
         // Validate house door configuration
         let house_door_count = house_door.iter().filter(|x| x.is_some()).count();
-        if house_door_count != 2 {
-            return Err(ParseError::InvalidHouseDoorCount(house_door_count));
-        }
+        ensure!(
+            house_door_count == 2,
+            parse_error::InvalidHouseDoorCount { count: house_door_count }
+        );
 
         Ok(ParsedMap {
             tiles,

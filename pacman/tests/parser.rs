@@ -41,5 +41,5 @@ fn test_parse_board_invalid_character() {
     invalid_board[0] = "###########################Z".to_string();
 
     let result = MapTileParser::parse_board(invalid_board.each_ref().map(|s| s.as_str()));
-    assert!(let Err(ParseError::UnknownCharacter('Z')) = result);
+    assert!(let Err(ParseError::UnknownCharacter { character: 'Z', .. }) = result);
 }

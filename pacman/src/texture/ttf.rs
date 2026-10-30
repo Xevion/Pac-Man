@@ -13,7 +13,7 @@ use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 use std::collections::HashMap;
 
-use crate::error::{GameError, TextureError};
+use crate::error::{GameError, SdlResultExt, TextureError, texture_error};
 
 /// Character atlas tile representing a single rendered character
 #[derive(Clone, Copy, Debug)]
@@ -53,8 +53,8 @@ impl TtfAtlas {
         for c in TTF_CHARS.chars() {
             if c == ' ' {
                 // Handle space character specially - measure a non-space character for height
-                let space_height = font.size_of("0").map_err(|e| GameError::Sdl(e.to_string()))?.1;
-                let space_advance = font.size_of(" ").map_err(|e| GameError::Sdl(e.to_string()))?.0;
+                let space_height = font.size_of("0").sdl("measure space height")?.1;
+                let space_advance = font.size_of(" ").sdl("measure space advance")?.0;
                 char_tiles.insert(
                     c,
                     TtfCharTile {
@@ -66,7 +66,7 @@ impl TtfAtlas {
                 max_height = max_height.max(space_height);
                 char_metrics.push((c, 0, space_height, space_advance));
             } else {
-                let (advance, height) = font.size_of(&c.to_string()).map_err(|e| GameError::Sdl(e.to_string()))?;
+                let (advance, height) = font.size_of(&c.to_string()).sdl("measure glyph")?;
                 char_tiles.insert(
                     c,
                     TtfCharTile {
@@ -87,7 +87,7 @@ impl TtfAtlas {
         // Create atlas texture as a render target
         let mut atlas_texture = texture_creator
             .create_texture_target(None, atlas_size.x, atlas_size.y)
-            .map_err(|e| GameError::Sdl(e.to_string()))?;
+            .sdl("create ttf atlas texture")?;
         atlas_texture.set_blend_mode(sdl2::render::BlendMode::Blend);
 
         // Second pass: calculate positions
@@ -129,19 +129,22 @@ impl TtfAtlas {
                 }
 
                 // Render character to surface
-                let surface = match font.render(&c.to_string()).blended(Color::WHITE) {
+                let surface = match font.render(&c.to_string()).blended(Color::WHITE).sdl("render glyph") {
                     Ok(s) => s,
                     Err(e) => {
-                        render_error = Some(GameError::Sdl(e.to_string()));
+                        render_error = Some(e);
                         return;
                     }
                 };
 
                 // Create texture from surface
-                let char_texture = match texture_creator.create_texture_from_surface(&surface) {
+                let char_texture = match texture_creator
+                    .create_texture_from_surface(&surface)
+                    .sdl("create glyph texture")
+                {
                     Ok(t) => t,
                     Err(e) => {
-                        render_error = Some(GameError::Sdl(e.to_string()));
+                        render_error = Some(e);
                         return;
                     }
                 };
@@ -150,24 +153,22 @@ impl TtfAtlas {
                 let tile = match self.char_tiles.get(&c) {
                     Some(t) => t,
                     None => {
-                        render_error = Some(GameError::Sdl(format!("Character '{}' not found in atlas tiles", c)));
+                        render_error = Some(texture_error::AtlasTileNotFound { name: c.to_string() }.build().into());
                         return;
                     }
                 };
 
                 // Copy character to atlas
                 let dest = Rect::new(tile.pos.x as i32, tile.pos.y as i32, tile.size.x, tile.size.y);
-                if let Err(e) = atlas_canvas.copy(&char_texture, None, dest) {
-                    render_error = Some(GameError::Sdl(e.to_string()));
+                if let Err(e) = atlas_canvas.copy(&char_texture, None, dest).sdl("copy glyph to atlas") {
+                    render_error = Some(e);
                     return;
                 }
             }
         });
 
         // Check the result of with_texture_canvas and any render error
-        if let Err(e) = result {
-            return Err(GameError::Sdl(e.to_string()));
-        }
+        result.sdl("render to atlas texture")?;
 
         if let Some(error) = render_error {
             return Err(error);
@@ -231,7 +232,9 @@ impl TtfRenderer {
                         char_tile.size.x,
                         char_tile.size.y,
                     );
-                    canvas.copy(&atlas.texture, src, dest).map_err(TextureError::RenderFailed)?;
+                    canvas
+                        .copy(&atlas.texture, src, dest)
+                        .map_err(|message| texture_error::RenderFailed { message }.build())?;
                 }
 
                 // Advance by character advance width (proportional spacing)
