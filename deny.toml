@@ -1,6 +1,15 @@
 [advisories]
 unmaintained = "workspace"
 
+# jsonwebtoken's rust_crypto backend links rsa and the p256/p384 curves for algorithms the
+# server never uses: it signs HS256 and validates with Validation::new(HS256) only.
+ignore = [
+    # rsa: private-key decryption timing (Marvin). No RSA key is ever held.
+    "RUSTSEC-2023-0071",
+    # crypto-bigint 0.5 (via rsa and ecdsa): non-constant-time operations in RS*/ES* paths.
+    "RUSTSEC-2026-0387",
+]
+
 [licenses]
 allow = [
     "0BSD",

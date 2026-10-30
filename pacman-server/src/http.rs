@@ -5,12 +5,12 @@
 
 use std::sync::Once;
 
-/// Installs aws-lc as the process-wide rustls crypto provider. Later calls are no-ops.
+/// Installs ring as the process-wide rustls crypto provider. Later calls are no-ops.
 pub fn install_crypto_provider() {
     static INSTALL: Once = Once::new();
     INSTALL.call_once(|| {
         // Err only means a provider was already installed, which serves equally well.
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = rustls::crypto::ring::default_provider().install_default();
     });
 }
 
