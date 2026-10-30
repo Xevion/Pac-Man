@@ -89,7 +89,7 @@ export default defineConfig({
 				pages: 'dist/client',
 				assets: 'dist/client',
 				fallback: undefined,
-				precompress: false,
+				precompress: true,
 				strict: true
 			}),
 			inlineStyleThreshold: 5000

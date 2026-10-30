@@ -1,7 +1,5 @@
 [toolchain]
-# wasm32-unknown-emscripten: Rust's LLVM backend emits post-MVP wasm features (bulk-memory,
-# reference-types, exception-handling). The emsdk-bundled wasm-opt must accept them, so the web
-# build passes `-all` (see pacman/web.build.ts). The emsdk version is pinned separately in
-# package.json (config.emsdkVersion).
+# The emsdk version is pinned separately in package.json (config.emsdkVersion); bump the two
+# independently and verify a wasm32-unknown-emscripten build after either.
 channel = "1.99.1"
 components = ["rustfmt", "llvm-tools-preview", "clippy"]

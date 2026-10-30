@@ -232,7 +232,13 @@ pub fn create_router(app_state: AppState) -> Router {
     // Add static file serving if the directory exists
     let router = if static_path.exists() {
         tracing::info!(path = %static_dir, "Serving static files from directory");
-        router.fallback_service(ServeDir::new(&static_path).not_found_service(ServeFile::new(&index_path)))
+        let index = ServeFile::new(&index_path).precompressed_br().precompressed_gzip();
+        router.fallback_service(
+            ServeDir::new(&static_path)
+                .precompressed_br()
+                .precompressed_gzip()
+                .not_found_service(index),
+        )
     } else {
         tracing::warn!(path = %static_dir, "Static files directory not found, serving API only");
         router

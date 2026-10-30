@@ -111,7 +111,7 @@ async function build(release: boolean, env: Record<string, string> | null) {
   // Copy the files to the dist folder
   logger.debug("Copying Emscripten build artifacts into web/static");
   await Promise.all(
-    files.map(async ({ optional, src, dest }) => {
+    files.map(async ({ optional, src, dest }) =>
       match({ optional, exists: await fs.exists(src) })
         // If optional and doesn't exist, skip
         .with({ optional: true, exists: false }, () => {
@@ -127,51 +127,14 @@ async function build(release: boolean, env: Record<string, string> | null) {
           throw new Error(`Required file ${src} does not exist`);
         })
         // Otherwise, copy the file
-        .otherwise(async () => await fs.copyFile(src, dest));
-    })
+        .otherwise(() => fs.copyFile(src, dest))
+    )
   );
 
-  // Optimize WASM binary for size using wasm-opt (if available)
-  const wasmPath = join(dist, "pacman.wasm");
-  await optimizeWasm(wasmPath);
-
-  logger.info("Emscripten build complete");
-}
-
-/**
- * Optimize a WASM binary using wasm-opt (from binaryen).
- * Silently skips if wasm-opt is not installed.
- *
- * @param wasmPath - Path to the WASM file to optimize in-place.
- */
-async function optimizeWasm(wasmPath: string): Promise<void> {
-  // Check if wasm-opt is available
-  const whichCmd = os.type === "windows" ? "where" : "which";
-  const checkResult = await $`${whichCmd} wasm-opt`.quiet().nothrow();
-  if (checkResult.exitCode !== 0) {
-    logger.debug(
-      "wasm-opt not found, skipping WASM optimization (install binaryen to enable)"
-    );
-    return;
-  }
-
-  const originalSize = (await fs.stat(wasmPath)).size;
-  logger.debug(`Optimizing WASM binary (original: ${formatBytes(originalSize)})`);
-
-  // Rust + Emscripten emit post-MVP wasm features (bulk-memory from LLVM 20, reference-types,
-  // exception-handling, etc.). `-all` tells wasm-opt to accept and preserve every feature
-  // rather than rejecting the module; all are supported by modern browsers.
-  const result = await $`wasm-opt -Oz --strip-debug -all ${wasmPath} -o ${wasmPath}`.quiet().nothrow();
-  if (result.exitCode !== 0) {
-    logger.warn(`wasm-opt failed: ${result.stderr.toString()}`);
-    return;
-  }
-
-  const optimizedSize = (await fs.stat(wasmPath)).size;
-  const reduction = ((originalSize - optimizedSize) / originalSize) * 100;
-  logger.info(
-    `WASM optimized: ${formatBytes(originalSize)} -> ${formatBytes(optimizedSize)} (${reduction.toFixed(1)}% reduction)`
-  );
+  // emcc already runs binaryen at the profile's opt-level during the link, so a second
+  // wasm-opt pass here would only diverge local builds from the Docker build.
+  const wasmSize = (await fs.stat(join(dist, "pacman.wasm"))).size;
+  logger.info(`Emscripten build complete (pacman.wasm: ${formatBytes(wasmSize)})`);
 }
 
 /**
@@ -182,8 +145,6 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
 }
-
-// (Tailwind-related code removed; this script is now focused solely on the Emscripten build)
 
 /**
  * Checks to see if the Emscripten SDK is activated for a Windows or *nix machine by looking for a .exe file and the equivalent file on Linux/macOS. Returns both results for handling.
