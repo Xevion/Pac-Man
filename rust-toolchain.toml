@@ -3,5 +3,5 @@
 # reference-types, exception-handling). The emsdk-bundled wasm-opt must accept them, so the web
 # build passes `-all` (see pacman/web.build.ts). The emsdk version is pinned separately in
 # package.json (config.emsdkVersion).
-channel = "1.97.1"
+channel = "1.99.0"
 components = ["rustfmt", "llvm-tools-preview", "clippy"]
