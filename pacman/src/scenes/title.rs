@@ -11,7 +11,7 @@ use crate::systems::common::DeltaTime;
 use crate::systems::input::{InputSet, TouchState};
 use crate::systems::profiling::profile;
 
-use super::{in_scene, Scene, SceneHandler, SceneManager};
+use super::{Scene, SceneHandler, SceneManager, in_scene};
 
 /// Seconds the Title waits with no input before falling through to the self-playing
 /// attract demo, mirroring the arcade's idle behavior.

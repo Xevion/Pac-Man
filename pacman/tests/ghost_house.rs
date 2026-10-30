@@ -1,5 +1,5 @@
-use pacman::systems::ghost::house::GhostHouseController;
 use pacman::systems::ghost::GhostType;
+use pacman::systems::ghost::house::GhostHouseController;
 use speculoos::prelude::*;
 #[test]
 fn blinky_always_exits() {
@@ -142,8 +142,8 @@ fn counter_advances_clyde_to_none() {
     // No ghost type should newly qualify for exit beyond what's already true
     assert_that(&ctrl.should_exit(GhostType::Blinky)).is_true(); // always exits
     assert_that(&ctrl.should_exit(GhostType::Pinky)).is_true(); // dot limit is 0
-                                                                // Inky and Clyde: active_counter is None, so personal counter checks return false.
-                                                                // They already exited, so this is consistent -- no ghost is "waiting" to exit.
+    // Inky and Clyde: active_counter is None, so personal counter checks return false.
+    // They already exited, so this is consistent -- no ghost is "waiting" to exit.
     assert_that(&ctrl.should_exit(GhostType::Inky)).is_false();
     assert_that(&ctrl.should_exit(GhostType::Clyde)).is_false();
 }

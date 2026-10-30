@@ -2,8 +2,8 @@
 
 use crate::error::PlatformError;
 use crate::formatter::CustomFormatter;
-use rand::rngs::{SmallRng, SysRng};
 use rand::SeedableRng;
+use rand::rngs::{SmallRng, SysRng};
 use std::ffi::CString;
 use std::io::{self, Write};
 use std::time::Duration;
@@ -15,7 +15,7 @@ use std::os::raw::c_int;
 pub type EmMainLoopCallback = unsafe extern "C" fn(*mut c_void);
 
 // Emscripten FFI functions
-extern "C" {
+unsafe extern "C" {
     fn emscripten_sleep(ms: u32);
     fn printf(format: *const u8, ...) -> i32;
 
@@ -60,7 +60,7 @@ pub fn yield_to_browser() {
 }
 
 pub fn init_console(_force_console: bool) -> Result<(), PlatformError> {
-    use tracing_subscriber::{fmt, layer::SubscriberExt, EnvFilter};
+    use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt};
 
     // Set up a custom tracing subscriber that writes directly to emscripten console
     let subscriber = tracing_subscriber::registry()
@@ -83,12 +83,12 @@ struct EmscriptenConsoleWriter;
 
 impl Write for EmscriptenConsoleWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if let Ok(s) = std::str::from_utf8(buf) {
-            if let Ok(cstr) = CString::new(s.trim_end_matches('\n')) {
-                let format_str = CString::new("%s\n").unwrap();
-                unsafe {
-                    printf(format_str.as_ptr().cast(), cstr.as_ptr());
-                }
+        if let Ok(s) = std::str::from_utf8(buf)
+            && let Ok(cstr) = CString::new(s.trim_end_matches('\n'))
+        {
+            let format_str = CString::new("%s\n").unwrap();
+            unsafe {
+                printf(format_str.as_ptr().cast(), cstr.as_ptr());
             }
         }
         Ok(buf.len())

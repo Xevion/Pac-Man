@@ -59,7 +59,7 @@ impl Intersection {
     /// Returns an iterator over all edges from this intersection.
     ///
     /// This iterator yields only the edges that exist (non-None values).
-    pub fn edges(&self) -> impl Iterator<Item = Edge> {
+    pub fn edges(&self) -> impl Iterator<Item = Edge> + use<> {
         [self.up, self.down, self.left, self.right].into_iter().flatten()
     }
 

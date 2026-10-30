@@ -21,7 +21,7 @@ pub mod targeting;
 pub use elroy::{BlinkyMarker, Elroy};
 pub use house::GhostHouseController;
 pub use mode::{GhostModeController, ScatterChaseMode};
-pub use movement::{ghost_movement_system, ghost_targeting_system, GhostTarget, TunnelNodes};
+pub use movement::{GhostTarget, TunnelNodes, ghost_movement_system, ghost_targeting_system};
 pub use state::{FrightenedData, GhostAnimationState, GhostState};
 pub use systems::{
     eaten_ghost_system, elroy_system, frighten_ghosts_on_power_pellet, ghost_house_system, ghost_mode_tick_system,
@@ -105,11 +105,7 @@ impl GhostAnimations {
     }
 
     pub fn frightened(&self, flash: bool) -> &LinearAnimation {
-        if flash {
-            &self.frightened_flashing
-        } else {
-            &self.frightened
-        }
+        if flash { &self.frightened_flashing } else { &self.frightened }
     }
 }
 

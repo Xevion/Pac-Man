@@ -12,9 +12,9 @@ use tracing::{debug, info, warn};
 
 use bevy_ecs::schedule::Schedule;
 use bevy_ecs::world::World;
+use sdl2::EventPump;
 use sdl2::render::{Canvas, TextureCreator};
 use sdl2::video::{Window, WindowContext};
-use sdl2::EventPump;
 
 use crate::constants;
 use crate::error::{GameError, GameResult};
@@ -142,11 +142,11 @@ impl Game {
         }
 
         // Queue the Gameplay scene; the router applies it at the top of the next frame.
-        if let Some(mut scenes) = self.world.get_resource_mut::<SceneManager>() {
-            if scenes.active() == Scene::Title {
-                tracing::info!("User interaction detected, starting game");
-                scenes.request(Scene::Gameplay);
-            }
+        if let Some(mut scenes) = self.world.get_resource_mut::<SceneManager>()
+            && scenes.active() == Scene::Title
+        {
+            tracing::info!("User interaction detected, starting game");
+            scenes.request(Scene::Gameplay);
         }
     }
 

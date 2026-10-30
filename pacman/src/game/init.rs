@@ -4,12 +4,12 @@ use tracing::trace;
 
 use bevy_ecs::message::MessageRegistry;
 use bevy_ecs::world::World;
+use sdl2::EventPump;
 use sdl2::event::EventType;
 use sdl2::image::LoadTexture;
 use sdl2::render::{Canvas, ScaleMode, TextureCreator};
 use sdl2::rwops::RWops;
 use sdl2::video::{Window, WindowContext};
-use sdl2::EventPump;
 
 use glam::UVec2;
 
@@ -26,11 +26,11 @@ use crate::systems::common::{DeltaTime, GlobalState};
 use crate::systems::debug::{BatchedLinesResource, DebugState, TtfAtlasResource};
 use crate::systems::ghost::frighten_ghosts_on_power_pellet;
 use crate::systems::hud::{FruitSprites, LeaderboardData};
-use crate::systems::input::{exit_observer, Bindings, CursorPosition, HumanInput, InputSource, TouchState};
-use crate::systems::layout::{Layout, DEFAULT_WINDOW, PLAYFIELD_SIZE};
+use crate::systems::input::{Bindings, CursorPosition, HumanInput, InputSource, TouchState, exit_observer};
+use crate::systems::layout::{DEFAULT_WINDOW, Layout, PLAYFIELD_SIZE};
 use crate::systems::profiling::{SystemTimings, Timing};
 use crate::systems::render::{BackbufferResource, CanvasResource, MapTextureResource, RenderDirty};
-use crate::systems::state::{enter_ghost_eaten_pause, PauseState, PlayerAnimation, PlayerDeathAnimation, Session};
+use crate::systems::state::{PauseState, PlayerAnimation, PlayerDeathAnimation, Session, enter_ghost_eaten_pause};
 use crate::texture::sprite::{AtlasMapper, SpriteAtlas};
 use crate::texture::sprites::{GameSprite, MazeSprite};
 

@@ -1,10 +1,10 @@
 //! Ghost movement system with targeting, speed calculation, and special behaviors.
 
 use super::{
-    elroy::{elroy_speed, BlinkyMarker, Elroy},
-    personality::{calculate_chase_target, TargetingContext},
-    targeting::{choose_direction_at_intersection, RedZoneNodes},
     GhostModeController, GhostState, GhostType, ScatterChaseMode,
+    elroy::{BlinkyMarker, Elroy, elroy_speed},
+    personality::{TargetingContext, calculate_chase_target},
+    targeting::{RedZoneNodes, choose_direction_at_intersection},
 };
 use crate::constants;
 use crate::map::builder::Map;

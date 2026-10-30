@@ -1,4 +1,4 @@
-use tracing_subscriber::{fmt::format::JsonFields, EnvFilter, FmtSubscriber};
+use tracing_subscriber::{EnvFilter, FmtSubscriber, fmt::format::JsonFields};
 
 use crate::formatter;
 

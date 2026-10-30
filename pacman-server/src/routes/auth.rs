@@ -6,7 +6,7 @@ use axum::{
     response::{IntoResponse, Redirect},
 };
 use axum_cookie::CookieManager;
-use tracing::{debug_span, info, instrument, trace, warn, Instrument};
+use tracing::{Instrument, debug_span, info, instrument, trace, warn};
 
 use crate::data::user as user_repo;
 use crate::image::ImageStorage;

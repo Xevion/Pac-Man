@@ -4,13 +4,13 @@ use bevy_ecs::world::World;
 use pacman::events::{CollisionTrigger, PowerPelletEaten, StageTransition};
 use pacman::systems::audio::AudioEvent;
 use pacman::systems::collision::{
-    check_collision, collision_system, ghost_collision_observer, item_collision_observer, Collider, ItemCollider,
+    Collider, ItemCollider, check_collision, collision_system, ghost_collision_observer, item_collision_observer,
 };
 use pacman::systems::common::{EntityType, Frozen};
-use pacman::systems::ghost::{frighten_ghosts_on_power_pellet, FrightenedData, GhostHouseController, GhostState, GhostType};
+use pacman::systems::ghost::{FrightenedData, GhostHouseController, GhostState, GhostType, frighten_ghosts_on_power_pellet};
 use pacman::systems::hud::FruitSprites;
 use pacman::systems::movement::Position;
-use pacman::systems::state::{enter_ghost_eaten_pause, GameStage, Session};
+use pacman::systems::state::{GameStage, Session, enter_ghost_eaten_pause};
 use speculoos::prelude::*;
 
 mod common;
@@ -195,7 +195,7 @@ fn power_pellet_resets_ghost_eat_chain() {
     assert_that(&world.resource::<Session>().ghost_eaten_chain).is_equal_to(0);
 
     eat_ghost(&mut world); // chain 0 again -> awards 200, not 400
-                           // Cumulative: 200 (first eat) + 50 (power pellet) + 200 (reset eat) = 450.
+    // Cumulative: 200 (first eat) + 50 (power pellet) + 200 (reset eat) = 450.
     assert_that(&world.resource::<Session>().score.value()).is_equal_to(450);
 }
 

@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use axum_cookie::{cookie::Cookie, prelude::SameSite, CookieManager};
-use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use axum_cookie::{CookieManager, cookie::Cookie, prelude::SameSite};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
 
 use crate::auth::provider::AuthUser;
 use tracing::{trace, warn};

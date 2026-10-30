@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn window_to_maze_inverts_the_compositor_transform() {
         let layout = Layout::compute(UVec2::new(1280, 720)); // maze at (416, 112), scale 2
-                                                             // The maze top-left maps to the texture origin.
+        // The maze top-left maps to the texture origin.
         assert_eq!(layout.window_to_maze(Vec2::new(416.0, 112.0)), Vec2::new(0.0, 0.0));
         // A point 20px right / 10px down of the maze origin is (10, 5) at scale 2.
         assert_eq!(layout.window_to_maze(Vec2::new(436.0, 122.0)), Vec2::new(10.0, 5.0));
@@ -182,7 +182,7 @@ mod tests {
     #[test]
     fn maze_to_window_is_the_inverse_of_window_to_maze() {
         let layout = Layout::compute(UVec2::new(1280, 720)); // maze at (416, 112), scale 2
-                                                             // The maze-local origin maps back to the maze's window origin.
+        // The maze-local origin maps back to the maze's window origin.
         assert_eq!(layout.maze_to_window(Vec2::new(0.0, 0.0)), Vec2::new(416.0, 112.0));
         // (10, 5) maze-local scales by 2 and offsets: (10*2+416, 5*2+112) = (436, 122).
         assert_eq!(layout.maze_to_window(Vec2::new(10.0, 5.0)), Vec2::new(436.0, 122.0));

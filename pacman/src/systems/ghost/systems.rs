@@ -1,9 +1,9 @@
 //! Ghost-related ECS systems.
 
 use super::{
-    elroy::{elroy_thresholds, BlinkyMarker, Elroy, ElroyStage},
     FrightenedData, GhostAnimationState, GhostAnimations, GhostHouseController, GhostModeController, GhostState, GhostType,
     LastAnimationState,
+    elroy::{BlinkyMarker, Elroy, ElroyStage, elroy_thresholds},
 };
 use crate::constants;
 use crate::events::PowerPelletEaten;
@@ -220,10 +220,10 @@ fn find_direction_to_target(map: &Map, from_node: NodeId, target_node: NodeId) -
 
     // Return first available direction towards target
     for direction in preferred_dirs {
-        if let Some(edge) = map.graph.adjacency_list[from_node as usize].get(direction) {
-            if edge.traversal_flags.contains(TraversalFlags::GHOST) {
-                return Some((direction, edge));
-            }
+        if let Some(edge) = map.graph.adjacency_list[from_node as usize].get(direction)
+            && edge.traversal_flags.contains(TraversalFlags::GHOST)
+        {
+            return Some((direction, edge));
         }
     }
 

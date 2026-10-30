@@ -3,7 +3,7 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 use std::fmt;
 use time::macros::format_description;
-use time::{format_description::FormatItem, OffsetDateTime};
+use time::{OffsetDateTime, format_description::FormatItem};
 use tracing::field::{Field, Visit};
 use tracing::{Event, Level, Subscriber};
 use tracing_subscriber::fmt::format::Writer;
@@ -49,12 +49,12 @@ where
                 write_dimmed(&mut writer, ":")?;
 
                 let ext = span.extensions();
-                if let Some(fields) = &ext.get::<FormattedFields<N>>() {
-                    if !fields.fields.is_empty() {
-                        write_bold(&mut writer, "{")?;
-                        writer.write_str(fields.fields.as_str())?;
-                        write_bold(&mut writer, "}")?;
-                    }
+                if let Some(fields) = &ext.get::<FormattedFields<N>>()
+                    && !fields.fields.is_empty()
+                {
+                    write_bold(&mut writer, "{")?;
+                    writer.write_str(fields.fields.as_str())?;
+                    write_bold(&mut writer, "}")?;
                 }
                 write_dimmed(&mut writer, ":")?;
             }

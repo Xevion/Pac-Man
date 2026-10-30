@@ -1,4 +1,4 @@
-use axum::{routing::get, Router};
+use axum::{Router, routing::get};
 use axum_cookie::CookieLayer;
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use std::path::PathBuf;

@@ -2,7 +2,7 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 
 use crate::{
-    app::{create_router, AppState},
+    app::{AppState, create_router},
     auth::AuthRegistry,
     config::Config,
     data::pool::{create_dummy_pool, create_pool},
@@ -12,8 +12,8 @@ use std::time::Instant;
 use tracing::{info, trace, warn};
 
 #[cfg(unix)]
-use tokio::signal::unix::{signal, SignalKind};
-use tokio::sync::{watch, Notify};
+use tokio::signal::unix::{SignalKind, signal};
+use tokio::sync::{Notify, watch};
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod config;

@@ -14,10 +14,10 @@ use pacman::{
     },
     systems::{
         audio::AudioEvent,
-        collision::{item_collision_observer, Collider, GhostCollider, ItemCollider, PacmanCollider},
+        collision::{Collider, GhostCollider, ItemCollider, PacmanCollider, item_collision_observer},
         common::{DeltaTime, EntityType, GlobalState, MovementModifiers},
         debug::DebugState,
-        ghost::{frighten_ghosts_on_power_pellet, GhostState, GhostType},
+        ghost::{GhostState, GhostType, frighten_ghosts_on_power_pellet},
         hud::FruitSprites,
         movement::{BufferedDirection, Position, Velocity},
         player::PlayerControlled,
@@ -26,11 +26,11 @@ use pacman::{
     texture::sprite::{AtlasMapper, AtlasTile, SpriteAtlas},
 };
 use sdl2::{
+    Sdl,
     image::LoadTexture,
     pixels::Color,
     render::{Canvas, TextureCreator},
     video::{Window, WindowContext},
-    Sdl,
 };
 
 pub fn setup_sdl() -> Result<(Canvas<Window>, TextureCreator<WindowContext>, Sdl), String> {

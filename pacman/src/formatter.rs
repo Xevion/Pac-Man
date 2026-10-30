@@ -3,7 +3,7 @@
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use time::macros::format_description;
-use time::{format_description::FormatItem, OffsetDateTime};
+use time::{OffsetDateTime, format_description::FormatItem};
 use tracing::{Event, Level, Subscriber};
 use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields};
@@ -64,12 +64,12 @@ where
                 write_bold(&mut writer, span.metadata().name())?;
                 saw_any = true;
                 let ext = span.extensions();
-                if let Some(fields) = &ext.get::<FormattedFields<N>>() {
-                    if !fields.is_empty() {
-                        write_bold(&mut writer, "{")?;
-                        write!(writer, "{}", fields)?;
-                        write_bold(&mut writer, "}")?;
-                    }
+                if let Some(fields) = &ext.get::<FormattedFields<N>>()
+                    && !fields.is_empty()
+                {
+                    write_bold(&mut writer, "{")?;
+                    write!(writer, "{}", fields)?;
+                    write_bold(&mut writer, "}")?;
                 }
                 if writer.has_ansi_escapes() {
                     write!(writer, "\x1b[2m:\x1b[0m")?;

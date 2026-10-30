@@ -4,7 +4,7 @@
 use bevy_ecs::system::RunSystemOnce;
 use bevy_ecs::world::World;
 
-use pacman::scenes::{attract_input_system, in_simulation, Scene, SceneManager};
+use pacman::scenes::{Scene, SceneManager, attract_input_system, in_simulation};
 use pacman::systems::input::HumanInput;
 use speculoos::prelude::*;
 

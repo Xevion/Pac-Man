@@ -24,7 +24,7 @@ pub fn init_console(force_console: bool) -> Result<(), PlatformError> {
     use crate::formatter::CustomFormatter;
     use tracing::Level;
     use tracing_error::ErrorLayer;
-    use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Layer, Registry};
+    use tracing_subscriber::{Layer, Registry, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
     type BoxedLayer = Box<dyn Layer<Registry> + Send + Sync>;
 
@@ -110,8 +110,8 @@ pub fn rng() -> ThreadRng {
 #[cfg(windows)]
 fn enable_ansi_support() -> Result<(), PlatformError> {
     use windows::Win32::System::Console::{
-        GetConsoleMode, GetStdHandle, SetConsoleMode, CONSOLE_MODE, ENABLE_VIRTUAL_TERMINAL_PROCESSING, STD_ERROR_HANDLE,
-        STD_OUTPUT_HANDLE,
+        CONSOLE_MODE, ENABLE_VIRTUAL_TERMINAL_PROCESSING, GetConsoleMode, GetStdHandle, STD_ERROR_HANDLE, STD_OUTPUT_HANDLE,
+        SetConsoleMode,
     };
 
     // Enable ANSI processing for stdout
@@ -150,12 +150,12 @@ fn enable_ansi_support() -> Result<(), PlatformError> {
 #[cfg(windows)]
 fn allocate_console() -> Result<(), PlatformError> {
     use windows::{
-        core::PCSTR,
         Win32::{
             Foundation::{GENERIC_READ, GENERIC_WRITE},
             Storage::FileSystem::{CreateFileA, FILE_FLAGS_AND_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING},
-            System::Console::{AllocConsole, SetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE},
+            System::Console::{AllocConsole, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, SetStdHandle},
         },
+        core::PCSTR,
     };
 
     // Allocate a new console for this process

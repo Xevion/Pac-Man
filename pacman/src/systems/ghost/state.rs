@@ -115,9 +115,7 @@ impl GhostState {
     /// Returns true if the state changed
     pub fn tick(&mut self) -> bool {
         match self {
-            Self::Active {
-                frightened: Some(ref mut f),
-            } => {
+            Self::Active { frightened: Some(f) } => {
                 if f.tick() {
                     // Frightened mode ended
                     *self = Self::Active { frightened: None };

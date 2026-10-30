@@ -1,7 +1,7 @@
 //! Ghost personality targeting calculations - Blinky, Pinky, Inky, Clyde.
 
-use super::targeting::find_nearest_node;
 use super::GhostType;
+use super::targeting::find_nearest_node;
 use crate::map::builder::Map;
 use crate::map::direction::Direction;
 use crate::systems::movement::NodeId;

@@ -3,8 +3,8 @@ mod common;
 use common::create_test_map;
 use glam::Vec2;
 use pacman::map::direction::Direction;
-use pacman::systems::ghost::personality::{calculate_chase_target, TargetingContext};
 use pacman::systems::ghost::GhostType;
+use pacman::systems::ghost::personality::{TargetingContext, calculate_chase_target};
 use speculoos::prelude::*;
 
 /// Helper to build a TargetingContext with known positions

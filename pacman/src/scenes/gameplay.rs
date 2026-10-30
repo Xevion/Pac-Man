@@ -9,7 +9,7 @@ use crate::systems::input::{InputSet, InputSource};
 use crate::systems::profiling::profile;
 use crate::systems::state::handle_pause_command;
 
-use super::{in_scene, Scene, SceneHandler};
+use super::{Scene, SceneHandler, in_scene};
 
 /// The playable maze. Its lifecycle delegates to the spawning module, which owns
 /// the actual entity population and teardown contract.

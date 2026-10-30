@@ -2,8 +2,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use pacman_server::{
     auth::{
-        provider::{MockOAuthProvider, OAuthProvider},
         AuthRegistry,
+        provider::{MockOAuthProvider, OAuthProvider},
     },
     session,
 };
@@ -15,7 +15,7 @@ use pacman_server::auth::provider::AuthUser;
 use time::Duration;
 
 mod common;
-use crate::common::{test_context, TestContext};
+use crate::common::{TestContext, test_context};
 
 /// Test the basic authorization redirect flow (no database needed)
 #[tokio::test]

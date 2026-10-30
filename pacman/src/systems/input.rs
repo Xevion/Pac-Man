@@ -9,11 +9,11 @@ use bevy_ecs::{
 };
 use glam::{UVec2, Vec2};
 use sdl2::{
+    EventPump,
     event::{Event, WindowEvent},
     keyboard::Keycode,
-    EventPump,
 };
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 
 use crate::systems::common::{DeltaTime, GlobalState};
 use crate::systems::layout::Layout;
@@ -204,12 +204,11 @@ pub fn process_simple_key_events(bindings: &mut Bindings, frame_events: &[Simple
         }
     }
 
-    if !movement_key_pressed {
-        if let Some(&last_movement_key) = bindings.pressed_movement_keys.last() {
-            if let Some(command) = bindings.key_bindings.get(&last_movement_key).copied() {
-                emitted_events.push(GameEvent::Command(command));
-            }
-        }
+    if !movement_key_pressed
+        && let Some(&last_movement_key) = bindings.pressed_movement_keys.last()
+        && let Some(command) = bindings.key_bindings.get(&last_movement_key).copied()
+    {
+        emitted_events.push(GameEvent::Command(command));
     }
 
     emitted_events
@@ -218,11 +217,7 @@ pub fn process_simple_key_events(bindings: &mut Bindings, frame_events: &[Simple
 /// Calculates the primary direction from a 2D vector delta
 pub fn calculate_direction_from_delta(delta: Vec2) -> Direction {
     if delta.x.abs() > delta.y.abs() {
-        if delta.x > 0.0 {
-            Direction::Right
-        } else {
-            Direction::Left
-        }
+        if delta.x > 0.0 { Direction::Right } else { Direction::Left }
     } else if delta.y > 0.0 {
         Direction::Down
     } else {
@@ -377,18 +372,18 @@ pub fn input_system(
                 touch_state.active_touch = Some(TouchData::new(finger_id, pos));
             }
             Event::FingerMotion { finger_id, x, y, .. } => {
-                if let Some(ref mut touch_data) = touch_state.active_touch {
-                    if touch_data.finger_id == finger_id {
-                        let win = layout.window.as_vec2();
-                        touch_data.current_pos = layout.window_to_maze(Vec2::new(x * win.x, y * win.y));
-                    }
+                if let Some(ref mut touch_data) = touch_state.active_touch
+                    && touch_data.finger_id == finger_id
+                {
+                    let win = layout.window.as_vec2();
+                    touch_data.current_pos = layout.window_to_maze(Vec2::new(x * win.x, y * win.y));
                 }
             }
             Event::FingerUp { finger_id, .. } => {
-                if let Some(ref touch_data) = touch_state.active_touch {
-                    if touch_data.finger_id == finger_id {
-                        touch_state.active_touch = None;
-                    }
+                if let Some(ref touch_data) = touch_state.active_touch
+                    && touch_data.finger_id == finger_id
+                {
+                    touch_state.active_touch = None;
                 }
             }
             Event::KeyDown { keycode, repeat, .. } => {

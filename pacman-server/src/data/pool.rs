@@ -1,4 +1,4 @@
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use tracing::{info, warn};
 
 pub type PgPool = Pool<Postgres>;
@@ -37,12 +37,12 @@ pub fn create_dummy_pool() -> PgPool {
 
 /// Redact password from database URL for logging.
 fn redact_url(url: &str) -> String {
-    if let Some(at_pos) = url.find('@') {
-        if let Some(colon_pos) = url[..at_pos].rfind(':') {
-            let scheme_end = url.find("://").map(|p| p + 3).unwrap_or(0);
-            if colon_pos > scheme_end {
-                return format!("{}:***{}", &url[..colon_pos], &url[at_pos..]);
-            }
+    if let Some(at_pos) = url.find('@')
+        && let Some(colon_pos) = url[..at_pos].rfind(':')
+    {
+        let scheme_end = url.find("://").map(|p| p + 3).unwrap_or(0);
+        if colon_pos > scheme_end {
+            return format!("{}:***{}", &url[..colon_pos], &url[at_pos..]);
         }
     }
     url.to_string()

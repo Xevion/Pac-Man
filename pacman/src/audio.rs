@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::asset::Asset;
 use crate::error::AudioError;
 use sdl2::{
-    mixer::{self, Chunk, InitFlag, LoaderRWops, AUDIO_S16LSB},
+    mixer::{self, AUDIO_S16LSB, Chunk, InitFlag, LoaderRWops},
     rwops::RWops,
 };
 use strum::IntoEnumIterator;

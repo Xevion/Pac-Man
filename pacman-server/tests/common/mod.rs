@@ -1,7 +1,7 @@
 use axum_test::TestServer;
 use bon::builder;
 use pacman_server::{
-    app::{create_router, AppState},
+    app::{AppState, create_router},
     auth::AuthRegistry,
     config::{Config, DiscordConfig, GithubConfig},
     data::pool::create_dummy_pool,
@@ -13,9 +13,9 @@ use tokio::sync::Notify;
 use pacman_server::{config::DatabaseConfig, data::pool::create_pool};
 #[cfg(feature = "postgres-tests")]
 use testcontainers::{
+    ContainerAsync, GenericImage, ImageExt,
     core::{IntoContainerPort, WaitFor},
     runners::AsyncRunner,
-    ContainerAsync, GenericImage, ImageExt,
 };
 #[cfg(feature = "postgres-tests")]
 use tracing::debug;
@@ -97,8 +97,9 @@ pub async fn test_context(
 ) -> TestContext {
     init_once();
 
-    // Set up logging
-    std::env::set_var("RUST_LOG", "debug,sqlx=info");
+    // SAFETY: nextest runs each test in its own process on a current-thread runtime,
+    // so nothing else can be reading the environment yet.
+    unsafe { std::env::set_var("RUST_LOG", "debug,sqlx=info") };
     pacman_server::logging::setup_logging();
 
     // Create database pool based on configuration

@@ -45,10 +45,10 @@ pub fn spawn_gameplay(world: &mut World, level: u8) -> GameResult<()> {
 pub fn despawn_gameplay(world: &mut World) {
     world.flush();
 
-    if let Some(mut session) = world.get_resource_mut::<Session>() {
-        if matches!(session.stage(), GameStage::GhostEatenPause { .. }) {
-            session.set_stage(GameStage::initial());
-        }
+    if let Some(mut session) = world.get_resource_mut::<Session>()
+        && matches!(session.stage(), GameStage::GhostEatenPause { .. })
+    {
+        session.set_stage(GameStage::initial());
     }
 
     let doomed: Vec<Entity> = world

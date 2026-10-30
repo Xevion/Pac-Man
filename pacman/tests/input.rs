@@ -2,8 +2,8 @@ use glam::Vec2;
 use pacman::events::{GameCommand, GameEvent};
 use pacman::map::direction::Direction;
 use pacman::systems::input::{
-    calculate_direction_from_delta, process_simple_key_events, update_touch_reference_position, Bindings, CursorPosition,
-    SimpleKeyEvent, TouchData, TouchState, TOUCH_DIRECTION_THRESHOLD, TOUCH_EASING_DISTANCE_THRESHOLD,
+    Bindings, CursorPosition, SimpleKeyEvent, TOUCH_DIRECTION_THRESHOLD, TOUCH_EASING_DISTANCE_THRESHOLD, TouchData, TouchState,
+    calculate_direction_from_delta, process_simple_key_events, update_touch_reference_position,
 };
 use sdl2::keyboard::Keycode;
 use speculoos::prelude::*;
@@ -201,7 +201,7 @@ mod integration_tests {
     fn run_input_system_with_events(events: Vec<sdl2::event::Event>, delta_time: f32) -> (CursorPosition, TouchState) {
         use bevy_ecs::{message::Messages, system::RunSystemOnce, world::World};
         use pacman::systems::common::DeltaTime;
-        use pacman::systems::input::{input_system, HumanInput, InputSource};
+        use pacman::systems::input::{HumanInput, InputSource, input_system};
         use pacman::systems::layout::{Layout, Orientation};
 
         let sdl_context = sdl2::init().expect("Failed to initialize SDL");

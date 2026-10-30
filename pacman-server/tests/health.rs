@@ -1,7 +1,7 @@
 mod common;
 
 #[cfg(feature = "postgres-tests")]
-use crate::common::{test_context, TestContext};
+use crate::common::{TestContext, test_context};
 
 /// Test health endpoint with PostgreSQL (requires postgres-tests feature)
 #[tokio::test]

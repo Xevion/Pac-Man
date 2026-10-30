@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use oauth2::{basic::BasicClient, EndpointNotSet, EndpointSet};
+use oauth2::{EndpointNotSet, EndpointSet, basic::BasicClient};
 
 use crate::config::Config;
 

@@ -14,7 +14,7 @@ use crate::game::spawning::{despawn_gameplay, spawn_gameplay};
 use crate::systems::input::{HumanInput, InputSet, InputSource};
 use crate::systems::profiling::profile;
 
-use super::{in_scene, Scene, SceneHandler, SceneManager};
+use super::{Scene, SceneHandler, SceneManager, in_scene};
 
 /// The self-playing attract demo. Reuses the gameplay population under AI control.
 pub struct AttractScene;

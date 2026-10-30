@@ -2,7 +2,7 @@ mod common;
 
 use pretty_assertions::assert_eq;
 
-use crate::common::{test_context, TestContext};
+use crate::common::{TestContext, test_context};
 
 // A basic test of all the server's routes that aren't covered by other tests.
 #[tokio::test]

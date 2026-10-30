@@ -1,4 +1,4 @@
-use figment::{providers::Env, value::UncasedStr, Figment};
+use figment::{Figment, providers::Env, value::UncasedStr};
 use serde::{Deserialize, Deserializer};
 use std::env;
 

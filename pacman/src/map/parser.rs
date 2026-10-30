@@ -1,6 +1,6 @@
 //! Map parsing functionality for converting raw board layouts into structured data.
 
-use crate::constants::{MapTile, BOARD_CELL_SIZE};
+use crate::constants::{BOARD_CELL_SIZE, MapTile};
 use crate::error::ParseError;
 use glam::I8Vec2;
 

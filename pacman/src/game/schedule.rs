@@ -17,7 +17,7 @@ use crate::systems::hud::{chrome_render_system, hud_overlay_system, touch_ui_ren
 use crate::systems::input::{InputSet, InputSource};
 use crate::systems::lifetime::time_to_live_system;
 use crate::systems::profiling::profile;
-use crate::systems::render::{backbuffer_render_system, composite_maze_system, dirty_render_system, present_system, RenderDirty};
+use crate::systems::render::{RenderDirty, backbuffer_render_system, composite_maze_system, dirty_render_system, present_system};
 use crate::systems::state::PauseState;
 use crate::systems::state::Session;
 

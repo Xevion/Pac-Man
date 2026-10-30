@@ -205,58 +205,58 @@ pub struct ItemCollisionParams<'w, 's> {
 pub fn item_collision_observer(trigger: On<CollisionTrigger>, mut params: ItemCollisionParams) {
     if let CollisionTrigger::ItemCollision { item } = *trigger {
         // Get the item type and update score
-        if let Ok((item_ent, entity_type, position)) = params.item_query.get(item) {
-            if let Some(score_value) = entity_type.score_value() {
-                trace!(item_entity = ?item_ent, item_type = ?entity_type, score_value, new_score = params.session.score.value() + score_value, "Item collected by player");
-                params.session.score.add(score_value);
+        if let Ok((item_ent, entity_type, position)) = params.item_query.get(item)
+            && let Some(score_value) = entity_type.score_value()
+        {
+            trace!(item_entity = ?item_ent, item_type = ?entity_type, score_value, new_score = params.session.score.value() + score_value, "Item collected by player");
+            params.session.score.add(score_value);
 
-                // Remove the collected item
-                params.commands.entity(item_ent).despawn();
+            // Remove the collected item
+            params.commands.entity(item_ent).despawn();
 
-                // Track pellet consumption for fruit spawning and ghost house
-                if *entity_type == EntityType::Pellet {
-                    params.session.pellets.increment();
-                    params.ghost_house.on_dot_eaten();
-                    trace!(pellet_count = params.session.pellets.count(), "Pellet consumed");
+            // Track pellet consumption for fruit spawning and ghost house
+            if *entity_type == EntityType::Pellet {
+                params.session.pellets.increment();
+                params.ghost_house.on_dot_eaten();
+                trace!(pellet_count = params.session.pellets.count(), "Pellet consumed");
 
-                    // Check if we should spawn a fruit
-                    if constants::mechanics::FRUIT_SPAWN_MILESTONES.contains(&params.session.pellets.count()) {
-                        debug!(pellet_count = params.session.pellets.count(), "Fruit spawn milestone reached");
-                        params.commands.trigger(SpawnTrigger::Fruit);
+                // Check if we should spawn a fruit
+                if constants::mechanics::FRUIT_SPAWN_MILESTONES.contains(&params.session.pellets.count()) {
+                    debug!(pellet_count = params.session.pellets.count(), "Fruit spawn milestone reached");
+                    params.commands.trigger(SpawnTrigger::Fruit);
+                }
+            }
+
+            // Trigger bonus points effect if a fruit is collected
+            if let EntityType::Fruit(fruit) = *entity_type {
+                params.fruit_sprites.0.push(fruit);
+
+                params.commands.trigger(SpawnTrigger::Bonus {
+                    position: *position,
+                    value: entity_type.score_value().unwrap(),
+                    ttl: constants::mechanics::FRUIT_BONUS_TTL,
+                });
+            }
+
+            // Trigger audio if appropriate
+            if entity_type.is_collectible() {
+                match *entity_type {
+                    EntityType::Fruit(_) => {
+                        params.events.write(AudioEvent::PlaySound(Sound::Fruit));
                     }
-                }
-
-                // Trigger bonus points effect if a fruit is collected
-                if let EntityType::Fruit(fruit) = *entity_type {
-                    params.fruit_sprites.0.push(fruit);
-
-                    params.commands.trigger(SpawnTrigger::Bonus {
-                        position: *position,
-                        value: entity_type.score_value().unwrap(),
-                        ttl: constants::mechanics::FRUIT_BONUS_TTL,
-                    });
-                }
-
-                // Trigger audio if appropriate
-                if entity_type.is_collectible() {
-                    match *entity_type {
-                        EntityType::Fruit(_) => {
-                            params.events.write(AudioEvent::PlaySound(Sound::Fruit));
-                        }
-                        EntityType::Pellet | EntityType::PowerPellet => {
-                            params.events.write(AudioEvent::Waka);
-                        }
-                        _ => {}
+                    EntityType::Pellet | EntityType::PowerPellet => {
+                        params.events.write(AudioEvent::Waka);
                     }
+                    _ => {}
                 }
+            }
 
-                // Eating a power pellet opens a fresh fright period: the ghost-eat score
-                // chain restarts at 200, and the ghost domain frightens its active ghosts
-                // in response to the event -- collision handling stays ghost-state-agnostic.
-                if matches!(*entity_type, EntityType::PowerPellet) {
-                    params.session.ghost_eaten_chain = 0;
-                    params.commands.trigger(PowerPelletEaten);
-                }
+            // Eating a power pellet opens a fresh fright period: the ghost-eat score
+            // chain restarts at 200, and the ghost domain frightens its active ghosts
+            // in response to the event -- collision handling stays ghost-state-agnostic.
+            if matches!(*entity_type, EntityType::PowerPellet) {
+                params.session.ghost_eaten_chain = 0;
+                params.commands.trigger(PowerPelletEaten);
             }
         }
     }

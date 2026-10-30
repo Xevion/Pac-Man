@@ -11,7 +11,7 @@ use glam::Vec2;
 
 use pacman::events::{GameCommand, GameEvent};
 use pacman::map::direction::Direction;
-use pacman::scenes::{title_input_system, Scene, SceneManager};
+use pacman::scenes::{Scene, SceneManager, title_input_system};
 use pacman::systems::common::DeltaTime;
 use pacman::systems::input::{TouchData, TouchState};
 use speculoos::prelude::*;

@@ -2,11 +2,11 @@ mod common;
 
 #[cfg(feature = "postgres-tests")]
 mod scores {
-    use crate::common::{test_context, TestContext};
+    use crate::common::{TestContext, test_context};
     use cookie::Cookie;
     use pacman_server::{auth::provider::AuthUser, data::user as user_repo, session};
     use pretty_assertions::assert_eq;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
     /// Create a user with a linked OAuth account and return a session cookie for them.
     async fn authenticated_cookie(context: &TestContext, provider_user_id: &str, display_name: &str) -> Cookie<'static> {

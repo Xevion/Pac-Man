@@ -58,7 +58,7 @@ static APP: WasmCell<Option<App>> = WasmCell::new(None);
 /// Called from JavaScript when the user interacts with the page.
 /// Unlocks audio and starts the game by leaving the Title for Gameplay.
 #[cfg(target_os = "emscripten")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn start_game() {
     unsafe {
         if let Some(ref mut app) = *APP.0.get() {
@@ -70,7 +70,7 @@ pub extern "C" fn start_game() {
 /// Called from JavaScript when navigating away from the game page.
 /// Stops the Emscripten main loop and halts all audio.
 #[cfg(target_os = "emscripten")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn stop_game() {
     tracing::info!("Stopping game loop and halting audio");
     unsafe {
@@ -82,7 +82,7 @@ pub extern "C" fn stop_game() {
 /// Called from JavaScript to restart the game after navigating back.
 /// Creates a fresh App instance with the new canvas and starts the main loop.
 #[cfg(target_os = "emscripten")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn restart_game() {
     use std::ptr;
 
@@ -119,7 +119,7 @@ pub extern "C" fn restart_game() {
 /// frame, after which SDL emits a resize event the game uses to recompute its
 /// adaptive layout.
 #[cfg(target_os = "emscripten")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn pacman_resize(width: i32, height: i32) {
     if width > 0 && height > 0 {
         systems::input::request_canvas_resize(width as u32, height as u32);
@@ -129,7 +129,7 @@ pub extern "C" fn pacman_resize(width: i32, height: i32) {
 /// Called from JavaScript to reset the HUD leaderboard panel before repopulating it
 /// with live rows via [`pacman_leaderboard_push`].
 #[cfg(target_os = "emscripten")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn pacman_leaderboard_clear() {
     unsafe {
         if let Some(ref mut app) = *APP.0.get() {
@@ -145,7 +145,7 @@ pub extern "C" fn pacman_leaderboard_clear() {
 /// `name` must be a valid pointer to a null-terminated UTF-8 C string, as `ccall`'s
 /// `"string"` argument marshaling produces.
 #[cfg(target_os = "emscripten")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn pacman_leaderboard_push(name: *const std::os::raw::c_char, score: u32) {
     let name = unsafe { std::ffi::CStr::from_ptr(name) }.to_string_lossy().into_owned();
     unsafe {
@@ -162,8 +162,10 @@ pub unsafe extern "C" fn pacman_leaderboard_push(name: *const std::os::raw::c_ch
 /// Emscripten main loop callback - runs once per frame
 #[cfg(target_os = "emscripten")]
 unsafe extern "C" fn main_loop_callback(_arg: *mut std::ffi::c_void) {
-    if let Some(ref mut app) = *APP.0.get() {
-        let _ = app.run();
+    unsafe {
+        if let Some(ref mut app) = *APP.0.get() {
+            let _ = app.run();
+        }
     }
 }
 

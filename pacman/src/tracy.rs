@@ -68,8 +68,8 @@ pub fn message(_text: &str) {}
 /// platform console init; the returned layer captures every `tracing` span.
 #[cfg(all(feature = "tracy", not(target_os = "emscripten")))]
 pub fn layer() -> Box<dyn tracing_subscriber::Layer<tracing_subscriber::Registry> + Send + Sync> {
-    use tracing_subscriber::fmt::format::DefaultFields;
     use tracing_subscriber::Layer;
+    use tracing_subscriber::fmt::format::DefaultFields;
 
     struct Config {
         fmt: DefaultFields,

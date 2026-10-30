@@ -10,7 +10,7 @@ mod common;
 use axum::http::StatusCode;
 use pretty_assertions::assert_eq;
 
-use crate::common::{test_context, TestContext};
+use crate::common::{TestContext, test_context};
 
 /// Test that the server starts and responds to health checks without any OAuth providers
 #[tokio::test]

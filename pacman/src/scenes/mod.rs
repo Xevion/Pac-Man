@@ -150,20 +150,20 @@ impl SceneManager {
     /// it active. Called from [`apply_pending_scene`] with the manager removed from
     /// the world, so it holds `&mut self` and `&mut World` at once.
     fn apply_pending(&mut self, world: &mut World) {
-        if let Some(next) = self.pending.take() {
-            if next != self.active {
-                // A scene switch rebuilds entities wholesale, so any queued reload is moot.
-                self.reload = false;
-                self.active.handler().on_exit(world);
-                if let Err(e) = next.handler().on_enter(world) {
-                    // Entering a scene only fails on missing assets, which would already
-                    // have failed at boot, so this is effectively unreachable post-startup.
-                    // Log rather than panic so a transient failure can't take down the loop.
-                    tracing::error!("entering scene {next:?} failed: {e}");
-                }
-                self.active = next;
-                return;
+        if let Some(next) = self.pending.take()
+            && next != self.active
+        {
+            // A scene switch rebuilds entities wholesale, so any queued reload is moot.
+            self.reload = false;
+            self.active.handler().on_exit(world);
+            if let Err(e) = next.handler().on_enter(world) {
+                // Entering a scene only fails on missing assets, which would already
+                // have failed at boot, so this is effectively unreachable post-startup.
+                // Log rather than panic so a transient failure can't take down the loop.
+                tracing::error!("entering scene {next:?} failed: {e}");
             }
+            self.active = next;
+            return;
         }
 
         // No scene change requested: honor a queued in-place reload by tearing the

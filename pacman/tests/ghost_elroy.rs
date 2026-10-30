@@ -1,4 +1,4 @@
-use pacman::systems::ghost::elroy::{elroy_speed, elroy_thresholds, ElroyStage};
+use pacman::systems::ghost::elroy::{ElroyStage, elroy_speed, elroy_thresholds};
 use speculoos::prelude::*;
 
 #[test]
