@@ -62,6 +62,7 @@ rand = { version = "0.10.2", default-features = false, features = ["sys_rng"] }
 libc = "0.2.175"
 
 [dev-dependencies]
+assert2 = "0.4.1"
 pretty_assertions = "1.4.1"
 speculoos = "0.13.0"
 

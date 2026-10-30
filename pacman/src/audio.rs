@@ -229,9 +229,8 @@ impl Audio {
 
     /// Instantly mutes or unmutes all audio channels by adjusting their volume.
     ///
-    /// Sets all 4 mixer channels to zero volume when muting, or restores them to
-    /// their default volume (32) when unmuting. The mute state is tracked internally
-    /// regardless of whether audio is disabled, allowing the state to be preserved.
+    /// Muting zeroes every mixer channel's volume; unmuting restores the volume in use
+    /// before muting. Has no effect while audio is disabled.
     pub fn set_mute(&mut self, mute: bool) {
         match (mute, self.state) {
             // Mute
@@ -252,12 +251,14 @@ impl Audio {
         }
     }
 
-    /// Returns the current mute state regardless of whether audio is functional.
-    ///
-    /// This tracks the user's mute preference and will return `true` if muted
-    /// even when the audio system is disabled due to initialization failures.
+    /// Returns whether audio is currently muted. Always `false` while audio is disabled.
     pub fn is_muted(&self) -> bool {
         matches!(self.state, AudioState::Muted { .. })
+    }
+
+    /// Returns whether an audio device opened and sounds loaded, i.e. audio is not disabled.
+    pub fn is_available(&self) -> bool {
+        !matches!(self.state, AudioState::Disabled)
     }
 
     /// Unlocks audio after user interaction (Emscripten only).

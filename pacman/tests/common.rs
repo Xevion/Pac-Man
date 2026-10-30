@@ -33,7 +33,15 @@ use sdl2::{
     video::{Window, WindowContext},
 };
 
+/// Routes SDL audio to the `dummy` driver: devices open and mix normally but output nothing.
+///
+/// Must run before SDL's audio subsystem starts, which `Audio::new` does on first use.
+pub fn silence_audio() {
+    sdl2::hint::set("SDL_AUDIODRIVER", "dummy");
+}
+
 pub fn setup_sdl() -> Result<(Canvas<Window>, TextureCreator<WindowContext>, Sdl), String> {
+    silence_audio();
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
     let window = video_subsystem
