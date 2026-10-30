@@ -31,8 +31,7 @@ pub async fn health_handler(
     State(app_state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> axum::response::Response {
-    #[cfg(debug_assertions)]
-    if params.contains_key("force") {
+    if cfg!(debug_assertions) && params.contains_key("force") {
         app_state.check_health().await;
     }
 
