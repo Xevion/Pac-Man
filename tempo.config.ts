@@ -105,6 +105,18 @@ export default defineConfig({
       requires: [{ file: "emsdk/emsdk_env.sh", hint: "clone and install emsdk" }],
     }),
     task({
+      name: "server:unused-deps",
+      body: "cargo machete",
+      tags: ["check"],
+      requires: [{ tool: "cargo-machete", hint: "cargo install cargo-machete" }],
+    }),
+    task({
+      name: "server:deny",
+      body: "cargo deny check",
+      tags: ["check"],
+      requires: [{ tool: "cargo-deny", hint: "cargo install cargo-deny" }],
+    }),
+    task({
       name: "server:test",
       body: "cargo nextest run --workspace --no-fail-fast",
       tags: ["test"],

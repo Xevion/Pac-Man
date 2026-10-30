@@ -44,10 +44,14 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-      - uses: taiki-e/install-action@1cacf5c5198b25f60b90968ce45860e926d584b0 # cargo-audit
+      - uses: taiki-e/install-action@1409d49f7bb747ddc0b87d15cbb92cc124920b08 # cargo-deny
+      - uses: taiki-e/install-action@b325f3db1f50ce348651a89b50e1a2f8950a6d09 # cargo-machete
 
-      - name: Run security audit
-        run: cargo audit
+      - name: Check advisories, licenses and sources
+        run: cargo deny check
+
+      - name: Check for unused dependencies
+        run: cargo machete
 
   web:
     runs-on: ubuntu-latest
