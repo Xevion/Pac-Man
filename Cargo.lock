@@ -2627,7 +2627,7 @@ dependencies = [
 
 [[package]]
 name = "pacman"
-version = "0.81.1"
+version = "0.84.0"
 dependencies = [
  "assert2",
  "bevy_ecs",
