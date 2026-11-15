@@ -30,9 +30,8 @@ runs:
         path: |
           ${{ runner.temp }}/vcpkg
           ~/.cargo/bin/cargo-vcpkg
+        # Exact key only: another target's tree reports its own triplet as installed and skips the build.
         key: vcpkg-${{ steps.vcpkg_version.outputs.rev }}-${{ runner.os }}${{ inputs.target != '' && format('-{0}', inputs.target) || '' }}
-        restore-keys: |
-          vcpkg-${{ steps.vcpkg_version.outputs.rev }}-${{ runner.os }}-
 
     - name: Install Linux system dependencies
       if: runner.os == 'Linux'
