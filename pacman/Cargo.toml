@@ -19,7 +19,7 @@ default-run = "pacman"
 
 [dependencies]
 bevy_ecs = { version = "0.19.1", default-features = false, features = ["std"] }
-glam = "0.33.0"
+glam = "0.34.0"
 tracing = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 tracing-error = "0.2.0"
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
