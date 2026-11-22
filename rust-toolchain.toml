@@ -1,5 +1,5 @@
 [toolchain]
 # The emsdk version is pinned separately in package.json (config.emsdkVersion); bump the two
 # independently and verify a wasm32-unknown-emscripten build after either.
-channel = "1.99.1"
+channel = "1.100.0"
 components = ["rustfmt", "llvm-tools-preview", "clippy"]
