@@ -8,11 +8,6 @@ ignore = [
     # Risk is low for our use case (internal database connections)
     "RUSTSEC-2023-0071",
 
-    # tokio-tar PAX extended headers file smuggling
-    # No fix available; comes from testcontainers (postgres-tests feature only)
-    # Not exposed to untrusted input in our test infrastructure
-    "RUSTSEC-2025-0111",
-
     # quick-xml quadratic runtime / unbounded namespace allocation DoS
     # Fix requires quick-xml >=0.41.0; pinned below that by s3-tokio 0.39.6
     # (no newer release available). Only parses our own S3 API responses, not
